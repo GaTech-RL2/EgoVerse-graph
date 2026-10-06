@@ -1,0 +1,66 @@
+[
+  {
+    "suite": "libero_10",
+    "variant": "angular_driver",
+    "mode": "stk",
+    "training_run_id": "arc-su-20261006-10-tail-angular-driver-stk",
+    "artifact_state": "NO_ARTIFACTS",
+    "status_receipt": null
+  },
+  {
+    "suite": "libero_10",
+    "variant": "angular_driver",
+    "mode": "dur",
+    "training_run_id": "arc-su-20261006-10-tail-angular-driver-dur",
+    "artifact_state": "STAGING_DATA",
+    "status_receipt": {
+      "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+      "bytes": 30,
+      "last_modified": "2026-10-06T17:17:44+00:00"
+    }
+  },
+  {
+    "suite": "libero_10",
+    "variant": "angular_scalar",
+    "mode": "stk",
+    "training_run_id": "arc-su-20261006-10-tail-angular-scalar-stk",
+    "artifact_state": "STAGING_DATA",
+    "status_receipt": {
+      "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+      "bytes": 30,
+      "last_modified": "2026-10-06T17:17:51+00:00"
+    }
+  },
+  {
+    "suite": "libero_10",
+    "variant": "angular_scalar",
+    "mode": "dur",
+    "training_run_id": "arc-su-20261006-10-tail-angular-scalar-dur",
+    "artifact_state": "NO_ARTIFACTS",
+    "status_receipt": null
+  },
+  {
+    "suite": "libero_10",
+    "variant": "all_scalar",
+    "mode": "stk",
+    "training_run_id": "arc-su-20261006-10-tail-all-scalar-stk",
+    "artifact_state": "STAGING_DATA",
+    "status_receipt": {
+      "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+      "bytes": 30,
+      "last_modified": "2026-10-06T17:17:50+00:00"
+    }
+  },
+  {
+    "suite": "libero_10",
+    "variant": "all_scalar",
+    "mode": "dur",
+    "training_run_id": "arc-su-20261006-10-tail-all-scalar-dur",
+    "artifact_state": "STAGING_DATA",
+    "status_receipt": {
+      "sha256": "68e23bb257339a1a87478f66c8a2637b7fdeeabb2bce35d8fb2f50b23fde85c6",
+      "bytes": 30,
+      "last_modified": "2026-10-06T17:18:10+00:00"
+    }
+  }
+]

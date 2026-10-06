@@ -1,0 +1,95 @@
+{
+  "name": "arc-su-20261006-10-tail-1",
+  "status": "PENDING",
+  "pool": "groot-l40s-01",
+  "priority": "NORMAL",
+  "submit_time": "2026-10-06T17:15:22.485399",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/arc-su-20261006-10-tail-1",
+  "observed_at_utc": "2026-10-06T17:15:25.454028+00:00",
+  "tasks": [
+    {
+      "name": "evaluate-15",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "evaluate-16",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "evaluate-17",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "evaluate-18",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "evaluate-19",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "evaluate-20",
+      "status": "WAITING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "reference-dur-ready",
+      "status": "INITIALIZING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "reference-stk-ready",
+      "status": "INITIALIZING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-15",
+      "status": "SCHEDULING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-16",
+      "status": "PROCESSING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-17",
+      "status": "PROCESSING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-18",
+      "status": "PROCESSING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-19",
+      "status": "PROCESSING",
+      "start_time": null,
+      "end_time": null
+    },
+    {
+      "name": "train-20",
+      "status": "PROCESSING",
+      "start_time": null,
+      "end_time": null
+    }
+  ]
+}

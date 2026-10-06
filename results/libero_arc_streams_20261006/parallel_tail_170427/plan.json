@@ -1,0 +1,150 @@
+{
+  "old_workflow": "arc-st-20261005-10-1",
+  "name": "arc-su-20261006-10-tail",
+  "pool": "groot-l40s-01",
+  "priority": "NORMAL",
+  "previous_manifest": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/libero-stream-validation-20261001/results/libero_arc_streams_20261005/recovery_174115/launch.json",
+  "previous_manifest_sha256": "92aaea17203de245830e1c34b5cd46d758f4b546a8efe156c5261d8cf9246e8e",
+  "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f",
+  "launcher_commit": "9c36037a5da54d5a84cd753fe57353be91e436a8",
+  "spec": "/tmp/libero-streams-analysis/20261006T170427Z/parallel_tail/arc-su-20261006-10-tail.yaml",
+  "spec_sha256": "e4d4d37fb31133205faf9156353b2986cd11c7b52628e0407d0e746cc210520f",
+  "validation_exit_code": 0,
+  "training_gpus": 24,
+  "evaluation_gpus": 6,
+  "replacements": [
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "stk"
+      ],
+      "training_task": "train-15",
+      "evaluation_task": "evaluate-15",
+      "old_training_run": "arc-st-20261005-10-angular-driver-stk",
+      "old_evaluation_run": "arc-st-20261005-10-angular-driver-stk-eval",
+      "new_training_run": "arc-su-20261006-10-tail-angular-driver-stk",
+      "new_evaluation_run": "arc-su-20261006-10-tail-angular-driver-stk-eval"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_driver",
+        "dur"
+      ],
+      "training_task": "train-16",
+      "evaluation_task": "evaluate-16",
+      "old_training_run": "arc-st-20261005-10-angular-driver-dur",
+      "old_evaluation_run": "arc-st-20261005-10-angular-driver-dur-eval",
+      "new_training_run": "arc-su-20261006-10-tail-angular-driver-dur",
+      "new_evaluation_run": "arc-su-20261006-10-tail-angular-driver-dur-eval"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "stk"
+      ],
+      "training_task": "train-17",
+      "evaluation_task": "evaluate-17",
+      "old_training_run": "arc-st-20261005-10-angular-scalar-stk",
+      "old_evaluation_run": "arc-st-20261005-10-angular-scalar-stk-eval",
+      "new_training_run": "arc-su-20261006-10-tail-angular-scalar-stk",
+      "new_evaluation_run": "arc-su-20261006-10-tail-angular-scalar-stk-eval"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "angular_scalar",
+        "dur"
+      ],
+      "training_task": "train-18",
+      "evaluation_task": "evaluate-18",
+      "old_training_run": "arc-st-20261005-10-angular-scalar-dur",
+      "old_evaluation_run": "arc-st-20261005-10-angular-scalar-dur-eval",
+      "new_training_run": "arc-su-20261006-10-tail-angular-scalar-dur",
+      "new_evaluation_run": "arc-su-20261006-10-tail-angular-scalar-dur-eval"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "stk"
+      ],
+      "training_task": "train-19",
+      "evaluation_task": "evaluate-19",
+      "old_training_run": "arc-st-20261005-10-all-scalar-stk",
+      "old_evaluation_run": "arc-st-20261005-10-all-scalar-stk-eval",
+      "new_training_run": "arc-su-20261006-10-tail-all-scalar-stk",
+      "new_evaluation_run": "arc-su-20261006-10-tail-all-scalar-stk-eval"
+    },
+    {
+      "cell": [
+        "libero_10",
+        "all_scalar",
+        "dur"
+      ],
+      "training_task": "train-20",
+      "evaluation_task": "evaluate-20",
+      "old_training_run": "arc-st-20261005-10-all-scalar-dur",
+      "old_evaluation_run": "arc-st-20261005-10-all-scalar-dur-eval",
+      "new_training_run": "arc-su-20261006-10-tail-all-scalar-dur",
+      "new_evaluation_run": "arc-su-20261006-10-tail-all-scalar-dur-eval"
+    }
+  ],
+  "retired_tasks": [
+    "evaluate-15",
+    "evaluate-16",
+    "evaluate-17",
+    "evaluate-18",
+    "evaluate-19",
+    "evaluate-20",
+    "train-15",
+    "train-16",
+    "train-17",
+    "train-18",
+    "train-19",
+    "train-20"
+  ],
+  "retired_training_heads": [
+    "train-15",
+    "train-16",
+    "train-17",
+    "train-18",
+    "train-19",
+    "train-20"
+  ],
+  "preserved_tasks": [
+    "evaluate-03",
+    "evaluate-04",
+    "evaluate-05",
+    "evaluate-06",
+    "evaluate-07",
+    "evaluate-08",
+    "evaluate-09",
+    "evaluate-10",
+    "evaluate-11",
+    "evaluate-12",
+    "evaluate-13",
+    "evaluate-14",
+    "reference-dur-ready",
+    "reference-stk-ready",
+    "train-03",
+    "train-04",
+    "train-05",
+    "train-06",
+    "train-07",
+    "train-08",
+    "train-09",
+    "train-10",
+    "train-11",
+    "train-12",
+    "train-13",
+    "train-14"
+  ],
+  "recipe_changes": [
+    "RUN_ID and workflow identity",
+    "Remove previous-policy scheduling dependencies"
+  ],
+  "model_codec_training_evaluation_changes": []
+}

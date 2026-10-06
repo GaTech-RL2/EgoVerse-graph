@@ -1,0 +1,26 @@
+[
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-angular-driver-stk/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  },
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-angular-driver-dur/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  },
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-angular-scalar-stk/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  },
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-angular-scalar-dur/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  },
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-all-scalar-stk/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  },
+  {
+    "uri": "s3://rldb/experiments/arc-oat-20260919/arc-st-20261005-10-all-scalar-dur/orchestration-handoff.json",
+    "sha256": "66d9924391d978b9de538d5566611389061cf0a28d80181a7cb3862f8fe91726"
+  }
+]

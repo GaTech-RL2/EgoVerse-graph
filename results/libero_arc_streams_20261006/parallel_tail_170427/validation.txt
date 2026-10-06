@@ -1,0 +1,2124 @@
+workflow:
+  name: arc-su-20261006-10-tail
+  resources:
+    default:
+      cpu: 48
+      gpu: 4
+      memory: 256Gi
+      platform: ovx-l40s
+      storage: 240Gi
+    evaluation:
+      cpu: 15
+      gpu: 1
+      memory: 120Gi
+      platform: ovx-l40s
+      storage: 64Gi
+    reference_wait:
+      cpu: 1
+      gpu: 0
+      memory: 1Gi
+      platform: ovx-l40s
+      storage: 4Gi
+  tasks:
+  - args:
+    - -ceu
+    - 'python -m pip install --no-cache-dir boto3==1.43.98
+
+      python /tmp/wait-reference.py --mode stk --run-id arc-sr-20261003-10-reference-stk-eval
+      --suite libero_10 --commit 69ff3fab69c2d322b590809461c80d70878ba71f --training-run
+      arc-sr-20261003-10-reference-stk --output ''{{output}}/reference-ready.json'''
+    command:
+    - bash
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    files:
+    - contents: "\"\"\"Wait on CPU for a completed, checksummed reference policy evaluation.\"\
+        \"\"\n\nimport argparse\nimport hashlib\nimport json\nimport os\nimport re\n\
+        import time\nfrom pathlib import Path\n\nfrom botocore.exceptions import ClientError\n\
+        \n\ndef reference_ready(client, run_id, suite, commit, *, training_run=None,\
+        \ mode=\"stk\"):\n    if mode not in {\"stk\", \"dur\"}:\n        raise ValueError(\"\
+        Invalid reference timing mode\")\n    prefix = f\"experiments/arc-oat-20260919/{run_id}/\"\
+        \n\n    def read(name):\n        response = client.get_object(Bucket=\"rldb\"\
+        , Key=prefix + name)\n        body = response[\"Body\"].read()\n        sha\
+        \ = hashlib.sha256(body).hexdigest()\n        if response.get(\"Metadata\"\
+        , {}).get(\"sha256\") != sha:\n            raise ValueError(f\"Reference artifact\
+        \ checksum differs: {name}\")\n        return json.loads(body), sha\n\n  \
+        \  try:\n        status, status_sha = read(\"status.json\")\n    except ClientError\
+        \ as error:\n        if error.response[\"Error\"][\"Code\"] in {\"NoSuchKey\"\
+        , \"404\", \"NotFound\"}:\n            return None\n        raise\n    if\
+        \ status.get(\"state\") == \"FAILED\":\n        raise RuntimeError(f\"Reference\
+        \ evaluation failed: {run_id}\")\n    if status.get(\"state\") != \"POLICY_EVALUATION_COMPLETE\"\
+        :\n        return None\n    if status.get(\"episodes\") != 2500 or status.get(\"\
+        complete_protocol\") is not True:\n        raise ValueError(\"Reference evaluation\
+        \ did not complete its full protocol\")\n    runtime, runtime_sha = read(\"\
+        runtime.json\")\n    expected = {\n        \"source_commit\": commit,\n  \
+        \      \"suite\": suite,\n        \"method\": f\"arc_{mode}\",\n        \"\
+        run_kind\": \"policy_evaluation\",\n        \"mode\": \"full\",\n        \"\
+        evaluate_from_run\": training_run or run_id.removesuffix(\"-eval\"),\n   \
+        \ }\n    if any(runtime.get(key) != value for key, value in expected.items()):\n\
+        \        raise ValueError(\"Reference evaluation source or protocol differs\"\
+        )\n    return {\n        \"reference_run\": run_id,\n        \"suite\": suite,\n\
+        \        \"source_commit\": commit,\n        \"arc_mode\": mode,\n       \
+        \ \"status_sha256\": status_sha,\n        \"runtime_sha256\": runtime_sha,\n\
+        \    }\n\n\ndef main():\n    import boto3\n    from botocore.config import\
+        \ Config\n\n    parser = argparse.ArgumentParser(description=__doc__)\n  \
+        \  parser.add_argument(\"--run-id\", required=True)\n    parser.add_argument(\"\
+        --suite\", required=True)\n    parser.add_argument(\"--commit\", required=True)\n\
+        \    parser.add_argument(\"--training-run\")\n    parser.add_argument(\"--mode\"\
+        , choices=(\"stk\", \"dur\"), default=\"stk\")\n    parser.add_argument(\"\
+        --output\", type=Path, required=True)\n    parser.add_argument(\"--timeout-seconds\"\
+        , type=int, default=7 * 86400)\n    args = parser.parse_args()\n    if (\n\
+        \        not re.fullmatch(r\"[a-z0-9][a-z0-9-]{0,62}\", args.run_id)\n   \
+        \     or not args.run_id.endswith(f\"-reference-{args.mode}-eval\")\n    \
+        \    or args.suite\n        not in {\"libero_spatial\", \"libero_object\"\
+        , \"libero_goal\", \"libero_10\"}\n        or not re.fullmatch(r\"[0-9a-f]{40}\"\
+        , args.commit)\n        or args.timeout_seconds <= 0\n        or (\n     \
+        \       args.training_run is not None\n            and not re.fullmatch(r\"\
+        [a-z0-9][a-z0-9-]{0,62}\", args.training_run)\n        )\n    ):\n       \
+        \ raise ValueError(\"Invalid reference readiness request\")\n    client =\
+        \ boto3.client(\n        \"s3\",\n        region_name=\"auto\",\n        endpoint_url=os.environ[\"\
+        R2_ENDPOINT_URL\"],\n        aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"\
+        ],\n        aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"],\n\
+        \        config=Config(connect_timeout=10, read_timeout=30, retries={\"max_attempts\"\
+        : 3}),\n    )\n    deadline = time.monotonic() + args.timeout_seconds\n  \
+        \  while time.monotonic() < deadline:\n        receipt = reference_ready(\n\
+        \            client,\n            args.run_id,\n            args.suite,\n\
+        \            args.commit,\n            training_run=args.training_run,\n \
+        \           mode=args.mode,\n        )\n        if receipt is not None:\n\
+        \            args.output.parent.mkdir(parents=True, exist_ok=True)\n     \
+        \       args.output.write_text(json.dumps(receipt, indent=2) + \"\\n\")\n\
+        \            print(\"REFERENCE_READY\", args.run_id, flush=True)\n       \
+        \     return\n        print(\"WAITING_FOR_REFERENCE\", args.run_id, flush=True)\n\
+        \        time.sleep(30)\n    raise TimeoutError(f\"Reference evaluation did\
+        \ not complete: {args.run_id}\")\n\n\nif __name__ == \"__main__\":\n    main()\n"
+      path: /tmp/wait-reference.py
+    image: docker.io/library/python:3.11-slim
+    name: reference-stk-ready
+    resource: reference_wait
+  - args:
+    - -ceu
+    - 'python -m pip install --no-cache-dir boto3==1.43.98
+
+      python /tmp/wait-reference.py --mode dur --run-id arc-sr-20261003-10-reference-dur-eval
+      --suite libero_10 --commit 69ff3fab69c2d322b590809461c80d70878ba71f --training-run
+      arc-sr-20261003-10-reference-dur --output ''{{output}}/reference-ready.json'''
+    command:
+    - bash
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    files:
+    - contents: "\"\"\"Wait on CPU for a completed, checksummed reference policy evaluation.\"\
+        \"\"\n\nimport argparse\nimport hashlib\nimport json\nimport os\nimport re\n\
+        import time\nfrom pathlib import Path\n\nfrom botocore.exceptions import ClientError\n\
+        \n\ndef reference_ready(client, run_id, suite, commit, *, training_run=None,\
+        \ mode=\"stk\"):\n    if mode not in {\"stk\", \"dur\"}:\n        raise ValueError(\"\
+        Invalid reference timing mode\")\n    prefix = f\"experiments/arc-oat-20260919/{run_id}/\"\
+        \n\n    def read(name):\n        response = client.get_object(Bucket=\"rldb\"\
+        , Key=prefix + name)\n        body = response[\"Body\"].read()\n        sha\
+        \ = hashlib.sha256(body).hexdigest()\n        if response.get(\"Metadata\"\
+        , {}).get(\"sha256\") != sha:\n            raise ValueError(f\"Reference artifact\
+        \ checksum differs: {name}\")\n        return json.loads(body), sha\n\n  \
+        \  try:\n        status, status_sha = read(\"status.json\")\n    except ClientError\
+        \ as error:\n        if error.response[\"Error\"][\"Code\"] in {\"NoSuchKey\"\
+        , \"404\", \"NotFound\"}:\n            return None\n        raise\n    if\
+        \ status.get(\"state\") == \"FAILED\":\n        raise RuntimeError(f\"Reference\
+        \ evaluation failed: {run_id}\")\n    if status.get(\"state\") != \"POLICY_EVALUATION_COMPLETE\"\
+        :\n        return None\n    if status.get(\"episodes\") != 2500 or status.get(\"\
+        complete_protocol\") is not True:\n        raise ValueError(\"Reference evaluation\
+        \ did not complete its full protocol\")\n    runtime, runtime_sha = read(\"\
+        runtime.json\")\n    expected = {\n        \"source_commit\": commit,\n  \
+        \      \"suite\": suite,\n        \"method\": f\"arc_{mode}\",\n        \"\
+        run_kind\": \"policy_evaluation\",\n        \"mode\": \"full\",\n        \"\
+        evaluate_from_run\": training_run or run_id.removesuffix(\"-eval\"),\n   \
+        \ }\n    if any(runtime.get(key) != value for key, value in expected.items()):\n\
+        \        raise ValueError(\"Reference evaluation source or protocol differs\"\
+        )\n    return {\n        \"reference_run\": run_id,\n        \"suite\": suite,\n\
+        \        \"source_commit\": commit,\n        \"arc_mode\": mode,\n       \
+        \ \"status_sha256\": status_sha,\n        \"runtime_sha256\": runtime_sha,\n\
+        \    }\n\n\ndef main():\n    import boto3\n    from botocore.config import\
+        \ Config\n\n    parser = argparse.ArgumentParser(description=__doc__)\n  \
+        \  parser.add_argument(\"--run-id\", required=True)\n    parser.add_argument(\"\
+        --suite\", required=True)\n    parser.add_argument(\"--commit\", required=True)\n\
+        \    parser.add_argument(\"--training-run\")\n    parser.add_argument(\"--mode\"\
+        , choices=(\"stk\", \"dur\"), default=\"stk\")\n    parser.add_argument(\"\
+        --output\", type=Path, required=True)\n    parser.add_argument(\"--timeout-seconds\"\
+        , type=int, default=7 * 86400)\n    args = parser.parse_args()\n    if (\n\
+        \        not re.fullmatch(r\"[a-z0-9][a-z0-9-]{0,62}\", args.run_id)\n   \
+        \     or not args.run_id.endswith(f\"-reference-{args.mode}-eval\")\n    \
+        \    or args.suite\n        not in {\"libero_spatial\", \"libero_object\"\
+        , \"libero_goal\", \"libero_10\"}\n        or not re.fullmatch(r\"[0-9a-f]{40}\"\
+        , args.commit)\n        or args.timeout_seconds <= 0\n        or (\n     \
+        \       args.training_run is not None\n            and not re.fullmatch(r\"\
+        [a-z0-9][a-z0-9-]{0,62}\", args.training_run)\n        )\n    ):\n       \
+        \ raise ValueError(\"Invalid reference readiness request\")\n    client =\
+        \ boto3.client(\n        \"s3\",\n        region_name=\"auto\",\n        endpoint_url=os.environ[\"\
+        R2_ENDPOINT_URL\"],\n        aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"\
+        ],\n        aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"],\n\
+        \        config=Config(connect_timeout=10, read_timeout=30, retries={\"max_attempts\"\
+        : 3}),\n    )\n    deadline = time.monotonic() + args.timeout_seconds\n  \
+        \  while time.monotonic() < deadline:\n        receipt = reference_ready(\n\
+        \            client,\n            args.run_id,\n            args.suite,\n\
+        \            args.commit,\n            training_run=args.training_run,\n \
+        \           mode=args.mode,\n        )\n        if receipt is not None:\n\
+        \            args.output.parent.mkdir(parents=True, exist_ok=True)\n     \
+        \       args.output.write_text(json.dumps(receipt, indent=2) + \"\\n\")\n\
+        \            print(\"REFERENCE_READY\", args.run_id, flush=True)\n       \
+        \     return\n        print(\"WAITING_FOR_REFERENCE\", args.run_id, flush=True)\n\
+        \        time.sleep(30)\n    raise TimeoutError(f\"Reference evaluation did\
+        \ not complete: {args.run_id}\")\n\n\nif __name__ == \"__main__\":\n    main()\n"
+      path: /tmp/wait-reference.py
+    image: docker.io/library/python:3.11-slim
+    name: reference-dur-ready
+    resource: reference_wait
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: stk
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-stk-eval
+      ARC_STREAM_VARIANT: angular_driver
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-driver-stk
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-15
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-driver-stk-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-15
+    - task: reference-stk-ready
+    name: evaluate-15
+    resource: evaluation
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: dur
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-dur-eval
+      ARC_STREAM_VARIANT: angular_driver
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-driver-dur
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-16
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-driver-dur-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-16
+    - task: reference-dur-ready
+    name: evaluate-16
+    resource: evaluation
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: stk
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-stk-eval
+      ARC_STREAM_VARIANT: angular_scalar
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-scalar-stk
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-17
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-scalar-stk-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-17
+    - task: reference-stk-ready
+    name: evaluate-17
+    resource: evaluation
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: dur
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-dur-eval
+      ARC_STREAM_VARIANT: angular_scalar
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-scalar-dur
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-18
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-angular-scalar-dur-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-18
+    - task: reference-dur-ready
+    name: evaluate-18
+    resource: evaluation
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: stk
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-stk-eval
+      ARC_STREAM_VARIANT: all_scalar
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-all-scalar-stk
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-19
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-all-scalar-stk-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-19
+    - task: reference-stk-ready
+    name: evaluate-19
+    resource: evaluation
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      ARC_STREAM_MODE: dur
+      ARC_STREAM_OUTPUT: '{{output}}'
+      ARC_STREAM_REFERENCE_RUN: arc-sr-20261003-10-reference-dur-eval
+      ARC_STREAM_VARIANT: all_scalar
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-all-scalar-dur
+      RUN_KIND: arc_stream_train
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '4'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\nexport DEBIAN_FRONTEND=noninteractive\n\
+        export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    - contents: '{"candidates": {"all_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "all_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "angular_driver-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_driver-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "angular_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0], [1], [2]],
+        "rotation_representation": "angular_driver", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_time-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "component", "gripper": "separate", "rotation_groups": [[0, 1,
+        2]], "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "component_velocity-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "component", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "gripper-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "reference-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "translation", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0, 1, 2]]}}, "x_yz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "x_yz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1, 2]]}}, "xyz_scalar-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "xyz_scalar-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[0], [1], [2]]}}, "y_xz-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "y_xz-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[1], [0, 2]]}}, "z_xy-dur": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "dur", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}, "z_xy-stk": {"dt": 0.05, "horizon": 32, "max_rotation_degrees":
+        384.0, "max_translation": 1.6, "mode": "stk", "num_waypoints": 36, "stream_spec":
+        {"clocks": "group", "gripper": "separate", "rotation_groups": [[0, 1, 2]],
+        "rotation_representation": "so3", "timing": "group", "translation_groups":
+        [[2], [0, 1]]}}}, "controls_passed": true, "demonstrations": [0, 1, 2], "episodes":
+        30, "replay_run": "arc-str-20261002r2-10-replay", "results_sha256": "448d0964221e7fdd3f43dc0ef09c72ae9add7157a1b7ae1cf95fa2b41c0f40db",
+        "source_commit": "69ff3fab69c2d322b590809461c80d70878ba71f", "sources": {"egomimic/benchmarks/libero/arc_streams.py":
+        "2143a6d76e6a0cb793da718b2a30ed779a83bb2a983e663734288bdf4b4dbdc8", "egomimic/benchmarks/libero/replay.py":
+        "7c356e24b58fe2625e709f3c9c7b4fb5da89ae2b5ab2401c7a1a49167f9826fe", "egomimic/hydra_configs/arc_stream/all_scalar.yaml":
+        "0f228c73c52559fb8c607c644d222cf44cdb5ec329849efad3621a82234fcf5d", "egomimic/hydra_configs/arc_stream/angular_driver.yaml":
+        "3e4a10ba342135bc617bff80b21f5ca721579040a7ed424e2e48827bbe3cb4f9", "egomimic/hydra_configs/arc_stream/angular_scalar.yaml":
+        "64d44516acc2f85b67e3f93735e910f9c4d6012d747c20c8252a2de271970e69", "egomimic/hydra_configs/arc_stream/component_time.yaml":
+        "ae5fa4e52eed470c5cac21e0d928be66a6a84ab576d0713d0b48a759111f92d5", "egomimic/hydra_configs/arc_stream/component_velocity.yaml":
+        "98200b034e16e0253f91260dd73431056ff1e5224c85f376ebd2e1f96b53602f", "egomimic/hydra_configs/arc_stream/gripper.yaml":
+        "901a62841e49141bd0e1cf8443997295be22df4e71505e62220d0db760c1f63b", "egomimic/hydra_configs/arc_stream/reference.yaml":
+        "15f1b7073ee9e96a321790e41787d1917167bada4bd05ee41ab0a69a77218d4c", "egomimic/hydra_configs/arc_stream/x_yz.yaml":
+        "ae1e8e3245c99e737e1b27a0853eb43fc6d0ba11ba8834b71ae1d5fbfab54a43", "egomimic/hydra_configs/arc_stream/xyz_scalar.yaml":
+        "09617a87b8664db39518d463973ac6e4571e1756b5176b874c8c759867e3e9ba", "egomimic/hydra_configs/arc_stream/y_xz.yaml":
+        "0bf87570afde88eed770d70784283acfd00a6105f409a507629a1b120446af05", "egomimic/hydra_configs/arc_stream/z_xy.yaml":
+        "f5a881a94228e7c761f046c693c076f3b89c4fe0a9575927df6507f62e7ee1d7", "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml":
+        "3d6bd6df81ad01ecff76a253b2217c2320eca52c51a55f0aea93103126a47bcc", "egomimic/rldb/zarr/libero_arc.py":
+        "94ecc657088176a08210be22ab3936bf7b2beca2dff41a3feb190a8576a0dc03", "egomimic/rldb/zarr/libero_arc_grouped.py":
+        "5df31854f814b520ba6e63ca22b46c911952996bd9da30e5b553de729bd25df0", "egomimic/rldb/zarr/libero_arc_timed.py":
+        "84e3d53649b8e56330afa00c6c25c8cc0db81df4aa229ab0cc5d897b823636ab", "egomimic/rldb/zarr/planar_arc.py":
+        "e8bec6714d41a51fc8bb9f29a4792102b353eaaf6f14754b7e9c4c80650301b1"}, "suite":
+        "libero_10", "use": "paired_reconstruction_not_parameter_selection"}'
+      path: /tmp/replay-completion.json
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    name: train-20
+  - args:
+    - /tmp/entry.sh
+    command:
+    - bash
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_ENDPOINT_URL: r2_endpoint_url
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+    environment:
+      ARC_BACKBONE: unet
+      ARC_MODES_JSON: '["dur", "stk"]'
+      ARC_PROFILE: ''
+      ARC_REPLAY_RUN: ''
+      ARC_REPLAY_RUNS_JSON: '{}'
+      BENCHMARK_GPU_TYPE: L40S
+      CAMPAIGN_ID: ''
+      CAMPAIGN_RUNS_JSON: 'null'
+      DP_BACKBONE: unet
+      DP_OUTPUT: '{{output}}'
+      EPOCHS: '5001'
+      EVALUATE_FROM_RUN: ''
+      EVALUATION_WORKERS: '5'
+      LIBERO_RAW_CACHE: ''
+      OAT_REFERENCE_RUN: ''
+      REPLAY_CALIBRATION_PARENT: ''
+      REPLAY_SPEC: libero_arc_replay
+      RESUME_FROM_RUN: ''
+      RUN_ID: arc-su-20261006-10-tail-all-scalar-dur-eval
+      RUN_KIND: policy_evaluation
+      RUN_MODE: full
+      SOURCE_COMMIT: 69ff3fab69c2d322b590809461c80d70878ba71f
+      SUITE: libero_10
+      TRAINING_GPUS: '1'
+    files:
+    - contents: "#!/usr/bin/env bash\nset -Eeuo pipefail\nset +x\ncp '{{input:0}}/evaluation-request.json'\
+        \ /tmp/evaluation-request.json\nexport DEBIAN_FRONTEND=noninteractive\nexport\
+        \ HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 MUJOCO_GL=egl\nexport OMP_NUM_THREADS=1\
+        \ MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1\nunset PIP_CONSTRAINT UV_CONSTRAINT\
+        \ UV_BUILD_CONSTRAINT PIP_BUILD_CONSTRAINT\napt-get update -qq\napt-get install\
+        \ -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0\
+        \ libegl1 libosmesa6 ffmpeg\ncurl -LsSf https://astral.sh/uv/0.10.4/install.sh\
+        \ | sh\nexport PATH=\"$HOME/.local/bin:$PATH\"\nmkdir -p /workspace/libero/source\n\
+        cat > /tmp/libero-git-askpass.sh <<'ASKPASS'\n#!/usr/bin/env bash\ncase \"\
+        $1\" in\n  *Username*) printf '%s\\n' x-access-token ;;\n  *Password*) printf\
+        \ '%s\\n' \"$GITHUB_TOKEN\" ;;\nesac\nASKPASS\nchmod 700 /tmp/libero-git-askpass.sh\n\
+        export GIT_ASKPASS=/tmp/libero-git-askpass.sh GIT_TERMINAL_PROMPT=0\ncd /workspace/libero/source\n\
+        git init -q\ngit remote add origin https://github.com/GaTech-RL2/EgoVerse-graph.git\n\
+        git fetch --depth 1 origin \"$SOURCE_COMMIT\"\ngit checkout --detach FETCH_HEAD\n\
+        test \"$(git rev-parse HEAD)\" = \"$SOURCE_COMMIT\"\nuv venv --python 3.11\
+        \ emimic\nsource emimic/bin/activate\n# Select only the OAT/simulator extras;\
+        \ unrelated PI/Yam constraints conflict.\nfor download_attempt in 1 2 3; do\n\
+        \    if uv pip install -e '.[oat,libero]'; then break; fi\n    if [[ \"$download_attempt\"\
+        \ == 3 ]]; then exit 1; fi\n    sleep 10\ndone\n# Upstream's wheel does not\
+        \ declare its simulator assets. Keep the pinned\n# checkout available and\
+        \ install it editable so meshes and BDDL files exist.\nexport LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO\n\
+        git init -q \"$LIBERO_SOURCE_ROOT\"\ngit -C \"$LIBERO_SOURCE_ROOT\" remote\
+        \ add origin https://github.com/Chaoqi-LIU/LIBERO.git\ngit -C \"$LIBERO_SOURCE_ROOT\"\
+        \ fetch --depth 1 origin 6090ff21837566fed47b7c9061c9899f4749d36b\ngit -C\
+        \ \"$LIBERO_SOURCE_ROOT\" checkout --detach FETCH_HEAD\nuv pip install --no-deps\
+        \ -e \"$LIBERO_SOURCE_ROOT\"\nexport LIBERO_CONFIG_PATH=/workspace/libero/config\n\
+        if [[ \"${RUN_KIND:-benchmark}\" == policy_evaluation ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.evaluate --root /workspace/libero --run-id\
+        \ \"$RUN_ID\" --request /tmp/evaluation-request.json\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_replay ]]; then\n    python -m egomimic.benchmarks.libero.arc_streams\
+        \ --root /workspace/libero --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\"\
+        \ --suite \"$SUITE\" --operation replay\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == arc_stream_train ]]; then\n    STREAM_ARGS=(--root /workspace/libero\
+        \ --output \"$ARC_STREAM_OUTPUT\" --run-id \"$RUN_ID\" --suite \"$SUITE\"\
+        \ --operation train --mode \"$RUN_MODE\" --variant \"$ARC_STREAM_VARIANT\"\
+        \ --arc-mode \"$ARC_STREAM_MODE\")\n    if [[ \"$RUN_MODE\" == full ]]; then\n\
+        \        STREAM_ARGS+=(--replay-proof /tmp/replay-completion.json)\n    fi\n\
+        \    python -m egomimic.benchmarks.libero.arc_streams \"${STREAM_ARGS[@]}\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == arc_decoders ]]; then\n    python\
+        \ -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite\
+        \ \"$SUITE\" --run-id \"$RUN_ID\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\
+        \ --output \"$ARC_DECODER_OUTPUT\" --variant \"$ARC_DECODER_VARIANT\" --profile\
+        \ \"$ARC_PROFILE\" --arc-mode \"$ARC_DECODER_MODE\" --replay-run \"$ARC_REPLAY_RUN\"\
+        \ --reference-run \"$ARC_DECODER_REFERENCE_RUN\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == dp_baseline ]]; then\n    python -m egomimic.benchmarks.libero.baseline\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --backbone\
+        \ \"$DP_BACKBONE\" --mode \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$DP_OUTPUT\"\
+        \nelif [[ \"${RUN_KIND:-benchmark}\" == fast ]]; then\n    python -m egomimic.benchmarks.libero.fast\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\" --output \"$FAST_OUTPUT\"\nelif [[ \"\
+        ${RUN_KIND:-benchmark}\" == arc_oat ]]; then\n    python -m egomimic.benchmarks.libero.arc_oat\
+        \ --root /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --mode\
+        \ \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\" ==\
+        \ arc_sweep ]]; then\n    ARC_SWEEP_MODE=$(python -c 'import json,os; modes=json.loads(os.environ[\"\
+        ARC_MODES_JSON\"]); assert len(modes)==1; print(modes[0])')\n    python -m\
+        \ egomimic.benchmarks.libero.arc_sweep --root /workspace/libero --suite \"\
+        $SUITE\" --run-id \"$RUN_ID\" --profile \"$ARC_PROFILE\" --arc-mode \"$ARC_SWEEP_MODE\"\
+        \ --mode \"$RUN_MODE\" --epochs \"$EPOCHS\"\nelif [[ \"${RUN_KIND:-benchmark}\"\
+        \ == replay ]]; then\n    python -m egomimic.benchmarks.libero.replay --root\
+        \ /workspace/libero --suite \"$SUITE\" --run-id \"$RUN_ID\" --spec \"egomimic/hydra_configs/benchmark/${REPLAY_SPEC:-libero_arc_replay}.yaml\"\
+        \nelse\n    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero\
+        \ --suite \"$SUITE\" --mode \"$RUN_MODE\" --run-id \"$RUN_ID\" --epochs \"\
+        $EPOCHS\"\nfi\n"
+      path: /tmp/entry.sh
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    inputs:
+    - task: train-20
+    - task: reference-dur-ready
+    name: evaluate-20
+    resource: evaluation
+  timeout:
+    exec_timeout: 60d
+    queue_timeout: 2d
+
+WARNING: New client 6.3.1 available.
+Current version: 6.2.10.fa46f7f09.
+Please run the following command:
+curl -fsSL https://us-west-2-aws.osmo.nvidia.com/cli/install.sh | bash

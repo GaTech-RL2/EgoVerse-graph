@@ -1,0 +1,806 @@
+[
+  {
+    "name": "arc-ss-20261005-object-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-06T03:45:16.142458+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:38.663726",
+        "end_time": "2026-10-05T20:01:28.279015"
+      },
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:42.310164",
+        "end_time": "2026-10-05T21:23:15.962448"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:43.069364",
+        "end_time": "2026-10-05T20:46:12.498318"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:03.743567",
+        "end_time": "2026-10-05T20:36:41.365411"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:43.739989",
+        "end_time": "2026-10-05T21:31:50.127082"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:38.788849",
+        "end_time": "2026-10-05T20:09:31.618369"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:42.761179",
+        "end_time": "2026-10-05T21:21:47.052822"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:31.735441",
+        "end_time": "2026-10-05T21:41:10.241118"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:01:37.189941",
+        "end_time": "2026-10-05T23:27:04.024370"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:46:22.193318",
+        "end_time": "2026-10-05T23:58:12.556890"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:36:50.297935",
+        "end_time": "2026-10-06T00:21:38.272100"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:31:59.744880",
+        "end_time": "2026-10-06T01:04:30.086221"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:09:41.108797",
+        "end_time": "2026-10-05T23:46:05.529926"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:23:27.580868",
+        "end_time": "2026-10-06T01:00:16.323704"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:21:56.643699",
+        "end_time": "2026-10-06T00:41:14.288455"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:41:19.161724",
+        "end_time": "2026-10-06T01:21:18.728599"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T23:35:05.824170",
+        "end_time": "2026-10-06T03:09:13.582627"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T00:30:04.295900",
+        "end_time": "2026-10-06T03:10:25.308952"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T00:32:57.704058",
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:04:39.847061",
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.883265",
+        "end_time": "2026-10-05T17:51:29.235354"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.848142",
+        "end_time": "2026-10-05T17:51:29.207986"
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-10-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-06T03:45:17.775737+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-03",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-04",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-05",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-06",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-07",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-08",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:52.052093",
+        "end_time": "2026-10-05T17:58:10.376405"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:52.082597",
+        "end_time": "2026-10-05T17:58:09.432834"
+      },
+      {
+        "name": "train-03",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:15:20.563444",
+        "end_time": null
+      },
+      {
+        "name": "train-04",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:15:20.622353",
+        "end_time": null
+      },
+      {
+        "name": "train-05",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:16:51.952437",
+        "end_time": null
+      },
+      {
+        "name": "train-06",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:22:08.894853",
+        "end_time": null
+      },
+      {
+        "name": "train-07",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:16:58.934932",
+        "end_time": null
+      },
+      {
+        "name": "train-08",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:22:10.032539",
+        "end_time": null
+      },
+      {
+        "name": "train-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-goal-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-06T03:45:18.881463+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:19.407763",
+        "end_time": "2026-10-05T18:33:32.845195"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:07.767400",
+        "end_time": "2026-10-05T19:34:31.518781"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:50.643348",
+        "end_time": "2026-10-05T20:36:58.747823"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:32.155396",
+        "end_time": "2026-10-05T19:45:47.873602"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:49.135462",
+        "end_time": "2026-10-05T19:45:02.711169"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:46.127927",
+        "end_time": "2026-10-05T19:39:01.255715"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:33:42.796138",
+        "end_time": "2026-10-05T21:04:47.300325"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:20.821259",
+        "end_time": "2026-10-05T17:57:37.109307"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:21.944524",
+        "end_time": "2026-10-05T17:57:39.178313"
+      },
+      {
+        "name": "train-09",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T21:10:58.272764",
+        "end_time": null
+      },
+      {
+        "name": "train-10",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T21:22:59.679649",
+        "end_time": null
+      },
+      {
+        "name": "train-11",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T00:52:20.208701",
+        "end_time": null
+      },
+      {
+        "name": "train-12",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:02:20.989502",
+        "end_time": null
+      },
+      {
+        "name": "train-13",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:08:36.211139",
+        "end_time": null
+      },
+      {
+        "name": "train-14",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T01:08:35.747327",
+        "end_time": null
+      },
+      {
+        "name": "train-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-spatial-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-06T03:45:19.984215+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:01:54.612536",
+        "end_time": "2026-10-05T18:40:16.568920"
+      },
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:20.096246",
+        "end_time": "2026-10-05T19:58:32.571936"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:19.393728",
+        "end_time": "2026-10-05T20:16:13.977808"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:27.664823",
+        "end_time": "2026-10-05T21:45:10.620498"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:22:53.621902",
+        "end_time": "2026-10-05T23:34:56.995784"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:28.830297",
+        "end_time": "2026-10-05T21:15:09.606463"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:18.899887",
+        "end_time": "2026-10-05T20:40:46.999946"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:40:25.754639",
+        "end_time": "2026-10-05T22:09:37.703895"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:54.193081",
+        "end_time": "2026-10-05T17:57:09.482695"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:54.137206",
+        "end_time": "2026-10-05T17:57:10.546494"
+      },
+      {
+        "name": "train-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:18:57.298308",
+        "end_time": "2026-10-05T20:22:42.391614"
+      },
+      {
+        "name": "train-09",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T18:33:04.459125",
+        "end_time": null
+      },
+      {
+        "name": "train-10",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T19:13:38.162852",
+        "end_time": null
+      },
+      {
+        "name": "train-11",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T03:18:25.533281",
+        "end_time": null
+      },
+      {
+        "name": "train-12",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T19:49:20.078270",
+        "end_time": null
+      },
+      {
+        "name": "train-13",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T20:22:51.846052",
+        "end_time": null
+      },
+      {
+        "name": "train-14",
+        "status": "RUNNING",
+        "start_time": "2026-10-05T21:02:23.534215",
+        "end_time": null
+      },
+      {
+        "name": "train-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      }
+    ]
+  }
+]

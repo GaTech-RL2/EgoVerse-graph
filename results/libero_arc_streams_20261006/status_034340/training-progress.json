@@ -1,0 +1,294 @@
+{
+  "observed_at_utc": "2026-10-06T03:46:14.990747+00:00",
+  "method": "Conservative progress from successfully uploaded periodic checkpoint filenames; active training can be ahead of the last upload.",
+  "runs": [
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-spatial-x-yz-stk",
+      "saved_epochs_at_least": 4660,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 251640,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": 23220,
+      "checkpoint_manifest_receipt": {
+        "sha256": "d0c04f50b7bd9970272674c4b23cf8b97922d78b4b14b84498278dd2201fef8e",
+        "bytes": 149961,
+        "last_modified": "2026-10-06T03:45:55+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-spatial-x-yz-dur",
+      "saved_epochs_at_least": 4300,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 232200,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": 21600,
+      "checkpoint_manifest_receipt": {
+        "sha256": "db3228a9c0c7e2a1e404d876125111f469f307604d53ecdee45229fc13bd6f00",
+        "bytes": 138273,
+        "last_modified": "2026-10-06T03:45:45+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-spatial-y-xz-stk",
+      "saved_epochs_at_least": 50,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 2700,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": null,
+      "checkpoint_manifest_receipt": {
+        "sha256": "a2f63d9ca5fb9c828e3ccf303ee04f653b1319bfa961a9cfbb82ce8b10b217a7",
+        "bytes": 2779,
+        "last_modified": "2026-10-06T03:46:04+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-spatial-y-xz-dur",
+      "saved_epochs_at_least": 3980,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 214920,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": 19980,
+      "checkpoint_manifest_receipt": {
+        "sha256": "2957c5233ee9d04af8d603da24ccdcca6ad2c42c2e895eaf73effce2f7c530a4",
+        "bytes": 128001,
+        "last_modified": "2026-10-06T03:45:46+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-spatial-z-xy-stk",
+      "saved_epochs_at_least": 3810,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 205740,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": 26460,
+      "checkpoint_manifest_receipt": {
+        "sha256": "bd5c37d465df88011c2698e87f7f76223b32395c42d12eb77d606ad4c3e3d205",
+        "bytes": 117759,
+        "last_modified": "2026-10-06T03:44:47+00:00"
+      }
+    },
+    {
+      "suite": "libero_spatial",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-spatial-z-xy-dur",
+      "saved_epochs_at_least": 3110,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 167940,
+      "planned_optimizer_steps": 270054,
+      "resumed_from_step": 4320,
+      "checkpoint_manifest_receipt": {
+        "sha256": "91d9284bf6bec2faf3b83e71e84004640cf470e7e752ca82ffc2544553676a0b",
+        "bytes": 107407,
+        "last_modified": "2026-10-06T03:45:36+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-goal-x-yz-stk",
+      "saved_epochs_at_least": 3120,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 174720,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 12880,
+      "checkpoint_manifest_receipt": {
+        "sha256": "871763a416e52a96591c6c19521c37d829a40b6dde61f3c00bf35002d9ca6eb7",
+        "bytes": 101615,
+        "last_modified": "2026-10-06T03:45:30+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "x_yz",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-goal-x-yz-dur",
+      "saved_epochs_at_least": 3050,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 170800,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 12880,
+      "checkpoint_manifest_receipt": {
+        "sha256": "ad338d8fc98c6c49f9b0290355281d6ca9d1ef80cefc853849074406162cb036",
+        "bytes": 99158,
+        "last_modified": "2026-10-06T03:45:23+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-goal-y-xz-stk",
+      "saved_epochs_at_least": 1480,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 82880,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 14560,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3838ded5c2b1db563f6a11b05a764181ed5d528364340473c52b59652fac92ef",
+        "bytes": 43004,
+        "last_modified": "2026-10-06T03:45:46+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "y_xz",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-goal-y-xz-dur",
+      "saved_epochs_at_least": 1350,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 75600,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 12320,
+      "checkpoint_manifest_receipt": {
+        "sha256": "3350e5487223679d913ff26714a085e827da4c91d8f2022e85a85392d8486018",
+        "bytes": 39837,
+        "last_modified": "2026-10-06T03:45:08+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-goal-z-xy-stk",
+      "saved_epochs_at_least": 1300,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 72800,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 12320,
+      "checkpoint_manifest_receipt": {
+        "sha256": "7cfbfb179f0bb02e878375c996a2bd4d7ca604c19654dea0cea55339b632b767",
+        "bytes": 38082,
+        "last_modified": "2026-10-06T03:45:49+00:00"
+      }
+    },
+    {
+      "suite": "libero_goal",
+      "variant": "z_xy",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-goal-z-xy-dur",
+      "saved_epochs_at_least": 1140,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 63840,
+      "planned_optimizer_steps": 280056,
+      "resumed_from_step": 2800,
+      "checkpoint_manifest_receipt": {
+        "sha256": "bc5cb2d4fb802c23e9704363e99a708d73d68150b8c760d1c4ca679484a85d95",
+        "bytes": 38389,
+        "last_modified": "2026-10-06T03:46:12+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "gripper",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-10-gripper-dur",
+      "saved_epochs_at_least": 3110,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 376310,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 317020,
+      "checkpoint_manifest_receipt": {
+        "sha256": "bf2e0981aaf5091dbf4a90fc0a097bb6a7b70391137bc0014d4f2d9412a1cfee",
+        "bytes": 17579,
+        "last_modified": "2026-10-06T03:44:35+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-10-xyz-scalar-stk",
+      "saved_epochs_at_least": 3130,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 378730,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 319440,
+      "checkpoint_manifest_receipt": {
+        "sha256": "b5b7949f2786a543a02df5e2ef98d9f0d721ff85ea15265e73bd15e166b130eb",
+        "bytes": 17729,
+        "last_modified": "2026-10-06T03:44:43+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "xyz_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-10-xyz-scalar-dur",
+      "saved_epochs_at_least": 3000,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 363000,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 304920,
+      "checkpoint_manifest_receipt": {
+        "sha256": "e9d9e0a3c324007d866c49e48a0154caec084ea9f9fe94d9599ac69fd6de1aaa",
+        "bytes": 17374,
+        "last_modified": "2026-10-06T03:44:29+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-10-component-velocity-stk",
+      "saved_epochs_at_least": 3050,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 369050,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 313390,
+      "checkpoint_manifest_receipt": {
+        "sha256": "8b8a64734b9234889ad2632a421d71382b6f19f72eaa047178f2046821bbe95e",
+        "bytes": 17040,
+        "last_modified": "2026-10-06T03:44:39+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_velocity",
+      "mode": "dur",
+      "training_run_id": "arc-st-20261005-10-component-velocity-dur",
+      "saved_epochs_at_least": 3070,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 371470,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 312180,
+      "checkpoint_manifest_receipt": {
+        "sha256": "6ffe091ee86670b2a9ba9181b38f03087db2d390eafac38eeb378d5127436a58",
+        "bytes": 18129,
+        "last_modified": "2026-10-06T03:44:48+00:00"
+      }
+    },
+    {
+      "suite": "libero_10",
+      "variant": "component_time",
+      "mode": "stk",
+      "training_run_id": "arc-st-20261005-10-component-time-stk",
+      "saved_epochs_at_least": 2850,
+      "planned_epochs": 5001,
+      "saved_optimizer_steps_at_least": 344850,
+      "planned_optimizer_steps": 605121,
+      "resumed_from_step": 292820,
+      "checkpoint_manifest_receipt": {
+        "sha256": "114c5c0a6a83c57e82e084e4ee3ee71bab0a6e0d8184fe2b13aa06397f00ba49",
+        "bytes": 15775,
+        "last_modified": "2026-10-06T03:43:58+00:00"
+      }
+    }
+  ]
+}

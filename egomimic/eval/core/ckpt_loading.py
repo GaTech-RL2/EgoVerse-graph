@@ -1,4 +1,4 @@
-"""Strict rollout bridge for the recorded U-Socket duration-ARC checkpoints.
+"""Strict rollout bridges for checkpoint-bound PipelineAlgo policies.
 
 These September 2026 checkpoints predate the current rollout inference-step
 interface. This module keeps their original PipelineAlgo, checkpoint
@@ -7,6 +7,10 @@ the missing simulator loop. It is deliberately restricted to the recorded
 U-Socket contract: two observations and a 32-row prediction (16 spline-support
 waypoints plus 16 per-waypoint interval-duration rows). The decoder reconstructs
 the represented 40-step fixed-rate trajectory before the simulator executes it.
+
+The separately gated routed Action Flow bridge supports the recorded paired
+dense H16 Euler-50 contract. It reuses the original model, sampler and configured
+native adapters/decoders, with strict model-config and EMA parameter matching.
 """
 
 from __future__ import annotations
@@ -30,6 +34,10 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes_sim import _env_to_zarr_pushshapes_oriented
 from egomimic.rldb.zarr.planar_arc import arc_token_rows
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.eval.core.action_flow_rollout import (
+    RoutedActionFlowPolicy, action_flow_contract, action_flow_metadata,
+    is_routed_action_flow, _BOUNDARIES,
+)
 
 _NETS_PREFIX = "nets."
 _LEGACY_EMBODIMENT = "pushshapes_sim_u_socket"
@@ -280,7 +288,7 @@ def _strict_contract(
     return decoder
 
 
-def _normalizer_from_config(cfg: DictConfig) -> MultiDataset:
+def _normalizer_from_config(cfg: DictConfig, embodiment_id: int = 19) -> MultiDataset:
     """Load the recorded, data-owned normalizer for these legacy checkpoints."""
     path = Path(str(OmegaConf.select(cfg, "norm_stats.precomputed_norm_path")))
     expected = str(OmegaConf.select(cfg, "run_provenance.normalization_sha256"))
@@ -292,16 +300,17 @@ def _normalizer_from_config(cfg: DictConfig) -> MultiDataset:
             f"normalizer SHA mismatch: actual={actual} expected={expected}"
         )
     payload = json.loads(path.read_text())
-    stats = payload.get("stats", {}).get("19")
-    if not isinstance(stats, dict) or {"state_agent_obj", "actions"} - set(stats):
-        raise RuntimeError("recorded normalizer lacks U-socket state/action stats")
+    state_key = "state_agent_model" if is_routed_action_flow(cfg) else "state_agent_obj"
+    stats = payload.get("stats", {}).get(str(embodiment_id))
+    if not isinstance(stats, dict) or {state_key, "actions"} - set(stats):
+        raise RuntimeError("recorded normalizer lacks selected embodiment state/action stats")
     return MultiDataset.from_state(
         {
             "norm_mode": str(OmegaConf.select(cfg, "norm_stats.norm_mode")),
-            "embodiments": [19],
-            "key_types": {19: {"state_agent_obj": "proprio_keys", "actions": "action_keys"}},
-            "zarr_keys": {19: {"state_agent_obj": "state_agent_obj", "actions": "actions"}},
-            "norm_stats": {19: stats},
+            "embodiments": [embodiment_id],
+            "key_types": {embodiment_id: {state_key: "proprio_keys", "actions": "action_keys"}},
+            "zarr_keys": {embodiment_id: {state_key: state_key, "actions": "actions"}},
+            "norm_stats": {embodiment_id: stats},
         }
     )
 
@@ -322,7 +331,8 @@ def _load_legacy_policy(
     hparams = _checkpoint_hparams(checkpoint)
     embedded = _legacy_config_tree(hparams)
     cfg = _assert_model_config_match(config_path, embedded)
-    decoder = _strict_contract(
+    contract_builder = action_flow_contract if is_routed_action_flow(cfg) else _strict_contract
+    decoder = contract_builder(
         cfg,
         selected_embodiment_name=selected_embodiment_name,
         selected_embodiment_id=selected_embodiment_id,
@@ -344,7 +354,7 @@ def _load_legacy_policy(
     algo.device = device
     algo.nets.to(device)
     algo.nets.eval()
-    normalizer = _normalizer_from_config(cfg)
+    normalizer = _normalizer_from_config(cfg, selected_embodiment_id)
     return algo, normalizer, decoder, checkpoint, cfg
 
 
@@ -372,10 +382,10 @@ def strict_no_rollout_preflight(
         replan_every=replan_every,
     )
     action_horizon = int(OmegaConf.select(cfg, "planar.action_horizon"))
-    decoded_horizon = int(getattr(decoder, "action_horizon", 0))
+    decoded_horizon = 16 if is_routed_action_flow(cfg) else int(getattr(decoder, "action_horizon", 0))
     parameter_keys = len(algo.nets.state_dict())
     execution_horizon = decoded_horizon if replan_every is None else int(replan_every)
-    return {
+    metadata = {
         "status": "audited_strict_no_rollout_ok",
         "checkpoint_epoch": int(checkpoint.get("epoch", -1)),
         "checkpoint_global_step": int(checkpoint.get("global_step", -1)),
@@ -402,6 +412,11 @@ def strict_no_rollout_preflight(
         ),
         "bridge": "pipeline_arc_duration_rollout_v1",
     }
+    if is_routed_action_flow(cfg):
+        metadata.update(action_flow_metadata(cfg))
+        metadata.update(timing_rows=0, timing_representation="dense_fixed_rate",
+                        execution_horizon_semantics="dense_chunk_prefix_before_replan")
+    return metadata
 
 
 class _LegacyArcPolicy:
@@ -648,9 +663,24 @@ def _rollout_one(args, policy: _LegacyArcPolicy, seed: int, ep_idx: int):
 def _validate_runtime_args(args) -> None:
     if args.eval_class not in {"packed", "hpt"}:
         raise ValueError("eval-class must be packed or hpt")
-    if args.embodiment_name != _LEGACY_EMBODIMENT:
+    flow = is_routed_action_flow(OmegaConf.load(args.config_path))
+    if flow:
+        if args.embodiment_name not in _BOUNDARIES:
+            raise ValueError("unsupported Action Flow embodiment")
+        if args.pusher != _BOUNDARIES[args.embodiment_name][4]:
+            raise ValueError("simulator pusher does not match selected embodiment")
+        for field in ("chunk_stitch_weights", "rollout_noise_shift_tokens",
+                      "temporal_ensemble_decay", "rtc_inference_delay",
+                      "rtc_prefix_attention_schedule", "rtc_max_guidance_weight"):
+            if getattr(args, field) is not None:
+                raise ValueError(f"routed Action Flow does not implement {field}")
+        if args.replan_every != 8 or args.sampler_inference_steps not in (None, 50):
+            raise ValueError("routed Action Flow requires replan 8 and checkpoint Euler-50")
+        if args.obs_stride not in (None, 1):
+            raise ValueError("routed Action Flow requires observation stride 1")
+    elif args.embodiment_name != _LEGACY_EMBODIMENT:
         raise ValueError(f"only {_LEGACY_EMBODIMENT} is supported")
-    expected_id = int(get_embodiment_id(_LEGACY_EMBODIMENT))
+    expected_id = int(get_embodiment_id(args.embodiment_name))
     if args.only_emb != expected_id:
         raise ValueError(f"only-emb must be {expected_id}")
     if args.n_episodes <= 0 or args.max_steps <= 0:
@@ -664,7 +694,7 @@ def _validate_runtime_args(args) -> None:
         raise ValueError("chunk-seam-artifact requires replan-every")
     if args.action_chunk_start_index != 0:
         raise ValueError("the legacy arc bridge only permits action-chunk-start-index=0")
-    if args.sampler_inference_steps is not None and args.sampler_inference_steps != 100:
+    if not flow and args.sampler_inference_steps is not None and args.sampler_inference_steps != 100:
         raise ValueError("the legacy Paper-DP bridge only permits its recorded 100 sampler steps")
     if args.init_mode != "seeds":
         raise ValueError("the canonical bridge requires init-mode=seeds")
@@ -680,23 +710,27 @@ def run(args) -> None:
     if not out_dir.is_dir():
         raise RuntimeError(f"canonical launcher did not create output directory {out_dir}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    flow = is_routed_action_flow(OmegaConf.load(args.config_path))
+    native_width = _BOUNDARIES[args.embodiment_name][1] if flow else _LEGACY_NATIVE_ACTION_DIM
     algo, normalizer, decoder, _checkpoint, _cfg = _load_legacy_policy(
         ckpt_path=args.ckpt,
         config_path=args.config_path,
         selected_embodiment_name=args.embodiment_name,
         selected_embodiment_id=args.only_emb,
-        expected_native_action_dim=_LEGACY_NATIVE_ACTION_DIM,
+        expected_native_action_dim=native_width,
         use_ema=args.use_ema,
         device=device,
         action_chunk_start_index=args.action_chunk_start_index,
         replan_every=args.replan_every,
     )
-    policy = _LegacyArcPolicy(
+    policy_class = RoutedActionFlowPolicy if flow else _LegacyArcPolicy
+    policy = policy_class(
         algo=algo,
         normalizer=normalizer,
         decoder=decoder,
         embodiment_id=args.only_emb,
         device=device,
+        **({"cfg": _cfg, "embodiment_name": args.embodiment_name} if flow else {}),
     )
     coverages: list[float] = []
     episode_rows: list[dict[str, Any]] = []
@@ -716,7 +750,8 @@ def run(args) -> None:
                 args, policy, seed, ep_idx
             )
         coverages.append(float(coverage))
-        np.save(out_dir / f"episode_{ep_idx:02d}_actions.npy", np.stack(actions, axis=0))
+        np.save(out_dir / f"episode_{ep_idx:02d}_actions.npy",
+                np.stack(actions, axis=0) if actions else np.empty((0, native_width), dtype=np.float32))
         video_path = None
         if args.per_episode_videos:
             video_path = videos_dir / f"episode_{ep_idx:02d}.mp4"
@@ -728,9 +763,9 @@ def run(args) -> None:
                 "peak_coverage": float(coverage),
                 "action_count": len(actions),
                 "predicted_chunk_count": len(chunk_lengths),
-                "decoded_chunk_length_min": min(chunk_lengths),
-                "decoded_chunk_length_max": max(chunk_lengths),
-                "decoded_chunk_length_mean": float(np.mean(chunk_lengths)),
+                "decoded_chunk_length_min": min(chunk_lengths, default=0),
+                "decoded_chunk_length_max": max(chunk_lengths, default=0),
+                "decoded_chunk_length_mean": float(np.mean(chunk_lengths)) if chunk_lengths else 0.0,
                 "video": str(video_path) if video_path else None,
             }
         )
@@ -746,7 +781,7 @@ def run(args) -> None:
             metadata={
                 "checkpoint": str(Path(args.ckpt).resolve()),
                 "replan_every": int(args.replan_every),
-                "sampler_inference_steps": int(args.sampler_inference_steps or 100),
+                "sampler_inference_steps": int(args.sampler_inference_steps or (50 if flow else 100)),
                 "init_mode": args.init_mode,
                 "obstacle_level": int(args.obstacle_level),
                 "protocol_status": "NON-PROTOCOL_CHUNK_SEAM_DIAGNOSTIC_NOT_COMPARABLE",
@@ -777,6 +812,12 @@ def run(args) -> None:
         "episodes": episode_rows,
         "chunk_seam_event_count": len(seam_events),
     }
+    if flow:
+        summary.update(action_flow_metadata(_cfg))
+        summary.update(decoded_action_horizon=16, waypoint_count=None,
+                       comparability="pending_canonical_launcher_preflight",
+                       checkpoint_epoch=int(_checkpoint.get("epoch", -1)),
+                       checkpoint_global_step=int(_checkpoint.get("global_step", -1)))
     (out_dir / "rollout_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 
 

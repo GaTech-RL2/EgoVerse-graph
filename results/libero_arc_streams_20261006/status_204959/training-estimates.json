@@ -1,0 +1,84 @@
+{
+  "observed_at_utc": "2026-10-06T20:53:03.418372+00:00",
+  "method": "Extrapolate average uploaded epochs per hour since the first TRAINING status. Assumes uninterrupted training and the same throughput. Evaluation time is additional; these are estimates, not finish-time guarantees.",
+  "runs": [
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "stk",
+      "training_run_id": "arc-su-20261006-10-tail-angular-driver-stk",
+      "saved_epochs_at_least": 690,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:35:03+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:52:20+00:00",
+      "observed_elapsed_hours": 3.2880555555555557,
+      "observed_epochs_per_hour": 209.85046886880122,
+      "estimated_training_hours_remaining": 20.54319927536232
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_driver",
+      "mode": "dur",
+      "training_run_id": "arc-su-20261006-10-tail-angular-driver-dur",
+      "saved_epochs_at_least": 700,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:29:51+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:50:46+00:00",
+      "observed_elapsed_hours": 3.348611111111111,
+      "observed_epochs_per_hour": 209.04189133139778,
+      "estimated_training_hours_remaining": 20.57482341269841
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-su-20261006-10-tail-angular-scalar-stk",
+      "saved_epochs_at_least": 650,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:30:55+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:51:00+00:00",
+      "observed_elapsed_hours": 3.334722222222222,
+      "observed_epochs_per_hour": 194.91878384006665,
+      "estimated_training_hours_remaining": 22.32211752136752
+    },
+    {
+      "suite": "libero_10",
+      "variant": "angular_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-su-20261006-10-tail-angular-scalar-dur",
+      "saved_epochs_at_least": 660,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:35:44+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:51:45+00:00",
+      "observed_elapsed_hours": 3.2669444444444444,
+      "observed_epochs_per_hour": 202.02363744579543,
+      "estimated_training_hours_remaining": 21.487584595959596
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "stk",
+      "training_run_id": "arc-su-20261006-10-tail-all-scalar-stk",
+      "saved_epochs_at_least": 680,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:30:26+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:50:34+00:00",
+      "observed_elapsed_hours": 3.3355555555555556,
+      "observed_epochs_per_hour": 203.8640906062625,
+      "estimated_training_hours_remaining": 21.195493464052287
+    },
+    {
+      "suite": "libero_10",
+      "variant": "all_scalar",
+      "mode": "dur",
+      "training_run_id": "arc-su-20261006-10-tail-all-scalar-dur",
+      "saved_epochs_at_least": 670,
+      "planned_epochs": 5001,
+      "training_status_uploaded_at": "2026-10-06T17:30:21+00:00",
+      "checkpoint_manifest_uploaded_at": "2026-10-06T20:52:38+00:00",
+      "observed_elapsed_hours": 3.3713888888888888,
+      "observed_epochs_per_hour": 198.73115267364258,
+      "estimated_training_hours_remaining": 21.79326160862355
+    }
+  ]
+}

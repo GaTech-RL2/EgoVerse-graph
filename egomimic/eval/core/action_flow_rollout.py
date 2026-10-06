@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 from contextlib import nullcontext
+from functools import wraps
+import subprocess
 
 import numpy as np
 import torch
@@ -10,12 +12,56 @@ from omegaconf import OmegaConf
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes_sim import _env_to_zarr_pushshapes_oriented
+from egomimic.pipeline.stages_sampler import GaussianLatentNoise
+from egomimic.pipeline.stages_action_flow import ConditionalVelocityStage
+from scripts.ice.ice_gpu_probe import parse_ecc_health
 
 _PREFIX = "egomimic.pipeline.stages_action_flow."
 _BOUNDARIES = {
     "pushshapes_sim_u_socket": (4, 3, "USocketModelStateObservationAdapter", "USocketRotVecNativeDecoder", "u_socket"),
     "pushshapes_sim_chain_gripper": (6, 4, "ChainGripperModelStateObservationAdapter", "ChainGripperPointsNativeDecoder", "chain_gripper"),
 }
+
+
+def validate_cuda_health(device):
+    """Use the maintained ECC/repair parser before expensive checkpoint load."""
+    if device.type != "cuda":
+        return
+    properties = torch.cuda.get_device_properties(device)
+    uuid = getattr(properties, "uuid", None)
+    if not uuid:
+        raise RuntimeError("CUDA device UUID required for exact allocated-GPU health check")
+    report = subprocess.run(["nvidia-smi", "-q", "-i", str(uuid)],
+                            check=True, capture_output=True, text=True, timeout=30)
+    parse_ecc_health(report.stdout)
+
+
+def install_fp32_sampler_boundaries(algo):
+    """Autocast neural operators, not Gaussian draws or CFG/Euler arithmetic."""
+    noise = [m for m in algo.nets.modules() if isinstance(m, GaussianLatentNoise)]
+    velocity = [m for m in algo.nets.modules() if isinstance(m, ConditionalVelocityStage)]
+    if len(noise) != 1 or len(velocity) != 1:
+        raise ValueError("BF16 requires exactly one original noise and velocity stage")
+    if getattr(noise[0], "_action_flow_fp32_boundary", False):
+        return
+    original_noise, original_predict = noise[0].forward, velocity[0]._predict
+
+    @wraps(original_noise)
+    def fp32_noise(batch):
+        with torch.autocast(device_type=batch["condition"].device.type, enabled=False):
+            result = original_noise(batch)
+        if result["sampler/noise"].dtype != torch.float32:
+            raise RuntimeError("Euler sampler noise must remain FP32")
+        return result
+
+    @wraps(original_predict)
+    def fp32_velocity(*args, **kwargs):
+        # The original neural field still executes inside BF16 autocast.
+        # Promote its output before the original stage's CFG/Euler operators.
+        return original_predict(*args, **kwargs).float()
+
+    noise[0].forward, velocity[0]._predict = fp32_noise, fp32_velocity
+    noise[0]._action_flow_fp32_boundary = True
 
 
 def is_routed_action_flow(cfg):
@@ -87,6 +133,8 @@ class RoutedActionFlowPolicy:
                 device.type != "cuda" or not torch.cuda.is_bf16_supported()):
             raise ValueError("BF16 model autocast requires a BF16-capable CUDA device")
         self.model_autocast_precision = model_autocast_precision
+        if model_autocast_precision == "bf16":
+            install_fp32_sampler_boundaries(algo)
         self.model_width, self.native_width, _, _, _ = _BOUNDARIES[embodiment_name]
         self.adapter = instantiate(cfg.deployment.observation_adapters[embodiment_name])
         self.token_horizon = self.decoded_horizon = 16

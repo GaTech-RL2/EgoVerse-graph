@@ -117,3 +117,43 @@ def test_canonical_precision_cli_is_explicit():
     action = next(a for a in build_parser()._actions if a.dest == "model_autocast_precision")
     assert action.default == "fp32"
     assert action.choices == ("fp32", "bf16")
+
+
+def test_bf16_neural_outputs_keep_original_noise_and_euler_state_fp32():
+    from types import SimpleNamespace
+    from egomimic.pipeline.stages_sampler import GaussianLatentNoise
+    from egomimic.eval.core.action_flow_rollout import install_fp32_sampler_boundaries
+    class Field(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(16, 16)
+            self.states, self.outputs = [], []
+        def forward(self, state, time, condition, condition_drop_mask=None):
+            self.states.append(state.dtype)
+            result = self.linear(state)
+            self.outputs.append(result.dtype)
+            return result
+    field = Field()
+    noise = GaussianLatentNoise(8, 16)
+    stage = ConditionalVelocityStage(field, inference_method="euler",
+        num_inference_steps=50, cfg_scale=4., cfg_interval=(0., 1.))
+    algo = SimpleNamespace(nets=torch.nn.ModuleList([noise, stage]))
+    install_fp32_sampler_boundaries(algo)
+    torch.manual_seed(42)
+    expected = torch.randn(1, 8, 16)
+    torch.manual_seed(42)
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        batch = noise.forward({"condition": torch.ones(1, 128, dtype=torch.bfloat16)})
+        torch.testing.assert_close(batch["sampler/noise"], expected, rtol=0, atol=0)
+        result = stage.execute(batch, mode="inference")
+    assert set(field.states) == {torch.float32}
+    assert set(field.outputs) == {torch.bfloat16}
+    assert result["action_flow/generated_latent"].dtype == torch.float32
+
+
+def test_cpu_checkpoint_path_does_not_query_cuda_health(monkeypatch):
+    from egomimic.eval.core.action_flow_rollout import validate_cuda_health
+    def forbidden(*args, **kwargs):
+        raise AssertionError("CPU must not query CUDA")
+    monkeypatch.setattr(torch.cuda, "get_device_properties", forbidden)
+    validate_cuda_health(torch.device("cpu"))

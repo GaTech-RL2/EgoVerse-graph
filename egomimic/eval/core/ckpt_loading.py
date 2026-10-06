@@ -327,6 +327,8 @@ def _load_legacy_policy(
     action_chunk_start_index: int = 0,
     replan_every: int | None = None,
 ):
+    from egomimic.eval.core.action_flow_rollout import validate_cuda_health
+    validate_cuda_health(device)
     checkpoint = _load_checkpoint(ckpt_path)
     hparams = _checkpoint_hparams(checkpoint)
     embedded = _legacy_config_tree(hparams)

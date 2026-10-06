@@ -62,6 +62,14 @@ changes. Three things over the parent:
   that is ~always 0 on Aria data; per-element quantile normalization (q99 - q1 = 0) turned it into
   6.6e8 and the cotrain run diverged.)
 
+* ``velocity_mode="durtri"`` / ``"proftri"`` (variants ``arcdurtri`` / ``arcveltri``) — three streams per arm:
+  ``durhyb`` / ``profhyb`` with the gripper moved off the translation arc onto its own stream, sampled along
+  its own travel (sum |d grip|, over the whole window) at M evenly spaced targets and timed by its own column:
+  ``(M, 20) = [14 canonical | translation L, R | rotation L, R | gripper L, R]``. Row ``M-1`` of the gripper
+  column is its start delay; a gripper hold (travel under ``GRIPPER_HOLD_EPSILON``) keeps grip[0] and an
+  all-zero column. So a grasp that closes after the arm stops, or while it turns in place, keeps its timing
+  (``durhyb`` samples it on the translation arc and loses it once translation ends).
+
 * ``fixed_spacing`` — theory design rule 1: waypoints are ALWAYS ``h = D / (M - 1)`` apart.
   A partial token (path shorter than D inside the window — 29 % of arm-tokens on ABC
   skirts, 50 % on stationery, 8 % on mecka) keeps its first ``n_valid`` waypoints at
@@ -104,13 +112,21 @@ ARM_LAYOUT = ((0, 3, 6, slice(0, 3)), (7, 10, 13, slice(7, 10)))
 E1_ARCVEL_DIM = 16
 # durhyb: [14 canonical | translation dt L, R | rotation dt L, R]
 E1_ARCDURHYB_DIM = 18  # also profhyb: [14 canonical | translation v L, R | rotation omega L, R]
-HYBRID_MODES = ("durhyb", "profhyb")
+# durtri / proftri: [14 canonical | translation L, R | rotation L, R | gripper L, R] -- the gripper gets its own stream
+E1_ARCDURTRI_DIM = 20
+TRI_MODES = ("durtri", "proftri")
+HYBRID_MODES = ("durhyb", "profhyb", *TRI_MODES)
+SPEED_MODES = ("profhyb", "proftri")  # timing columns hold interval speeds, not durations
 # Rotation budget of the hybrid token: a full turn, i.e. the rotation stream spans the whole source window.
 # The lab hybrid's 24 deg (R24deg) fits a chunk that ENDS when a budget is spent; the E1 YAM window is a fixed
 # 100 frames, and on rl2 stationery the wrist turns more than 24 deg in 63 % of arm-windows (median 52 deg,
 # p90 123 deg), so a 24 deg stream froze the wrist for the rest of the window: GT round-trip geodesic error
 # 11.7 deg vs 1.1 deg for plain arcdur, and 0.07 deg with this budget (1,500 val windows, 2026-09-30).
 DEFAULT_ROTATION_DISTANCE_UNIT = 2 * np.pi
+# durtri / proftri: a gripper stream whose total travel (sum |d grip|, grip in [0, 1]) is under this is a hold. On 1,500
+# rl2 YAM stationery 100-frame windows (2026-10-06) 28.5 % of arm-windows have travel < 1e-6 and only 0.6 % more fall in
+# [1e-6, 1e-3); above that travel is spread continuously. Aria human grippers are always 0 (a hold).
+GRIPPER_HOLD_EPSILON = 1e-3
 
 
 def _dur_col_to_speed(col: np.ndarray, seg: np.ndarray, eps: float) -> np.ndarray:
@@ -145,6 +161,12 @@ def rotation_arc_length(ypr: np.ndarray) -> np.ndarray:
         return np.zeros(len(ypr))
     rot = R.from_euler("ZYX", ypr)
     return np.concatenate(([0.0], np.cumsum((rot[:-1].inv() * rot[1:]).magnitude())))
+
+
+def gripper_arc_length(grip: np.ndarray) -> np.ndarray:
+    """Cumulative gripper travel (sum of |d grip|) along a (T,) or (T, 1) track."""
+    g = np.asarray(grip, dtype=np.float64).reshape(-1)
+    return np.concatenate(([0.0], np.cumsum(np.abs(np.diff(g)))))
 
 
 def _lerp_rows(x: np.ndarray, f: np.ndarray) -> np.ndarray:
@@ -387,18 +409,20 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         progress_smooth_hz: float | None = None,
         fixed_spacing: bool = False,
         rotation_distance_unit: float = DEFAULT_ROTATION_DISTANCE_UNIT,
+        gripper_hold_epsilon: float = GRIPPER_HOLD_EPSILON,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.fixed_spacing = bool(fixed_spacing)
         self.rotation_distance_unit = float(rotation_distance_unit)
+        self.gripper_hold_epsilon = float(gripper_hold_epsilon)
         if velocity_norm not in ("chord", "path"):
             raise ValueError(
                 f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}"
             )
         if velocity_mode not in ("mean", "profile", "logdur", "dur", *HYBRID_MODES):
             raise ValueError(
-                f"velocity_mode must be 'mean', 'profile', 'logdur', 'dur', 'durhyb' or 'profhyb', got {velocity_mode!r}"
+                f"velocity_mode must be 'mean', 'profile', 'logdur', 'dur', 'durhyb', 'profhyb', 'durtri' or 'proftri', got {velocity_mode!r}"
             )
         if velocity_mode in HYBRID_MODES and self.fixed_spacing:
             raise ValueError(f"{velocity_mode} does not implement fixed_spacing")
@@ -417,10 +441,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     @property
     def token_dim(self) -> int:
+        if self.velocity_mode in TRI_MODES:
+            return E1_ARCDURTRI_DIM
         return E1_ARCDURHYB_DIM if self.velocity_mode in HYBRID_MODES else E1_ARCVEL_DIM
 
     def _tokenize_arm_hybrid(self, arm: np.ndarray):
-        """durhyb, one arm (T, 7) -> (waypoints (M, 7), translation dt (M,), rotation dt (M,)).
+        """durhyb, one arm (T, 7) -> (waypoints (M, 7), translation dt (M,), rotation dt (M,), gripper dt (M,) or None).
 
         xyz and gripper are sampled along the translation arc (budget D), ypr along the arm's own
         rotation arc (budget ``rotation_distance_unit``), each at M evenly spaced targets. Each
@@ -429,6 +455,10 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         that begins after the arm stops translating starts on time at decode. A translation hold
         keeps the arm put and times the gripper uniformly over the window (the plain token drops
         that gripper motion); a rotation hold keeps ypr[0].
+
+        durtri: the gripper is a third stream instead, sampled along its own travel (sum |d grip|,
+        the whole window) with its own duration column; a gripper hold (travel under
+        ``gripper_hold_epsilon``) keeps grip[0] and an all-zero column, as a rotation hold does.
         """
         M, dt = self.M, self.tokenizer.config.dt
         eps = self.tokenizer.config.zero_dist_epsilon
@@ -436,9 +466,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         n = len(pos_raw)
         frames = np.arange(n, dtype=np.float64)
 
-        def targets(cum, budget):  # fractional source frame at each waypoint, or None for a hold
+        def targets(cum, budget, hold_eps=eps):  # fractional source frame at each waypoint, or None for a hold
             span = min(float(budget), float(cum[-1])) if n > 1 else 0.0
-            return None if span < eps else np.interp(np.linspace(0.0, span, M), cum, frames)
+            return None if span < hold_eps else np.interp(np.linspace(0.0, span, M), cum, frames)
 
         def durations(f):  # rows 0..M-2 interval seconds, row M-1 start delay
             seg = np.maximum(np.diff(f) * dt, LOGDUR_MIN_DT)
@@ -452,7 +482,16 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         else:
             xyz = _lerp_rows(pos, f_t)
             xyz[0] = pos_raw[0]
-        grip_wp = _lerp_rows(grip, f_t)
+        g_dt = None
+        if self.velocity_mode in TRI_MODES:
+            f_g = targets(gripper_arc_length(grip), np.inf, self.gripper_hold_epsilon)
+            if f_g is None:
+                grip_wp, g_dt = np.repeat(grip[:1], M, 0), np.zeros(M)
+            else:
+                grip_wp, g_dt = _lerp_rows(grip, f_g), durations(f_g)
+                grip_wp[0] = grip[0]
+        else:
+            grip_wp = _lerp_rows(grip, f_t)
         f_r = targets(rotation_arc_length(ypr), self.rotation_distance_unit)
         if f_r is None:
             ypr_wp, r_dt = np.repeat(ypr[:1], M, 0), np.zeros(M)
@@ -460,7 +499,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             ypr_wp, r_dt = _slerp_rows(ypr, f_r), durations(f_r)
             ypr_wp[0] = ypr[0]
         t_dt = durations(f_t) if n > 1 else np.zeros(M)
-        return np.concatenate([xyz, ypr_wp, grip_wp], axis=1), t_dt, r_dt
+        return np.concatenate([xyz, ypr_wp, grip_wp], axis=1), t_dt, r_dt, g_dt
 
     @staticmethod
     def _stream_index(col: np.ndarray, span: float, t: np.ndarray, lo: float, hi: float):
@@ -484,15 +523,22 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             grip_wp = arc[:, grip_off : grip_off + 1]
             cum_t, cum_r = cumulative_arc_length(xyz_wp), rotation_arc_length(ypr_wp)
             t_col, r_col = arc[:, 14 + k], arc[:, 16 + k]
-            if self.velocity_mode == "profhyb":
+            tri = self.velocity_mode in TRI_MODES
+            if tri:
+                cum_g, g_col = gripper_arc_length(grip_wp), arc[:, 18 + k]
+            if self.velocity_mode in SPEED_MODES:
                 eps, hold = self.tokenizer.config.zero_dist_epsilon, self.tokenizer.config.dt * (h - 1)
                 t_col = _speed_col_to_dur(t_col, np.diff(cum_t), eps, hold)
                 r_col = _speed_col_to_dur(r_col, np.diff(cum_r), eps, hold)
+                if tri:
+                    g_col = _speed_col_to_dur(g_col, np.diff(cum_g), self.gripper_hold_epsilon, hold)
             f_t = self._stream_index(t_col, float(cum_t[-1]), t, self.min_speed, 5.0)
             f_r = self._stream_index(r_col, float(cum_r[-1]), t, 0.01, 20.0)
+            # gripper speed bounds wide enough never to bind on real tokens (it is a rescue for wild predictions only)
+            f_g = self._stream_index(g_col, float(cum_g[-1]), t, 1e-3, 100.0) if tri else f_t
             arms.append(
                 np.concatenate(
-                    [_lerp_rows(xyz_wp, f_t), _slerp_rows(ypr_wp, f_r), _lerp_rows(grip_wp, f_t)],
+                    [_lerp_rows(xyz_wp, f_t), _slerp_rows(ypr_wp, f_r), _lerp_rows(grip_wp, f_g)],
                     axis=-1,
                 )
             )
@@ -575,18 +621,22 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             return batch
 
         if self.velocity_mode in HYBRID_MODES:
-            wps, t_dts, r_dts = [], [], []
+            wps, t_dts, r_dts, g_dts = [], [], [], []
             for xyz_off, _, _, _ in ARM_LAYOUT:
-                wp, t_dt, r_dt = self._tokenize_arm_hybrid(chunk[:, xyz_off : xyz_off + 7])
-                if self.velocity_mode == "profhyb":
+                wp, t_dt, r_dt, g_dt = self._tokenize_arm_hybrid(chunk[:, xyz_off : xyz_off + 7])
+                if self.velocity_mode in SPEED_MODES:
                     eps = self.tokenizer.config.zero_dist_epsilon
                     t_dt = _dur_col_to_speed(t_dt, np.diff(cumulative_arc_length(wp[:, 0:3])), eps)
                     r_dt = _dur_col_to_speed(r_dt, np.diff(rotation_arc_length(wp[:, 3:6])), eps)
+                    if g_dt is not None:
+                        g_dt = _dur_col_to_speed(g_dt, np.diff(gripper_arc_length(wp[:, 6])), self.gripper_hold_epsilon)
                 wps.append(wp)
                 t_dts.append(t_dt)
                 r_dts.append(r_dt)
+                if g_dt is not None:
+                    g_dts.append(g_dt)
             batch[self.output_action_key] = np.concatenate(
-                [np.concatenate(wps, axis=1), np.stack(t_dts + r_dts, axis=1)], axis=1
+                [np.concatenate(wps, axis=1), np.stack(t_dts + r_dts + g_dts, axis=1)], axis=1
             )
             return batch
 
@@ -739,9 +789,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         """Time-of-progress at the M waypoints from one arm's timing column."""
         if self.velocity_mode == "logdur":
             return durations_to_clock(col, cum, min_speed=self.min_speed)
-        if self.velocity_mode in ("dur", "durhyb"):  # durhyb: the translation clock
+        if self.velocity_mode in ("dur", "durhyb", "durtri"):  # durhyb / durtri: the translation clock
             return durations_to_clock_abs(col, cum, min_speed=self.min_speed)
-        if self.velocity_mode == "profhyb":  # the translation clock, from speeds
+        if self.velocity_mode in SPEED_MODES:  # the translation clock, from speeds
             cfg = self.tokenizer.config
             dur = _speed_col_to_dur(col, np.diff(cum), cfg.zero_dist_epsilon, cfg.dt * (len(col) - 1))
             return durations_to_clock_abs(dur, cum, min_speed=self.min_speed)

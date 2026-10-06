@@ -27,7 +27,7 @@ from pathlib import Path
 CONS = Path(__file__).resolve().parents[2]
 H = CONS / "egomimic/hydra_configs"
 MIRROR = "/storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets"
-VARIANTS = ("time", "arcdur", "arcdurhyb", "arcvel", "arcvelhyb")
+VARIANTS = ("time", "arcdur", "arcdurhyb", "arcvel", "arcvelhyb", "arcdurtri", "arcveltri")
 OUT = {v: H / f"data/abc_arc/stationery_slowpace_aria_cotrain_{v}.yaml" for v in VARIANTS}
 OUT_BC = {v: H / f"data/abc_arc/stationery_slowpace_bc_{v}.yaml" for v in VARIANTS}
 TEMPO = CONS / "scripts/e1/stationery_tempo_manifest.json"

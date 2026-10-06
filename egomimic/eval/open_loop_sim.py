@@ -486,8 +486,9 @@ def arc_prefix_control_steps(
 # E1 wide (M, 16) layouts: each row is one waypoint's 14 pose columns followed by
 # one timing column per arm. Names and velocity modes match
 # robot/arc_decoder.E1_VELOCITY_MODE, the decoder the robot runs. The hybrid
-# layouts (M, 18) carry a translation and a rotation timing column per arm, and
-# their row M-1 is each stream's start delay rather than an interval.
+# layouts (M, 18) carry a translation and a rotation timing column per arm (the
+# tri layouts (M, 20) add a gripper column per arm), and their row M-1 is each
+# stream's start delay rather than an interval.
 E1_WIDE_TOKEN_DIM = 16
 E1_WIDE_VELOCITY_MODE = {
     "e1_dur": "dur",
@@ -495,12 +496,17 @@ E1_WIDE_VELOCITY_MODE = {
     "e1_profile": "profile",
     "e1_durhyb": "durhyb",
     "e1_profhyb": "profhyb",
+    "e1_durtri": "durtri",
+    "e1_proftri": "proftri",
 }
-E1_HYBRID_LAYOUTS = ("e1_durhyb", "e1_profhyb")
+E1_TRI_LAYOUTS = ("e1_durtri", "e1_proftri")
+E1_HYBRID_LAYOUTS = ("e1_durhyb", "e1_profhyb", *E1_TRI_LAYOUTS)
 TOKEN_LAYOUTS = ("lab", *E1_WIDE_VELOCITY_MODE)
 
 
 def e1_token_dim(layout: str) -> int:
+    if layout in E1_TRI_LAYOUTS:
+        return 20
     return 18 if layout in E1_HYBRID_LAYOUTS else E1_WIDE_TOKEN_DIM
 
 
@@ -512,16 +518,16 @@ def truncate_e1_wide_token(
     Every row carries one waypoint together with that waypoint's timing entry
     for each arm, so truncating rows keeps each executed waypoint with its own
     timing -- the ``(M, 16)`` counterpart of :func:`truncate_arc_token`.
-    ``hybrid`` (M, 18): each stream is cut to the first fraction of its own arc,
+    ``hybrid`` (M, 18) or tri (M, 20): each stream is cut to the first fraction of its own arc,
     and the kept last row takes the stream's start delay from row M-1, which is
     where the hybrid codec reads it.
     """
 
     value = np.asarray(token, dtype=np.float64)
-    dim = 18 if hybrid else E1_WIDE_TOKEN_DIM
-    if value.ndim != 2 or value.shape[1] != dim:
+    dims = (18, 20) if hybrid else (E1_WIDE_TOKEN_DIM,)
+    if value.ndim != 2 or value.shape[1] not in dims:
         raise ValueError(
-            f"E1 wide ARC token must have shape (M, {dim}), "
+            f"E1 wide ARC token must have shape (M, {' or '.join(map(str, dims))}), "
             f"got {value.shape}"
         )
     fraction = float(execute_fraction)
@@ -548,7 +554,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
     ``token_layout`` selects the ARC codec: ``lab`` for the ``(M+1, 14)`` /
     ``(2M, 14)`` layouts chosen by ``velocity_mode``, ``e1_dur`` /
     ``e1_logdur`` / ``e1_profile`` for the E1 wide ``(M, 16)`` layouts, or
-    ``e1_durhyb`` / ``e1_profhyb`` for the E1 hybrid ``(M, 18)`` layouts.
+    ``e1_durhyb`` / ``e1_profhyb`` for the E1 hybrid ``(M, 18)`` layouts, or
+    ``e1_durtri`` / ``e1_proftri`` for the tri ``(M, 20)`` layouts (own gripper stream).
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model

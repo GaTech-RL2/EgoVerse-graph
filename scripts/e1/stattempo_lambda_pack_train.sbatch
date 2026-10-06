@@ -13,8 +13,10 @@
 #   EXTRA="trainer.max_steps=300 ..."   appended to every run (smoke tests)
 #   RUN_ROOT=...                          required, e.g. /workspace/users/$USER/stattempo/runs
 #   GPUS_PER_RUN=1                        must match the experiments' trainer.devices
+#   Fewer than 8 GPUs (2026-10-06): pipe the script without its --exclusive/--gres/--cpus-per-task lines and pass e.g.
+#   --gres=gpu:h100:4 --cpus-per-task=112 on the sbatch line; CPUs per run follow the allocation.
 #   RUNS="exp/a exp/b+exp/c"             a '+' group shares ONE GPU step (GPUS_PER_RUN=1 only): both runs train on the same
-#                                         GPU, each with its own port and log; CPUs (192 / runs) and memory (180G / run)
+#                                         GPU, each with its own port and log; CPUs (6/7 of the allocation / runs) and memory (180G / run)
 #                                         are split per run, so 10 runs fit 8 GPUs (2026-10-05).
 #
 #SBATCH --job-name=stattempo
@@ -39,7 +41,7 @@ read -r -a steps <<< "${RUNS:?set RUNS to space-separated +experiment names}"
 (( ${#steps[@]} * G <= 8 )) || { echo "${#steps[@]} GPU steps x $G GPUs do not fit one node" >&2; exit 2; }
 nruns=$(tr ' +' '\n\n' <<< "$RUNS" | grep -c .)
 (( nruns == ${#steps[@]} || G == 1 )) || { echo "'+' GPU sharing needs GPUS_PER_RUN=1" >&2; exit 2; }
-CPR=$(( 192 / (nruns * G) ))   # CPUs per run (per task)
+CPR=$(( ${SLURM_CPUS_ON_NODE:-224} * 6 / 7 / (nruns * G) ))   # CPUs per run (per task): 6/7 of the allocation (192 of a full node)
 test -s "$IMAGE" && test -e "$VENV/bin/python" && test -s "$SRC/COMMIT"
 echo "=== pack_train job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(cat "$SRC/COMMIT") steps=${steps[*]}"
 

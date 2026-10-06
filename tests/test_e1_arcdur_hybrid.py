@@ -89,3 +89,41 @@ def test_profhyb_decodes_like_durhyb():
     _, dec = _roundtrip("profhyb", _delayed_turn())
     assert np.abs(dec[:30, 3]).max() < np.deg2rad(1)  # the delayed turn does not start early
     assert np.abs(dec[:, 3] - _delayed_turn()[:, 3]).max() < np.deg2rad(2)
+
+
+# -- arcdurtri / arcveltri (durtri / proftri): the gripper gets its own stream ----------------------
+
+def test_tri_shape_and_gripper_columns():
+    arc, _ = _roundtrip("durtri", _chunk())
+    assert arc.shape == (100, 20)
+    assert np.all(arc[:, 14:] >= 0)
+    assert arc[:, 18].sum() > 0 and arc[:, 19].sum() > 0  # both grippers move: both gripper clocks carry time
+    still = _chunk()
+    still[:, 6], still[:, 13] = 0.3, 0.7
+    arc, dec = _roundtrip("durtri", still)
+    assert np.allclose(arc[:, 18:], 0)  # gripper holds: all-zero columns
+    assert np.allclose(dec[:, 6], 0.3) and np.allclose(dec[:, 13], 0.7)
+
+
+def test_tri_gripper_keeps_its_own_timing():
+    """Left gripper closes over frames 30-70, after the arm stops translating at frame 30: durhyb samples the
+    gripper on the translation arc, whose last interval smears the close over frames 30-99; durtri times it on
+    its own clock."""
+    c = _chunk()
+    _, dec_t = _roundtrip("durtri", c)
+    _, dec_h = _roundtrip("durhyb", c)
+    assert np.abs(dec_t[:, 6] - c[:, 6]).max() < 0.05
+    assert np.abs(dec_h[:, 6] - c[:, 6]).max() > 0.3  # durhyb: 0.42 (one translation interval smears the close); durtri: 0.01
+    assert np.abs(dec_t[:, 13] - c[:, 13]).max() < 0.05
+    assert np.abs(dec_t[:, 0:3] - c[:, 0:3]).max() < 5e-3  # translation and rotation as in durhyb
+    assert np.abs(dec_t[:, 3] - c[:, 3]).max() < np.deg2rad(2)
+
+
+def test_proftri_decodes_like_durtri():
+    for c in (_chunk(), _delayed_turn()):
+        arc_v, dec_v = _roundtrip("proftri", c)
+        arc_d, dec_d = _roundtrip("durtri", c)
+        assert arc_v.shape == (100, 20) and np.allclose(arc_v[:, :14], arc_d[:, :14])
+        assert np.abs(dec_v - dec_d).max() < 1e-6
+    arc, _ = _roundtrip("proftri", _delayed_turn())
+    assert np.allclose(arc[:, 18:], 0)  # no gripper motion: all zeros, no rare large value in row M-1

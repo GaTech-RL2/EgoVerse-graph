@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
+from egomimic.utils.batch_utils import map_batches
 
 
 class DPStyleObsEncoder(nn.Module):
@@ -85,7 +86,7 @@ class FusedObsEncoder(Stage):
         conflicts = sorted(set(arguments) & reserved_arguments)
         if conflicts:
             raise ValueError(
-                "forward_context cannot replace encoder inputs: " f"{conflicts}"
+                f"forward_context cannot replace encoder inputs: {conflicts}"
             )
         if self.n_obs_steps <= 0:
             raise ValueError("n_obs_steps must be positive")
@@ -164,6 +165,18 @@ class FusedObsEncoder(Stage):
         batch["condition"] = encoded.reshape(batch_size, n_obs * encoded.shape[-1])
 
         return batch
+
+    def execute_batches(self, batches, *, mode):
+        if self.forward_context:
+            return super().execute_batches(batches, mode=mode)
+        inputs = {
+            source: {key: batch[key] for key in self.reads}
+            for source, batch in batches.items()
+        }
+        encoded = map_batches(inputs, lambda values: self.forward(values)["condition"])
+        for source, batch in batches.items():
+            batch["condition"] = encoded[source]
+        return batches
 
 
 class GaussianLatentNoise(Stage):

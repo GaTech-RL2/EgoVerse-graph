@@ -1,7 +1,5 @@
 """Optional PI0.5 policy as a graph stage with explicit normalization ownership."""
 
-from collections.abc import Mapping
-
 import torch
 from hydra.utils import instantiate
 
@@ -119,3 +117,15 @@ class PI05Stage(Stage):
                     {self.action_key: native}, embodiment
                 )[self.action_key]
         return batch
+
+    def execute_batches(self, batches, *, mode):
+        if mode != "train":
+            return super().execute_batches(batches, mode=mode)
+        prepared = {}
+        for source, batch in batches.items():
+            embodiment, values = self.prepare(batch)
+            prepared[source] = (embodiment, values[embodiment])
+        losses = self.backend.training_losses(prepared)
+        for source, batch in batches.items():
+            batch["loss/pi05"] = losses[source]
+        return batches

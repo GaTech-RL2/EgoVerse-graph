@@ -6,6 +6,7 @@ from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import DataLoader, Dataset, default_collate
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.weighted_dataset import WeightedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +173,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_dataloader_params: dict,
         valid_episode_limit: int | None = None,
         force_valid_order: bool = False,
+        dataset_weights: dict | None = None,
+        weighted_dataloader_params: dict | None = None,
+        samples_per_epoch: int | None = None,
+        sampling_seed: int = 42,
     ):
         """
         Args:
@@ -226,6 +231,20 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
         self.collate_fn = annotation_collate
+        self.weighted_dataset = (
+            WeightedDataset(self.train_datasets, dataset_weights)
+            if dataset_weights is not None
+            else None
+        )
+        self.weighted_dataloader_params = weighted_dataloader_params
+        self.samples_per_epoch = samples_per_epoch
+        self.sampling_seed = sampling_seed
+        if self.weighted_dataset is not None and not weighted_dataloader_params:
+            raise ValueError("dataset_weights requires weighted_dataloader_params")
+        if self.weighted_dataset is None and (
+            weighted_dataloader_params is not None or samples_per_epoch is not None
+        ):
+            raise ValueError("Weighted loader settings require dataset_weights")
 
     def iter_valid_datasets(self):
         """Yield ``(group, source, dataset)`` for EVERY val dataset.
@@ -241,6 +260,26 @@ class MultiDataModuleWrapper(LightningDataModule):
                 yield group, source, dataset
 
     def train_dataloader(self):
+        if self.weighted_dataset is not None:
+            params = dict(self.weighted_dataloader_params)
+            if any(
+                key in params
+                for key in ("shuffle", "sampler", "batch_sampler", "collate_fn")
+            ):
+                raise ValueError("The weighted loader owns sampling and collation")
+            trainer = self.trainer
+            sampler = self.weighted_dataset.sampler(
+                num_samples=self.samples_per_epoch,
+                seed=self.sampling_seed,
+                num_replicas=trainer.world_size if trainer is not None else 1,
+                rank=trainer.global_rank if trainer is not None else 0,
+            )
+            return DataLoader(
+                self.weighted_dataset,
+                sampler=sampler,
+                collate_fn=weighted_collate,
+                **params,
+            )
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name)
@@ -288,8 +327,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             requested_shuffle = dataset_params.pop("shuffle", False)
             if self.force_valid_order and requested_shuffle:
                 logger.warning(
-                    "Forcing shuffle=False for ordered validation group %s, "
-                    "source %s",
+                    "Forcing shuffle=False for ordered validation group %s, source %s",
                     group_name,
                     dataset_name,
                 )
@@ -335,7 +373,16 @@ def _extract_keys(batch, keys):
 
 def annotation_collate(batch):
     """Collate that preserves variable-length list-valued keys (e.g. annotation_keys)."""
+    batch = [dict(sample) for sample in batch]
     extracted = _extract_list_keys(batch)
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
+
+
+def weighted_collate(batch):
+    """Keep each dataset's schema intact until model-side homogeneous batching."""
+    by_dataset = {}
+    for name, sample in batch:
+        by_dataset.setdefault(name, []).append(sample)
+    return {name: annotation_collate(samples) for name, samples in by_dataset.items()}

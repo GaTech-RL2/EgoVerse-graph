@@ -157,3 +157,19 @@ def test_cpu_checkpoint_path_does_not_query_cuda_health(monkeypatch):
         raise AssertionError("CPU must not query CUDA")
     monkeypatch.setattr(torch.cuda, "get_device_properties", forbidden)
     validate_cuda_health(torch.device("cpu"))
+
+
+@pytest.mark.parametrize("uuid", ["01234567-89ab-cdef-0123-456789abcdef",
+                                 "GPU-01234567-89ab-cdef-0123-456789abcdef"])
+def test_cuda_health_uses_nvml_uuid_prefix(monkeypatch, uuid):
+    from types import SimpleNamespace
+    import egomimic.eval.core.action_flow_rollout as bridge
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda device: SimpleNamespace(uuid=uuid))
+    calls = []
+    def query(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(stdout="healthy")
+    monkeypatch.setattr(bridge.subprocess, "run", query)
+    monkeypatch.setattr(bridge, "parse_ecc_health", lambda report: None)
+    bridge.validate_cuda_health(torch.device("cuda:0"))
+    assert calls == [["nvidia-smi", "-q", "-i", "GPU-01234567-89ab-cdef-0123-456789abcdef"]]

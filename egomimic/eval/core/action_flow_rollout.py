@@ -31,7 +31,11 @@ def validate_cuda_health(device):
     uuid = getattr(properties, "uuid", None)
     if not uuid:
         raise RuntimeError("CUDA device UUID required for exact allocated-GPU health check")
-    report = subprocess.run(["nvidia-smi", "-q", "-i", str(uuid)],
+    # PyTorch returns the bare UUID; NVML's selector requires the GPU- prefix.
+    nvml_uuid = str(uuid)
+    if not nvml_uuid.startswith(("GPU-", "MIG-")):
+        nvml_uuid = "GPU-" + nvml_uuid
+    report = subprocess.run(["nvidia-smi", "-q", "-i", nvml_uuid],
                             check=True, capture_output=True, text=True, timeout=30)
     parse_ecc_health(report.stdout)
 

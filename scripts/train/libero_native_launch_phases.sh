@@ -35,9 +35,9 @@ fi
 # Prove official phase composition/cache identity before GPU initialization.
 "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action prepare --repo "$AF_REPO" --output "$ATTEMPT" --argv "$ATTEMPT/exact-phase.argv0" --phase "$phase"
 scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
-"$AF_PYTHON" "$AF_SLURM_CONTRACT_VALIDATOR" --record "$ATTEMPT/slurm_job.txt" --expected-job-id "$SLURM_JOB_ID" --expected-account "$AF_EXPECTED_ACCOUNT" --expected-partition "$SLURM_JOB_PARTITION" --expected-qos "$AF_EXPECTED_QOS" --expected-cpus 8 --expected-memory "$AF_EXPECTED_MEMORY" --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" --expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT" --output "$ATTEMPT/SLURM_JOB_CONTRACT.json"
 SRUN=$(command -v srun);test -x "$SRUN" || die "srun unavailable";export SRUN
 "$SRUN" --overlap --nodes=1 --ntasks=1 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered "$AF_PYTHON" "$AF_GPU_PROBE" --expected-world-size 1 --allowed-gpu-name 'NVIDIA H100 80GB HBM3' --allowed-gpu-name 'NVIDIA H200' --output "$ATTEMPT/gpu_probe.json"
+"$AF_PYTHON" "$AF_SLURM_CONTRACT_VALIDATOR" --record "$ATTEMPT/slurm_job.txt" --expected-job-id "$SLURM_JOB_ID" --expected-account "$AF_EXPECTED_ACCOUNT" --expected-partition "$SLURM_JOB_PARTITION" --expected-qos "$AF_EXPECTED_QOS" --expected-cpus 8 --expected-memory "$AF_EXPECTED_MEMORY" --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" --expected-constraint "(null)" --native-profile "$AF_EXPERIMENT" --gpu-probe "$ATTEMPT/gpu_probe.json" --gpu-probe-sha256 "$(sha256 "$ATTEMPT/gpu_probe.json")" --output "$ATTEMPT/SLURM_JOB_CONTRACT.json"
 if test "$phase" = full; then
  measured=$($AF_PYTHON -c 'import json,os; p=json.load(open(os.environ["AF_SMOKE_RESULT"])); v=p["checkpoint"]["file_size_bytes"]; assert isinstance(v,int) and v>0; print(v)')
  "$AF_PYTHON" "$AF_STORAGE_VALIDATOR" --target "$AF_OUTPUT_DIR" --planned-checkpoint-count 16 --measured-checkpoint-bytes "$measured" --safety-reserve-bytes "$AF_STORAGE_SAFETY_RESERVE_BYTES" --output "$ATTEMPT/CHECKPOINT_STORAGE.json"

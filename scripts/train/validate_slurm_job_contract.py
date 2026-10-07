@@ -186,10 +186,18 @@ def evaluate_contract(
     expected_memory: str,
     expected_time_limit: str,
     expected_constraint: str,
+    native_profile: str | None = None,
+    gpu_probe: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Return expected values, observed values, and every failed comparison."""
 
-    if expected_constraint not in ALLOWED_CONSTRAINTS:
+    native = native_profile is not None
+    if native:
+        if native_profile != 'libero/action_flow_libero10_h240_euler50_dithalf_80k_s42' or expected_constraint != '(null)':
+            raise ContractError('exact native LIBERO profile and literal no-constraint contract required')
+        if not gpu_probe or gpu_probe.get('status') != 'PASSED' or gpu_probe.get('gpu_name') != 'NVIDIA H100 80GB HBM3' or gpu_probe.get('world_size') != 1 or gpu_probe.get('rank') != 0 or gpu_probe.get('local_rank') != 0 or gpu_probe.get('bf16_supported') is not True or gpu_probe.get('bf16_forward_backward', {}).get('finite') is not True:
+            raise ContractError('actual single H100 finite BF16 GPU probe required')
+    if not native and expected_constraint not in ALLOWED_CONSTRAINTS:
         raise ContractError(
             "constraint must be one of "
             f"{sorted(ALLOWED_CONSTRAINTS)!r}, got {expected_constraint!r}"
@@ -255,7 +263,8 @@ def evaluate_contract(
         "constraint": expected_constraint,
         "time_limit_raw": expected_time_limit,
         "time_limit_seconds": expected_time_limit_seconds,
-        "generic_gpu_request_only": True,
+        "generic_gpu_request_only": not native,
+        "native_profile": native_profile,
     }
     comparisons = [
         ("job_id", expected_job_id, observed["job_id"]),
@@ -286,8 +295,14 @@ def evaluate_contract(
             observed["requested_tres_memory_bytes"],
         ),
         ("requested_tres_gpus", 1, observed["requested_tres_gpus"]),
-        ("typed_gpu_tres", [], observed["typed_gpu_tres"]),
+        ("typed_gpu_tres", ["gres/gpu:h100"] if native else [], observed["typed_gpu_tres"]),
     ]
+    if native:
+        allocated = parse_tres(_required_field(fields, 'AllocTRES'))
+        for label, tres in [('requested', requested_tres), ('allocated', allocated)]:
+            comparisons.append((label+'_h100_count', '1', tres.get('gres/gpu:h100')))
+            comparisons.append((label+'_gpu_count', '1', tres.get('gres/gpu')))
+            comparisons.append((label+'_gpu_types', ['gres/gpu:h100'], sorted(k for k in tres if k.startswith('gres/gpu:'))))
     failures = [
         {"field": field, "expected": expected_value, "observed": observed_value}
         for field, expected_value, observed_value in comparisons
@@ -328,8 +343,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-memory", required=True)
     parser.add_argument("--expected-time-limit", required=True)
     parser.add_argument(
-        "--expected-constraint", required=True, type=_constraint, metavar="GPU_CONSTRAINT"
+        "--expected-constraint", required=True, metavar="GPU_CONSTRAINT"
     )
+    parser.add_argument('--native-profile')
+    parser.add_argument('--gpu-probe', type=Path)
+    parser.add_argument('--gpu-probe-sha256')
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
 
@@ -351,6 +369,17 @@ def main() -> int:
     exit_code = 1
     try:
         fields = parse_scontrol_record(record_bytes.decode("utf-8", errors="strict"))
+        probe = None
+        if args.native_profile is not None:
+            if os.environ.get('SLURM_JOB_ID') != args.expected_job_id or not os.environ.get('SLURM_STEP_ID'):
+                raise ContractError('native scheduler proof requires the actual matching scheduled job step')
+            if args.gpu_probe is None or args.gpu_probe_sha256 is None:
+                raise ContractError('native GPU probe path and immutable SHA required')
+            probe_bytes = args.gpu_probe.read_bytes()
+            if _sha256(probe_bytes) != args.gpu_probe_sha256:
+                raise ContractError('native GPU probe SHA mismatch')
+            probe = json.loads(probe_bytes)
+            evidence['gpu_probe'] = {'path': str(args.gpu_probe.resolve()), 'sha256': args.gpu_probe_sha256}
         expected, observed, failures = evaluate_contract(
             fields,
             expected_job_id=args.expected_job_id,
@@ -361,6 +390,8 @@ def main() -> int:
             expected_memory=args.expected_memory,
             expected_time_limit=args.expected_time_limit,
             expected_constraint=args.expected_constraint,
+            native_profile=args.native_profile,
+            gpu_probe=probe,
         )
         evidence.update(
             {

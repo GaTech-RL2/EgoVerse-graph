@@ -1,0 +1,5 @@
+# HPT-300M time twin: the shared graph retains its 14D proprioceptive stem.
+defaults:
+- /model/e1/hpt300_flow_wrists_arcdur@_here_
+- _self_
+action_token_dim: 14

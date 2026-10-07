@@ -12,9 +12,20 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
     bimanual_arc_token_shape,
 )
-from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    DEFAULT_ROTATION_DISTANCE_UNIT,
+    E1_ARCDURHYB_DIM,
+    TokenizeBimanualArcLengthE1,
+)
 
-E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+E1_VELOCITY_MODE = {
+    "e1_dur": "dur",
+    "e1_logdur": "logdur",
+    "e1_profile": "profile",
+    "e1_durhyb": "durhyb",
+    "e1_profhyb": "profhyb",
+}
+E1_HYBRID_LAYOUTS = {"e1_durhyb", "e1_profhyb"}
 ARC_TOKEN_LAYOUTS = ("lab", *E1_VELOCITY_MODE)
 
 
@@ -26,6 +37,7 @@ class BimanualArcDecoder:
         resampled_vector_length=100,
         dt=1 / 30,
         action_horizon=100,
+        rotation_distance_unit=None,
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
@@ -33,10 +45,27 @@ class BimanualArcDecoder:
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
             raise ValueError("Invalid ARC distance, time, horizon or waypoint count")
-        self.shape = (self.M + 1, 14) if token_layout == "lab" else (self.M, 16)
+        self.shape = (
+            (self.M + 1, 14)
+            if token_layout == "lab"
+            else (self.M, E1_ARCDURHYB_DIM if token_layout in E1_HYBRID_LAYOUTS else 16)
+        )
         kwargs = dict(
             min_distance_unit=min_distance_unit, resampled_vector_length=self.M, dt=dt
         )
+        if token_layout in E1_HYBRID_LAYOUTS:
+            rotation_distance_unit = float(
+                DEFAULT_ROTATION_DISTANCE_UNIT
+                if rotation_distance_unit is None
+                else rotation_distance_unit
+            )
+            if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0:
+                raise ValueError(
+                    "Hybrid ARC rotation distance must be finite and positive"
+                )
+            kwargs["rotation_distance_unit"] = rotation_distance_unit
+        elif rotation_distance_unit is not None:
+            raise ValueError("A rotation distance requires an E1 hybrid token layout")
         self.codec = (
             TokenizeBimanualArcLengthCartesian(**kwargs)
             if token_layout == "lab"
@@ -134,6 +163,7 @@ def main():
     parser.add_argument("--arc-resampled-vector-length", type=int, default=100)
     parser.add_argument("--arc-dt", type=float, default=1 / 30)
     parser.add_argument("--arc-rollout-horizon", type=int, default=100)
+    parser.add_argument("--arc-rotation-distance-unit", type=float, default=None)
     args = parser.parse_args()
     decoder = BimanualArcDecoder(
         args.arc_token_layout,
@@ -141,6 +171,7 @@ def main():
         args.arc_resampled_vector_length,
         args.arc_dt,
         args.arc_rollout_horizon,
+        rotation_distance_unit=args.arc_rotation_distance_unit,
     )
     result = decoder(np.load(args.tokens, allow_pickle=False))
     with open(args.output, "xb") as output:

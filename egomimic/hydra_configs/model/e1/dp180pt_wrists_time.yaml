@@ -1,0 +1,9 @@
+# DP-180M time: preserve pretrained camera encoders and the DDIM graph; narrow only the UNet.
+defaults:
+- /model/e1/dp300pt_wrists_arcdur@_here_
+- _self_
+action_token_dim: 14
+unet_down_dims:
+- 488
+- 976
+- 1952

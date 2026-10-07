@@ -49,7 +49,7 @@ nvidia-smi --query-gpu=name,clocks.sm,temperature.gpu --format=csv,noheader
 # GPU CLASS GUARD: job 13307008 once landed on a V100 (no bf16). Refuse anything but H100/H200.
 nvidia-smi --query-gpu=name --format=csv,noheader | grep -qE 'H100|H200' || { echo "WRONG GPU CLASS: $(nvidia-smi --query-gpu=name --format=csv,noheader)" >&2; exit 42; }
 echo "=== FT $ARM -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) ==="
-$PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
+srun "$PY" egomimic/trainHydra.py --config-name=train_zarr_cartesian \
   +experiment=${EXPERIMENT} \
   logger.wandb.id=${ARM}_20260917_s42_j${SLURM_JOB_ID} \
   ${EXTRA:-} \

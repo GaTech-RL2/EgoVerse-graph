@@ -409,7 +409,7 @@ inference_contracts:
       tokenizer:
         variant: arcdurhyb
         distance: ${e1.D}
-        rotation_distance_unit: ${model.rotation_distance_unit}
+        rotation_distance_unit: ${oc.select:model.rotation_distance_unit,6.283185307179586}
         timing_convention: interval_rows_then_start_delay
         layout: e1_durhyb
         waypoints: ${e1.M}
@@ -429,7 +429,7 @@ inference_contracts:
             _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
             token_layout: e1_durhyb
             min_distance_unit: ${e1.D}
-            rotation_distance_unit: ${model.rotation_distance_unit}
+            rotation_distance_unit: ${oc.select:model.rotation_distance_unit,6.283185307179586}
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
@@ -505,7 +505,7 @@ inference_contracts:
       tokenizer:
         variant: arcvelhyb
         distance: ${e1.D}
-        rotation_distance_unit: ${model.rotation_distance_unit}
+        rotation_distance_unit: ${oc.select:model.rotation_distance_unit,6.283185307179586}
         timing_convention: interval_rows_then_start_delay
         layout: e1_profhyb
         waypoints: ${e1.M}
@@ -525,7 +525,7 @@ inference_contracts:
             _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
             token_layout: e1_profhyb
             min_distance_unit: ${e1.D}
-            rotation_distance_unit: ${model.rotation_distance_unit}
+            rotation_distance_unit: ${oc.select:model.rotation_distance_unit,6.283185307179586}
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}

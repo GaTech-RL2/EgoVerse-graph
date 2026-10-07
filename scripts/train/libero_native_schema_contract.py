@@ -2,6 +2,24 @@
 import argparse,hashlib,json,os,subprocess,sys
 from pathlib import Path
 
+def parse_native_saved_state_binding(argv):
+ """Parse official Hydra syntax; OmegaConf dotlists use a different grammar."""
+ from hydra.core.override_parser.overrides_parser import OverridesParser
+ key='norm_stats.native_saved_state_binding'
+ matches=[x for x in argv if '=' in x and x.split('=',1)[0].lstrip('+')==key]
+ if len(matches)!=1: raise ValueError('exactly one native saved-state binding override required')
+ parser=OverridesParser.create()
+ for arg in argv:
+  if arg.startswith('--'): continue
+  parsed=parser.parse_override(arg)
+  if parsed.is_delete() or parsed.is_sweep_override(): raise ValueError('native schema forbids delete or sweep overrides')
+ override=parser.parse_override(matches[0])
+ binding=override.value()
+ keys={'path','file_sha256','normalizer_module_sha256','source_commit','dataset_receipt_path','dataset_receipt_sha256','split_receipt_path','split_receipt_sha256','data_root','normalizer_target','physical_proof_path','physical_proof_sha256'}
+ if not isinstance(binding,dict) or set(binding)!=keys or any(not isinstance(v,str) or not v for v in binding.values()):
+  raise ValueError('exact native saved-state twelve-field string mapping required')
+ return binding
+
 def main():
  p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--phase',choices=['preflight','smoke','full'],required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--argv',type=Path,required=True);p.add_argument('--expected-argv-sha256',required=True);a=p.parse_args()
  if not os.environ.get('SLURM_STEP_ID'): raise RuntimeError('scheduled srun only')
@@ -38,12 +56,11 @@ def main():
  missing=sorted(required-set(supplied))
  if unknown or missing: raise ValueError({'unknown_fields':unknown,'missing_operational_fields':missing})
  if any(k.startswith('evaluator.energy_score_validation_view') for k in supplied): raise ValueError('U-Socket evaluator leak')
- binding=OmegaConf.to_container(OmegaConf.from_dotlist([next(x.lstrip('+') for x in argv if x.startswith('++norm_stats.native_saved_state_binding='))]),resolve=True)['norm_stats']['native_saved_state_binding']
- binding_keys={'path','file_sha256','normalizer_module_sha256','source_commit','dataset_receipt_path','dataset_receipt_sha256','split_receipt_path','split_receipt_sha256','data_root','normalizer_target','physical_proof_path','physical_proof_sha256'}
- if not isinstance(binding,dict) or set(binding)!=binding_keys: raise ValueError('exact native saved-state twelve-field mapping required')
+ binding=parse_native_saved_state_binding(argv)
  # Compose exact array without accelerator or runtime substitutions.
  resolved=subprocess.check_output([sys.executable,'-m','egomimic.trainHydra',*argv,'--cfg','job','--resolve'],cwd=a.repo,text=True)
  path=a.output/'resolved.yaml';path.write_text(resolved);cfg=OmegaConf.create(resolved)
+ if OmegaConf.to_container(cfg.norm_stats.native_saved_state_binding,resolve=True)!=binding: raise ValueError('Hydra binding parser/official compose disagreement')
  validate_resolved(OmegaConf.to_container(cfg,resolve=True),a.phase)
  from libero_native_scientific_contract import validate_scientific_contract
  scientific=validate_scientific_contract(OmegaConf.to_container(cfg,resolve=True),a.phase,a.repo/'assets/libero/historical_af27m_scientific_contract_v1.json','ced1ea16d71ad30fe179a371f3b6e2138765b6596bca50a3806355e05b20eb06')

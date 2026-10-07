@@ -558,14 +558,12 @@
       "disposition": "ported",
       "replacement": "egomimic/hydra_configs/evaluator/viz/cartesian.yaml",
       "evidence": [
-        "docs/integration/RECIPE_PARITY.md",
-        "tests/test_retained_recipe_steps.py",
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
         "tests/test_retained_hpt_variants.py",
-        "tests/test_retained_language.py",
-        "tests/test_alignment_parity.py"
+        "tests/test_retained_pi_parity.py"
       ],
       "remaining_gates": [
-        "real-weight GPU smoke",
         "assembled-destination parity"
       ]
     },
@@ -574,18 +572,34 @@
       "legacy_blob": "e4aae52a72c12dfdaba30830828ee2281aaebe03",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist_lang.yaml",
       "legacy_blob": "97f05d59eee1990cf2a54271180e2fc0a24c53fa",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist_lang.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/cotrain_lang.yaml",
@@ -595,14 +609,12 @@
       "disposition": "ported",
       "replacement": "egomimic/hydra_configs/evaluator/viz/cotrain_lang.yaml",
       "evidence": [
-        "docs/integration/RECIPE_PARITY.md",
-        "tests/test_retained_recipe_steps.py",
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
         "tests/test_retained_hpt_variants.py",
-        "tests/test_retained_language.py",
-        "tests/test_alignment_parity.py"
+        "tests/test_retained_pi_parity.py"
       ],
       "remaining_gates": [
-        "real-weight GPU smoke",
         "assembled-destination parity"
       ]
     },
@@ -614,14 +626,12 @@
       "disposition": "ported",
       "replacement": "egomimic/hydra_configs/evaluator/viz/keypoints.yaml",
       "evidence": [
-        "docs/integration/RECIPE_PARITY.md",
-        "tests/test_retained_recipe_steps.py",
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
         "tests/test_retained_hpt_variants.py",
-        "tests/test_retained_language.py",
-        "tests/test_alignment_parity.py"
+        "tests/test_retained_pi_parity.py"
       ],
       "remaining_gates": [
-        "real-weight GPU smoke",
         "assembled-destination parity"
       ]
     },
@@ -630,36 +640,68 @@
       "legacy_blob": "cf5d1d218c36c2d0ed48feb85d9c748bd0123975",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/keypoints_wrist.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml",
       "legacy_blob": "986364687635aaf420a50c142ea03401211e4909",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang.yaml",
       "legacy_blob": "1a4a1bf9a0fcc9a434dd8a72058be01bd75c4aa7",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml",
       "legacy_blob": "8555eaad3361ffaa4ee24f1035b8be990dc44197",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/hydra_configs/model/egobridge.yaml",
@@ -1110,9 +1152,17 @@
       "legacy_blob": "aa607f953f4887a0d1c8f220ef57b8a1ffe3d24a",
       "category": "recipe",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/hydra_configs/viz_language.yaml",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/models/act_nets.py",
@@ -1184,45 +1234,85 @@
       "legacy_blob": "79ee1deb0865033953ba51f61d3792137c8c7db5",
       "category": "data",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/scripts/eva_process/eva_to_zarr.py",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/data_visualisation.ipynb",
       "legacy_blob": "22cf46dee597d2150ba56a052112175d52d4c34b",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/scripts/viz_language.py",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/data_visualization.py",
       "legacy_blob": "d92beced47e5a09477102ef65d7acf85b5d6d5ae",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/scripts/viz_language.py",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/eva_process/check_zero.py",
       "legacy_blob": "7518630e23a3abd9658e84418fd8f09a6d1c7b21",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/scripts/check_data.py",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/eva_process/check_zero.sbatch",
       "legacy_blob": "ea3afbd2565fb3467631f4258241df3ef0281e12",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/scripts/eva_process/check_zero.sbatch",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/scripts/evaluation/eval.py",
@@ -1238,9 +1328,17 @@
       "legacy_blob": "191eb26401961af861fe8f644276cb32d8aa9a18",
       "category": "tool",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "ported",
+      "replacement": "egomimic/scripts/viz_language.py",
+      "evidence": [
+        "docs/integration/DATA_TOOLS.md",
+        "tests/test_data_tool_parity.py",
+        "tests/test_retained_hpt_variants.py",
+        "tests/test_retained_pi_parity.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/action_utils.py",

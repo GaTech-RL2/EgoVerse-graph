@@ -1,0 +1,4 @@
+# Retained renderer selection; delegates to the same Cartesian renderer as HPT.
+defaults:
+  - cartesian
+  - _self_

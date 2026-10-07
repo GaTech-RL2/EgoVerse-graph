@@ -1,0 +1,4 @@
+# Frame reversion belongs to evaluator=eval_hpt_wrist; renderer receives camera poses.
+defaults:
+  - cartesian
+  - _self_

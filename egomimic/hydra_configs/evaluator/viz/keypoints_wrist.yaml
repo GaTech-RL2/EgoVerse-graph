@@ -1,0 +1,4 @@
+# Frame reversion belongs to evaluator=eval_keypoints_wrist.
+defaults:
+  - keypoints
+  - _self_

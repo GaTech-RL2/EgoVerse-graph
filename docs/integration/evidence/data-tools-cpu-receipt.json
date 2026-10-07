@@ -1,0 +1,12 @@
+{
+  "tree": "56b9fd76171cf78b88ec6dc5e3be8ff356bdebc4",
+  "snapshot": "9e8c615f1adb04263e6ff797229ea3b3823034e3",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-tools-validation-20260924",
+  "status": "passed",
+  "tests": 1392,
+  "warnings": 28,
+  "seconds": 178.65,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "a09c4c474d8919143127fb250095160223855436086231401decb9a3e1c2c943",
+  "scope": "isolated data-tool layer; combined destination and real-data gates remain open"
+}

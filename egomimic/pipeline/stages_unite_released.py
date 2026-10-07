@@ -134,7 +134,7 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             self.action_decoder.action_dims
         ):
             raise ValueError("UNITE encoder and decoder action dimensions must match")
-        if not torch.isfinite(torch.tensor(self.timestep_shift_alpha)):
+        if not torch.isfinite(torch.tensor(self.timestep_shift_alpha, device="cpu")):
             raise ValueError("timestep_shift_alpha must be finite")
         if self.timestep_shift_alpha <= 0.0:
             raise ValueError("timestep_shift_alpha must be positive")
@@ -142,14 +142,18 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise ValueError("UNITE flow sample counts must be positive")
         if self.compile_backbones:
             self._compile_backbones()
-        if not 0 <= self.decoded_action_samples_per_reconstruction <= (
-            self.flow_steps_per_reconstruction
+        if (
+            not 0
+            <= self.decoded_action_samples_per_reconstruction
+            <= (self.flow_steps_per_reconstruction)
         ):
             raise ValueError(
                 "decoded-action samples must be in [0, flow_steps_per_reconstruction]"
             )
-        if not 0 <= self.action_velocity_samples_per_reconstruction <= (
-            self.flow_steps_per_reconstruction
+        if (
+            not 0
+            <= self.action_velocity_samples_per_reconstruction
+            <= (self.flow_steps_per_reconstruction)
         ):
             raise ValueError(
                 "UNITE-AV samples must be in [0, flow_steps_per_reconstruction]"
@@ -164,7 +168,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
             raise ValueError("reconstruction_noising_probability must be in [0, 1]")
         if not 0.0 <= self.condition_dropout_probability <= 1.0:
             raise ValueError("condition_dropout_probability must be in [0, 1]")
-        if not torch.isfinite(torch.tensor(self.cfg_scale)) or self.cfg_scale < 0.0:
+        if (
+            not torch.isfinite(torch.tensor(self.cfg_scale, device="cpu"))
+            or self.cfg_scale < 0.0
+        ):
             raise ValueError("cfg_scale must be finite and non-negative")
         if len(self.cfg_interval) != 2 or not (
             0.0 <= self.cfg_interval[0] < self.cfg_interval[1] <= 1.0
@@ -746,18 +753,16 @@ class ReleasedRecipeUniteObjective(Stage):
         self.decoded_action_weight = float(decoded_action_weight)
         if self.reconstruction_weight <= 0.0 or self.flow_weight <= 0.0:
             raise ValueError("Released UNITE loss weights must be positive")
-        if not torch.isfinite(torch.tensor(self.action_velocity_weight)) or (
-            self.action_velocity_weight < 0.0
-        ):
+        if not torch.isfinite(
+            torch.tensor(self.action_velocity_weight, device="cpu")
+        ) or (self.action_velocity_weight < 0.0):
             raise ValueError(
                 "UNITE-AV action_velocity_weight must be finite and non-negative"
             )
-        if not torch.isfinite(torch.tensor(self.decoded_action_weight)) or (
-            self.decoded_action_weight < 0.0
-        ):
-            raise ValueError(
-                "decoded_action_weight must be finite and non-negative"
-            )
+        if not torch.isfinite(
+            torch.tensor(self.decoded_action_weight, device="cpu")
+        ) or (self.decoded_action_weight < 0.0):
+            raise ValueError("decoded_action_weight must be finite and non-negative")
 
     def forward(self, batch: dict) -> dict:
         reconstruction = _mse(batch["unite/reconstructed_action"], batch["target"])
@@ -771,14 +776,14 @@ class ReleasedRecipeUniteObjective(Stage):
             raise RuntimeError("Released UNITE flow loss must be a finite scalar")
         if action_velocity.ndim != 0 or not bool(torch.isfinite(action_velocity)):
             raise RuntimeError("UNITE-AV action-velocity loss must be a finite scalar")
-        if (
-            self.action_velocity_weight > 0.0
-            and int(action_velocity_sample_count) <= 0
-        ):
+        if self.action_velocity_weight > 0.0 and int(action_velocity_sample_count) <= 0:
             raise RuntimeError(
                 "UNITE-AV objective is enabled but the policy sampled no AV bridges"
             )
-        if self.action_velocity_weight == 0.0 and int(action_velocity_sample_count) != 0:
+        if (
+            self.action_velocity_weight == 0.0
+            and int(action_velocity_sample_count) != 0
+        ):
             raise RuntimeError(
                 "Baseline UNITE cannot silently execute action-velocity samples"
             )
@@ -790,9 +795,7 @@ class ReleasedRecipeUniteObjective(Stage):
         decoded_action = batch["unite/decoded_action_loss"]
         if decoded_action.ndim != 0 or not bool(torch.isfinite(decoded_action)):
             raise RuntimeError("decoded-action loss must be a finite scalar")
-        batch["loss/unite_decoded_action"] = (
-            self.decoded_action_weight * decoded_action
-        )
+        batch["loss/unite_decoded_action"] = self.decoded_action_weight * decoded_action
         batch["log/unite_reconstruction"] = reconstruction.detach()
         batch["log/unite_reconstruction_l1"] = reconstruction_l1.detach()
         batch["log/unite_latent"] = flow.detach()

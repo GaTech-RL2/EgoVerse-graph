@@ -290,7 +290,7 @@ def run_finalize_snapshot(args):
         )
     items = read_backup_manifest(manifest_path)
     if args.limit is not None:
-        items = items[:args.limit]
+        items = items[: args.limit]
     planned, plan = build_finalize_plan(args, items)
     plan_path = args.plan_output.expanduser().resolve()
     plan_sha256 = _write_exact_plan(plan_path, plan)

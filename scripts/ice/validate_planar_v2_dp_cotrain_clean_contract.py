@@ -44,15 +44,23 @@ def main() -> None:
     assert str(cfg.trainer.precision) == "bf16"
     assert int(cfg.trainer.max_steps) == args.expected_steps
     assert int(cfg.trainer.val_check_interval) == args.validation_interval
-    assert int(cfg.callbacks.model_checkpoint.every_n_train_steps) == args.checkpoint_interval
+    assert (
+        int(cfg.callbacks.model_checkpoint.every_n_train_steps)
+        == args.checkpoint_interval
+    )
     assert cfg.callbacks.model_checkpoint.save_top_k == -1
     assert Path(cfg.norm_stats.precomputed_norm_path).resolve() == args.norm.resolve()
     assert float(cfg.norm_stats.sample_frac) == 1.0
-    stage_names = [stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.pipeline.stages]
+    stage_names = [
+        stage._target_.rsplit(".", 1)[-1] for stage in cfg.model.pipeline.stages
+    ]
     assert stage_names == STAGES
     assert split["status"] == "PASS"
     assert split["cross_domain_train_valid_resolved_path_overlap_count"] == 0
-    counts = {(d["total_count"], d["train_count"], d["valid_count"]) for d in split["domains"].values()}
+    counts = {
+        (d["total_count"], d["train_count"], d["valid_count"])
+        for d in split["domains"].values()
+    }
     assert counts == {(2999, 2970, 29), (3000, 2970, 30)}
     model = instantiate(cfg.model.pipeline)
     assert sum(p.numel() for p in model.nets.parameters()) == args.parameter_count

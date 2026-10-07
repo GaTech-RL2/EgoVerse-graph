@@ -104,9 +104,7 @@ def test_clean_pipeline_contracts_and_nested_params_are_preserved(
             "reason": "train-only",
         }
     ]
-    assert train["edges"] == [
-        {"a": 0, "b": 1, "k": "condition", "s": "shared"}
-    ]
+    assert train["edges"] == [{"a": 0, "b": 1, "k": "condition", "s": "shared"}]
     params = train["nodes"][0]["p"]
     assert params["projections"]["image"]["semantic"] == note
     assert len(params["projections"]["image"]["semantic"]) > 400
@@ -206,9 +204,7 @@ def test_cli_emits_renderer_compatible_both_mode_json(
         return original(pipeline_config)
 
     monkeypatch.setattr(config_graph, "_stages", count_instantiations)
-    result = config_graph.main(
-        [str(output), str(selected), "--mode", "both", "--lint"]
-    )
+    result = config_graph.main([str(output), str(selected), "--mode", "both", "--lint"])
     payload = json.loads(output.read_text())
 
     assert result == 0

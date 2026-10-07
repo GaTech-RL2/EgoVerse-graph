@@ -70,8 +70,12 @@ class PlanarCommon5NativeDecoder:
 class PaddedPlanarCommon5NativeDecoder(PlanarCommon5NativeDecoder):
     """Drop zero-padding beyond the common five, then decode as common five."""
 
-    def __init__(self, action_horizon: int, native_action_dim: int, padded_dim: int = 6):
-        super().__init__(action_horizon=action_horizon, native_action_dim=native_action_dim)
+    def __init__(
+        self, action_horizon: int, native_action_dim: int, padded_dim: int = 6
+    ):
+        super().__init__(
+            action_horizon=action_horizon, native_action_dim=native_action_dim
+        )
         self.padded_dim = int(padded_dim)
         if self.padded_dim < PLANAR_ACTION_DIM:
             raise ValueError("padded_dim must be at least the common Planar width")

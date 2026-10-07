@@ -50,10 +50,10 @@ class MeckaOverlay:
         # Local repo keeps intrinsics on the embodiment classes (there is no
         # egomimicUtils.INTRINSICS registry like the remote's).
         from egomimic.campaigns.pi05.human import MECKA_INTRINSICS
+        from egomimic.campaigns.pi05.pose import _xyzwxyz_to_matrix
         from egomimic.rldb.zarr.action_chunk_transforms import (
             PoseCoordinateFrameTransform,
         )
-        from egomimic.campaigns.pi05.pose import _xyzwxyz_to_matrix
 
         self.K = MECKA_INTRINSICS
         self._to_mat = _xyzwxyz_to_matrix

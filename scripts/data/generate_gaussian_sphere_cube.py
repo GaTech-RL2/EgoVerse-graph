@@ -33,9 +33,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--source-dim", type=int, default=8)
     parser.add_argument("--sphere-radius", type=float, default=2.0)
-    parser.add_argument(
-        "--cube-half-extent", type=float, default=math.sqrt(12.0 / 5.0)
-    )
+    parser.add_argument("--cube-half-extent", type=float, default=math.sqrt(12.0 / 5.0))
     parser.add_argument("--train-fraction", type=float, default=0.9)
     parser.add_argument("--val-fraction", type=float, default=0.05)
     args = parser.parse_args()
@@ -94,7 +92,9 @@ def main() -> None:
             for name, path in paths.items()
         },
     }
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (args.output_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

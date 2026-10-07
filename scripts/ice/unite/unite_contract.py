@@ -47,6 +47,7 @@ def _sha256(path: Path) -> str:
     before = path.stat()
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     after = path.stat()
+
     def identity(item: os.stat_result) -> tuple[int, int, int, int, int]:
         return (
             item.st_dev,
@@ -55,6 +56,7 @@ def _sha256(path: Path) -> str:
             item.st_mtime_ns,
             item.st_ctime_ns,
         )
+
     if identity(before) != identity(after):
         raise RuntimeError(f"config changed while hashing: {path}")
     return digest
@@ -63,9 +65,7 @@ def _sha256(path: Path) -> str:
 def _stage_by_target(config: Any, suffix: str) -> Any:
     stages = _select(config, "model.pipeline.stages")
     matches = [
-        stage
-        for stage in stages
-        if str(stage.get("_target_", "")).endswith(suffix)
+        stage for stage in stages if str(stage.get("_target_", "")).endswith(suffix)
     ]
     if len(matches) != 1:
         raise ValueError(f"expected exactly one pipeline stage ending in {suffix!r}")
@@ -94,9 +94,7 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
         "model.pipeline policy flow_steps_per_reconstruction",
     )
     if (shared, tokens, flow_steps) not in EXPECTED_ROWS:
-        raise ValueError(
-            "unsupported UNITE topology, register count, or flow ratio"
-        )
+        raise ValueError("unsupported UNITE topology, register count, or flow ratio")
     latent_dim = _positive_integer(
         int(_select(config, "model.latent_dim")), "model.latent_dim"
     )
@@ -123,7 +121,9 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
         int(view.per_rank_batch_size), "EnergyScore per_rank_batch_size"
     )
     if view_world_size != world_size or per_rank * world_size != 32:
-        raise ValueError("EnergyScore validation view must contain exactly 32 conditions")
+        raise ValueError(
+            "EnergyScore validation view must contain exactly 32 conditions"
+        )
 
     diagnostics = _select(config, "evaluator.unite_diagnostics", required=False)
     diagnostics_status = "ABSENT"
@@ -139,7 +139,9 @@ def validate_unite_config(config: Any, *, expected_world_size: int) -> dict[str,
             "diagnostic per_rank_batch_size",
         )
         if diagnostic_world != world_size or diagnostic_per_rank * world_size != 32:
-            raise ValueError("UNITE diagnostic validation view must total 32 conditions")
+            raise ValueError(
+                "UNITE diagnostic validation view must total 32 conditions"
+            )
         diagnostics_status = "BOUND_TO_WORLD_SIZE"
 
     return {
@@ -188,7 +190,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     config_path = args.config.resolve(strict=True)
     config = OmegaConf.load(config_path)
-    payload = validate_unite_config(config, expected_world_size=args.expected_world_size)
+    payload = validate_unite_config(
+        config, expected_world_size=args.expected_world_size
+    )
     payload["config"] = str(config_path)
     payload["config_sha256"] = _sha256(config_path)
     if args.output is not None:

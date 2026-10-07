@@ -306,6 +306,7 @@ def test_human_wristframe_actions_are_headframe_invariant():
 # -------------------------------------------------------------- eva path
 def _eva_extrinsics_variants():
     from pathlib import Path
+
     import yaml
 
     return [

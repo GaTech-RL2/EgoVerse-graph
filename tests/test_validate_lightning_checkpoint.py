@@ -13,14 +13,9 @@ import torch
 from egomimic.pipeline.core import Stage
 
 SCRIPT = (
-    Path(__file__).parents[1]
-    / "scripts"
-    / "ice"
-    / "validate_lightning_checkpoint.py"
+    Path(__file__).parents[1] / "scripts" / "ice" / "validate_lightning_checkpoint.py"
 )
-SPEC = importlib.util.spec_from_file_location(
-    "validate_lightning_checkpoint", SCRIPT
-)
+SPEC = importlib.util.spec_from_file_location("validate_lightning_checkpoint", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 sys.modules[SPEC.name] = MODULE
@@ -35,9 +30,7 @@ RUN = "planar-bc-smoke"
 
 def payload(*, scheduler: bool = True) -> dict:
     scheduler_config = (
-        {"_target_": "example.scheduler", "max_steps": 100}
-        if scheduler
-        else None
+        {"_target_": "example.scheduler", "max_steps": 100} if scheduler else None
     )
     return {
         "global_step": 7,
@@ -208,9 +201,7 @@ def test_checkpoint_without_configured_scheduler_may_omit_scheduler_state(
 
 
 @pytest.mark.parametrize("step", [-1, 1.5, True])
-def test_global_step_must_be_an_exact_nonnegative_integer(
-    tmp_path: Path, step: object
-):
+def test_global_step_must_be_an_exact_nonnegative_integer(tmp_path: Path, step: object):
     candidate = payload()
     candidate["global_step"] = step
 
@@ -253,9 +244,7 @@ def test_global_step_must_be_an_exact_nonnegative_integer(
         ),
     ],
 )
-def test_nonfinite_checkpoint_content_is_rejected(
-    tmp_path: Path, mutate, message: str
-):
+def test_nonfinite_checkpoint_content_is_rejected(tmp_path: Path, mutate, message: str):
     candidate = payload()
     mutate(candidate)
 

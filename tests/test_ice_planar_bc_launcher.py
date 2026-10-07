@@ -30,14 +30,14 @@ def test_launcher_is_valid_bash_and_has_single_gpu_requeue_contract():
 def test_launcher_uses_strict_external_runner_and_completion_sentinel():
     text = LAUNCHER.read_text()
 
-    assert 'runtime.slurm_requeue_owner=runner' in text
-    assert 'runtime.slurm_save_signal=SIGUSR2' in text
+    assert "runtime.slurm_requeue_owner=runner" in text
+    assert "runtime.slurm_save_signal=SIGUSR2" in text
     assert "--checkpoint-validator" in text
     assert "--checkpoint-signal USR2" in text
     assert "--checkpoint-forwarding slurm-steps" in text
     assert "--requeue-owner runner" in text
     assert "--confirm-child-requeue-disabled" in text
-    assert 'ICE_OUTPUT_DIR/COMPLETE.json' in text
+    assert "ICE_OUTPUT_DIR/COMPLETE.json" in text
     assert "allow-unvalidated" not in text
     assert "ICE_RESUME_CHECKPOINT" in text
     assert "ICE_RESUME_CHECKPOINT_SHA256" in text
@@ -65,12 +65,14 @@ def test_launcher_exposes_supported_bc_configs_and_explicit_training_limits():
     assert "ICE_VALIDATION_DEFERRED" in text
     assert "ICE_LIMIT_VAL_BATCHES must be zero when validation is deferred" in text
     assert '"++run_provenance.validation_deferred=$ICE_VALIDATION_DEFERRED"' in text
-    assert text.count(
-        "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path="
-    ) == 1
-    assert text.count(
-        "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path="
-    ) == 1
+    assert (
+        text.count("data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=")
+        == 1
+    )
+    assert (
+        text.count("data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=")
+        == 1
+    )
     for value in (
         "trainer.max_steps=$ICE_MAX_STEPS",
         "trainer.val_check_interval=$ICE_VAL_CHECK_INTERVAL",

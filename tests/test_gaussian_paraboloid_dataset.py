@@ -24,9 +24,7 @@ def test_latent_four_preserves_paired_problem_and_adds_nuisance_dimensions():
     assert wide.source_latent.shape == (64, 4)
     torch.testing.assert_close(wide.source_latent[:, :2], reference.source_latent)
     torch.testing.assert_close(wide.target_3d, reference.target_3d)
-    torch.testing.assert_close(
-        wide.source_gaussian_3d, reference.source_gaussian_3d
-    )
+    torch.testing.assert_close(wide.source_gaussian_3d, reference.source_gaussian_3d)
 
 
 def test_dataset_exposes_exact_linear_bridge():

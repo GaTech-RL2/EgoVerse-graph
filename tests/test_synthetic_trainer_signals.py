@@ -148,16 +148,24 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     checkpoint = checkpoints[0]
     assert checkpoint.name.endswith("global-step-000001.pt")
     checkpoint_bytes = checkpoint.read_bytes()
-    run([
-        sys.executable, str(trainer), "--config", str(config_path),
-        "--resume", str(checkpoint),
-    ])
+    run(
+        [
+            sys.executable,
+            str(trainer),
+            "--config",
+            str(config_path),
+            "--resume",
+            str(checkpoint),
+        ]
+    )
     assert checkpoint.read_bytes() == checkpoint_bytes
     final_path = next((output / "checkpoints").glob("*global-step-000004.pt"))
     resumed = torch.load(final_path, map_location="cpu", weights_only=False)
     assert resumed["resume"]["rng_restored"] is True
-    assert [json.loads(row)["step"] for row in
-            (output / "metrics.jsonl").read_text().splitlines()] == [1, 2, 3, 4]
+    assert [
+        json.loads(row)["step"]
+        for row in (output / "metrics.jsonl").read_text().splitlines()
+    ] == [1, 2, 3, 4]
     summary = json.loads((output / "summary.json").read_text())
     assert np.isfinite(summary["validation_generation_symmetric_nn_mse"])
     assert np.isfinite(summary["validation_action_velocity_mse"])
@@ -169,7 +177,5 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     control = torch.load(control_path, map_location="cpu", weights_only=False)
     for key in ("model", "optimizer", "rng", "step"):
         _assert_equal(resumed[key], control[key])
-    control_summary = json.loads(
-        (tmp_path / "uninterrupted/summary.json").read_text()
-    )
+    control_summary = json.loads((tmp_path / "uninterrupted/summary.json").read_text())
     assert summary == control_summary

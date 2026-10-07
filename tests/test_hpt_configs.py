@@ -133,9 +133,9 @@ def test_a_real_batch_trains_and_reaches_every_parameter(cfg, algo):
     assert torch.isfinite(loss)
     loss.backward()
     trainable = [p for p in algo.nets.parameters() if p.requires_grad]
-    assert trainable and all(p.grad is not None for p in trainable), (
-        "some HPT parameters got no gradient, so a stage is detached"
-    )
+    assert trainable and all(
+        p.grad is not None for p in trainable
+    ), "some HPT parameters got no gradient, so a stage is detached"
 
 
 def test_the_token_count_is_modalities_times_latents_plus_the_action_token(cfg, algo):

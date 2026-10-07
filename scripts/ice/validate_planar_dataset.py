@@ -159,7 +159,9 @@ def validate_physical_inventory(
         path_by_id[episode_id] = path.resolve(strict=True)
 
     physical_directories = {
-        path for path in root.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path
+        for path in root.iterdir()
+        if path.is_dir() and not path.name.startswith(".")
     }
     excluded = {Path(path) for path in excluded_deleted_paths}
     if not excluded <= physical_directories or excluded & raw_paths:
@@ -311,12 +313,17 @@ def main() -> int:
         valid_ratio=VALID_RATIO,
         seed=SPLIT_SEED,
     )
-    if training_train != split_names(report_ids)[0] or training_valid != split_names(
-        report_ids
-    )[1]:
-        raise RuntimeError("portable validator split differs from training implementation")
+    if (
+        training_train != split_names(report_ids)[0]
+        or training_valid != split_names(report_ids)[1]
+    ):
+        raise RuntimeError(
+            "portable validator split differs from training implementation"
+        )
     if episode_names_sha256(report_ids) != names_sha256(report_ids):
-        raise RuntimeError("portable validator hash differs from training implementation")
+        raise RuntimeError(
+            "portable validator hash differs from training implementation"
+        )
 
     payload = {
         "schema_version": 1,

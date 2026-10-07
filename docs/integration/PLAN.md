@@ -52,19 +52,21 @@ Published draft stack in EgoVerse-graph:
 | HPT recipe parity | #151 | `64251fce` | 1,369 |
 | PI recipe/diagnostic parity | #152 | `daeaf924` | 1,388 |
 | Recorded-data tools | #153 | `5cb26b9e` | 1,392 |
+| Bound inference | #154 | `9bd2bed5` | 1,404 |
 
 Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
 The data-tool layer includes real HDF5 conversion, immutable output checks,
 complete annotated video encoding and data preview without a model or fitting
 normalization. The recursive working-tree audit resolves 253/253 shipped YAMLs.
 
-The next branch is `codex/graph-integration-20260924/05-bound-inference`.
-It binds checkpoints and artifacts to full preprocessing/normalization state,
-shares strict loading between no-hardware inference and robot rollout, and
-suppresses external parameter initialization during strict checkpoint restore.
-The focused tests include corrupt bundles, source-frame drift, all eight
-HPT/stub-PI retained source recipes and runtime controls. An isolated full-suite
-receipt is required before this layer is pushed.
+The active branch is `codex/graph-integration-20260924/06-ci-gates`.
+All 253 YAMLs compose and all 253 constructor contexts pass offline, including
+ready inference dependency plans. The gate caught a stale EVA wrist keymap and
+Scale API access during construction; both are fixed. The layer also finishes
+the shared diagnostic-prediction metric entrypoint and canonical Yam keymap,
+with behavior tests. Ruff enforcement preserves the byte-pinned Yam files.
+See `VALIDATION.md` for the exact scope and substitutions of the CPU gates.
+An isolated full-suite receipt is required before this CI layer is pushed.
 
 Remaining gates: recursive construction/CI, real-weight/data OSMO L40/L40S
 training and distributed smokes, complete fixed-fixture parity, explicit

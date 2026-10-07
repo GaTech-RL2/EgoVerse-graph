@@ -116,17 +116,25 @@ def load_manifest(path: Path) -> dict[str, Any]:
             try:
                 pattern.parent.resolve().relative_to(root)
             except ValueError as exc:
-                raise SystemExit(f"checkpoint_glob escapes local_root for {row['id']}") from exc
+                raise SystemExit(
+                    f"checkpoint_glob escapes local_root for {row['id']}"
+                ) from exc
         validator = Path(row["validator"]).expanduser().resolve()
         if not validator.is_file() or not os.access(validator, os.X_OK):
-            raise SystemExit(f"validator is not executable for {row['id']}: {validator}")
+            raise SystemExit(
+                f"validator is not executable for {row['id']}: {validator}"
+            )
         remote = Path(row["remote_dir"])
         if not remote.is_absolute() or remote == Path("/") or len(remote.parts) < 3:
-            raise SystemExit(f"remote_dir must be a specific absolute path for {row['id']}")
+            raise SystemExit(
+                f"remote_dir must be a specific absolute path for {row['id']}"
+            )
         if int(row.get("retain_local", 2)) < 2:
             raise SystemExit(f"retain_local must be at least 2 for {row['id']}")
         if "completion_sentinel" in row:
-            sentinel = specific_absolute(Path(row["completion_sentinel"]), "completion_sentinel")
+            sentinel = specific_absolute(
+                Path(row["completion_sentinel"]), "completion_sentinel"
+            )
             try:
                 sentinel.relative_to(root)
             except ValueError as exc:
@@ -163,12 +171,16 @@ def parse_validator_metadata(stdout: str, path: Path) -> dict[str, Any]:
     try:
         metadata = json.loads(lines[-1])
     except json.JSONDecodeError as exc:
-        raise ValueError(f"validator's last non-empty line is not JSON for {path}") from exc
+        raise ValueError(
+            f"validator's last non-empty line is not JSON for {path}"
+        ) from exc
     if not isinstance(metadata, dict):
         raise ValueError(f"validator metadata must be a JSON object for {path}")
     step = metadata.get("global_step")
     if isinstance(step, bool) or not isinstance(step, int) or step < 0:
-        raise ValueError(f"validator metadata requires non-negative integer global_step for {path}")
+        raise ValueError(
+            f"validator metadata requires non-negative integer global_step for {path}"
+        )
     if metadata.get("valid") is False:
         raise ValueError(f"validator metadata marked checkpoint invalid: {path}")
     return metadata
@@ -306,7 +318,9 @@ def mirror_one(
     suffix = "".join(path.suffixes) or ".checkpoint"
     base = path.name[: -len(suffix)] if suffix else path.name
     final = f"{remote_dir.rstrip('/')}/{base}.{digest}{suffix}"
-    if temporary_tag is not None and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", temporary_tag):
+    if temporary_tag is not None and not re.fullmatch(
+        r"[A-Za-z0-9_-]{1,64}", temporary_tag
+    ):
         raise ValueError("temporary_tag contains unsupported characters")
     temporary = f"{final}.partial" + (f".{temporary_tag}" if temporary_tag else "")
     existing = remote_sha(ssh, host, final)
@@ -394,7 +408,9 @@ def example_manifest() -> dict[str, Any]:
     }
 
 
-def state_entry(info: CheckpointInfo, row_id: str, prior: dict[str, Any] | None) -> dict[str, Any]:
+def state_entry(
+    info: CheckpointInfo, row_id: str, prior: dict[str, Any] | None
+) -> dict[str, Any]:
     result = {**info.as_state(), "run_id": row_id}
     if prior and prior.get("sha256") == info.sha256:
         for key in ("remote_path", "remote_verified", "verified_at_unix"):
@@ -437,9 +453,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.print_example_manifest:
         print(json.dumps(example_manifest(), indent=2))
         return 0
-    required = (args.manifest, args.state_dir, args.scratch_root, args.quota_bytes, args.remote_host)
+    required = (
+        args.manifest,
+        args.state_dir,
+        args.scratch_root,
+        args.quota_bytes,
+        args.remote_host,
+    )
     if any(value is None for value in required):
-        raise SystemExit("manifest, state-dir, scratch-root, quota-bytes, and remote-host are required")
+        raise SystemExit(
+            "manifest, state-dir, scratch-root, quota-bytes, and remote-host are required"
+        )
     if not HOST_RE.fullmatch(args.remote_host):
         raise SystemExit("remote-host contains unsupported characters")
     if args.quota_bytes <= 0 or args.poll_seconds <= 0 or args.du_timeout_seconds <= 0:
@@ -454,7 +478,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
     manifest = load_manifest(args.manifest.expanduser().resolve())
     for row in manifest["runs"]:
-        contained(Path(row["local_root"]).expanduser().resolve(), scratch_root, f"local_root[{row['id']}]")
+        contained(
+            Path(row["local_root"]).expanduser().resolve(),
+            scratch_root,
+            f"local_root[{row['id']}]",
+        )
     state_path = state_dir / "mirror-state.json"
     events_path = state_dir / "mirror-events.jsonl"
     if state_path.exists():
@@ -473,7 +501,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             fcntl.flock(lock_stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise SystemExit("another checkpoint mirror owns this state directory") from exc
+            raise SystemExit(
+                "another checkpoint mirror owns this state directory"
+            ) from exc
 
         def stop(_received: int, _frame: object) -> None:
             global STOP
@@ -507,7 +537,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         )
                         continue
                     infos.append(info)
-                    state["files"][str(checkpoint)] = state_entry(info, row["id"], prior)
+                    state["files"][str(checkpoint)] = state_entry(
+                        info, row["id"], prior
+                    )
                 infos.sort(
                     key=lambda item: (item.global_step, item.mtime_ns, str(item.path)),
                     reverse=True,
@@ -516,9 +548,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
                 for info in infos:
                     prior = state["files"][str(info.path)]
-                    if prior.get("remote_verified") and prior.get("sha256") == info.sha256:
+                    if (
+                        prior.get("remote_verified")
+                        and prior.get("sha256") == info.sha256
+                    ):
                         remote_path = prior.get("remote_path")
-                        if remote_path and remote_sha(args.ssh, args.remote_host, remote_path) == info.sha256:
+                        if (
+                            remote_path
+                            and remote_sha(args.ssh, args.remote_host, remote_path)
+                            == info.sha256
+                        ):
                             continue
                         prior["remote_verified"] = False
                         prior["remote_recheck_failed_at_unix"] = time.time()
@@ -564,7 +603,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 "error": str(exc),
                             },
                         )
-                        print(f"mirror error for {row['id']}: {exc}", file=sys.stderr, flush=True)
+                        print(
+                            f"mirror error for {row['id']}: {exc}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
 
                 if args.prune_after_verify:
                     retain = int(row.get("retain_local", 2))
@@ -604,7 +647,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         except (FileNotFoundError, OSError):
                             unresolved = True
                             continue
-                        if stat_identity(final_stat) != (current.size, current.mtime_ns, current.inode):
+                        if stat_identity(final_stat) != (
+                            current.size,
+                            current.mtime_ns,
+                            current.inode,
+                        ):
                             unresolved = True
                             continue
                         info.path.unlink()
@@ -622,7 +669,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sentinel_raw = row.get("completion_sentinel")
                 if sentinel_raw is None:
                     all_rows_declare_completion = False
-                elif not completion_sentinel_is_valid(Path(sentinel_raw).expanduser().resolve()):
+                elif not completion_sentinel_is_valid(
+                    Path(sentinel_raw).expanduser().resolve()
+                ):
                     all_rows_complete = False
 
             try:
@@ -656,13 +705,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "cycle_errors": cycle_errors,
                     "updated_at_unix": time.time(),
                 }
-                append_event(events_path, {"event": "scratch_usage_error", "error": str(exc)})
+                append_event(
+                    events_path, {"event": "scratch_usage_error", "error": str(exc)}
+                )
             atomic_json(state_dir / "storage-pressure.json", pressure_payload)
             if pressure != "normal":
-                print(f"ICE scratch pressure={pressure}: {pressure_payload}", file=sys.stderr, flush=True)
+                print(
+                    f"ICE scratch pressure={pressure}: {pressure_payload}",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
             archive_counts: dict[str, int] = {}
-            if all_rows_declare_completion and all_rows_complete and not unresolved and cycle_errors == 0:
+            if (
+                all_rows_declare_completion
+                and all_rows_complete
+                and not unresolved
+                and cycle_errors == 0
+            ):
                 for row in manifest["runs"]:
                     entries = [
                         entry
@@ -674,7 +734,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                         unresolved = True
                         append_event(
                             events_path,
-                            {"event": "completion_refused_no_archived_checkpoint", "run_id": row["id"]},
+                            {
+                                "event": "completion_refused_no_archived_checkpoint",
+                                "run_id": row["id"],
+                            },
                         )
                         continue
                     for entry in entries:
@@ -701,7 +764,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 },
                             )
                 atomic_json(state_path, state)
-            if all_rows_declare_completion and all_rows_complete and not unresolved and cycle_errors == 0:
+            if (
+                all_rows_declare_completion
+                and all_rows_complete
+                and not unresolved
+                and cycle_errors == 0
+            ):
                 atomic_json(
                     state_dir / "mirror-complete.json",
                     {

@@ -30,7 +30,11 @@ def main() -> None:
     if args.output_dir.exists():
         raise FileExistsError(f"refusing to reuse config directory: {args.output_dir}")
     datasets = {
-        "shallow": {"train": args.shallow_train, "eval": args.shallow_eval, "curvature": 0.125},
+        "shallow": {
+            "train": args.shallow_train,
+            "eval": args.shallow_eval,
+            "curvature": 0.125,
+        },
         "steep": {"train": args.steep_train, "eval": args.steep_eval, "curvature": 0.5},
     }
     for values in datasets.values():
@@ -110,9 +114,15 @@ def main() -> None:
             **common(joint_id, seed),
             "architecture": "multi_action_adapter_flow",
             "variant": "shared_action_flow_g_rec100",
-            "datasets": {name: str(values["train"]) for name, values in datasets.items()},
-            "evaluation_datasets": {name: str(values["eval"]) for name, values in datasets.items()},
-            "curvatures": {name: values["curvature"] for name, values in datasets.items()},
+            "datasets": {
+                name: str(values["train"]) for name, values in datasets.items()
+            },
+            "evaluation_datasets": {
+                name: str(values["eval"]) for name, values in datasets.items()
+            },
+            "curvatures": {
+                name: values["curvature"] for name, values in datasets.items()
+            },
             "source_key": "source_gaussian_latent",
             "batch_size_per_embodiment": 512,
             "lambda_reconstruction": 100.0,
@@ -153,7 +163,9 @@ def main() -> None:
             "note": "joint run sees the same examples per embodiment per optimizer step; compare total joint system against the pair of independent systems",
         },
     }
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (args.output_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

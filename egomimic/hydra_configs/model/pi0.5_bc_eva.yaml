@@ -1,0 +1,181 @@
+# Graph port of EgoVerse ec5c903c; see docs/integration/RECIPE_PARITY.md.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-05
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0.0
+scheduler:
+  _target_: transformers.get_cosine_schedule_with_warmup
+  _partial_: true
+  num_warmup_steps: 2000
+  num_training_steps: 60000
+  num_cycles: 0.5
+scheduler_interval: step
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    sampler: 0
+  stages:
+  - _target_: egomimic.pipeline.stages_pi05.PI05Stage
+    _recursive_: false
+    policy:
+      _target_: egomimic.models.pi05.policy.PI
+      config:
+        pytorch_training_precision: bfloat16
+        pytorch_weight_path: ${oc.env:EGOVERSE_PI05_WEIGHTS,/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch}
+        model:
+          pi05: true
+          action_dim: 32
+          action_horizon: 100
+          max_token_len: 180
+      tokenizer_model_name: google/paligemma-3b-mix-224
+      tokenizer_max_length: 128
+      sampling_mode: random
+      annotation_key: annotations
+      default_prompt: ''
+      proprio_in_prompt: true
+      embodiment_label: true
+      state_num_bins: 256
+      control_mode: null
+      train_image_augs:
+        _target_: torchvision.transforms.Compose
+        transforms:
+        - _target_: torchvision.transforms.Resize
+          size: 224
+          interpolation: 3
+      eval_image_augs:
+        _target_: torchvision.transforms.Compose
+        transforms:
+        - _target_: torchvision.transforms.Resize
+          size: 224
+          interpolation: 3
+      camera_transforms: {}
+      ac_keys:
+        eva_bimanual: actions_cartesian
+      domains:
+      - eva_bimanual
+      action_converters:
+        rules:
+          EVA_BIMANUAL:
+            _target_: egomimic.utils.action_encoding.RobotBimanualCartesianEuler
+        fallback:
+          _target_: egomimic.utils.action_encoding.BaseActionConverter
+      action_encoding: legacy_normalized_ypr_rot6d
+deployment_domain: eva_bimanual
+inference_domains:
+  eva_bimanual:
+    input:
+      history_length: 1
+      keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      - annotations
+      - embodiment
+      history_keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      constants:
+        embodiment: 6
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - 100
+      - 14
+      timing:
+        kind: uniform_resampled_target
+        temporally_resolved: true
+        dt: 0.014814814814814815
+        first_source_frame: 0
+        last_source_frame: 44
+        source_fps: 30
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - 45
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - 100
+        - 14
+        embodiment: 6
+      tokenizer: null
+      action_encoding: legacy_normalized_ypr_rot6d
+      backend_native_output:
+        shape:
+        - 100
+        - 32
+        conversion:
+          rules:
+            EVA_BIMANUAL:
+              _target_: egomimic.utils.action_encoding.RobotBimanualCartesianEuler
+          fallback:
+            _target_: egomimic.utils.action_encoding.BaseActionConverter
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - 100
+        - 14
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+            native_shape:
+            - 100
+            - 14
+            native_dt: 0.014814814814814815
+            output_horizon: 45
+            output_dt: 0.03333333333333333
+            angular_indices:
+            - 3
+            - 4
+            - 5
+            - 10
+            - 11
+            - 12
+          rotation_mode: euler
+          action_frame: model_frame
+        overrides:
+          replan_every:
+            label: Actions before replanning
+            description: Control-rate execution prefix.
+            type: integer
+            min: 1
+            max: 45
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          inference_steps:
+            label: Sampling steps
+            description: Configured sampler iterations.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: backend.num_steps
+inference: ${model.inference_domains.${model.deployment_domain}}
+diagnostic_provider:
+  _target_: egomimic.models.pi05.diagnostics.PI05AttentionProvider
+  stage_id: sampler
+  emit_combined: true
+  mask_padding: false

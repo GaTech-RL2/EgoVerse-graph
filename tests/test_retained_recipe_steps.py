@@ -58,7 +58,7 @@ def small_cpu_model(config, family):
 
 
 @pytest.mark.parametrize("vendor", ["eva", "aria", "mecka", "scale"])
-@pytest.mark.parametrize("family", ["hpt"])
+@pytest.mark.parametrize("family", ["hpt", "pi"])
 def test_two_optimizer_steps_and_strict_roundtrip(
     vendor, family, tiny_openpi, tmp_path
 ):

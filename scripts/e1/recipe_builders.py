@@ -22,7 +22,7 @@ ROTATION_DISTANCE_UNIT = 2 * math.pi
 def require_compute_node():
     """Reject direct Python execution on known PACE login hosts."""
     host = socket.gethostname().lower()
-    pace = any(x in host for x in ("phoenix", "pace", "ice")) or bool(
+    pace = any(x in host for x in ("phoenix", "pace", "ice", "atl1")) or bool(
         os.environ.get("PACE_CLUSTER")
     )
     if pace and "login" in host and not os.environ.get("SLURM_STEP_ID"):

@@ -1,0 +1,308 @@
+{
+  "reference_path": "HISTORICAL_NATIVE_RESOLVED_H240.yaml",
+  "reference_sha256": "720e77b2f7c0e528441170a8a7838a1c8644ccfa083ba234c434ae29de2e1ba3",
+  "historical_model": {
+    "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+    "training_behavior": {
+      "_target_": "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior"
+    },
+    "diagnostic_provider": {
+      "_target_": "egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider"
+    },
+    "action_horizon": 16,
+    "action_dim": 7,
+    "num_latent_tokens": 8,
+    "latent_dim": 16,
+    "condition_dim": 128,
+    "hidden_dim": 240,
+    "flow_samples_per_content": 14,
+    "flow_mini_batch": 14,
+    "condition_dropout_probability": 0.1,
+    "flow_loss_aggregation": "sum_samples",
+    "cfg_scale": 4.0,
+    "cfg_interval": [
+      0.0,
+      1.0
+    ],
+    "num_inference_steps": 50,
+    "reconstruction_weight": 1.0,
+    "flow_weight": 1.0,
+    "action_flow_method": "latent_fm_stopgrad_unite",
+    "optimizer_named_parameters": true,
+    "pipeline": {
+      "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+      "stages": [
+        {
+          "_target_": "egomimic.pipeline.libero_action_flow.LiberoActionFlowObservationAdapter",
+          "image_size": 96,
+          "task_vocab_size": 256,
+          "task_embed_dim": 16
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_sampler.FusedObsEncoder",
+          "n_obs_steps": 1,
+          "inputs": {
+            "front_img_1": "front_img_1",
+            "front_img_2": "front_img_2",
+            "proprio_condition": "proprio_condition"
+          },
+          "encoder": {
+            "_target_": "egomimic.pipeline.stages_sampler.DPStyleObsEncoder",
+            "obs_specs": {
+              "proprio_condition": {
+                "input_dim": 64,
+                "input_slice": [
+                  0,
+                  64
+                ]
+              }
+            },
+            "img_encoders": {
+              "front_img_1": {
+                "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                "in_channels": 3,
+                "image_size": 96,
+                "num_kp": 32,
+                "feature_dimension": 32,
+                "pretrained": false,
+                "crop_aug": true,
+                "crop_height": 84,
+                "crop_width": 84,
+                "crop_eval_mode": "center",
+                "crop_sample_mode": "v02",
+                "crop_scope": "frame",
+                "norm_layer": "group",
+                "pool_type": "spatial_softmax",
+                "resnet_model": "resnet18_half"
+              },
+              "front_img_2": {
+                "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                "in_channels": 3,
+                "image_size": 96,
+                "num_kp": 32,
+                "feature_dimension": 32,
+                "pretrained": false,
+                "crop_aug": true,
+                "crop_height": 84,
+                "crop_width": 84,
+                "crop_eval_mode": "center",
+                "crop_sample_mode": "v02",
+                "crop_scope": "frame",
+                "norm_layer": "group",
+                "pool_type": "spatial_softmax",
+                "resnet_model": "resnet18_half"
+              }
+            }
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder"
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_sampler.GaussianLatentNoise",
+          "num_tokens": 8,
+          "latent_dim": 16
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_action_flow.ContentEncoderStage",
+          "encoder": {
+            "_target_": "egomimic.models.action_flow_unite.UniteActionFlowContentEncoder",
+            "action_dim": 7,
+            "action_horizon": 16,
+            "latent_dim": 16,
+            "num_latent_tokens": 8,
+            "condition_dim": 128,
+            "tokenization_time_max": 0.01,
+            "backbone": {
+              "_target_": "egomimic.models.unite_dit.UniteDiTBackbone",
+              "input_dim": 16,
+              "output_dim": 16,
+              "horizon": 8,
+              "condition_dim": 128,
+              "max_condition_tokens": 1,
+              "max_content_tokens": 16,
+              "hidden_dim": 240,
+              "depth": 12,
+              "num_heads": 8,
+              "mlp_ratio": 4.0,
+              "qk_norm": true,
+              "use_rope": true,
+              "use_rmsnorm": true,
+              "use_swiglu": true,
+              "block_norm": true,
+              "time_fourier_dim": 256,
+              "context_adaln_summary": false,
+              "in_context_start": 4,
+              "in_context_len": 32,
+              "trainable_position_embeddings": false,
+              "trainable_register_position_embeddings": true,
+              "trainable_content_position_embeddings": false,
+              "trainable_condition_position_embeddings": false,
+              "trainable_in_context_position_embeddings": true,
+              "gradient_checkpointing": true
+            }
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_action_flow.LatentBridgeStage",
+          "samples_per_content": 14,
+          "condition_dropout_probability": 0.1,
+          "time_sampling": "lognormal_shifted",
+          "lognorm_mu": 0.0,
+          "lognorm_sigma": 1.0,
+          "timestep_shift_alpha": 0.5,
+          "independent_noise_per_sample": true,
+          "independent_condition_dropout_per_sample": true
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_action_flow.ConditionalVelocityStage",
+          "flow_clean_gradient_mode": "all_stopgrad",
+          "num_inference_steps": 50,
+          "inference_method": "dopri5",
+          "timestep_shift_alpha": 0.5,
+          "dopri5_atol": 1e-06,
+          "dopri5_rtol": 0.001,
+          "cfg_scale": 4.0,
+          "cfg_interval": [
+            0.0,
+            1.0
+          ],
+          "field": {
+            "_target_": "egomimic.models.action_flow_unite.UniteActionFlowVelocityField",
+            "input_dim": 16,
+            "output_dim": 16,
+            "horizon": 8,
+            "condition_dim": 128,
+            "condition_dropout_probability": 0.1,
+            "backbone": {
+              "_target_": "egomimic.models.unite_dit.UniteDiTBackbone",
+              "input_dim": 16,
+              "output_dim": 16,
+              "horizon": 8,
+              "condition_dim": 128,
+              "max_condition_tokens": 1,
+              "max_content_tokens": 16,
+              "hidden_dim": 240,
+              "depth": 12,
+              "num_heads": 8,
+              "mlp_ratio": 4.0,
+              "qk_norm": true,
+              "use_rope": true,
+              "use_rmsnorm": true,
+              "use_swiglu": true,
+              "block_norm": true,
+              "time_fourier_dim": 256,
+              "context_adaln_summary": false,
+              "in_context_start": 4,
+              "in_context_len": 32,
+              "trainable_position_embeddings": false,
+              "trainable_register_position_embeddings": true,
+              "trainable_content_position_embeddings": false,
+              "trainable_condition_position_embeddings": false,
+              "trainable_in_context_position_embeddings": true,
+              "gradient_checkpointing": true
+            }
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_action_flow.ContentDecoderStage",
+          "reconstruction_noising_start": 0.7,
+          "reconstruction_noising_probability": 0.5,
+          "decoder": {
+            "_target_": "egomimic.models.unite_action_decoder.UniteActionDecoder",
+            "latent_dim": 16,
+            "action_dim": 7,
+            "num_latent_tokens": 8,
+            "action_horizon": 16,
+            "hidden_dim": 240,
+            "depth": 12,
+            "num_heads": 8,
+            "mlp_ratio": 4.0,
+            "dropout": 0.0,
+            "gradient_checkpointing": true
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage",
+          "residual_key": "action_flow/fm_velocity_residual",
+          "flow_weight": 1.0,
+          "reconstruction_weight": 1.0,
+          "action_velocity_weight": 1.0,
+          "flow_aggregation": "sum_samples",
+          "flow_samples_per_content": 14
+        }
+      ]
+    },
+    "enable_grad_norm": false,
+    "gradient_telemetry_cadence": 100,
+    "optimizer": {
+      "_target_": "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer",
+      "_partial_": true,
+      "lr": 0.0001,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-06,
+      "adamw_weight_decay": 0.0,
+      "muon_weight_decay": 0.0,
+      "muon_momentum": 0.95,
+      "muon_adjust_lr_fn": "match_rms_adamw"
+    },
+    "scheduler": {
+      "_target_": "egomimic.utils.unite_optim.released_unite_two_stage_scheduler",
+      "_partial_": true,
+      "warmup_steps": 8000,
+      "decay_start_1_steps": 12000,
+      "decay_end_1_steps": 20000,
+      "decay_start_2_steps": 1200000,
+      "decay_end_2_steps": 1200000,
+      "base_lr_1": 0.0001,
+      "base_lr_2": 5e-05,
+      "final_lr": 5e-05
+    }
+  },
+  "historical_trainer": {
+    "_target_": "lightning.pytorch.trainer.Trainer",
+    "default_root_dir": "/workspace/users/paphiwetsa3/tasks/libero-af27m-four-suites-20261002/runs/libero10/full-h240-v1",
+    "max_epochs": -1,
+    "min_epochs": null,
+    "accelerator": "gpu",
+    "devices": 1,
+    "precision": "bf16-mixed",
+    "limit_train_batches": 1.0,
+    "limit_val_batches": 8,
+    "check_val_every_n_epoch": null,
+    "deterministic": false,
+    "num_sanity_val_steps": 0,
+    "gradient_clip_val": 3.0,
+    "accumulate_grad_batches": 1,
+    "log_every_n_steps": 10,
+    "max_steps": 80000,
+    "val_check_interval": 15000,
+    "gradient_clip_algorithm": "norm"
+  },
+  "historical_evaluator": {
+    "_target_": "egomimic.eval.libero_action_flow_eval.LiberoActionFlowEvaluator",
+    "energy_sample_count": 32,
+    "energy_seed_bank_path": "/tmp/af27m-full-envelope.WXQPvy9W/source/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json",
+    "energy_seed_bank_sha256": "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6",
+    "diagnostic_raw_noise_levels": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ]
+  },
+  "historical_seed": 42,
+  "historical_train_batch": 32,
+  "historical_valid_batch": 32,
+  "approved_sampler_change": {
+    "path": "model.pipeline.stages.6.inference_method",
+    "historical": "dopri5",
+    "requested": "euler",
+    "steps": 50
+  },
+  "approved_checkpoint_policy": "dit-half"
+}

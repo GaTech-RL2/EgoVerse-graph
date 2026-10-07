@@ -90,14 +90,13 @@ CANONICAL_CONTENT_MANIFEST_SHA256=a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4
 CANONICAL_DATASET_CONTENT_AGGREGATE_SHA256=80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52
 CHAIN_CONTENT_MANIFEST_SHA256=65d22f70d75a7e8a2ddd80f5cef989b4cd31fc608b44452726a1b0e0ef1df865
 CHAIN_DATASET_CONTENT_AGGREGATE_SHA256=2d75e0cc446f60b0fc7160444b5027778fd1f1155e0516b18d637a1a89399efb
-CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256=9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
-CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256=f2762688fdcfb6481f841c9939a0723426e97cb31260454d532c0312e278bb7c
-CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256=1fe77d9c0320965fd973711c4b2803938bb9a59ce5e842eb18316b9e71730ecc
 CHAIN_4920_CONTENT_MANIFEST_SHA256=d47337ec051351c37def6078ce96a9d4187d44ca6d2d89867e716aea8b5573a9
 CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256=241ef7cab22303088c46ef1dca4379c4c4932409b494fc88db413fcb687e1afe
+CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256=9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
+CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256=f2762688fdcfb6481f841c9939a0723426e97cb31260454d532c0312e278bb7c
 
 case "$AF_LAUNCH_MODE" in
-  preflight|run) ;;
+  preflight|run|schema) ;;
   *) die "AF_LAUNCH_MODE must be preflight or run" ;;
 esac
 # The portable launcher carries a ten-minute USR1 checkpoint warning for long
@@ -126,35 +125,51 @@ AF_SOURCE=pushshapes_sim_u_socket
 AF_ACTION_DIM=4
 AF_EXPECTED_PARAMETER_COUNT=97956100
 AF_COTRAIN=false
-AF_ROUTED_MODEL=false
 AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
-AF_MANUAL_CHAIN_4919=false
+AF_PAIRED_CHAIN_MANUAL4919=false
+AF_SPEED_DIAGNOSTIC=false
+AF_NATIVE_LIBERO=false
 case "$AF_EXPERIMENT" in
-  pusht/action_flow_chain_manual4919_avln_80k_s42)
+  libero/action_flow_libero10_h240_euler50_dithalf_80k_s42)
+    AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual4919_avln_80k_s42
+    AF_EXPECTED_CONFIG_NAME=action_flow_libero10_h240_euler50_dithalf_80k_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     AF_FULL_MAX_STEPS=80000
     AF_FULL_VALIDATE_EVERY=15000
     AF_FULL_CHECKPOINT_EVERY=5000
     AF_FULL_LIMIT_VAL_BATCHES=8
     AF_VALID_BATCH_SIZE=32
-    AF_SOURCE=pushshapes_sim_chain_gripper
-    AF_ACTION_DIM=6
-    AF_ROUTED_MODEL=true
-    AF_MANUAL_CHAIN_4919=true
-    required AF_APPROVED_PARAMETER_COUNT
-    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual4919,obstacle-gen,action-flow,av-ln,routed-control,h384d12h12,80k,$AF_RUN_KIND]"
+    AF_SOURCE=libero_panda
+    AF_ACTION_DIM=7
+    AF_EXPECTED_PARAMETER_COUNT=39750391
+    # Native downstream dataset/preflight/smoke adapters are required before run.
+    if test "$AF_LAUNCH_MODE" != schema; then
+      if test "$AF_LAUNCH_MODE" = preflight; then AF_NATIVE_PHASE=preflight; else AF_NATIVE_PHASE=$AF_RUN_KIND; fi
+      AF_NATIVE_SCHEMA_DRIVER=$AF_REPO/scripts/train/libero_native_schema_contract.py
+    fi
+    for variable in AF_NATIVE_SCHEMA_DRIVER AF_NATIVE_SCHEMA_DRIVER_SHA256 \
+      AF_NATIVE_BINDING_OVERRIDE AF_NATIVE_BINDING_OVERRIDE_SHA256 \
+      AF_NATIVE_DATASET_VALIDATOR AF_NATIVE_CONFIG_VALIDATOR AF_NATIVE_SMOKE_VERIFIER \
+      AF_NATIVE_DATASET_SHA256 AF_NATIVE_HISTORICAL_SPLIT_SHA256 \
+      AF_SPLIT_MANIFEST AF_NORM_STATS_PATH AF_EXPECTED_NORM_SHA256 AF_NATIVE_PHASE; do
+      required "$variable"
+    done
+    case "$AF_NATIVE_PHASE" in preflight|smoke|full) ;; *) die "invalid native phase" ;; esac
+    test "$AF_SEED" = 42 || die "LIBERO seed42 required"
+    AF_DATASET_VALIDATOR=$AF_NATIVE_DATASET_VALIDATOR
+    AF_CONFIG_VALIDATOR=$AF_NATIVE_CONFIG_VALIDATOR
+    AF_SMOKE_VERIFIER=$AF_NATIVE_SMOKE_VERIFIER
     ;;
-  pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42)
+
+  pusht/action_flow_cotrain_uc_speed_interpolation)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual4919_avln_80k_s42
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_speed_interpolation
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     AF_FULL_MAX_STEPS=80000
     AF_FULL_VALIDATE_EVERY=15000
@@ -162,48 +177,27 @@ case "$AF_EXPERIMENT" in
     AF_FULL_LIMIT_VAL_BATCHES=8
     AF_VALID_BATCH_SIZE=32
     AF_COTRAIN=true
-    AF_ROUTED_MODEL=true
-    AF_MANUAL_CHAIN_4919=true
+    AF_SPEED_DIAGNOSTIC=true
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    required AF_APPROVED_PARAMETER_COUNT
-    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual4919,obstacle-gen,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,80k,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_chain_manual3000_avln_80k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_chain_manual3000_avln_80k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=80000
-    AF_FULL_VALIDATE_EVERY=15000
-    AF_FULL_CHECKPOINT_EVERY=5000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_SOURCE=pushshapes_sim_chain_gripper
-    AF_ACTION_DIM=6
-    AF_ROUTED_MODEL=true
-    required AF_APPROVED_PARAMETER_COUNT
-    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,manual3000,action-flow,av-ln,routed-control,h384d12h12,80k,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_cotrain_uc_manual3000_avln_80k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual3000_avln_80k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=80000
-    AF_FULL_VALIDATE_EVERY=15000
-    AF_FULL_CHECKPOINT_EVERY=5000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_COTRAIN=true
-    AF_ROUTED_MODEL=true
-    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    required AF_APPROVED_PARAMETER_COUNT
-    AF_EXPECTED_PARAMETER_COUNT=$AF_APPROVED_PARAMETER_COUNT
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual-only,cotrain,action-flow,av-ln,private-codecs,shared-field,h384d12h12,80k,$AF_RUN_KIND]"
+    required AF_SPEED_ENCODING
+    required AF_SPEED_REFERENCE
+    case "$AF_SPEED_ENCODING" in
+      scalar) AF_EXPECTED_PARAMETER_COUNT=471549402 ;;
+      fourier) AF_EXPECTED_PARAMETER_COUNT=471549530 ;;
+      *) die "speed encoding must be scalar or fourier" ;;
+    esac
+    test "$AF_SPEED_REFERENCE" = 84.11600368466028 || die "unapproved speed reference"
+    required AF_SPEED_CONFIG_VALIDATOR
+    required AF_SPEED_SMOKE_VERIFIER
+    required AF_SPEED_CONFIG_VALIDATOR_SHA256
+    required AF_SPEED_SMOKE_VERIFIER_SHA256
+    test "$AF_EXPECTED_HEAD" = 344dd3baf5ba942d947e0a0e136c8990025d91e5 || die "unapproved speed diagnostic source"
+    test "$(sha256 "$AF_SPEED_CONFIG_VALIDATOR")" = "$AF_SPEED_CONFIG_VALIDATOR_SHA256" || die "speed config validator hash mismatch"
+    test "$(sha256 "$AF_SPEED_SMOKE_VERIFIER")" = "$AF_SPEED_SMOKE_VERIFIER_SHA256" || die "speed smoke verifier hash mismatch"
+    AF_CONFIG_VALIDATOR=$AF_SPEED_CONFIG_VALIDATOR
+    AF_SMOKE_VERIFIER=$AF_SPEED_SMOKE_VERIFIER
+    export AF_SPEED_ENCODING AF_SPEED_REFERENCE
+    AF_WANDB_TAGS="[pushshapes,cotrain,speed-$AF_SPEED_ENCODING,NON-PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC,h696d12h12,bf16,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_usocket_refactored_c12_compat_s42)
     AF_METHOD=latent_fm_stopgrad_unite
@@ -282,6 +276,26 @@ case "$AF_EXPERIMENT" in
     AF_COTRAIN=true
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
     AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,frozen4920,cotrain,action-flow,private-codecs,shared-field,h384d12h12,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
+    ;;
+  pusht/action_flow_chain_native4_points6_manual4919_h384_150k_s42)
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_chain_native4_points6_manual4919_h384_150k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=150000
+    AF_FULL_VALIDATE_EVERY=15000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_SOURCE=pushshapes_sim_chain_gripper_native4
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    AF_ACTION_DIM=4
+    AF_EXPECTED_PARAMETER_COUNT=86539098
+    AF_EXPECTED_SMOKE_PARAMETER_COUNT=151990970
+    AF_COTRAIN=true
+    AF_PAIRED_CHAIN_MANUAL4919=true
+    AF_WANDB_TAGS="[pushshapes,chain-gripper,native4,points6,manual4919,cotrain,action-flow,private-codecs,shared-field,h384d12h12,h16,z8x16,k14,dopri5,cfg4,single-gpu,$AF_RUN_KIND]"
     ;;
   pusht/action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42)
     AF_METHOD=latent_fm_stopgrad_cotrain
@@ -471,8 +485,20 @@ case "$AF_EXPERIMENT" in
   *) die "AF_EXPERIMENT must select an explicitly approved Action Flow config" ;;
 esac
 
-if test "$AF_SCALED_H512" = true || test "$AF_ROUTED_MODEL" = true; then
+if test "$AF_NATIVE_LIBERO" = true && test -z "${SLURM_STEP_ID:-}"; then
+  required SLURM_JOB_ID
+  required SLURM_CPUS_PER_TASK
+  # Re-enter through a real CPU step; nested GPU child/probe steps overlap.
+  exec srun --overlap --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --gres=none /usr/bin/env bash "$LAUNCHER"
+fi
+if test "$AF_NATIVE_LIBERO" = true; then export AF_NATIVE_SCHEDULED_STEP=true; fi
+
+if test "$AF_SCALED_H512" = true; then
   AF_SMOKE_VERIFIER=$AF_REPO/scripts/train/verify_scaled_action_flow_training_smoke.py
+fi
+if test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+  required AF_PAIRED_CHAIN_SMOKE_VERIFIER
+  AF_SMOKE_VERIFIER=$AF_PAIRED_CHAIN_SMOKE_VERIFIER
 fi
 
 if test "$AF_COTRAIN" = true; then
@@ -484,11 +510,24 @@ if test "$AF_COTRAIN" = true; then
     required "$variable"
   done
 fi
+if test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+  test "$AF_COTRAIN" = true || die "paired ChainGripper requires both routed views"
+  test -n "$AF_SPLIT_MANIFEST" || die "paired ChainGripper requires an explicit split manifest"
+  test "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" = 1fe77d9c0320965fd973711c4b2803938bb9a59ce5e842eb18316b9e71730ecc || \
+    die "paired ChainGripper split is not the pinned manual4919 split"
+  test "$AF_SOURCE" = pushshapes_sim_chain_gripper_native4 || die "wrong native4 route"
+  test "$AF_SECOND_SOURCE" = pushshapes_sim_chain_gripper || die "wrong points6 route"
+  test "$AF_DATASET_DIR" = "$AF_SECOND_DATASET_DIR" || die "paired routes must use one physical corpus"
+  test "$AF_SPLIT_MANIFEST" = "$AF_SECOND_SPLIT_MANIFEST" || die "paired routes must share one physical episode split"
+  test "$AF_CONTENT_MANIFEST" = "$AF_SECOND_CONTENT_MANIFEST" || die "paired routes must share one content manifest"
+  test "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" = "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256" || die "paired split SHA mismatch"
+  test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" || die "paired content SHA mismatch"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" || die "paired aggregate SHA mismatch"
+fi
 
-if test -z "$AF_SPLIT_MANIFEST" && \
-  { test "$AF_FROZEN_CHAIN_4920" = true || test "$AF_MANUAL_CHAIN_4919" = true; } \
+if test -z "$AF_SPLIT_MANIFEST" && test "$AF_FROZEN_CHAIN_4920" = true \
   && test "$AF_COTRAIN" = false; then
-  die "AF_SPLIT_MANIFEST is required for this non-standard ChainGripper corpus"
+  die "AF_SPLIT_MANIFEST is required for the frozen 4,920-episode ChainGripper row"
 elif test -z "$AF_SPLIT_MANIFEST"; then
   if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
     AF_SPLIT_MANIFEST=$AF_REPO/egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_dp_3k_split_seed42_v1.json
@@ -515,15 +554,16 @@ fi
   die "AF_EXPECTED_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-if test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
-  if test "$AF_MANUAL_CHAIN_4919" = true; then
-    test "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256" || \
-      die "split is not the approved manual 4,919-episode ChainGripper split"
-    test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
-      die "content manifest is not the approved manual 4,919-episode ChainGripper view"
-    test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
-      die "dataset aggregate is not the approved manual 4,919-episode ChainGripper view"
-  elif test "$AF_FROZEN_CHAIN_4920" = true; then
+if test "$AF_NATIVE_LIBERO" = true; then
+  test "$AF_NATIVE_DATASET_SHA256" = 3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d || die "native dataset identity mismatch"
+  test "$AF_NATIVE_HISTORICAL_SPLIT_SHA256" = c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236 || die "historical split identity mismatch"
+elif test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+  test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
+    die "content manifest is not the paired manual4919 ChainGripper manifest"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
+    die "dataset aggregate is not the paired manual4919 ChainGripper content"
+elif test "$AF_SOURCE" = pushshapes_sim_chain_gripper; then
+  if test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "content manifest is not the frozen 4,920-episode ChainGripper manifest"
     test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_4920_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -547,13 +587,11 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_MANUAL_CHAIN_4919" = true; then
-    test "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_SPLIT_MANIFEST_SHA256" || \
-      die "second split is not the approved manual 4,919-episode ChainGripper split"
+  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
-      die "second content manifest is not the approved manual 4,919-episode ChainGripper view"
+      die "second content manifest is not the paired manual4919 ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
-      die "second dataset aggregate is not the approved manual 4,919-episode ChainGripper view"
+      die "second dataset aggregate is not the paired manual4919 ChainGripper content"
   elif test "$AF_FROZEN_CHAIN_4920" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_4920_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the frozen 4,920-episode ChainGripper manifest"
@@ -574,7 +612,11 @@ fi
   die "invalid AF_STORAGE_SAFETY_RESERVE_BYTES"
 [[ "$RESTART_COUNT" =~ ^[0-9]+$ ]] || die "invalid SLURM_RESTART_COUNT"
 test "$RESTART_COUNT" -le "$AF_MAX_RESTARTS" || die "restart limit exceeded"
-test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
+if test "$AF_NATIVE_LIBERO" = true; then
+  test "$AF_PRECISION" = bf16-mixed || die "native BF16-mixed required"
+else
+  test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
+fi
 case "$AF_EXPECTED_GPU_CONSTRAINT" in
   H100|H200|'H100|H200') ;;
   *) die "AF_EXPECTED_GPU_CONSTRAINT must be H100, H200, or H100|H200" ;;
@@ -621,7 +663,13 @@ test -s "$AF_DATASET_VALIDATOR" || die "dataset validator is unavailable"
 test -x "$AF_CHECKPOINT_VALIDATOR" || die "checkpoint validator is not executable"
 test -s "$AF_RUNTIME_LOCK_CAPTURE" || die "runtime-lock capture is unavailable"
 test -s "$AF_CONFIG_VALIDATOR" || die "Action Flow config validator is unavailable"
-test -s "$AF_SMOKE_VERIFIER" || die "Action Flow smoke verifier is unavailable"
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = schema; then
+  # Read-only composition does not consume a smoke verifier; keep its exact
+  # future path recorded and leave the operational gate explicitly pending.
+  export AF_NATIVE_OPERATIONAL_VERIFIER_PENDING=true
+else
+  test -s "$AF_SMOKE_VERIFIER" || die "Action Flow smoke verifier is unavailable"
+fi
 test -s "$AF_SLURM_CONTRACT_VALIDATOR" || \
   die "Slurm contract validator is unavailable"
 test -s "$AF_STORAGE_VALIDATOR" || die "storage validator is unavailable"
@@ -683,7 +731,9 @@ export ICE_REQUIRE_LR_SCHEDULERS=1
 export ICE_EXPECTED_SOURCE_COMMIT=$AF_EXPECTED_HEAD
 export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
 export ICE_EXPECTED_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
-if test "$AF_SOURCE" = pushshapes_sim_u_socket; then
+if test "$AF_NATIVE_LIBERO" = true; then
+  export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR
+elif test "$AF_SOURCE" = pushshapes_sim_u_socket; then
   export PUSHSHAPES_USOCKET_ROOT=$AF_DATASET_DIR
 else
   export PUSHSHAPES_CHAIN_GRIPPER_ROOT=$AF_DATASET_DIR
@@ -695,6 +745,9 @@ if test -n "${AF_EXPECTED_NORM_SHA256:-}"; then
   export ICE_EXPECTED_NORMALIZATION_SHA256=$AF_EXPECTED_NORM_SHA256
 fi
 
+if test "$AF_NATIVE_LIBERO" = true; then
+  if test "$AF_NATIVE_PHASE" = smoke; then AF_RUN_KIND=smoke; else AF_RUN_KIND=full; fi
+fi
 if test "$AF_RUN_KIND" = smoke; then
   MAX_STEPS=2
   # Released UNITE initializes both DiT output projections to exactly zero and
@@ -766,8 +819,6 @@ BASE_OVERRIDES=(
   "data.valid_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
   "data.train_dataloader_params.$AF_SOURCE.batch_size=32"
   "data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"
-  evaluator.energy_score_validation_view.world_size=1
-  "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
   ++logger.wandb.offline=false
   "++logger.wandb.entity=$AF_WANDB_ENTITY"
   "++logger.wandb.project=$AF_WANDB_PROJECT"
@@ -787,6 +838,45 @@ BASE_OVERRIDES=(
   "++run_provenance.content_manifest_sha256=$AF_EXPECTED_CONTENT_MANIFEST_SHA256"
   "++run_provenance.dataset_content_aggregate_sha256=$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256"
 )
+
+if test "$AF_NATIVE_LIBERO" = true; then
+  BASE_OVERRIDES+=(
+    evaluator.energy_sample_count=32
+    evaluator.energy_seed_bank_sha256=88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    "++run_provenance.dataset_sha256=$AF_NATIVE_DATASET_SHA256"
+    "++run_provenance.historical_split_manifest_sha256=$AF_NATIVE_HISTORICAL_SPLIT_SHA256"
+  )
+else
+  BASE_OVERRIDES+=(
+    evaluator.energy_score_validation_view.world_size=1
+    "evaluator.energy_score_validation_view.per_rank_batch_size=$AF_VALID_BATCH_SIZE"
+  )
+fi
+
+if test "$AF_SPEED_DIAGNOSTIC" = true; then
+  # Full-corpus retimed normalization retains shared-memory batch buffers.
+  # The gateway's inherited 1024 descriptor limit failed before completion.
+  ulimit -Sn 131072 || die "speed diagnostic requires RLIMIT_NOFILE >=131072"
+  test "$(ulimit -Sn)" -ge 131072 || die "open-file limit guard failed"
+  printf '[speed-contract] open_file_soft_limit=%s\n' "$(ulimit -Sn)"
+  BASE_OVERRIDES+=(
+    "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
+    "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE"
+    "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
+    "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.decoder=two_private_UniteActionDecoder_h696_d12_h12"
+    "run_provenance.validation.interval_optimizer_steps=$VALIDATE_EVERY"
+    "run_provenance.validation.limit_batches=$LIMIT_VAL_BATCHES"
+  )
+fi
+
+# This paired-Chain experiment inherits the U-Socket baseline. Remove the
+# inactive U-Socket planar dimension explicitly and make the exact config
+# validator require only the two ChainGripper routes.
+if test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+  BASE_OVERRIDES+=( '~planar.action_dims.pushshapes_sim_u_socket' )
+fi
 
 if test "$AF_COTRAIN" = true; then
   BASE_OVERRIDES+=(
@@ -810,7 +900,7 @@ if test "$AF_SCALED_H512" = true; then
   )
 fi
 
-if test "$AF_METHOD" != gaussian_bridge_likelihood; then
+if test "$AF_METHOD" != gaussian_bridge_likelihood && test "$AF_NATIVE_LIBERO" = false; then
   BASE_OVERRIDES+=(
     ++model.reconstruction_only_warmup_steps="$RECONSTRUCTION_ONLY_WARMUP_STEPS"
     "++run_provenance.objective.requested_full_reconstruction_only_warmup_steps=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS"
@@ -818,7 +908,50 @@ if test "$AF_METHOD" != gaussian_bridge_likelihood; then
   )
 fi
 
-if test -n "${AF_NORM_STATS_PATH:-}"; then
+if test "$AF_NATIVE_LIBERO" = true; then
+  test -n "${SLURM_STEP_ID:-}" || die "native schema requires scheduled srun"
+  for binding in "AF_NATIVE_SCHEMA_DRIVER:$AF_NATIVE_SCHEMA_DRIVER" "AF_NATIVE_BINDING_OVERRIDE:$AF_NATIVE_BINDING_OVERRIDE"; do
+    absolute_path "${binding%%:*}" "${binding#*:}"
+    test -s "${binding#*:}" || die "native dispatch input unavailable"
+  done
+  test "$(sha256 "$AF_NATIVE_SCHEMA_DRIVER")" = "$AF_NATIVE_SCHEMA_DRIVER_SHA256" || die "native schema driver SHA mismatch"
+  test "$(sha256 "$AF_NATIVE_BINDING_OVERRIDE")" = "$AF_NATIVE_BINDING_OVERRIDE_SHA256" || die "native saved-state override SHA mismatch"
+  test -s "$AF_NORM_STATS_PATH" || die "native saved-state payload unavailable"
+  test "$(sha256 "$AF_NORM_STATS_PATH")" = "$AF_EXPECTED_NORM_SHA256" || die "native payload SHA mismatch"
+  EFFECTIVE_NORM_FILE=$AF_NORM_STATS_PATH
+  IFS= read -r native_binding < "$AF_NATIVE_BINDING_OVERRIDE"
+  [[ "$native_binding" = ++norm_stats.native_saved_state_binding=* ]] || die "exact native binding override required"
+  test "$(wc -l < "$AF_NATIVE_BINDING_OVERRIDE")" -eq 1 || die "binding must be one complete override"
+  BASE_OVERRIDES+=("$native_binding" norm_stats.precomputed_norm_path=null norm_stats.save_cache_dir=null
+    "++run_provenance.normalization_sha256=$AF_EXPECTED_NORM_SHA256")
+  # Structural-only sentinels are never valid SHA-256 proof identities.
+  # They are allowed only in schema mode and keep READY permanently false.
+  export AF_NATIVE_PENDING_PROOFS=""
+  if test "$AF_NATIVE_PHASE" != preflight; then
+    if test -n "${AF_PREFLIGHT_RESULT:-}" && test -n "${AF_EXPECTED_PREFLIGHT_SHA256:-}"; then
+      test "$(sha256 "$AF_PREFLIGHT_RESULT")" = "$AF_EXPECTED_PREFLIGHT_SHA256" || die "native preflight SHA mismatch"
+      preflight_identity=$AF_EXPECTED_PREFLIGHT_SHA256
+    elif test "${AF_NATIVE_SCHEMA_ALLOW_PENDING_PROOFS:-false}" = true; then
+      preflight_identity=PENDING_SCHEMA_ONLY_NO_VALID_PREFLIGHT_PROOF
+      AF_NATIVE_PENDING_PROOFS=preflight
+    else
+      die "exact native preflight proof required"
+    fi
+    BASE_OVERRIDES+=("++run_provenance.preflight_result_sha256=$preflight_identity")
+  fi
+  if test "$AF_NATIVE_PHASE" = full; then
+    if test -n "${AF_SMOKE_RESULT:-}" && test -n "${AF_EXPECTED_SMOKE_SHA256:-}"; then
+      test "$(sha256 "$AF_SMOKE_RESULT")" = "$AF_EXPECTED_SMOKE_SHA256" || die "native smoke SHA mismatch"
+      smoke_identity=$AF_EXPECTED_SMOKE_SHA256
+    elif test "${AF_NATIVE_SCHEMA_ALLOW_PENDING_PROOFS:-false}" = true; then
+      smoke_identity=PENDING_SCHEMA_ONLY_NO_VALID_SMOKE_PROOF
+      AF_NATIVE_PENDING_PROOFS="$AF_NATIVE_PENDING_PROOFS smoke"
+    else
+      die "exact native smoke proof required"
+    fi
+    BASE_OVERRIDES+=("++run_provenance.smoke_result_sha256=$smoke_identity")
+  fi
+elif test -n "${AF_NORM_STATS_PATH:-}"; then
   absolute_path AF_NORM_STATS_PATH "$AF_NORM_STATS_PATH"
   if test -d "$AF_NORM_STATS_PATH"; then
     EFFECTIVE_NORM_FILE=$AF_NORM_STATS_PATH/norm_stats.json
@@ -841,6 +974,23 @@ else
   die "run mode requires AF_NORM_STATS_PATH and AF_EXPECTED_NORM_SHA256 from a passed preflight"
 fi
 
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" != schema; then
+  source "$AF_REPO/scripts/train/libero_native_launch_phases.sh"
+  exit 0
+fi
+
+if test "$AF_LAUNCH_MODE" = schema; then
+  test "$AF_NATIVE_LIBERO" = true || die "schema mode is native LIBERO only"
+  test ! -e "$AF_OUTPUT_DIR" || die "schema output collision"
+  mkdir -p "$AF_OUTPUT_DIR"
+  (set -o noclobber; printf '%s\0' "${BASE_OVERRIDES[@]}" > "$AF_OUTPUT_DIR/exact-phase.argv0")
+  export AF_NATIVE_PHASE
+  "$AF_PYTHON" "$AF_NATIVE_SCHEMA_DRIVER" --repo "$AF_REPO" --phase "$AF_NATIVE_PHASE" \
+    --output "$AF_OUTPUT_DIR" --argv "$AF_OUTPUT_DIR/exact-phase.argv0" \
+    --expected-argv-sha256 "$(sha256 "$AF_OUTPUT_DIR/exact-phase.argv0")"
+  exit 0
+fi
+
 if test "$AF_LAUNCH_MODE" = preflight; then
   for variable in \
     SLURM_JOB_ID SLURM_JOB_ACCOUNT SLURM_JOB_PARTITION SLURM_JOB_QOS \
@@ -856,6 +1006,15 @@ if test "$AF_LAUNCH_MODE" = preflight; then
   test "$RESTART_COUNT" = 0 || die "preflight cannot be requeued"
   test ! -e "$AF_OUTPUT_DIR" || die "unique preflight output already exists"
   mkdir -p "$AF_OUTPUT_DIR"
+  # Compose the real argument vector before runtime scans or data traversal.
+  if test "$AF_SPEED_DIAGNOSTIC" = true; then
+    (
+      cd "$AF_REPO"
+      "$AF_PYTHON" -m egomimic.trainHydra "${BASE_OVERRIDES[@]}" \
+        "++run_provenance.normalization_sha256=${AF_EXPECTED_NORM_SHA256:-$(printf '0%.0s' {1..64})}" \
+        --cfg job --resolve > "$AF_OUTPUT_DIR/exact-phase-before-data.yaml"
+    )
+  fi
   "$AF_PYTHON" "$AF_RUNTIME_LOCK_CAPTURE" \
     --repo "$AF_REPO" \
     --expected-head "$AF_EXPECTED_HEAD" \
@@ -910,7 +1069,16 @@ PY
   fi
   if test "$AF_COTRAIN" = true; then
     USE_CACHED_SECOND_DATASET_VALIDATION=false
-    if test -n "${AF_CACHED_SECOND_DATASET_VALIDATION:-}"; then
+    if test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+      # Both logical routes are the same physical manual4919 corpus and split.
+      # The primary receipt was just verified or materialized above; copying
+      # those exact bytes avoids a second 4,919-episode inventory traversal.
+      cp -- "$AF_OUTPUT_DIR/dataset_validation.json" \
+        "$AF_OUTPUT_DIR/dataset_validation_secondary.json"
+      USE_CACHED_SECOND_DATASET_VALIDATION=true
+    fi
+    if test "$AF_PAIRED_CHAIN_MANUAL4919" != true \
+      && test -n "${AF_CACHED_SECOND_DATASET_VALIDATION:-}"; then
       if "$AF_PYTHON" - "$AF_CACHED_SECOND_DATASET_VALIDATION" \
         "$AF_SECOND_DATASET_DIR" "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256" \
         "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" \
@@ -936,8 +1104,10 @@ PY
       fi
     fi
     if test "$USE_CACHED_SECOND_DATASET_VALIDATION" = true; then
-      cp -- "$AF_CACHED_SECOND_DATASET_VALIDATION" \
-        "$AF_OUTPUT_DIR/dataset_validation_secondary.json"
+      if test "$AF_PAIRED_CHAIN_MANUAL4919" != true; then
+        cp -- "$AF_CACHED_SECOND_DATASET_VALIDATION" \
+          "$AF_OUTPUT_DIR/dataset_validation_secondary.json"
+      fi
     else
       "$AF_PYTHON" "$AF_DATASET_VALIDATOR" \
         --repo "$AF_REPO" \
@@ -957,6 +1127,14 @@ PY
       --config-root "$AF_REPO/egomimic/hydra_configs"
       --output "$AF_OUTPUT_DIR/action_flow_pair_preflight.json"
     )
+    if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true; then
+      for exact_override in "${BASE_OVERRIDES[@]}"; do
+        case "$exact_override" in
+          +experiment=*|--config-name=*) continue ;;
+        esac
+        CONFIG_VALIDATOR_ARGS+=("--override=$exact_override")
+      done
+    fi
     if test "$AF_SCALED_H512" = true; then
       CONFIG_VALIDATOR_ARGS+=(
         --override "data.train_datasets.$AF_SOURCE.resolver.folder_path=$AF_DATASET_DIR"
@@ -986,11 +1164,11 @@ PY
     if test -n "$AF_COMPARISON_EXPERIMENT"; then
       CONFIG_VALIDATOR_ARGS+=(--compare-experiment "$AF_COMPARISON_EXPERIMENT")
     fi
-    if test "$AF_ROUTED_MODEL" = true || { test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false; }; then
-      # The live single-domain validator only recognizes its historical fixed
-      # cotrain experiment and topology.  The current routed H384 cotrain graph
-      # is composed, instantiated, and audited by the strict resolved-config
-      # check below, so do not feed it to an incompatible legacy name gate.
+    if test "$AF_COTRAIN" = true && test "$AF_SCALED_H512" = false \
+      && test "$AF_PAIRED_CHAIN_MANUAL4919" = false && test "$AF_SPEED_DIAGNOSTIC" = false; then
+      # Preserve the pre-existing historical H384 co-train path byte-for-byte.
+      # It is not authority for the new paired-Chain route, which must execute
+      # the real fail-closed validator below.
       "$AF_PYTHON" - "$AF_OUTPUT_DIR/action_flow_pair_preflight.json" \
         "$AF_EXPERIMENT" "$AF_CONFIG_VALIDATOR" <<'PY'
 import hashlib
@@ -1050,9 +1228,14 @@ PY
       "${BASE_OVERRIDES[@]}" "${FINAL_NORM_ARGS[@]}" \
       --cfg job --resolve > "$AF_OUTPUT_DIR/resolved_config.yaml"
   )
-  srun --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
-    "$AF_PYTHON" - "$AF_OUTPUT_DIR/resolved_config.yaml" \
-    "$AF_OUTPUT_DIR/dataset_loader_probe.json" <<'PY'
+  LOADER_SRUN_ARGS=()
+  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
+    LOADER_SRUN_ARGS+=(--overlap)
+  fi
+  srun "${LOADER_SRUN_ARGS[@]}" --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+    /bin/bash -c 'set -Eeuo pipefail; cd "$AF_REPO"; exec "$AF_PYTHON" - "$@"' \
+    action-flow-loader "$AF_OUTPUT_DIR/resolved_config.yaml" \
+    "$AF_OUTPUT_DIR/dataset_loader_probe.json" "$AF_REPO" <<'PY'
 import json
 import pathlib
 import sys
@@ -1060,7 +1243,9 @@ import sys
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-config_path, output_path = map(pathlib.Path, sys.argv[1:])
+config_path, output_path, repo_path = map(pathlib.Path, sys.argv[1:])
+if pathlib.Path.cwd().resolve() != repo_path.resolve():
+    raise SystemExit("nested Slurm container did not enter the pinned source checkout")
 cfg = OmegaConf.load(config_path)
 rows = []
 for split_name, expected_field in (
@@ -1099,7 +1284,7 @@ PY
     "${AF_SECOND_DATASET_DIR:-}" "${AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256:-}" \
     "${AF_SECOND_CONTENT_MANIFEST:-}" \
     "${AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256:-}" \
-    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" <<'PY'
+    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" "${AF_SPEED_ENCODING:-}" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -1128,6 +1313,7 @@ import sys
     second_content_manifest_path,
     second_content_manifest_sha256,
     second_content_aggregate_sha256,
+    speed_encoding,
 ) = sys.argv[1:]
 root = pathlib.Path(root)
 norm = pathlib.Path(norm)
@@ -1186,6 +1372,7 @@ payload = {
     "status": "PASS",
     "source": {"repo": repo, "head": head},
     "experiment": experiment,
+    "speed_encoding": speed_encoding,
     "dataset_root": dataset,
     "content_manifest_path": content_manifest_path,
     "content_manifest_sha256": content_manifest_sha256,
@@ -1249,7 +1436,7 @@ BASE_OVERRIDES+=(
   "$AF_CLUSTER_LABEL" "$AF_COTRAIN" "${AF_SECOND_DATASET_DIR:-}" \
   "${AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256:-}" \
   "${AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256:-}" \
-  "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" <<'PY'
+  "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" "${AF_SPEED_ENCODING:-}" <<'PY'
 import json
 import sys
 
@@ -1269,6 +1456,7 @@ import sys
     second_split_sha,
     second_content_sha,
     second_content_aggregate_sha,
+    speed_encoding,
 ) = sys.argv[1:]
 payload = json.load(open(path))
 assert payload["status"] == "PASS"
@@ -1281,6 +1469,8 @@ assert payload["normalization_sha256"] == norm_sha
 assert payload["launcher_sha256"] == launcher_sha
 assert payload["content_manifest_sha256"] == content_sha
 assert payload["dataset_content_aggregate_sha256"] == content_aggregate_sha
+if experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
+    assert payload["speed_encoding"] == speed_encoding
 if cotrain == "true":
     secondary = payload["datasets"]["secondary"]
     assert secondary["root"] == second_dataset
@@ -1304,10 +1494,12 @@ if test "$AF_RUN_KIND" = full; then
     "$AF_EXPECTED_PREFLIGHT_SHA256" \
     "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
     "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" "$AF_SCALED_H512" \
-    "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" \
+    "$AF_PAIRED_CHAIN_MANUAL4919" \
+    "${AF_EXPECTED_SMOKE_PARAMETER_COUNT:-$AF_EXPECTED_PARAMETER_COUNT}" "$AF_COTRAIN" \
+    "${AF_SECOND_SOURCE:-}" \
     "${AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256:-}" \
     "${AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256:-}" \
-    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" <<'PY'
+    "${AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256:-}" "${AF_SPEED_ENCODING:-}" <<'PY'
 import json
 import sys
 
@@ -1321,11 +1513,14 @@ import sys
     content_sha,
     content_aggregate_sha,
     scaled_h512,
+    paired_chain,
     expected_parameter_count,
     cotrain,
+    second_source,
     second_split_sha,
     second_content_sha,
     second_content_aggregate_sha,
+    speed_encoding,
 ) = sys.argv[1:]
 payload = json.load(open(path))
 assert payload["schema_version"] == 1 and payload["status"] == "PASS"
@@ -1336,16 +1531,19 @@ assert identities["split_manifest_sha256"] == split_sha
 assert identities["normalization_sha256"] == norm_sha
 assert identities["content_manifest_sha256"] == content_sha
 assert identities["dataset_content_aggregate_sha256"] == content_aggregate_sha
+if experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
+    assert identities["speed_conditioning"]["encoding"] == speed_encoding
+    assert identities["speed_conditioning"]["speed_reference"] == 84.11600368466028
 assert payload["preflight"]["sha256"] == preflight_sha
 assert payload["checkpoint"]["global_step"] == 2
 assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
-if scaled_h512 == "true":
+if scaled_h512 == "true" or paired_chain == "true" or experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
     assert payload["checkpoint"]["parameter_count"] == int(expected_parameter_count)
     assert payload["artifacts"]["energy_score"]["sha256"]
     assert payload["artifacts"]["action_flow_diagnostics"]["sha256"]
     if cotrain == "true":
-        secondary = identities["datasets"]["pushshapes_sim_chain_gripper"]
+        secondary = identities["datasets"][second_source]
         assert secondary["split_manifest_sha256"] == second_split_sha
         assert secondary["content_manifest_sha256"] == second_content_sha
         assert secondary["dataset_content_aggregate_sha256"] == second_content_aggregate_sha
@@ -1481,9 +1679,10 @@ export SRUN
   "$RECONSTRUCTION_ONLY_WARMUP_STEPS" "$AF_FULL_MAX_STEPS" \
   "$AF_FULL_VALIDATE_EVERY" "$AF_FULL_CHECKPOINT_EVERY" \
   "$AF_FULL_LIMIT_VAL_BATCHES" "$AF_VALID_BATCH_SIZE" "$AF_SOURCE" \
-  "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" "$AF_ROUTED_MODEL" \
+  "$AF_ACTION_DIM" "$AF_EXPECTED_PARAMETER_COUNT" "$AF_COTRAIN" "$AF_SCALED_H512" \
   "${AF_SECOND_SOURCE:-}" "${AF_SECOND_DATASET_DIR:-}" <<'PY'
 import math
+import os
 import pathlib
 import sys
 
@@ -1520,7 +1719,6 @@ from omegaconf import OmegaConf
     expected_parameter_count,
     cotrain,
     scaled_h512,
-    routed_model,
     second_source,
     second_dataset,
 ) = sys.argv[1:]
@@ -1538,7 +1736,10 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
-routed_model = routed_model == "true"
+speed_diagnostic = experiment.endswith("action_flow_cotrain_uc_speed_interpolation")
+if speed_diagnostic:
+    from validate_speed_config import validate_speed_contract
+    validate_speed_contract(cfg, os.environ["AF_SPEED_ENCODING"])
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
 assert cfg.run_provenance.execution_cluster == cluster
@@ -1557,11 +1758,20 @@ else:
 # AF_CONFIG_VALIDATOR may be a task-local staged tool rather than a module in
 # the immutable source checkout.  AF_EXTRA_PYTHONPATH therefore exposes its
 # directory directly, not a synthetic ``tools`` package.
-from validate_action_flow_config import (
-    LEGACY_METHOD, LIKELIHOOD_METHOD, GRAPH_METHOD, STOPGRAD_METHOD,
-    STOPGRAD_UNITE_METHOD,
-    validate_method_contract, _validate_dimensions_and_modules, _validate_topology,
-)
+if speed_diagnostic or experiment.endswith("action_flow_chain_native4_points6_manual4919_h384_150k_s42"):
+    # The paired route uses the separately pinned fail-closed config validator.
+    # Historical topology helpers hard-code the old U-Socket/Chain routes.
+    LEGACY_METHOD = "action_flow_joint"
+    LIKELIHOOD_METHOD = "gaussian_bridge_likelihood"
+    GRAPH_METHOD = "graph_section_diagnostic"
+    STOPGRAD_METHOD = "latent_fm_stopgrad"
+    STOPGRAD_UNITE_METHOD = "latent_fm_stopgrad_unite"
+else:
+    from validate_action_flow_config import (
+        LEGACY_METHOD, LIKELIHOOD_METHOD, GRAPH_METHOD, STOPGRAD_METHOD,
+        STOPGRAD_UNITE_METHOD,
+        validate_method_contract, _validate_dimensions_and_modules, _validate_topology,
+    )
 if scaled_h512:
     method = STOPGRAD_UNITE_METHOD
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
@@ -1577,23 +1787,27 @@ if scaled_h512:
     )
     assert cfg.model.hidden_dim == 512
     assert cfg.model.flow_mini_batch == 14
-elif routed_model or cotrain:
+elif cotrain:
     method = STOPGRAD_UNITE_METHOD
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
     targets = [str(stage._target_) for stage in cfg.model.pipeline.stages]
-    assert targets[4].endswith("RoutedContentEncoderStage")
-    assert targets[7].endswith("RoutedContentDecoderStage")
+    if speed_diagnostic or experiment.endswith("action_flow_chain_native4_points6_manual4919_h384_150k_s42"):
+        assert targets[4].endswith("RoutedContentEncoderStage")
+        assert targets[7].endswith("RoutedContentDecoderStage")
+    else:
+        assert targets[3].endswith("RoutedContentEncoderStage")
+        assert targets[6].endswith("RoutedContentDecoderStage")
 else:
     method = validate_method_contract(cfg, experiment)
 assert cfg.model.action_horizon == 16
-if not routed_model:
+if not cotrain:
     assert cfg.model.action_dim == action_dim
 if scaled_h512:
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
     assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
-elif routed_model or cotrain:
+elif cotrain:
     assert cfg.model.num_latent_tokens == 8
     assert cfg.model.latent_dim == 16 and cfg.model.condition_dim == 128
     assert math.isclose(cfg.model.condition_dropout_probability, 0.1)
@@ -1744,17 +1958,21 @@ if scaled_h512:
             else module.hidden_dim
         )
         assert width == 512
-elif routed_model or cotrain:
+elif cotrain:
     stages = tuple(pipeline.pipeline.stages)
-    expected_routes = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
-    assert set(stages[4].encoder) == expected_routes
-    assert set(stages[7].decoder) == expected_routes
-    assert stages[4].encoder["pushshapes_sim_u_socket"] is not stages[4].encoder["pushshapes_sim_chain_gripper"]
-    assert stages[7].decoder["pushshapes_sim_u_socket"] is not stages[7].decoder["pushshapes_sim_chain_gripper"]
-    assert stages[4].encoder["pushshapes_sim_u_socket"].input_dim == 4
-    assert stages[4].encoder["pushshapes_sim_chain_gripper"].input_dim == 6
-    assert stages[7].decoder["pushshapes_sim_u_socket"].action_dim == 4
-    assert stages[7].decoder["pushshapes_sim_chain_gripper"].action_dim == 6
+    if speed_diagnostic:
+        from validate_speed_config import validate_speed_pipeline
+        validate_speed_pipeline(cfg, pipeline)
+        encoder_stage = next(s for s in stages if type(s).__name__ == "RoutedContentEncoderStage")
+        decoder_stage = next(s for s in stages if type(s).__name__ == "RoutedContentDecoderStage")
+    elif experiment.endswith("action_flow_chain_native4_points6_manual4919_h384_150k_s42"):
+        encoder_stage, decoder_stage = stages[4], stages[7]
+    else:
+        encoder_stage, decoder_stage = stages[3], stages[6]
+    assert tuple(encoder_stage.encoder) == (source, second_source)
+    assert tuple(decoder_stage.decoder) == (source, second_source)
+    assert encoder_stage.encoder[source] is not encoder_stage.encoder[second_source]
+    assert decoder_stage.decoder[source] is not decoder_stage.decoder[second_source]
 else:
     _validate_topology(cfg, pipeline)
     _validate_dimensions_and_modules(cfg, tuple(pipeline.pipeline.stages))
@@ -1762,11 +1980,27 @@ count = sum(parameter.numel() for parameter in pipeline.nets.parameters())
 if scaled_h512:
     assert expected_parameter_count > 0
     assert count == expected_parameter_count, count
-elif routed_model:
-    assert expected_parameter_count > 90_000_000
-    assert count == expected_parameter_count, count
 elif cotrain:
-    assert count > 90_000_000, count
+    if speed_diagnostic:
+        assert count == expected_parameter_count, count
+    elif experiment.endswith("action_flow_chain_native4_points6_manual4919_h384_150k_s42"):
+        inference_parameters = {
+            id(parameter): parameter
+            for stage in pipeline.pipeline.stages
+            if not getattr(stage, "train_only", False)
+            for parameter in stage.parameters()
+        }
+        inference_count = sum(parameter.numel() for parameter in inference_parameters.values())
+        assert count == 151_990_970, count
+        assert inference_count == expected_parameter_count == 86_539_098, inference_count
+        assert source == "pushshapes_sim_chain_gripper_native4"
+        assert second_source == "pushshapes_sim_chain_gripper"
+        assert dataset == second_dataset
+        assert set(cfg.run_provenance.action_contract.representations) == {source, second_source}
+        assert list(cfg.run_provenance.architecture.action_shapes[source]) == [16, 4]
+        assert list(cfg.run_provenance.architecture.action_shapes[second_source]) == [16, 6]
+    else:
+        assert count > 90_000_000, count
 elif method == STOPGRAD_UNITE_METHOD:
     assert count == expected_parameter_count, count
 elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
@@ -1815,65 +2049,7 @@ PY
   fi
 fi
 
-read -r -d '' CHILD_CODE <<'BASH' || true
-set -Eeuo pipefail
-checkpoint_override=ckpt_path=null
-if test -n "${ICE_RESUME_CHECKPOINT:-}"; then
-  "$AF_PYTHON" - "$ICE_RESUME_CHECKPOINT" \
-    "${ICE_RESUME_CHECKPOINT_SHA256:?}" "${ICE_RESUME_GLOBAL_STEP:?}" <<'PY'
-import hashlib
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1]).resolve(strict=True)
-expected, raw_step = sys.argv[2:]
-assert int(raw_step) >= 0
-digest = hashlib.sha256()
-with path.open("rb") as stream:
-    for chunk in iter(lambda: stream.read(16 * 1024 * 1024), b""):
-        digest.update(chunk)
-assert digest.hexdigest() == expected
-PY
-  case "$ICE_RESUME_CHECKPOINT" in
-    *"'"*|*$'\n'*|*$'\r'*)
-      printf 'Unsafe checkpoint path for Hydra override: %q\n' \
-        "$ICE_RESUME_CHECKPOINT" >&2
-      exit 2
-      ;;
-  esac
-  # Preserve '=' and other Hydra grammar characters as literal path content.
-  checkpoint_override="ckpt_path='$ICE_RESUME_CHECKPOINT'"
-else
-  test -z "${ICE_RESUME_CHECKPOINT_SHA256:-}${ICE_RESUME_GLOBAL_STEP:-}"
-fi
-cd "$AF_REPO"
-export PYTHONPATH="$AF_REPO:$(dirname "$AF_CONFIG_VALIDATOR")${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
-export HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
-export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
-exec "$SRUN" --nodes=1 --ntasks=1 --gpus-per-task=1 \
-  --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
-  "$AF_PYTHON" -m egomimic.trainHydra "$@" \
-  "$checkpoint_override"
-BASH
-
-RUNNER_ARGS=(
-  --state-dir "$AF_OUTPUT_DIR/runner-state"
-  --checkpoint-glob "$AF_OUTPUT_DIR/checkpoints/*.ckpt"
-  --checkpoint-validator "$AF_CHECKPOINT_VALIDATOR"
-  --checkpoint-signal USR2
-  --checkpoint-forwarding slurm-steps
-  --checkpoint-grace-seconds 480
-  --max-restarts "$AF_MAX_RESTARTS"
-  --requeue-owner runner
-  --confirm-child-requeue-disabled
-  --completion-sentinel "$AF_OUTPUT_DIR/COMPLETE.json"
-)
-# Slurm B:USR1 reaches this batch shell only. Preserve the post-run verifier
-# while relaying boundary/cancellation signals to the runner's installed handlers.
-source "$AF_SIGNAL_RELAY"
-ice_run_with_signal_relay "$ATTEMPT/runner-signal-ready.json" \
-  "$AF_PYTHON" "$AF_REQUEUE_RUNNER" "${RUNNER_ARGS[@]}" -- \
-  /usr/bin/env bash -c "$CHILD_CODE" action-flow-usocket "${BASE_OVERRIDES[@]}"
+source "$AF_REPO/scripts/train/action_flow_run_child.sh"
 
 # A successful requeue request also returns zero, but is not training completion.
 # The runner writes COMPLETE.json only for successful child completion.
@@ -1891,7 +2067,7 @@ if test "$AF_RUN_KIND" = smoke; then
     die "smoke checkpoint size is invalid"
   "$AF_PYTHON" "$AF_STORAGE_VALIDATOR" \
     --target "$AF_OUTPUT_DIR" \
-    --planned-checkpoint-count "$(((AF_FULL_MAX_STEPS + AF_FULL_CHECKPOINT_EVERY - 1) / AF_FULL_CHECKPOINT_EVERY))" \
+    --planned-checkpoint-count 14 \
     --measured-checkpoint-bytes "$SMOKE_CHECKPOINT_BYTES" \
     --safety-reserve-bytes "$AF_STORAGE_SAFETY_RESERVE_BYTES" \
     --output "$ATTEMPT/CHECKPOINT_STORAGE.json"
@@ -1899,11 +2075,11 @@ if test "$AF_RUN_KIND" = smoke; then
   if test "$AF_METHOD" != gaussian_bridge_likelihood; then
     SMOKE_WEIGHT_ARGS=(--expected-reconstruction-weight "$AF_RECONSTRUCTION_WEIGHT" --expected-flow-weight "$AF_FLOW_WEIGHT")
   fi
-  SCALED_SMOKE_ARGS=()
-  if test "$AF_SCALED_H512" = true || test "$AF_ROUTED_MODEL" = true; then
-    SCALED_SMOKE_ARGS+=(--expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT")
+  ROUTED_SMOKE_ARGS=()
+  if test "$AF_SCALED_H512" = true || test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true; then
+    ROUTED_SMOKE_ARGS+=(--expected-parameter-count "${AF_EXPECTED_SMOKE_PARAMETER_COUNT:-$AF_EXPECTED_PARAMETER_COUNT}")
     if test "$AF_COTRAIN" = true; then
-      SCALED_SMOKE_ARGS+=(
+      ROUTED_SMOKE_ARGS+=(
         --expected-second-split-sha256 "$AF_EXPECTED_SECOND_SPLIT_MANIFEST_SHA256"
         --expected-second-content-manifest-sha256 "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256"
         --expected-second-dataset-content-aggregate-sha256 "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256"
@@ -1922,7 +2098,7 @@ if test "$AF_RUN_KIND" = smoke; then
       "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" \
     --expected-config-sha256 "$(sha256 "$AF_OUTPUT_DIR/.hydra/config.yaml")" \
     --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256" \
-    "${SCALED_SMOKE_ARGS[@]}"
+    "${ROUTED_SMOKE_ARGS[@]}"
   printf '[smoke] ALL_PASS result=%s wandb=https://wandb.ai/%s/%s/runs/%s\n' \
     "$AF_OUTPUT_DIR/SMOKE_RESULT.json" "$AF_WANDB_ENTITY" \
     "$AF_WANDB_PROJECT" "$AF_WANDB_RUN_ID"

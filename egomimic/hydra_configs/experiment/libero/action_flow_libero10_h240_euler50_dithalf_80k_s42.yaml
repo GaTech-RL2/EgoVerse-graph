@@ -14,3 +14,16 @@ trainer:
   strategy: auto
   sync_batchnorm: false
   num_nodes: 1
+
+# Identity derives from the persisted snapshot byte SHA after Hydra saves it.
+# Descriptors carry paths only; recursive hydration never receives model config.
+evaluator:
+  _recursive_: true
+  artifact_root: ${paths.output_dir}/validation_predictions/native_action_flow
+  artifact_identity:
+    _target_: egomimic.benchmarks.libero.native_artifact_identity.build_native_artifact_identity_from_config
+    config_path: ${paths.output_dir}/.hydra/config.yaml
+  native_diagnostic_config:
+    _target_: egomimic.benchmarks.libero.native_artifact_identity.build_native_diagnostic_config_from_config
+    config_path: ${paths.output_dir}/.hydra/config.yaml
+    artifact_root: ${paths.output_dir}/validation_predictions/action_flow_diagnostics

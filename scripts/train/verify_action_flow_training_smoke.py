@@ -1116,7 +1116,7 @@ def _validate_optimizer_state(
     _require(isinstance(optimizer_state, Mapping), "optimizer state is not a mapping")
     composite_optimizer = (
         config is not None
-        and str(config.get("name", ""))
+        and (str(OmegaConf.select(config, "model.optimizer._target_", default="")) == "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer" or str(config.get("name", ""))
         in {
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
@@ -1124,6 +1124,7 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[UNITE_H384_COMPAT_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_DETERMINISTIC_EXPERIMENT][0],
         }
+        )
     )
     if not composite_optimizer:
         _require(bool(optimizer_state.get("state")), "AdamW optimizer state is empty")
@@ -1163,6 +1164,7 @@ def _validate_checkpoint(
     flow_weight: float,
     method: str = LEGACY_METHOD,
     config: DictConfig | None = None,
+    expected_parameter_count_override: int | None = None,
 ) -> dict[str, Any]:
     checkpoint_dir = run_dir / "checkpoints"
     last_path = checkpoint_dir / "last.ckpt"
@@ -1296,7 +1298,7 @@ def _validate_checkpoint(
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     if method == STOPGRAD_UNITE_METHOD:
         _require(
-            parameter_count == UNITE_H384_PARAMETER_COUNT,
+            parameter_count == (UNITE_H384_PARAMETER_COUNT if expected_parameter_count_override is None else expected_parameter_count_override),
             f"parameter count mismatch: {parameter_count} != "
             f"{UNITE_H384_PARAMETER_COUNT}",
         )
@@ -1451,6 +1453,9 @@ def _validate_history(
     flow_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
     method: str = LEGACY_METHOD,
+    source_label: str = SOURCE_LABEL,
+    validation_metric_names: Sequence[str] | None = None,
+    diagnostic_metric_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     component_names = (
         "TotalLoss",
@@ -1462,7 +1467,7 @@ def _validate_history(
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
     components = tuple(f"Train/ActionFlow/{name}" for name in component_names)
-    per_source_components = tuple(f"{name}/{SOURCE_LABEL}" for name in components)
+    per_source_components = tuple(f"{name}/{source_label}" for name in components)
     gradient_labels = (
         ("InteriorBridgeNLL", "BoundaryNLL")
         if method == LIKELIHOOD_METHOD
@@ -1490,7 +1495,7 @@ def _validate_history(
             for pair in gradient_pairs
         ),
         "Train/MSE",
-        f"Train/MSE/{SOURCE_LABEL}",
+        f"Train/MSE/{source_label}",
         "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
         "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
         "Train/ActionFlow/Compute/DecoderJVPCallsPerStep",
@@ -1571,7 +1576,7 @@ def _validate_history(
         ),
         "joint smoke step did not enable both delayed objectives",
     )
-    for suffix in ("", f"/{SOURCE_LABEL}"):
+    for suffix in ("", f"/{source_label}"):
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1611,7 +1616,7 @@ def _validate_history(
                 == 0.0,
                 "warmup smoke step enabled a delayed objective",
             )
-            for suffix in ("", f"/{SOURCE_LABEL}"):
+            for suffix in ("", f"/{source_label}"):
                 expected_total = (
                     reconstruction_weight
                     * concrete[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
@@ -1637,7 +1642,9 @@ def _validate_history(
         "Valid/EnergyScoreAccuracy@32",
         "Valid/EnergyScoreDiversity@32",
     ):
-        validity.extend((base, f"{base}/{SOURCE_LABEL}"))
+        validity.extend((base, f"{base}/{source_label}"))
+    if validation_metric_names is not None:
+        validity = list(validation_metric_names)
     validity.extend(f"Valid/ActionFlow/{name}" for name in component_names)
     diagnostics = (
         "Valid/ActionFlow/CleanReconstructionMSE",
@@ -1660,11 +1667,13 @@ def _validate_history(
     diagnostics = (
         *diagnostics,
         *(
-            f"{name}/{SOURCE_LABEL}"
+            f"{name}/{source_label}"
             for name in diagnostics
             if "NativeMSE" in name or "decoded_native_mse" in name
         ),
     )
+    if diagnostic_metric_names is not None:
+        diagnostics = tuple(diagnostic_metric_names)
     valid_step, valid = _complete_row(
         rows,
         (*validity, *diagnostics),
@@ -2215,6 +2224,14 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
+    if experiment == "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42":
+        from scripts.train.verify_libero_native_action_flow_smoke import verify_native_smoke
+        return verify_native_smoke(run_dir=run_dir, expected_head=expected_head,
+            expected_config_sha256=expected_config_sha256,
+            expected_split_sha256=expected_split_sha256,
+            expected_normalization_sha256=expected_normalization_sha256,
+            expected_preflight_sha256=expected_preflight_sha256,
+            shared=sys.modules[__name__])
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
     _require(run_dir.is_dir(), f"run directory is not a directory: {run_dir}")
     expected_head = str(expected_head).lower()
@@ -2356,7 +2373,7 @@ def _parser() -> argparse.ArgumentParser:
         "--experiment",
         "--expected-experiment",
         dest="experiment",
-        choices=tuple(APPROVED_EXPERIMENTS),
+        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"),
         required=True,
     )
     parser.add_argument("--expected-head", required=True)

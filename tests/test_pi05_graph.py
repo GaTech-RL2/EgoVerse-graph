@@ -14,6 +14,7 @@ import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
+from omegaconf import open_dict
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pl_utils.pl_model import ModelWrapper
@@ -76,6 +77,10 @@ def tiny_openpi(monkeypatch):
             super().__init__()
             self.weight = torch.nn.Parameter(torch.tensor(0.25))
             self.config = config
+            self.checkpointing_enabled = False
+
+        def gradient_checkpointing_enable(self):
+            self.checkpointing_enabled = True
 
         def forward(self, observation, action):
             assert not torch.is_inference_mode_enabled()
@@ -146,14 +151,21 @@ def batch():
     }
 
 
-def test_pi_training_inference_and_strict_checkpoint(tiny_openpi, tmp_path):
+@pytest.mark.parametrize("checkpointing", [False, True])
+def test_pi_training_inference_and_strict_checkpoint(
+    tiny_openpi, tmp_path, checkpointing
+):
     cfg = config()
+    with open_dict(cfg.model.pipeline.stages[0].policy):
+        cfg.model.pipeline.stages[0].policy.gradient_checkpointing = checkpointing
+        cfg.model.pipeline.stages[0].policy.compile_sampler = not checkpointing
     graph = instantiate(cfg.model.pipeline)
     with pytest.raises(RuntimeError, match="Bind PI05Stage"):
         graph.forward_training(batch())
     norm = normalizer()
     graph.bind_data_context(normalizer=norm)
     stage = graph.pipeline.stages[0]
+    assert stage.backend.model.checkpointing_enabled == checkpointing
     params = list(graph.nets.parameters())
     assert params and params[0] is stage.backend.model.weight
     wrapper = ModelWrapper(pipeline=graph)

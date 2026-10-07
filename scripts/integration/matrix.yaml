@@ -1,0 +1,94 @@
+# Integration execution checks only. These five updates are not performance runs.
+trainer:
+  accelerator: gpu
+  devices: 1
+  num_nodes: 1
+  strategy: auto
+  precision: bf16-mixed
+  sync_batchnorm: false
+  max_epochs: 1
+  min_epochs: 0
+  max_steps: 5
+  limit_train_batches: 5
+  limit_val_batches: 1
+  num_sanity_val_steps: 0
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 1
+  enable_checkpointing: false
+  inference_mode: false
+
+cases:
+  hpt-eva:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [model=hpt_bc_flow_eva, data=eva, evaluator=eval_hpt]
+    sources: {eva_bimanual: eva}
+  hpt-aria:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [model=hpt_bc_flow_aria, data=aria, evaluator=eval_hpt]
+    sources: {human_bimanual: aria}
+  hpt-mecka:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [model=hpt_bc_flow_mecka, data=mecka, evaluator=eval_hpt]
+    sources: {human_bimanual: mecka}
+  hpt-scale:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [model=hpt_bc_flow_scale, data=scale, evaluator=eval_hpt]
+    sources: {human_bimanual: scale}
+  hpt-yam:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [+experiment=abc/yam_fstshirt_hpt, evaluator=eval_hpt]
+    sources: {yam_bimanual: yam}
+    inference_identity: 7
+  hpt-cotrain:
+    suite: hpt
+    config: train_zarr_cartesian
+    overrides: [model=hpt_cotrain_flow_seperate_head, data=cotrain_pi_base, evaluator=eval_hpt]
+    sources: {eva_bimanual: eva, human_bimanual: aria}
+  pi-eva:
+    suite: pi
+    config: train_zarr_cartesian
+    overrides: [model=pi0.5_bc_eva, data=eva, evaluator=eval_pi]
+    sources: {eva_bimanual: eva}
+    runtime_overrides: &pi_runtime
+      model.pipeline.stages.0.policy.gradient_checkpointing: true
+      model.pipeline.stages.0.policy.compile_sampler: false
+      model.pipeline.stages.0.policy.tokenizer_model_name: ${oc.env:SMOKE_INPUT_ROOT}/tokenizer
+      model.pipeline.stages.0.policy.config.pytorch_weight_path: ${oc.env:SMOKE_INPUT_ROOT}/weights/pi05
+  pi-aria:
+    suite: pi
+    config: train_zarr_cartesian
+    overrides: [model=pi0.5_bc_aria, data=aria, evaluator=eval_pi]
+    sources: {human_bimanual: aria}
+    runtime_overrides: *pi_runtime
+  pi-mecka:
+    suite: pi
+    config: train_zarr_cartesian
+    overrides: [model=pi0.5_bc_mecka, data=mecka, evaluator=eval_pi]
+    sources: {human_bimanual: mecka}
+    runtime_overrides: *pi_runtime
+  pi-scale:
+    suite: pi
+    config: train_zarr_cartesian
+    overrides: [model=pi0.5_bc_scale, data=scale, evaluator=eval_pi]
+    sources: {human_bimanual: scale}
+    runtime_overrides: *pi_runtime
+  pi-cotrain:
+    suite: pi
+    config: train_zarr_cartesian
+    overrides: [model=pi0.5_cotrain_eva_aria, data=cotrain_pi_base, evaluator=eval_pi]
+    sources: {eva_bimanual: eva, human_bimanual: aria}
+    runtime_overrides: *pi_runtime
+  hpt-ddp:
+    suite: ddp
+    config: train_zarr_cartesian
+    overrides: [model=hpt_bc_flow_eva, data=eva, evaluator=eval_hpt]
+    sources: {eva_bimanual: eva}
+    trainer:
+      devices: 2
+      strategy: ddp
+      sync_batchnorm: true

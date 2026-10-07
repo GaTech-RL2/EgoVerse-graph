@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "key": "experiments/graph-integration-20260924/conditional-write-probe/04c7ccce95c94f57bf095575759a6489/single.txt",
+      "duplicate_write_status": 412,
+      "sha256": "6aba887f0c64de1b1c8d6aa07eb4355d1caae1c0477402dfcafc59bf479a0b58"
+    },
+    {
+      "key": "experiments/graph-integration-20260924/conditional-write-probe/04c7ccce95c94f57bf095575759a6489/multipart.txt",
+      "duplicate_write_status": 412,
+      "sha256": "6aba887f0c64de1b1c8d6aa07eb4355d1caae1c0477402dfcafc59bf479a0b58"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "old_revision": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+  "path": "egomimic/hydra_configs/model_contract/e1_wrists.yaml",
+  "existing_declarations_preserved": true,
+  "new_declarations": [
+    "arcdurhyb",
+    "arcvelhyb"
+  ]
+}

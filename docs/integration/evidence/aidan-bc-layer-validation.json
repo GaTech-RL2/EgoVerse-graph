@@ -1,0 +1,22 @@
+{
+  "source_head": "41177edadf0b514e2616865ffe4889b154ed9493",
+  "validation_restored_from": "8529b48aac788245f29c900290e3b9db3f4ac0c5",
+  "only_runtime_edit": "egomimic/hydra_configs/model_contract/e1_wrists.yaml",
+  "fix": "four inactive hybrid R references use oc.select fallback2pi; explicit selected model.rotation_distance_unit stillwins",
+  "model_contract_sha256": "cf62277d6b4c570695d868c2af872149a98c7854694be627826b90dc0ca4bc70",
+  "audit_script_sha256": "e5348925fc26b5f327ff4e85de7f29dc2463529d444147522de6155bde5a97d8",
+  "audit": {
+    "configs": 466,
+    "passed": 466,
+    "failed": 0,
+    "result": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/bc-final-hydra-audit.json",
+    "log": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/logs/bc-final-hydra-audit.log"
+  },
+  "contract_tests": {
+    "result": "17 passed",
+    "log": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/logs/bc-final-contract-tests.log"
+  },
+  "independence": "BC source alone; no rollout child modules/configs imported; EGO_REPO and PYTHONPATH bindbc-final. Audit tool is reviewedexternalizedvalidation tooling.",
+  "prevention": "fullrecursive throw_on_missing audit catches unresolved inactive contractinterpolations beforeeachchildpublication; official companion restore donebeforetoolreplacement",
+  "not_staged_or_committed": true
+}

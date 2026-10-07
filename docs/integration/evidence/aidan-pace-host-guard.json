@@ -1,0 +1,44 @@
+{
+  "task": "PACE login hostname guard and inactive hybrid rotation fallback parity",
+  "branch14_before": "be01b3538ee63f1690aa00e6c3f27a8d7955a119",
+  "branch14_after": "0646480697b6e8046dded97727a4494c8d087c43",
+  "runtime_head": "41177edadf0b514e2616865ffe4889b154ed9493",
+  "runtime_source_before_sha256": "ade5a30b17f16f39451208d0d9ec3073fbf0478cac8faba5badf541862f5da6c",
+  "paths_sha256": {
+    "runtime/scripts/e1/recipe_builders.py": "be7a01dd095fc7f420dbb2df63b4d2a6836aadd0e0fc12c3b698cb13fdd8a9ca",
+    "bc-final/scripts/e1/recipe_builders.py": "be7a01dd095fc7f420dbb2df63b4d2a6836aadd0e0fc12c3b698cb13fdd8a9ca",
+    "runtime/egomimic/hydra_configs/model_contract/e1_wrists.yaml": "4b1ae9f75747b7ce53cb796f5dd8ceab10bbfcf7ccf6956eec7e7a42e0e9ae48",
+    "new-tests-bc/test_e1_bc_recipe_migration.py": "12604cb4d454c56631f4f1cc05df6d65ef3f20894a38664d337fd054d1804dab",
+    "runtime/tests/test_e1_bc_recipe_migration.py": "12604cb4d454c56631f4f1cc05df6d65ef3f20894a38664d337fd054d1804dab",
+    "bc-final/tests/test_e1_bc_recipe_migration.py": "12604cb4d454c56631f4f1cc05df6d65ef3f20894a38664d337fd054d1804dab",
+    "validation-publish/tests/test_e1_bc_recipe_migration.py": "12604cb4d454c56631f4f1cc05df6d65ef3f20894a38664d337fd054d1804dab"
+  },
+  "source_commit_paths": [
+    "scripts/e1/recipe_builders.py"
+  ],
+  "guard_hostnames": [
+    "atl1-login2",
+    "phoenix-login1",
+    "ice-login1"
+  ],
+  "guard_test_semantics": "PACE_CLUSTER cleared; SLURM_JOB_ID alone rejects; SLURM_STEP_ID=0 permits scheduled execution",
+  "runtime_hybrid_port": "Four original e1_wrists hybrid tokenizer/decoder rotation_distance_unit fields use oc.select default 2pi; rollout declarations preserved",
+  "checks": {
+    "runtime_recipe_suite": {
+      "passed": 14,
+      "log": "logs/runtime-pace-host-guard-tests.log"
+    },
+    "bc_final_recipe_suite": {
+      "passed": 14,
+      "log": "logs/bc-final-pace-host-guard-tests.log"
+    },
+    "ruff_check": "passed, six files",
+    "ruff_format": "six files already formatted",
+    "git_diff_check": "passed in runtime and bc-final"
+  },
+  "validation_pins_unchanged": {
+    "bc-final": "809d6f98da65598fda2bdba87e97c91d2ceaf80626abc15b6e8873f30fdcc9e2",
+    "runtime": "a4735e8e52c8bcc15addb65e6e898e927d4379739cce0e568fe9d2b29af6fa8c"
+  },
+  "publication": "none"
+}

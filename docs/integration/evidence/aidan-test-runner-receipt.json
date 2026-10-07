@@ -1,0 +1,11 @@
+{
+  "tests_passed": 1165,
+  "junit_sha256": "e53f36dad4c56872ff7863d5c963878821b8e57134417637af002c2ac69116bd",
+  "wrapper_exit": 2,
+  "cause": "Wrapper was edited during the running Bash process; pytest completed successfully before a later shell syntax error.",
+  "correction": "Validated passing finalJUnit and complete test log; wrapper passes bash -n and check-only preflight.",
+  "prevention": {
+    "executable": "run_final_regressions.sh snapshots itself then execs the read-only copy before work; removes staleJUnit before pytest",
+    "automatic_instruction": "/Users/elmopa/Documents/vault/AGENTS.md Failure prevention"
+  }
+}

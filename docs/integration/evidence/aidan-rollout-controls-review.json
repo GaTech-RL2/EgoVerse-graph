@@ -1,0 +1,109 @@
+{
+  "status": "verified_installed_runtime",
+  "source_files": [
+    {
+      "path": "egomimic/pipeline/inference_controls.py",
+      "baseline_sha256": "2573b19b699d4285a5b0dc0a45b32d6203a0059e9f0efdf12eef3cc9006d5c0c",
+      "staged_sha256": "2236bcc46dc744ef80f4c068b5ba2a63d984fbd17d2e0c118c2a0ee5622591f5",
+      "installed_sha256": "2236bcc46dc744ef80f4c068b5ba2a63d984fbd17d2e0c118c2a0ee5622591f5"
+    },
+    {
+      "path": "egomimic/robot/graph_policy.py",
+      "baseline_sha256": "3220ed9abafcca257a24fa347360101ec8ab886436fddb8afdce08669953fc44",
+      "staged_sha256": "fa4dee02ca4057b1cb064615c63d155a2d196cce60e85cc8e610ec125463148a",
+      "installed_sha256": "fa4dee02ca4057b1cb064615c63d155a2d196cce60e85cc8e610ec125463148a"
+    },
+    {
+      "path": "egomimic/pipeline/sequence_decoder.py",
+      "baseline_sha256": "5c157dca85a2d9c31ac2fbaf6d518914dc2d94e6200e9177acd61788859b20e9",
+      "staged_sha256": "0b2604255692a5e7a034b450c344c7999799519ea2857fcbfcc0fabeb8c5d795",
+      "installed_sha256": "0b2604255692a5e7a034b450c344c7999799519ea2857fcbfcc0fabeb8c5d795"
+    },
+    {
+      "path": "egomimic/robot/action_decoder.py",
+      "baseline_sha256": "d2c75147e6f5030c9346e7d0fb0d5af13dcbcac065d8613f7dc019a7f8f0cefc",
+      "staged_sha256": "e6c3e90afec02129f5b8446a266e18424cc7bf6e221655a5855c441c828e8bee",
+      "installed_sha256": "e6c3e90afec02129f5b8446a266e18424cc7bf6e221655a5855c441c828e8bee"
+    },
+    {
+      "path": "egomimic/robot/yam/interface.py",
+      "baseline_sha256": "7ef2ba118b4de74fc603c5cf9d9a9b7c301c659c8de61454d23c9f4a732f828e",
+      "staged_sha256": "4272a23f888400e9fa59d7b3d194eb644eb073632c998a18740aaed8c1ff3ba9",
+      "installed_sha256": "4272a23f888400e9fa59d7b3d194eb644eb073632c998a18740aaed8c1ff3ba9"
+    }
+  ],
+  "tests": {
+    "passed": 102,
+    "log": "logs/runtime-controls-codec-final-tests.log",
+    "new_tests": [
+      "new-tests-rollout/test_declared_decoder_controls.py",
+      "new-tests-rollout/test_yam_gripper_controls.py",
+      "new-tests-rollout/test_decoder_contract_preflight.py"
+    ],
+    "existing_tests": [
+      "tests/test_robot_graph_policy.py",
+      "tests/test_retained_hpt_variants.py"
+    ],
+    "registry_tests": "new-tests-rollout/test_arc_codec_controls.py",
+    "ruff": "0.8.6 check + format for five owned runtime files and three new test modules passed"
+  },
+  "interfaces": {
+    "owner_validation": "validate_inference_control(attribute, value)",
+    "execution_boundary": "execution_steps() -> positive int | None",
+    "decoder_contract": "validate_inference_contract(native_shape, canonical_shape)"
+  },
+  "policy_paths": [
+    "replan_every",
+    "max_valid_samples",
+    "adapter.decoder.speed_percent",
+    "adapter.decoder.hold_speed_percent",
+    "adapter.decoder.first_stream",
+    "adapter.decoder.execute_percent",
+    "adapter.decoder.decoders.1.speed_percent",
+    "adapter.decoder.decoders.1.hold_speed_percent"
+  ],
+  "operational_lessons": [
+    {
+      "failure": "New test adapter mock omitted required input_constants() protocol.",
+      "prevention": "Explicit Adapter fixture now implements constants and camera/proprio/action names."
+    },
+    {
+      "failure": "Flattening all uv.lock pins mixed extra-specific NumPy versions.",
+      "prevention": "prepare_mujoco_constraints.py selects unique version pins or installed matching conditional versions; NumPy unchanged."
+    },
+    {
+      "failure": "Numeric intermediate declaration segments were initially resolved with getattr rather than sequence indexing.",
+      "prevention": "Only nonnegative validated list/tuple indices are traversed; numeric final targets reject, and malformed/out-of-bounds declarations test no default writes."
+    },
+    {
+      "failure": "YAM rollback setters could silently leave an arm at a changed force.",
+      "prevention": "All touched setters, including the failing target, restore in reverse and each reported active force is checked; cancellation uses the same cleanup path."
+    },
+    {
+      "failure": "A model-owned native shape could differ from its decoder implementation.",
+      "prevention": "Optional generic shape hook runs before strict checkpoint loading and before default binding; composed decoders validate every declared intermediate boundary."
+    }
+  ],
+  "bc_commit": "41177edadf0b514e2616865ffe4889b154ed9493",
+  "pending": null,
+  "companion_ci": {
+    "branch": "codex/graph-validation-20261007-aidan",
+    "owned_files": [
+      ".github/workflows/ci.yml",
+      ".github/scripts/check_validation_companion.py"
+    ],
+    "runtime_job_commands_unchanged": true,
+    "condition": "Both PR head_ref and base_ref start codex/graph-validation-",
+    "validation_scope": "Metadata/complete manifest/regular files/SHA256/Python AST/known full commit pins, without importing or executing historical runtime",
+    "metadata_entries": 373,
+    "syntax_files": 216,
+    "immutable_source_pins": 90,
+    "negative_probe_receipt": "companion-checker-negative-probes.json",
+    "negative_probes_passed": 7,
+    "source_sha256": {
+      ".github/workflows/ci.yml": "3ea83365c3f4907b3fb00a33a6ba189a962c07d4f49785ff2703d12f48fceba1",
+      ".github/scripts/check_validation_companion.py": "3d2aba5d31492fac7498b922f6f6f92347d4b371d18a6f4687500ca25535f49c"
+    },
+    "runtime_ci_sha256": "48e9b68393bad79e7245e0e893872069078b1cb1cc395c2a681209f0753034d0"
+  }
+}

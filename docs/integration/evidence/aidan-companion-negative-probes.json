@@ -1,0 +1,165 @@
+{
+  "checks": [
+    {
+      "case": "valid fixture",
+      "passed": true
+    },
+    {
+      "case": "runtime file change",
+      "passed": true,
+      "rejection": "Companion PR changes runtime files: egomimic/model.py"
+    },
+    {
+      "case": "incomplete inventory",
+      "passed": true,
+      "rejection": "Companion inventory differs: missing=['tests/unlisted.py'], extra=[]"
+    },
+    {
+      "case": "changed content hash",
+      "passed": true,
+      "rejection": "Companion hash mismatch: tests/example.py"
+    },
+    {
+      "case": "invalid test Python syntax",
+      "passed": true,
+      "rejection": "'(' was never closed (example.py, line 1)"
+    },
+    {
+      "case": "manifest symlink",
+      "passed": true,
+      "rejection": "Companion entry must be a regular file: tests/example.py"
+    },
+    {
+      "case": "mutable source pin",
+      "passed": true,
+      "rejection": "source must be an immutable full commit SHA"
+    },
+    {
+      "case": "source-pins: optional evidence absent",
+      "passed": true
+    },
+    {
+      "case": "source-pins: all named immutable evidence pins",
+      "passed": true
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required existing_stack",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: existing_stack"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required bc_donor",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: bc_donor"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required rollout_donor",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: rollout_donor"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required bc_source_verified_before_validation_pin",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: bc_source_verified_before_validation_pin"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required historical_m28",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: historical_m28"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing required pr193",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: pr193"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json missing source_pins mapping",
+      "passed": true,
+      "rejection": "aidan-final-validation.json requires a source_pins mapping"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json empty source_pins mapping",
+      "passed": true,
+      "rejection": "aidan-final-validation.json is missing source pins: bc_donor, bc_source_verified_before_validation_pin, existing_stack, historical_m28, pr193, rollout_donor"
+    },
+    {
+      "case": "source-pins: aidan-final-validation.json abbreviated commit",
+      "passed": true,
+      "rejection": "aidan-final-validation.json.source_pins.pr193 must be an immutable full commit SHA"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required stack",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: stack"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required BC",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: BC"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required rollout_donor",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: rollout_donor"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required BC_child_commit",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: BC_child_commit"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required PR193",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: PR193"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing required M28",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: M28"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json missing source_pins mapping",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json requires a source_pins mapping"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json empty source_pins mapping",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json is missing source pins: BC, BC_child_commit, M28, PR193, rollout_donor, stack"
+    },
+    {
+      "case": "source-pins: aidan-rollout-decoder-review.json abbreviated commit",
+      "passed": true,
+      "rejection": "aidan-rollout-decoder-review.json.source_pins.M28 must be an immutable full commit SHA"
+    },
+    {
+      "case": "source-pins: unexpected additional source pin must also be immutable",
+      "passed": true,
+      "rejection": "aidan-final-validation.json.source_pins.extra_source must be an immutable full commit SHA"
+    },
+    {
+      "case": "source-pins: dispositions missing required source",
+      "passed": true,
+      "rejection": "aidan-rollout-dispositions.json is missing source"
+    },
+    {
+      "case": "source-pins: dispositions missing required common_base",
+      "passed": true,
+      "rejection": "aidan-rollout-dispositions.json is missing common_base"
+    },
+    {
+      "case": "source-pins: dispositions missing required runtime_parent",
+      "passed": true,
+      "rejection": "aidan-rollout-dispositions.json is missing runtime_parent"
+    },
+    {
+      "case": "source-pins: dispositions moving branch",
+      "passed": true,
+      "rejection": "aidan-rollout-dispositions.source must be an immutable full commit SHA"
+    }
+  ],
+  "metadata_only": true,
+  "no_runtime_execution": true,
+  "source_pin_schema_probes": 25,
+  "probe_script": "probe_companion_source_pins.py"
+}

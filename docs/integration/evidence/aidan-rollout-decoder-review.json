@@ -1,0 +1,77 @@
+{
+  "timestamp_utc": "2026-10-07T06:21:13.305792+00:00",
+  "source_pins": {
+    "stack": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+    "BC": "8ff8da40fbb22dba5ae36fc0d85e4e1fd15ebc20",
+    "rollout_donor": "b1ecba6310fac41e7441a743f756362a7ca65517",
+    "BC_child_commit": "41177edadf0b514e2616865ffe4889b154ed9493",
+    "PR193": "67863ca5e83885e1228eb23bfa8dfdd61f29ced5",
+    "M28": "99be4af0dc374e030e3e4e205208f08f7baffa85"
+  },
+  "codec_version_contracts": {
+    "current_canonical": "canonical200",
+    "historical_M28": "m28_99be4af0",
+    "E1_trained_regular_hybrid": "e1_8ff",
+    "E1_tri_decode_only": "e1_tri_b1ecba63",
+    "PR193_plain_per_waypoint": "pr193"
+  },
+  "AST_per_arm_rate_parity_before_duration_additions": {
+    "_hybrid_source_coordinates": true,
+    "_hybrid_waypoints": true,
+    "_hybrid_per_waypoint_velocity": true,
+    "_detokenize_hybrid": true,
+    "_hybrid_clock_indices": true
+  },
+  "proof_limits": "M28 adds duration/clock semantics; existing canonical per_waypoint per-arm methods match. Decoder shape does not prove timing-column semantics; version/layout constructor gate is explicit. No historical checkpoint or normalizer files were loaded.",
+  "tests": [
+    {
+      "result": "35 passed",
+      "coverage": "pure implemented-shape hooks; version/layout mismatch including18D; asymmetric per-arm current/frozen full/capped decode; joint/race/multistream declared codecs; explicitPR193stacked identity",
+      "log": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/logs/decoder-contract-preflight-tests.log",
+      "sha256": "fde8402e1b00dc7b135d512c5a68bffaace6eb258b5821eaf7083f28a7ffe026"
+    },
+    {
+      "result": "2 passed",
+      "coverage": "failedcheckpointload and wrongactionrepresentation reset oldpolicyhistory beforepause/resume",
+      "log": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/logs/rollout-model-reload-tests.log",
+      "sha256": "f62856bf55710418544da7bb61bc3570a1a293c4053b2e85426b8068f0b37ac6"
+    }
+  ],
+  "review_findings": [
+    {
+      "problem": "terminalclose/discard requests block when boundedrowqueue isfull",
+      "proof": "minimalqueue reproduction close returned onlyafterdrain; donor slowwriter test releasedgate beforeclose",
+      "owner": "root",
+      "resolution_reported": "terminalcontrol request separated fromboundedrows; root14 recordingtests passed"
+    },
+    {
+      "problem": "executed_rows storesplannedprefix, including unexecuted/rejectedrows",
+      "owner": "root",
+      "resolution_reported": "planned_rows separated fromactualwriter rowcounts; rootrecordingtests passed"
+    },
+    {
+      "problem": "failedmodelreplacement keepsoldobservationhistory afterloadpause",
+      "owner": "registry_recovery",
+      "resolution": "_reset_policy_state(policy) beforecandidate load; focused2 cases passed"
+    },
+    {
+      "problem": "nativeartifact shape couldmatchitsownschema butdiffer fromdecoderimplementation",
+      "owner": "registry_recovery/model_runtime_audit",
+      "resolution": "pure decoder validate_inference_contract hooks; generic graphload callerownedby modelagent"
+    }
+  ],
+  "current_files": {
+    "egomimic/robot/arc_decoder.py": "d6be66e22395b6f933f363a2544b8109dc8e3ca5cd31ada82ab4cd5337156eae",
+    "egomimic/robot/rollout.py": "7faaa2ee34b7992504fb5c926f87b9752c0decbcae891dfc172ecfbb6fa8e055",
+    "egomimic/robot/arc_speed.py": "6d10bc198bc9d4ca814a08a66019fb7777973d86c47342c4e762d9f4a4b89183",
+    "egomimic/rldb/zarr/arc_length_tokenizer.py": "aa2bbe182977c1932ca71fbe46c609c5bb1a6522146d2e8cbb76abadf6736ba9",
+    "egomimic/rldb/zarr/arc_length_tokenizer_pr193.py": "9887e7affd11a53678aa2c42072cd7873676e781789b37945854d8c64b44cd99",
+    "egomimic/rldb/zarr/arc_length_tokenizer_m28.py": "402ff02dd83344250f4d166f1b1e01765cf0f4d72e63213f756dcc811c4ab264",
+    "egomimic/rldb/zarr/e1_arc_tokenizer.py": "0d75b59cc3c4794da89f34ec7736433fa0e07dfae15a543fd64066ce57207a1b"
+  },
+  "raw_frozen_provenance": {
+    "M28_original_module_sha256": "402ff02dd83344250f4d166f1b1e01765cf0f4d72e63213f756dcc811c4ab264",
+    "PR193_original_module_sha256": "4a908c44d0a338eab6139f492138cfbad81638a92bfc94729a45308769f5b625",
+    "note": "Raw provenance hashes are separate fromcurrentruntime hashes; formatting maychange runtime bytes while preservingAST."
+  }
+}

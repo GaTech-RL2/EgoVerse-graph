@@ -1,3 +1,4 @@
+#!/bin/bash
 # Stationery tempo-bucket copy of the towels394 session's pack_train.sbatch (2545aac6): reuses that session's image + venv READ-ONLY
 # (VENV), runs code from a git-archive snapshot (SRC, which has no .git: the commit is read from SRC/COMMIT), writes only under RUN_ROOT.
 # QOS: --qos=loaner-low kept the 9-25 towels runs ahead of us; loaner-high (slowpace366, 2026-10-05) preempts lower-QOS jobs.

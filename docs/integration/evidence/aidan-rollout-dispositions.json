@@ -1,0 +1,152 @@
+{
+  "source": "b1ecba6310fac41e7441a743f756362a7ca65517",
+  "common_base": "161e3a0c40182ba003434d3adaeaa6cbd12107d8",
+  "runtime_parent": "d79d0762490b735b2a8d0d828a110b2993fa67b1",
+  "runtime_paths": [
+    {
+      "donor_status": "M",
+      "path": "egomimic/hydra_configs/robot/yam_rl2_hptflow_rollout.yaml",
+      "disposition": "Port valid recording/unbounded-run options; preserve checkpoint/calibration bindings; model-owned templates replace legacy profiles; reject raw Git-log YAML corruption",
+      "integrated_sha256": "92666816f086d55c94af6c8b33ab96edc7d2b4cf69d6d7d3e4dafd515b4de1ca"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/models/stems/hpt_stems.py",
+      "disposition": "ImageNet normalization capability already present at7ccb; no duplicate change",
+      "integrated_sha256": "3370fc0f8adef52363ac38717e58074b510b9f00848124bcfbd55b51ef3c3904"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/pipeline/inference_config.py",
+      "disposition": "Retain generic model-owned exporter; move incoming class-discovery/default/layout branches into explicit YAML declarations",
+      "integrated_sha256": "e7a945d5e20e6ba46a896b0eb3838da31216faff38b71f511480dade9b9056bd"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/rldb/zarr/arc_length_tokenizer.py",
+      "disposition": "Preserve canonical200 per-arm clocks; add duration and four-clock layout support with exact frozen parity",
+      "integrated_sha256": "aa2bbe182977c1932ca71fbe46c609c5bb1a6522146d2e8cbb76abadf6736ba9"
+    },
+    {
+      "donor_status": "A",
+      "path": "egomimic/rldb/zarr/arc_length_tokenizer_m28.py",
+      "disposition": "Preserve frozen historical codec with explicit m28_99be4af0 selection; canonical200 remains current default",
+      "integrated_sha256": "402ff02dd83344250f4d166f1b1e01765cf0f4d72e63213f756dcc811c4ab264"
+    },
+    {
+      "donor_status": "A",
+      "path": "egomimic/rldb/zarr/arc_length_tokenizer_pr193.py",
+      "disposition": "Restricted versioned compatibility wrapper over identical shared plain per-waypoint semantics; no duplicate full tokenizer",
+      "integrated_sha256": "020c58bba15be07e320862c334f80c6e8cf7b096a66c1c07694102215d3ec2c7"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/rldb/zarr/e1_arc_tokenizer.py",
+      "disposition": "Preserve8ff trained hybrid transform/decode; add replay grids and decode-only tri guards",
+      "integrated_sha256": "0d75b59cc3c4794da89f34ec7736433fa0e07dfae15a543fd64066ce57207a1b"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/arc_decoder.py",
+      "disposition": "Port native shapes, replay tempo and fastest-prefix capability; explicit codec versions and implementation-contract preflight",
+      "integrated_sha256": "d6be66e22395b6f933f363a2544b8109dc8e3ca5cd31ada82ab4cd5337156eae"
+    },
+    {
+      "donor_status": "A",
+      "path": "egomimic/robot/arc_speed.py",
+      "disposition": "Shared motion/hold replay-clock helpers and typed tempo validation",
+      "integrated_sha256": "6d10bc198bc9d4ca814a08a66019fb7777973d86c47342c4e762d9f4a4b89183"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/collect_gello.py",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "1ff9e1657b85e2abd78c8fedea68ba73acacde9c2e3d16f48714d9e7f287602d"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/eva/eva_ws/src/eva/stream_d405.py",
+      "disposition": "Port idempotent lock-protected stop cleanup",
+      "integrated_sha256": "d909918a5a2f8a7bbf980e830a3b65b7a44e27df362654f9d5240077bbfc21d3"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/graph_policy.py",
+      "disposition": "Generic declared public setting paths and decoder execution_steps; retain data-context binding and model ownership",
+      "integrated_sha256": "fa4dee02ca4057b1cb064615c63d155a2d196cce60e85cc8e610ec125463148a"
+    },
+    {
+      "donor_status": "A",
+      "path": "egomimic/robot/hdf5_tempo.py",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "1d62a63ac79069a89cf102323e8d09f6f3cc10997a490811a8df8fab8eacd2c1"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/rollout.py",
+      "disposition": "Port recording/unbounded sessions while preserving replan-boundary updates; clear history on failed model selection",
+      "integrated_sha256": "7faaa2ee34b7992504fb5c926f87b9752c0decbcae891dfc172ecfbb6fa8e055"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/rollout_dashboard.py",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "2910f770ab4d5c3c20fcf7ae21d0bba920240cee70b03bed4995a4182d728045"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/rollout_dashboard_static/app.js",
+      "disposition": "Three-way preserve typed enum/boolean controls; add integer toggles and recording UI",
+      "integrated_sha256": "9ad259c141002edfa2508c27ca1ea83ec7aef9476ce01b03270c33e0bae95ba6"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/rollout_dashboard_static/index.html",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "d26b3493d48de4802317b1135f1aefc741143082e6a6f319f12538ca9f240746"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/rollout_dashboard_static/style.css",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "daf28702a8f2c6537cdc2061b3982c5c2433de73e6ad0b35485ad4570816d8d7"
+    },
+    {
+      "donor_status": "A",
+      "path": "egomimic/robot/rollout_episode.py",
+      "disposition": "Port recorder, background HDF5 initialization, nonblocking terminal requests and actual command counts",
+      "integrated_sha256": "d922d3eeb4cfb99dbf0932485fa931ca787c0c40eaf01c72d75d4f96eaaafe42"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/teleop_dashboard.py",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "83ceb561b257aa4a2bbf16f40b9f641dd6d192f5e54e6ee5e76576f60220c438"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/teleop_dashboard_static/app.js",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "43be739f97c132d01e78c35f7ffd17cc1cecf694f28f9531d968fefcbfdb9d2a"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/teleop_dashboard_static/index.html",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "6721c3023bc6596a75ec032fba3bcd34c664e0c914538c707ece22748c9b13d8"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/teleop_dashboard_static/style.css",
+      "disposition": "Port donor capability, preserving parent functionality and externalizing tests",
+      "integrated_sha256": "58e89620eae5b8301954f0d59d0ace7045bfd4941f36060e589afefb7934f43e"
+    },
+    {
+      "donor_status": "M",
+      "path": "egomimic/robot/yam/interface.py",
+      "disposition": "Port force controls with all-arm preflight,50Ncap and verified rollback",
+      "integrated_sha256": "0da1dd331ac8a62cb44a7a9d9ddc7ccdfbdc942f7ef238636b67f43c28fe9918"
+    }
+  ],
+  "scope": "No hardware/checkpoint execution; donor source branch untouched; intentional history merge with selected capability port"
+}

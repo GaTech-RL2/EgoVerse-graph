@@ -17,6 +17,24 @@ METADATA_PATHS = {
     ".github/scripts/check_validation_companion.py",
     ".github/validation-paths.json",
 }
+EVIDENCE_SOURCE_PIN_FIELDS = {
+    "aidan-final-validation.json": (
+        "existing_stack",
+        "bc_donor",
+        "rollout_donor",
+        "bc_source_verified_before_validation_pin",
+        "historical_m28",
+        "pr193",
+    ),
+    "aidan-rollout-decoder-review.json": (
+        "stack",
+        "BC",
+        "rollout_donor",
+        "BC_child_commit",
+        "PR193",
+        "M28",
+    ),
+}
 
 
 def git(*arguments):
@@ -89,6 +107,27 @@ def check_source_pins():
     reference = ROOT / ".github/validation-ref"
     if reference.exists():
         pins.append(("validation-ref", reference.read_text().strip()))
+    for name, required in EVIDENCE_SOURCE_PIN_FIELDS.items():
+        path = ROOT / "docs/integration/evidence" / name
+        if not path.exists():
+            continue
+        record = json.loads(path.read_text())
+        values = record.get("source_pins") if isinstance(record, dict) else None
+        if not isinstance(values, dict):
+            raise ValueError(f"{name} requires a source_pins mapping")
+        missing = sorted(set(required) - set(values))
+        if missing:
+            raise ValueError(f"{name} is missing source pins: {', '.join(missing)}")
+        pins.extend(
+            (f"{name}.source_pins.{field}", value) for field, value in values.items()
+        )
+    disposition = ROOT / "docs/integration/evidence/aidan-rollout-dispositions.json"
+    if disposition.exists():
+        record = json.loads(disposition.read_text())
+        for field in ("source", "common_base", "runtime_parent"):
+            if not isinstance(record, dict) or field not in record:
+                raise ValueError(f"aidan-rollout-dispositions.json is missing {field}")
+            pins.append((f"aidan-rollout-dispositions.{field}", record[field]))
     for label, value in pins:
         full_commit(value, label)
     return len(pins)

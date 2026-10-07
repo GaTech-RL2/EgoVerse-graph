@@ -1,0 +1,78 @@
+{
+  "status": "reviewed_and_guarded",
+  "files_sha256": {
+    "runtime/egomimic/robot/yam/interface.py": "0da1dd331ac8a62cb44a7a9d9ddc7ccdfbdc942f7ef238636b67f43c28fe9918",
+    "runtime/egomimic/robot/teleop_dashboard_static/index.html": "6721c3023bc6596a75ec032fba3bcd34c664e0c914538c707ece22748c9b13d8",
+    "new-tests-rollout/test_yam_gripper_controls.py": "63881fb7aa4034efb7bf5ca06df8eb33148ab067cefd9d43c74cd10499e6585b",
+    "validation-publish/tests/test_yam_gripper_controls.py": "63881fb7aa4034efb7bf5ca06df8eb33148ab067cefd9d43c74cd10499e6585b",
+    "validation-publish/.github/scripts/check_validation_companion.py": "f7167c79013d958627213366c9868f7c79231376210d4ff91e4ebb5a2a860fe2"
+  },
+  "findings_fixed": [
+    {
+      "finding": "Default YAM driver setup may fail before controller registration, leaving the opened driver unreachable to normal cleanup.",
+      "fix": "Close created driver on BaseException around post-create setup; registered earlier arms still close normally.",
+      "prevention": "Eight mock default-vendor cases: setter error, cancellation, missing limiter, missing private map, each with/without an earlier registered arm; each driver closes once."
+    },
+    {
+      "finding": "Teleop help stated 1\u2013100 N although API and slider cap at50 N.",
+      "fix": "Help now states1\u201350 N; assertion checks text matches API cap."
+    }
+  ],
+  "unresolved_runtime_findings": [],
+  "donor_capabilities": "Reviewed core decoder/control/version interfaces and delegated robot/dashboard/recording donor delta; no missing capabilities found in that scope. Tri remains deliberately decode-only because donor lacks training codec.",
+  "generic_inference": "Exporter unchanged; model-owned YAML and stable stage IDs drive binding. No graph-stage/class-name family discovery introduced. Internal ReplayTempo/ChunkTermination type checks are decoder capability composition.",
+  "tests": {
+    "focused_yam": 26,
+    "log": "logs/yam-startup-cleanup-tests.log",
+    "ruff": "0.8.6 format/check passed",
+    "javascript": "Bundled Node --check teleop_dashboard_static/app.js passed",
+    "node_path": "/Users/elmopa/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "schema_probes": 25,
+    "all_metadata_probes": 32,
+    "probe_log": "logs/companion-source-pin-probes.log",
+    "probe_script": "probe_companion_source_pins.py"
+  },
+  "source_pins_guard": {
+    "named_final_required": [
+      "existing_stack",
+      "bc_donor",
+      "rollout_donor",
+      "bc_source_verified_before_validation_pin",
+      "historical_m28",
+      "pr193"
+    ],
+    "named_decoder_required": [
+      "stack",
+      "BC",
+      "rollout_donor",
+      "BC_child_commit",
+      "PR193",
+      "M28"
+    ],
+    "dispositions_required": [
+      "source",
+      "common_base",
+      "runtime_parent"
+    ],
+    "all_present_values": "full40hex",
+    "optional_files_absent": "allowed until root copies evidence",
+    "existing_actual_pin_count": 90
+  },
+  "hardware_scope": "Only isolated desktop source edits and local CPU/mock-driver validation; no camera/CAN/GPU/checkpoint or live station runtime invoked. No deployment command or active robot checkout write.",
+  "original_desktop_checkout": {
+    "path": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/egoverse-graph",
+    "HEAD": "7ccb609626c62fafce5c1181bc79f576e0829f2b",
+    "tracked_status_clean": true
+  },
+  "operational_prevention": [
+    {
+      "issue": "Node was absent from shell PATH.",
+      "guard": "Resolved bundled Node via load_workspace_dependencies and recorded exact executable; subsequent syntax validation used it."
+    },
+    {
+      "issue": "Initial cleanup patch context predated source formatting.",
+      "guard": "Re-read exact current factory block before applying; focused default-factory regression is now an executable startup guard."
+    }
+  ],
+  "git_mutation": "No stage/commit/publication by model reviewer; root owns manifest and final broad validation."
+}

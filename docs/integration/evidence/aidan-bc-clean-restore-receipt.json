@@ -1,0 +1,77 @@
+{
+  "status": "PASS",
+  "runtime_source": "d79d0762490b735b2a8d0d828a110b2993fa67b1",
+  "runtime_source_parent": "0646480697b6e8046dded97727a4494c8d087c43",
+  "companion_snapshot": "c3a86edd1abed551e46c604be8050ca5e7f3f4d1",
+  "companion_parent": "d05233a5858699de15d89ea5dd07301e7e9e03f0",
+  "pin_separation": "BC14 pins BC-only B3; rollout companion must be a B3 child and only used by rollout15",
+  "companion_commit_paths": [
+    ".github/validation-paths.json",
+    "docs/integration/evidence/aidan-pace-host-guard.json",
+    "tests/test_e1_bc_recipe_migration.py"
+  ],
+  "runtime_pin_commit_paths": [
+    ".github/validation-ref"
+  ],
+  "fresh_worktree": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/bc-last-check",
+  "env_symlink": {
+    "path": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/bc-last-check/.venv",
+    "target": "../validation-env",
+    "resolved": "/Users/elmopa/Documents/Codex/2026-10-02/https-github-com-gatech-rl2-egoverse/work/arc-stack-additions-20261007/validation-env"
+  },
+  "official_restore": {
+    "files": 375,
+    "revision": "c3a86edd1abed551e46c604be8050ca5e7f3f4d1",
+    "log": "logs/bc-last-restore-validation.log"
+  },
+  "companion_checker": {
+    "artifacts": 375,
+    "python_syntax_files": 216,
+    "immutable_source_pins": 90,
+    "log": "logs/bc-snapshot-companion-check.log"
+  },
+  "pytest": {
+    "tests": 143,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 143,
+    "files": [
+      "tests/test_consolidated_arc_contract.py",
+      "tests/test_consolidated_yam_grid.py",
+      "tests/test_e1_arcdur_hybrid.py",
+      "tests/test_e1_bc_recipe_migration.py",
+      "tests/test_e1_hybrid_inference_contract.py",
+      "tests/test_inference_config.py",
+      "tests/test_open_loop_e1_hybrid.py"
+    ],
+    "junit": "logs/bc-clean-junit.xml"
+  },
+  "recursive_config_audit": {
+    "configs": 466,
+    "passed": 466,
+    "failed": 0,
+    "output": "logs/bc-last-hydra-audit.json"
+  },
+  "tracked_source_clean_after_restore_and_checks": true,
+  "known_preflight_issue": {
+    "error": "Companion PR changes runtime files: .venv",
+    "cause": "Temporary companion .venv symlink was untracked and correctly rejected by strict companion inventory",
+    "correction": "Removed only verified .venv symlink; activated the task environment by direct external path",
+    "prevention": "Companion worktrees activate TASKROOT/validation-env directly and contain no environment symlink; checker remains strict"
+  },
+  "paths_sha256": {
+    "logs/bc-clean-junit.xml": "3f34ea7b1930b2c5b0022a9c22d4f0a04464884e785d2c991772077109835c0a",
+    "logs/bc-clean-tests.log": "8b7b31f6d86f9012cc71963fccf47946c2a2c43a927128f2cfc638b83906c860",
+    "logs/bc-last-hydra-audit.json": "74de61c0dfcda8eb1429f63d3fba86bb49d726f097502f3b41baed1b39da6405",
+    "logs/bc-last-hydra-audit.log": "4bd839b2a38f446ccaadef326a0bc8cb39b4000d5b6c658706df191799f4ac2c",
+    "logs/bc-last-restore-validation.log": "5682a393e16844ade932c29043e893248177f831f7dbfcc7557c554644d0fe45",
+    "logs/bc-snapshot-companion-check.log": "603617e016e4b462adf3d1e379710878f43ee67c7509ee5961122dedd062d463",
+    "bc-last-check/scripts/e1/recipe_builders.py": "be7a01dd095fc7f420dbb2df63b4d2a6836aadd0e0fc12c3b698cb13fdd8a9ca",
+    "bc-last-check/.github/validation-ref": "058b917190717291301b3eee241c643e288a6c25b0d02d2afc888a6ff1d781cd",
+    "bc-last-check/uv.lock": "91e12c77973e6b927ae28db2846f6611d9f117d59b893a1c9e9cb7b419651125",
+    "bc-last-check/tests/test_e1_bc_recipe_migration.py": "12604cb4d454c56631f4f1cc05df6d65ef3f20894a38664d337fd054d1804dab",
+    "validation-bc-snapshot/.github/validation-paths.json": "ff9231d81248db1b343f8da407ce6cc61e499257f10692cfba4efc9287a38488"
+  },
+  "publication": "none"
+}

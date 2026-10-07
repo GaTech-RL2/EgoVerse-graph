@@ -1,0 +1,1129 @@
+{
+  "scratch_rl2_stattempo_elmoaidan_arcdur": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      16
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_dur",
+      "min_distance_unit": 0.4,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "a82d602c51958321c57408198ed4bcf4d1a167087a4385d9cef5d280756dedfc",
+    "inference_contract_sha256": "6638edd2ea6fb51c783862fead0f5b1d3cda1871e844dc2f3b259ced10246c09"
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcdur_hpt300": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      16
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_dur",
+      "min_distance_unit": 0.4,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "08c3f3b7a2c4a05c5216632fe0b05234d47ba28009adcbacd7f5ff15fa4f9228",
+    "inference_contract_sha256": "9b32abb54843b7e7edc18affef75665d40ebdb636f804a27be25aaa96aeb1484"
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcdurhyb": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      18
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_durhyb",
+      "min_distance_unit": 0.4,
+      "rotation_distance_unit": 6.283185307179586,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "cf4fe277884ec02fd971d5dc3d4c50f452d21a129ecea1d98bd037fa55dcced6",
+    "inference_contract_sha256": "82b3f429c5ae6afc363c7f92aeb1fb6586cbf736651ce2bf2ae2efef64e31a20"
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcvel": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      16
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_profile",
+      "min_distance_unit": 0.4,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "a82d602c51958321c57408198ed4bcf4d1a167087a4385d9cef5d280756dedfc",
+    "inference_contract_sha256": "7d88bb6cbf92bfca8aafb1efec6afcc1d54aa174543fef224a6f27364cc1d2fe"
+  },
+  "scratch_rl2_stattempo_elmoaidan_time": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      14
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.TimeChunkRetimer",
+      "action_horizon": 100,
+      "dt": 0.03333333333333333
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "fe04397d570df187ec53ae54acebde8d169e94747b6f705a74a573df6b800179",
+    "inference_contract_sha256": "6d13171a157e4e4c1de75a19f87c017caadd34ba7dd579bde9993c4678668bee"
+  },
+  "scratch_rl2_stattempo_elmoaidan_time_hpt300": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      14
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.TimeChunkRetimer",
+      "action_horizon": 100,
+      "dt": 0.03333333333333333
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "41109f28e688315c5725dd672029707e066cef7e03d00bcfc269d3476c8617d3",
+    "inference_contract_sha256": "b8d2c8b9dea5f1a636f8856251ccfe096310420a167f42e84906909442be17c7"
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcdur": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      16
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_dur",
+      "min_distance_unit": 0.4,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "36fbf65c0b98f64200f4a29e8b2996c97333cd5e79f638974eccad9d19ac8482",
+    "inference_contract_sha256": "ab1baabee34e0efe0127b4f8388d5e2ebf371d97d92d54c978eaf10e7b2b37f7"
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcdurhyb": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      18
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_durhyb",
+      "min_distance_unit": 0.4,
+      "rotation_distance_unit": 6.283185307179586,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "0b5e80f60b7f77358db319ded94fbed2c13277bae52843cc2d2a8d61722dc71f",
+    "inference_contract_sha256": "d69054b57641e539b265717115dc82d9a255a578bcaba33642bcbf70d76fcac1"
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcvel": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      16
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_profile",
+      "min_distance_unit": 0.4,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "36fbf65c0b98f64200f4a29e8b2996c97333cd5e79f638974eccad9d19ac8482",
+    "inference_contract_sha256": "0cf79906b0b7cbbe835b02783f1d288c8046fd538ca35b59286f4c32c21a0833"
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcvelhyb": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      18
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+      "token_layout": "e1_profhyb",
+      "min_distance_unit": 0.4,
+      "rotation_distance_unit": 6.283185307179586,
+      "resampled_vector_length": 100,
+      "dt": 0.03333333333333333,
+      "action_horizon": 100,
+      "first_stream": 1,
+      "execute_percent": 50
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 20,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      },
+      "multistream_fastest_stream": {
+        "label": "Fastest-stream termination",
+        "description": "Replan when the first moving stream reaches its waypoint cap.",
+        "type": "integer",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "default": 1,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.first_stream"
+        }
+      },
+      "execute_waypoint_percent": {
+        "label": "Execute first % of waypoints",
+        "description": "Whole waypoint prefix containing at least two waypoints; used in fastest-stream mode.",
+        "type": "integer",
+        "min": 2,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.execute_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "0b5e80f60b7f77358db319ded94fbed2c13277bae52843cc2d2a8d61722dc71f",
+    "inference_contract_sha256": "8daf3bb455fc128e604e421c95b874168b32184a2ca927dbe7651e4ee66d7b25"
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_time": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      14
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.TimeChunkRetimer",
+      "action_horizon": 100,
+      "dt": 0.03333333333333333
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 50,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "ad60f3fd24e4969175d5d5e49c019aa280ad09e6537e0ce76174d389fab3bff4",
+    "inference_contract_sha256": "20779e8e4e8f70775a1e2e61f8fd1054fd6a2a54a796105103423c1755f4c598"
+  },
+  "scratch_rl2_stattempo_slowpace_time_dp180pt": {
+    "neural_optimizer_scheduler_unchanged_after_rollout_port": true,
+    "native_shape": [
+      100,
+      14
+    ],
+    "canonical_shape": [
+      100,
+      14
+    ],
+    "decoder": {
+      "_target_": "egomimic.robot.arc_decoder.TimeChunkRetimer",
+      "action_horizon": 100,
+      "dt": 0.03333333333333333
+    },
+    "controls": {
+      "inference_steps": {
+        "label": "Sampling steps",
+        "description": "Solver iterations per prediction.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 100,
+        "target": {
+          "kind": "stage_attribute",
+          "stage_id": "sampler",
+          "attribute_path": "policy.num_inference_steps"
+        }
+      },
+      "replan_every": {
+        "label": "Actions before replanning",
+        "description": "Execute this prefix before predicting again.",
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "replan_every"
+        }
+      },
+      "arc_speed_percent": {
+        "label": "Replay speed (%)",
+        "description": "100 preserves demonstrated tempo; applies on the next prediction.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.speed_percent"
+        }
+      },
+      "arc_hold_speed_percent": {
+        "label": "Hold speed (%)",
+        "description": "Tempo of stationary grasps and placements.",
+        "type": "integer",
+        "min": 25,
+        "max": 400,
+        "step": 5,
+        "default": 100,
+        "target": {
+          "kind": "policy_attribute",
+          "attribute_path": "adapter.decoder.hold_speed_percent"
+        }
+      }
+    },
+    "model_pipeline_sha256": "9073a5c993745c05c21446ff90d4dee33e1c355cb55c9294ed559be06a37ea12",
+    "inference_contract_sha256": "408333fa7fdcadb8dd44abf493bbb6f32b2316d97e4ecdb4a3f199de732f00db"
+  }
+}

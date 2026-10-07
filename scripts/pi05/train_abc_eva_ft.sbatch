@@ -60,7 +60,7 @@ fi
 ARGS=(
   --config-name=train_zarr_cartesian_pi
   data=pi05/abc_eva_pi_6d
-  model=pi05/pi0.5_ft_abc_eva_6d
+  model=pi05/pi0.5_bc_abc_eva_6d
   evaluator=pi05/eval_pi_wristframe_6d
   launch_params.gpus_per_node=8
   "model.optimizer.lr=$LR"

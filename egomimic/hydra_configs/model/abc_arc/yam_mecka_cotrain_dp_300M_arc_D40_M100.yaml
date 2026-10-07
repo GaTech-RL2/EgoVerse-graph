@@ -17,6 +17,8 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    sampler: 3
   stages:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
       n_obs_steps: 1
@@ -80,3 +82,96 @@ optimizer:
   lr: 1.0e-4
   weight_decay: 1.0e-4
 scheduler: null
+
+# Inference semantics belong to this model; station calibration is separate.
+inference_interval_support:
+  per_waypoint: true
+  duration: true
+  mean: false
+inference:
+  input:
+    history_length: 1
+    keys:
+    - observations.images.front_img_1
+    - observations.state.ee_pose
+    - embodiment
+    history_keys:
+    - observations.images.front_img_1
+    - observations.state.ee_pose
+    constants:
+      embodiment: 7
+  native_output:
+    key: pred_action
+    representation: normalized_action
+    shape:
+    - ${abc.arc_token_rows}
+    - 14
+    timing:
+      kind: ${abc.arc_velocity_mode}
+      temporally_resolved: ${oc.select:model.inference_interval_support.${abc.arc_velocity_mode},false}
+    frame: eef_frame
+  output:
+    key: actions
+    representation: cartesian
+    shape:
+    - 100
+    - 14
+    timing:
+      kind: control_period
+      temporally_resolved: true
+      dt: 0.03333333333333333
+    frame: eef_frame
+  compatibility:
+    normalizer_schema:
+      action_key: actions_cartesian
+      native_shape:
+      - ${abc.arc_token_rows}
+      - 14
+    tokenizer:
+      _target_: egomimic.robot.arc_decoder.BimanualIntervalArcDecoder
+      velocity_mode: ${abc.arc_velocity_mode}
+      min_distance_unit: ${abc.arc_distance}
+      resampled_vector_length: ${abc.arc_waypoints}
+      dt: 0.03333333333333333
+      action_horizon: 100
+  profiles:
+    default:
+      stage_id: sampler
+      native_shape:
+      - ${abc.arc_token_rows}
+      - 14
+      adapter:
+        _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+        decoder:
+          _target_: egomimic.robot.arc_decoder.BimanualIntervalArcDecoder
+          velocity_mode: ${abc.arc_velocity_mode}
+          min_distance_unit: ${abc.arc_distance}
+          resampled_vector_length: ${abc.arc_waypoints}
+          dt: 0.03333333333333333
+          action_horizon: 100
+        rotation_mode: euler
+        action_frame: eef_frame
+      overrides:
+        inference_steps:
+          label: Sampling steps
+          description: Solver iterations per prediction.
+          type: integer
+          min: 1
+          max: 100
+          step: 1
+          default: 100
+          target:
+            kind: stage_attribute
+            stage_id: sampler
+            attribute_path: policy.num_inference_steps
+        replan_every:
+          label: Actions before replanning
+          description: Execute this prefix before predicting again.
+          type: integer
+          min: 1
+          max: 100
+          step: 1
+          default: 30
+          target:
+            kind: policy_attribute
+            attribute_path: replan_every

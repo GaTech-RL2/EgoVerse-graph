@@ -462,9 +462,7 @@ def test_topology_and_gradient_gates_fail_loudly():
     with pytest.raises(RuntimeError, match="zero or non-finite"):
         gradient_norm((torch.zeros(2),), label="UNITE telemetry")
     with pytest.raises(RuntimeError, match="zero or non-finite"):
-        gradient_norm(
-            (torch.full((2,), float("nan")),), label="UNITE telemetry"
-        )
+        gradient_norm((torch.full((2,), float("nan")),), label="UNITE telemetry")
 
     behavior._configured_share_encoder_denoiser = None
     _, encoder, _ = behavior._unite_topology()
@@ -478,11 +476,7 @@ def test_topology_and_gradient_gates_fail_loudly():
 
 def test_training_entry_requires_the_single_model_wrapper():
     cfg = OmegaConf.create(
-        {
-            "model": {
-                "_target_": "egomimic.pl_utils.pl_model.ModelWrapper"
-            }
-        }
+        {"model": {"_target_": "egomimic.pl_utils.pl_model.ModelWrapper"}}
     )
     assert _resolve_model_wrapper_class(cfg) is ModelWrapper
     cfg.model._target_ = "torch.nn.Linear"

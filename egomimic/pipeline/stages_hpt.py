@@ -213,12 +213,15 @@ class HPTStemStage(Stage):
         domain_stems: Mapping[str, Mapping[str, nn.Module]] | None = None,
         selector_key: str = "embodiment",
         selector_aliases: Mapping | None = None,
+        domain_first: bool = False,
+        preserve_config_order: bool = False,
     ):
         super().__init__()
         shared = {str(key): stem for key, stem in dict(stems or {}).items()}
         if not shared and not domain_stems:
             raise ValueError("HPTStemStage needs at least one stem")
-        self.shared_keys = tuple(sorted(shared))
+        self.shared_keys = tuple(shared if preserve_config_order else sorted(shared))
+        self.domain_first = domain_first
         self.stems = nn.ModuleDict(
             {_module_name(key): stem for key, stem in shared.items()}
         )
@@ -233,7 +236,9 @@ class HPTStemStage(Stage):
             entries = {str(key): stem for key, stem in dict(per_domain or {}).items()}
             if not entries:
                 continue
-            self.domain_keys[str(domain)] = tuple(sorted(entries))
+            self.domain_keys[str(domain)] = tuple(
+                entries if preserve_config_order else sorted(entries)
+            )
             domain_modules[_module_name(str(domain))] = nn.ModuleDict(
                 {_module_name(key): stem for key, stem in entries.items()}
             )
@@ -252,7 +257,9 @@ class HPTStemStage(Stage):
         # actually uses (ee_pose) is still linted.
         reads = list(self.shared_keys)
         if self.domain_keys:
-            common = set.intersection(*(set(keys) for keys in self.domain_keys.values()))
+            common = set.intersection(
+                *(set(keys) for keys in self.domain_keys.values())
+            )
             reads.extend(sorted(common))
             reads.append(self.selector_key)
         self.reads = tuple(dict.fromkeys(reads))
@@ -273,15 +280,22 @@ class HPTStemStage(Stage):
 
     def forward(self, batch: dict) -> dict:
         domain = self._domain(batch)
-        tokens = []
+        shared_tokens, domain_tokens = [], []
         for key in self.shared_keys:
             stem = self.stems[_module_name(key)]
-            tokens.append(stem.compute_latent(_as_stem_dtype(batch[key], stem)))
+            shared_tokens.append(stem.compute_latent(_as_stem_dtype(batch[key], stem)))
         if domain is not None:
             module = self.domain_stems[_module_name(domain)]
             for key in self.domain_keys[domain]:
                 stem = module[_module_name(key)]
-                tokens.append(stem.compute_latent(_as_stem_dtype(batch[key], stem)))
+                domain_tokens.append(
+                    stem.compute_latent(_as_stem_dtype(batch[key], stem))
+                )
+        tokens = (
+            domain_tokens + shared_tokens
+            if self.domain_first
+            else shared_tokens + domain_tokens
+        )
         if not tokens:
             raise RuntimeError("HPTStemStage produced no tokens")
         widths = {int(t.shape[-1]) for t in tokens}
@@ -329,6 +343,8 @@ class HPTTrunkStage(Stage):
         use_domain_embedding: bool = False,
         selector_key: str = "embodiment",
         selector_aliases: Mapping | None = None,
+        action_token_count: int = 1,
+        squeeze_action_token: bool = True,
     ):
         super().__init__()
         if token_postprocessing not in self._POOLING:
@@ -340,9 +356,13 @@ class HPTTrunkStage(Stage):
         self.embed_dim = int(embed_dim)
         self.token_postprocessing = token_postprocessing
         self.max_tokens = int(max_tokens)
+        if type(action_token_count) is not int or action_token_count < 1:
+            raise ValueError("action_token_count must be a positive integer")
+        self.action_token_count = action_token_count
+        self.squeeze_action_token = squeeze_action_token
 
         self.action_token = (
-            nn.Parameter(torch.randn(1, 1, self.embed_dim) * 0.02)
+            nn.Parameter(torch.randn(1, action_token_count, self.embed_dim) * 0.02)
             if token_postprocessing == "action_token"
             else None
         )
@@ -429,7 +449,9 @@ class HPTTrunkStage(Stage):
             out = out[0]
 
         if self.token_postprocessing == "action_token":
-            condition = out[:, 0]
+            condition = out[:, : self.action_token_count]
+            if self.squeeze_action_token and self.action_token_count == 1:
+                condition = condition[:, 0]
         elif self.token_postprocessing == "mean":
             condition = out.mean(dim=1)
         else:

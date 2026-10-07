@@ -16,12 +16,13 @@ from openpi.shared.image_tools import resize_with_pad_torch
 from transformers import AutoTokenizer
 
 from egomimic.models.pi05.observations import (
+    PI_CAMERA_SLOTS,
     _concat_proprio,
     _empty_lang_placeholders,
     _ensure_bchw,
-    _fill_missing_images,
     _SimpleObservation,
     _to_minus1_1,
+    gather_pi_images,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_encoding import (
@@ -75,6 +76,7 @@ class PI:
         control_mode: dict[str, str] | None = None,
         proprio_keys_for_prompt: list[str] | None = None,
         action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+        camera_slot_map: dict[str, str] | None = None,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -86,6 +88,7 @@ class PI:
         self.sampling_mode = sampling_mode
         self.annotation_key = annotation_key
         self.default_prompt = default_prompt
+        self._empty_prompt_warned = set()
         self.proprio_in_prompt = proprio_in_prompt
         self.embodiment_label = embodiment_label
         self.state_num_bins = state_num_bins
@@ -107,6 +110,11 @@ class PI:
         self.pi_cam_keys = kwargs.get(
             "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
         )
+        self.camera_slot_map = dict(camera_slot_map or PI_CAMERA_SLOTS)
+        if set(self.pi_cam_keys) != set(self.camera_slot_map):
+            raise ValueError(
+                "camera_slot_map must cover every configured PI camera slot"
+            )
         self.config = config
         self.action_encoding = action_encoding
 
@@ -240,6 +248,24 @@ class PI:
         bins = np.digitize(state, bins=self._state_bin_edges) - 1
         return " ".join(map(str, bins.tolist()))
 
+    def _warn_empty_prompt_once(self, embodiment, reason):
+        signature = (embodiment, reason)
+        if signature in self._empty_prompt_warned:
+            return
+        self._empty_prompt_warned.add(signature)
+        fallback = (
+            "an EMPTY prompt"
+            if not self.default_prompt.strip()
+            else repr(self.default_prompt)
+        )
+        logger.warning(
+            "PI prompt fallback for %s: %s; using %s. Configure annotation_key "
+            "and default_prompt in the model policy YAML.",
+            embodiment,
+            reason,
+            fallback,
+        )
+
     def _build_prompts(
         self, _batch, embodiment_name: str, batch_size: int
     ) -> list[str]:
@@ -251,11 +277,29 @@ class PI:
         DataLoader per embodiment), so we don't re-derive it per sample.
         """
         if self.annotation_key is None or self.annotation_key not in _batch:
+            if self.annotation_key is not None:
+                self._warn_empty_prompt_once(
+                    embodiment_name, f"{self.annotation_key!r} not in the batch"
+                )
+            elif not self.default_prompt.strip():
+                self._warn_empty_prompt_once(embodiment_name, "annotation_key is unset")
             prompts = [self.default_prompt] * batch_size
         else:
+            if len(_batch[self.annotation_key]) != batch_size:
+                raise ValueError("PI annotation count must match the image batch size")
             prompts = []
             for sample in _batch[self.annotation_key]:
+                if not isinstance(sample, (list, tuple)) or any(
+                    not isinstance(item, str) for item in sample
+                ):
+                    raise TypeError(
+                        "PI annotations must contain one list of strings per sample"
+                    )
+                sample = [item for item in sample if item.strip()]
                 if not sample:
+                    self._warn_empty_prompt_once(
+                        embodiment_name, "annotation sample is empty"
+                    )
                     prompts.append(self.default_prompt)
                 elif self.sampling_mode == "random":
                     prompts.append(sample[random.randint(0, len(sample) - 1)])
@@ -603,13 +647,6 @@ class PI:
         image_resolution = getattr(self, "image_resolution", (224, 224))
         required_cam_keys = getattr(self, "pi_cam_keys", cam_keys)
 
-        present_flags = {
-            k: (
-                k in batch and isinstance(batch[k], torch.Tensor) and batch[k].ndim == 4
-            )
-            for k in required_cam_keys
-        }
-
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
         if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
@@ -632,10 +669,8 @@ class PI:
                 f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
             )
 
-        # OpenPI expects a fixed camera tuple. Human datasets only provide
-        # `base_0_rgb`, so duplicate that view into the missing wrist slots and
-        # mark those synthesized views as masked out below.
-        raw_images = _fill_missing_images(batch, required_cam_keys, device)
+        slot_map = getattr(self, "camera_slot_map", PI_CAMERA_SLOTS)
+        raw_images, present_flags = gather_pi_images(batch, slot_map, device)
 
         # ---- Images (dict[str, Tensor]) ----
         images = {}

@@ -14,7 +14,9 @@
 # resolver, and each episode's intrinsics are rescaled by the same per-axis
 # factors (ZarrDataset._scale_intrinsics), so overlays stay exact.
 
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   human_bimanual:

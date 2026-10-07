@@ -217,13 +217,13 @@ class PlanarActionEval(Eval):
                     if key != "enabled"
                 }
             )
-        self.override_dict = {
-            "limit_train_batches": 0,
+        self._trainer_overrides = {
             "limit_val_batches": limit_val_batches,
             "check_val_every_n_epoch": 1,
-            "max_epochs": 1,
-            "min_epochs": 1,
         }
+
+    def trainer_overrides(self):
+        return dict(self._trainer_overrides)
 
     @staticmethod
     def _metadata_copy(value, *, label):
@@ -276,9 +276,12 @@ class PlanarActionEval(Eval):
 
     def _artifact_destination(self, root, batch_idx):
         return artifact_destination(
-            root, self.artifact_execution,
-            epoch=self.trainer.current_epoch, global_step=self.trainer.global_step,
-            rank=self.trainer.global_rank, batch_idx=batch_idx,
+            root,
+            self.artifact_execution,
+            epoch=self.trainer.current_epoch,
+            global_step=self.trainer.global_step,
+            rank=self.trainer.global_rank,
+            batch_idx=batch_idx,
         )
 
     def bind_data_context(self, *, normalizer):
@@ -695,6 +698,7 @@ class PlanarActionEval(Eval):
             (residual[..., :2], theta_residual.unsqueeze(-1), residual[..., 3:]),
             dim=-1,
         )
+
     @classmethod
     def _native_mse(cls, prediction, target, decoder):
         """Measure native Planar actions with a circular theta residual."""
@@ -708,8 +712,10 @@ class PlanarActionEval(Eval):
     @classmethod
     def _native_mse_by_condition(cls, prediction, target, decoder):
         """Measure native Planar chunks independently per batch condition."""
-        return cls._native_residual(prediction, target, decoder).square().mean(
-            dim=(-2, -1)
+        return (
+            cls._native_residual(prediction, target, decoder)
+            .square()
+            .mean(dim=(-2, -1))
         )
 
     @classmethod
@@ -744,9 +750,7 @@ class PlanarActionEval(Eval):
             return self.blocks
         return self.blocks_by_embodiment.get(str(label).lower(), self.blocks)
 
-    def _energy_values(
-        self, samples, target, embodiment_id, label: str | None = None
-    ):
+    def _energy_values(self, samples, target, embodiment_id, label: str | None = None):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("EnergyScore@32 requires exactly 32 samples")
         distance_fn = None
@@ -1050,7 +1054,10 @@ class PlanarActionEval(Eval):
                 .cpu(),
                 "score_by_condition": values["score_by_condition"].float().cpu(),
             }
-            if self.energy_score_distance is not None or self.native_decoder is not None:
+            if (
+                self.energy_score_distance is not None
+                or self.native_decoder is not None
+            ):
                 decoder = self._native_decoder(embodiment_id)
                 if self.energy_score_distance is not None:
                     self._require_usocket_decoder(decoder)

@@ -1,4 +1,3 @@
-import copy
 import hashlib
 import os
 import re
@@ -20,15 +19,18 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
-from egomimic.eval.eval import Eval
+from egomimic.eval.eval import (
+    Eval,
+    validate_validation_loop,
+    validation_trainer_overrides,
+)
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import export_configured_inference_artifact
-from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP, as_valid_groups
+from egomimic.pl_utils.data_context import ContextDataModule
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.ema_callback import EMACallback
+from egomimic.utils.env import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import configure_runner_wandb, log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -216,6 +218,8 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
     return wrapper_class(
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        scheduler_frequency=cfg.model.get("scheduler_frequency", 1),
+        train_log_on_step=cfg.model.get("train_log_on_step", False),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
     )
 
@@ -394,7 +398,9 @@ def _validate_runner_resume_checkpoint() -> tuple[str | None, int | None]:
     return str(checkpoint_path), actual_step
 
 
-def _resolve_training_checkpoint(cfg: DictConfig, trainer: Trainer) -> str | None:
+def _resolve_training_checkpoint(
+    cfg: DictConfig, trainer: Trainer | None = None
+) -> str | None:
     """Resolve resume authority without mixing runner and Lightning semantics."""
 
     owner = str(
@@ -432,7 +438,11 @@ def _resolve_training_checkpoint(cfg: DictConfig, trainer: Trainer) -> str | Non
         and not configured_path
     ):
         configured_path = os.path.join(
-            trainer.default_root_dir, "checkpoints", "last.ckpt"
+            trainer.default_root_dir
+            if trainer is not None
+            else str(cfg.trainer.default_root_dir),
+            "checkpoints",
+            "last.ckpt",
         )
         with open_dict(cfg):
             cfg.ckpt_path = configured_path
@@ -472,7 +482,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     log.warning(f"{message}; {artifact['reason']}")
 
     # set seed for random number generators in pytorch, numpy and python.random
-    if cfg.get("seed"):
+    if cfg.get("seed") is not None:
         L.seed_everything(cfg.seed, workers=True)
 
         set_global_seed(cfg.seed)
@@ -481,146 +491,58 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     load_env()
 
-    train_datasets = {}
-    for dataset_name in cfg.data.train_datasets:
-        train_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.train_datasets[dataset_name]
+    # Resume authority must be resolved before preparing normalization. A
+    # requeued job restores the same context as its weights and optimizer.
+    if mode == "train" and not cfg.get("norm_stats_only", False):
+        _resolve_training_checkpoint(cfg)
+
+    eval_obj: Eval | None = (
+        hydra.utils.instantiate(cfg.evaluator)
+        if cfg.get("evaluator") is not None
+        else None
+    )
+    if eval_obj is not None:
+        requirements = eval_obj.data_requirements()
+        overrides = validation_trainer_overrides(eval_obj)
+        with open_dict(cfg):
+            for key, value in overrides.items():
+                cfg.trainer[key] = value
+        validate_validation_loop(requirements, cfg.trainer, mode=mode)
+    checkpoint = None
+    if cfg.get("ckpt_path"):
+        checkpoint = MmapCheckpointIO().load_checkpoint(
+            str(cfg.ckpt_path), map_location="cpu", weights_only=False
         )
-
-    # `valid_datasets` is either flat ({source: dataset-config}) or grouped
-    # ({group: {source: dataset-config}}). Instantiate one level deeper for the
-    # grouped shape; `MultiDataModuleWrapper` normalises both to groups.
-    valid_group_configs = as_valid_groups(cfg.data.valid_datasets)
-    valid_datasets = {
-        group: {
-            source: hydra.utils.instantiate(dataset_config)
-            for source, dataset_config in members.items()
-        }
-        for group, members in valid_group_configs.items()
-    }
-    if list(valid_datasets) == [DEFAULT_VALID_GROUP]:
-        # Hand the flat shape back unchanged so a single-group config produces
-        # exactly the mapping it did before groups existed.
-        valid_datasets = valid_datasets[DEFAULT_VALID_GROUP]
-
-    # Episode-level evaluators need an ordered, complete-episode validation
-    # prefix. Pass these controls into the datamodule before Lightning creates
-    # its loaders; evaluator attachment happens later in this function.
-    data_controls = {}
-    limit_val_episodes = OmegaConf.select(
-        cfg, "evaluator.limit_val_episodes", default=None
-    )
-    requires_ordered_validation = bool(
-        OmegaConf.select(cfg, "evaluator.requires_ordered_validation", default=False)
-    )
-    if limit_val_episodes is not None:
-        data_controls["valid_episode_limit"] = int(limit_val_episodes)
-        requires_ordered_validation = True
-    if requires_ordered_validation:
-        data_controls["force_valid_order"] = True
-
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data,
-        train_datasets=train_datasets,
-        valid_datasets=valid_datasets,
-        **data_controls,
+        cfg.data, _recursive_=False
     )
-
-    # Stats-only MultiDataset (no graph of its own; explicitly populated from
-    # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
-    norm_kwargs = dict(
-        state={},
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
-    )
-    norm_stats = (
-        hydra.utils.instantiate(cfg.normalizer, **norm_kwargs)
-        if cfg.get("normalizer") is not None
-        else MultiDataset(**norm_kwargs)
-    )
-    norm_stats.populate_from_datasets(datamodule.train_datasets)
-
-    for dataset_name, dataset in datamodule.train_datasets.items():
-        log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats.infer_shapes_from_batch(dataset[0])
-        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-        keymap_cfg = instantiate_copy.resolver.key_map
-        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
-
-        # this remove annotation and image keys from the keymap
-        km["norm_mode"] = True
-
-        instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
-        # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-        norm_stats.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
-            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-            precomputed_norm_path=OmegaConf.select(
-                cfg, "norm_stats.precomputed_norm_path", default=None
-            ),
+    if not isinstance(datamodule, ContextDataModule):
+        raise TypeError(
+            "Configured DataModule must declare prepare_context(), "
+            "configure_evaluation() and frame_counts(); see the data-context contract"
         )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
-        )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
-
+    context = datamodule.prepare_context(
+        mode="normalization" if cfg.get("norm_stats_only", False) else mode,
+        normalization=cfg.get("norm_stats"),
+        normalizer=cfg.get("normalizer"),
+        restored_state=None if checkpoint is None else checkpoint.get("data_context"),
+    )
     if cfg.get("norm_stats_only", False):
-        if not OmegaConf.select(cfg, "norm_stats.save_cache_dir", default=None):
-            raise ValueError("norm_stats_only requires norm_stats.save_cache_dir")
-        log.info("Normalization-only mode complete")
-        return {}, {"cfg": cfg, "norm_stats": norm_stats}
-
-    # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
-    # by reference. Bounds-check + normalize run at the MultiDataset level in
-    # ``__getitem__`` — not as per-leaf transforms — which avoids the shared
-    # transform_list aliasing trap.
-    for ds in datamodule.train_datasets.values():
-        ds.set_norm_stats_from(norm_stats)
-    # EVERY val group, via the datamodule's own iterator. Do NOT iterate
-    # `datamodule.valid_datasets` here: it is a back-compat alias for a single
-    # group (the default if present, else the first), so it silently skips the
-    # rest. Those datasets would then emit unnormalised samples that the
-    # evaluator unnormalises again, and the resulting metrics look plausible.
-    for _group, _source, _ds in datamodule.iter_valid_datasets():
-        _ds.set_norm_stats_from(norm_stats)
-
-    # Fail loudly rather than silently mis-normalising a split: every train and
-    # val dataset must now share the stats object by reference.
-    _unwired = [
-        f"train/{name}"
-        for name, ds in datamodule.train_datasets.items()
-        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
-    ] + [
-        f"{group}/{source}"
-        for group, source, ds in datamodule.iter_valid_datasets()
-        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
-    ]
-    if _unwired:
-        raise RuntimeError(
-            "norm stats were not wired to every dataset; these would emit "
-            f"unnormalised samples that the evaluator then unnormalises again: {_unwired}"
-        )
-    log.info(
-        f"norm stats wired to {len(datamodule.train_datasets)} train and "
-        f"{sum(1 for _ in datamodule.iter_valid_datasets())} valid datasets "
-        f"across {len(datamodule.valid_groups)} val group(s): "
-        f"{list(datamodule.valid_groups)}"
-    )
-
+        return {}, {
+            "cfg": cfg,
+            "data_context": context,
+            "norm_stats": context.normalizer,
+        }
+    if eval_obj is not None:
+        datamodule.configure_evaluation(requirements)
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = _instantiate_model_wrapper(cfg)
-    model.model.bind_data_context(normalizer=norm_stats)
-
-    _log_dataset_frame_counts(
-        datamodule.train_datasets, datamodule.iter_valid_datasets()
+    context.bind(model.model, eval_obj)
+    model.data_context = context
+    log.info(
+        "Dataset frames:\n"
+        + tabulate(datamodule.frame_counts(), headers=["Split", "Source", "Frames"])
     )
 
     log.info("Instantiating callbacks...")
@@ -629,18 +551,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks.extend(_instantiate_slurm_callbacks(cfg))
 
     callbacks = _callbacks_for_mode(callbacks, mode)
-    # In eval mode, apply trainer overrides from the eval object and disable logger
+    # Evaluator loop requirements were applied before expensive construction.
     if mode == "eval":
-        eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
-        log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
-        )
+        log.info("Eval mode: disabling logger")
         with open_dict(cfg):
-            for k, v in eval_obj.override_dict.items():
-                cfg.trainer[k] = v
-            cfg.trainer.devices = 1
-            cfg.trainer.num_nodes = 1
-            cfg.trainer.num_sanity_val_steps = 0
             cfg.logger = None
 
     log.info("Instantiating loggers...")
@@ -651,9 +565,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
-
-    if mode == "train":
-        _resolve_training_checkpoint(cfg, trainer)
 
     object_dict = {
         "cfg": cfg,
@@ -670,10 +581,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     if mode == "train":
         if cfg.get("evaluator") is not None:
-            eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
-            eval_obj.bind_data_context(normalizer=norm_stats)
             model.evaluator = eval_obj
         log.info("Starting training!")
         if (
@@ -691,12 +600,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
-        eval_obj.bind_data_context(normalizer=norm_stats)
         model.evaluator = eval_obj
 
         ckpt_path = cfg.get("ckpt_path")
         if ckpt_path:
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
             _load_eval_checkpoint(model, checkpoint, cfg)
             log.info(f"Loaded weights from {ckpt_path}")
         log.info("Starting evaluation!")

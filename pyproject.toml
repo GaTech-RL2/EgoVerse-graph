@@ -57,7 +57,7 @@ dependencies = [
     "mediapy",
     "pytest",
     "pre-commit",
-    "ruff",
+    "ruff==0.8.6",
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
@@ -74,9 +74,24 @@ yam = [
     "i2rt @ git+https://github.com/rohan-bansal/i2rt.git@2b851d7f4511b6bda442db85e98ec1122835221b",
 ]
 pi05 = [
-    "openpi @ git+https://github.com/GaTech-RL2/openpi.git@981483dca0fd9acba698fea00aa6e52d56a66c58",
     "safetensors",
+    "flax==0.10.2",
+    "jax==0.5.3",
+    "augmax==0.4.1",
+    "beartype==0.19.0",
+    "jaxtyping==0.2.36",
+    "orbax-checkpoint==0.11.13",
+    "sentencepiece>=0.2.0",
+    "ml-collections==1.0.0",
+    "numpy>=1.26.0,<2.0.0",
+    "fsspec[gcs]>=2024.6.0",
+    "tyro>=0.9.5",
 ]
+
+# OpenPI's full dependency bundle conflicts with this project's AV and
+# simulator pins. Keep the destination EgoVerse environment policy: lock the
+# model runtime here, then install the immutable OpenPI source with --no-deps.
+# See docs/integration/DEPENDENCIES.md. No resolver override hides the conflict.
 
 # Project Aria 2.0.0 pins rerun-sdk==0.22.1, while i2rt (the Yam SDK)
 # requires rerun-sdk>=0.32.2. i2rt also pins numpy==2.2.6, while Pi05's
@@ -99,6 +114,10 @@ include = ["egomimic*"]
 
 [tool.setuptools.package-data]
 egomimic = [
+    "resources/*",
+    "robot/eva/stanford_repo/models/meshes/X5/*.STL",
+    "robot/eva/stanford_repo/LICENSE",
+    "scripts/data_visualization/inspector_lib/assets/*.css",
     "hydra_configs/**/*.yaml",
     "hydra_configs/**/*.json",
     "robot/teleop_dashboard_static/*.html",

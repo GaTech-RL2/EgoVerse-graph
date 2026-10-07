@@ -19,11 +19,27 @@ class PipelineAlgo:
     pipeline batch whose keys are interpreted exclusively by configured stages.
     """
 
-    def __init__(self, stages: Iterable[Stage], device=None):
+    def __init__(
+        self,
+        stages: Iterable[Stage],
+        device=None,
+        stage_ids=None,
+        initialization=None,
+        trainability=None,
+    ):
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
-        self.nets = nn.ModuleDict({"pipeline": Pipeline(list(stages))})
+        self.nets = nn.ModuleDict(
+            {"pipeline": Pipeline(list(stages), stage_ids=stage_ids)}
+        )
+        from egomimic.pipeline.initialization import (
+            configure_trainability,
+            initialize_weights,
+        )
+
+        self.initialization_receipts = initialize_weights(self.pipeline, initialization)
+        configure_trainability(self.pipeline, trainability)
         self.nets.to(self.device)
 
     @property

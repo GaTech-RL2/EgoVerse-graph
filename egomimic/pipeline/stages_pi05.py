@@ -1,7 +1,5 @@
 """Optional PI0.5 policy as a graph stage with explicit normalization ownership."""
 
-from collections.abc import Mapping
-
 import torch
 from hydra.utils import instantiate
 
@@ -17,21 +15,29 @@ class PI05Stage(Stage):
     native actions, so this boundary normalizes that result exactly once.
     """
 
-    def __init__(self, policy, action_key="actions_cartesian", init_weights_ckpt=None):
+    def __init__(
+        self,
+        policy,
+        action_key="actions_cartesian",
+        init_weights_ckpt=None,
+        image_key="observations.images.front_img_1",
+        state_key="observations.state.ee_pose",
+    ):
         super().__init__()
         self.policy_config = policy
         self.action_key = action_key
+        self.image_key = image_key
         self.init_weights_ckpt = init_weights_ckpt
         self.backend = None
         self.normalizer = None
         self.reads_by_mode = {
             "train": (
                 "embodiment",
-                "base_0_rgb",
-                "observations.state.ee_pose",
+                image_key,
+                state_key,
                 action_key,
             ),
-            "inference": ("embodiment", "base_0_rgb", "observations.state.ee_pose"),
+            "inference": ("embodiment", image_key, state_key),
         }
         self.writes_by_mode = {
             "train": ("loss/pi05",),
@@ -97,7 +103,7 @@ class PI05Stage(Stage):
         }
         if self.action_key not in row:
             shape = self.normalizer.key_shape(self.action_key, embodiment)
-            batch_size = row["base_0_rgb"].shape[0]
+            batch_size = row[self.image_key].shape[0]
             row[self.action_key] = torch.zeros((batch_size, *shape), device=device)
         return embodiment, self.backend.process_batch_for_training({label.lower(): row})
 

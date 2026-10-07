@@ -1,7 +1,8 @@
 # UNITE cotrain: U-Socket (rotvec4 actions) + ChainGripper (six-point actions), one batch per
 # embodiment per step (CombinedLoader max_size_cycle). Same 1% seed-42 splits as the
 # single-embodiment rows; ChainGripper hashes from planar_v2_chain_gripper.yaml.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
 
 train_datasets:
   pushshapes_sim_u_socket:

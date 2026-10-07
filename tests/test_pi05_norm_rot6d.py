@@ -141,7 +141,6 @@ def _keys_of(transforms, cls):
 def test_6d_modes_share_graph_rotation_transforms(frame):
     from egomimic.rldb.embodiment.eva import Eva
     from egomimic.rldb.embodiment.human import Human
-    from egomimic.rldb.zarr.action_chunk_transforms import transforms_for_rotation_mode
 
     # Numeric action/proprio equivalence is exercised by test_wrist6d_roundtrip.
     for cls in (Eva, Human):
@@ -417,19 +416,15 @@ def test_wrap_aware_mse_handles_pi_boundary():
     assert torch.isclose(w3, nw3)
 
 
-def test_video_fps_compensates_for_world_size():
-    # Distributed val strides an episode's frames by world_size on each rank;
-    # playback fps must scale down to keep videos wall-clock real-time.
+def test_video_fps_comes_from_declared_source_rate():
     from types import SimpleNamespace
 
     from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
-    ev = BimanualCartesianEval()
-    for world, expected in [(1, 30), (2, 15), (4, 8), (8, 4)]:
+    ev = BimanualCartesianEval(source_fps=24.0)
+    for world in (1, 2, 4, 8):
         ev.trainer = SimpleNamespace(world_size=world)
-        assert ev._video_fps() == expected, (world, ev._video_fps())
-    ev.trainer = SimpleNamespace()  # no world_size attr -> assume 1
-    assert ev._video_fps() == 30
+        assert ev._video_fps() == 24.0
 
 
 def test_frechet_and_reverse_kl_helpers():
@@ -454,6 +449,7 @@ def test_frechet_and_reverse_kl_helpers():
 
 def test_validation_groups_share_video_namespace_and_sampling_options():
     from types import SimpleNamespace
+
     from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 
     ev = BimanualCartesianEval(

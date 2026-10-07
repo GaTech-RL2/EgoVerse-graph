@@ -12,16 +12,34 @@ import torch.distributed as dist
 
 from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 from egomimic.eval.e1_metrics import (  # re-export the campaign's public helpers
-    ARM_BLOCKS,
-    PAIRED_COLS,
-    XYZ_COLS,
+    ARM_BLOCKS as ARM_BLOCKS,
+)
+from egomimic.eval.e1_metrics import (
+    PAIRED_COLS as PAIRED_COLS,
+)
+from egomimic.eval.e1_metrics import (
+    XYZ_COLS as XYZ_COLS,
+)
+from egomimic.eval.e1_metrics import (
     E1TempoAccumulator,
-    _mse_cols,
-    arm_travel,
-    cumulative_arc_length,
-    gt_spans,
-    match_spans,
-    tokenize_span,
+)
+from egomimic.eval.e1_metrics import (
+    _mse_cols as _mse_cols,
+)
+from egomimic.eval.e1_metrics import (
+    arm_travel as arm_travel,
+)
+from egomimic.eval.e1_metrics import (
+    cumulative_arc_length as cumulative_arc_length,
+)
+from egomimic.eval.e1_metrics import (
+    gt_spans as gt_spans,
+)
+from egomimic.eval.e1_metrics import (
+    match_spans as match_spans,
+)
+from egomimic.eval.e1_metrics import (
+    tokenize_span as tokenize_span,
 )
 
 _STATE_KEYS = (
@@ -85,7 +103,7 @@ class BimanualTempoEval(BimanualCartesianEval):
                 raise ValueError("A fractional validation limit must be in (0, 1]")
             if isinstance(limit, int) and limit < 1:
                 raise ValueError("A batch validation limit must be positive")
-            self.override_dict["limit_val_batches"] = limit
+            self._trainer_overrides["limit_val_batches"] = limit
         self.time_key = str(time_key)
         self.results_path = Path(results_path) if results_path else None
         self.metric_options = dict(

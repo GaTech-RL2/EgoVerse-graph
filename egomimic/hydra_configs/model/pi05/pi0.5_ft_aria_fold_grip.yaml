@@ -17,6 +17,8 @@ scheduler:
 scheduler_interval: step
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    sampler: 0
   stages:
   - _target_: egomimic.pipeline.stages_pi05.PI05Stage
     _recursive_: false
@@ -65,3 +67,117 @@ pipeline:
         fallback:
           _target_: egomimic.utils.action_encoding.BaseActionConverter
     init_weights_ckpt: null
+
+# Inference semantics belong to this model; station calibration is separate.
+deployment_domain: human_bimanual
+inference_domains:
+  human_bimanual:
+    input:
+      history_length: 1
+      keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      - embodiment
+      - annotations
+      history_keys:
+      - observations.state.ee_pose
+      - observations.images.front_img_1
+      constants:
+        embodiment: 3
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - 100
+      - 20
+      timing:
+        kind: uniform_resampled_target
+        temporally_resolved: true
+        dt: 0.00909090909090909
+        first_source_frame: 0
+        last_source_frame: 27
+        source_fps: 30.0
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - 28
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - 100
+        - 20
+        embodiment: 3
+      tokenizer: null
+      action_encoding: cartesian_normalized_rot6d
+      backend_native_output:
+        shape:
+        - 100
+        - 32
+        conversion:
+          rules:
+            HUMAN_BIMANUAL:
+              _target_: egomimic.utils.action_encoding.RobotBimanualCartesianEuler
+          fallback:
+            _target_: egomimic.utils.action_encoding.BaseActionConverter
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - 100
+        - 20
+        adapter:
+          _target_: egomimic.pipeline.action_adapter.CanonicalSequenceAdapter
+          shape:
+          - 28
+          - 14
+          decoder:
+            _target_: egomimic.pipeline.sequence_decoder.SequentialActionDecoder
+            decoders:
+            - _target_: egomimic.robot.action_decoder.CartesianRotationDecoder
+              has_gripper: true
+            - _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+              native_shape:
+              - 100
+              - 14
+              native_duration: 0.9
+              output_horizon: 28
+              output_dt: 0.03333333333333333
+              angular_indices:
+              - 3
+              - 4
+              - 5
+              - 10
+              - 11
+              - 12
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: backend.num_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: 28
+            step: 1
+            default: 28
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+inference: ${model.inference_domains.${model.deployment_domain}}

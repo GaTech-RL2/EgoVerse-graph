@@ -1,4 +1,5 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
 
 # Canonical 2,999-episode pre-step U-Socket corpus. For Hobs=2 Paper DP,
 # action_target_offset=1 aligns [S_t, S_(t+1)] with action a_(t+1).

@@ -44,11 +44,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_i
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.utils.aws.aws_sql import (
-    create_default_engine,
-    episode_table_to_df,
-)
+from egomimic.utils.env import load_env
 from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 if TYPE_CHECKING:
@@ -306,6 +302,15 @@ class EpisodeResolver:
 
     _dataset_class = None  # set to ZarrDataset after that class is defined
 
+    @staticmethod
+    def _validate_filter_pins(paths, filters):
+        missing = filters.episode_hashes - {episode for _, episode in paths}
+        if missing:
+            raise ValueError(
+                f"Pinned episodes were missing, deleted, or excluded by filters: {sorted(missing)}"
+            )
+        return paths
+
     def __init__(
         self,
         folder_path: Path,
@@ -399,6 +404,39 @@ class S3EpisodeResolver(EpisodeResolver):
             image_hw=image_hw,
         )
 
+    def resolve_paths(self, filters=None):
+        from egomimic.rldb.resolve_memo import memoized
+
+        filters = _ensure_dataset_filter(filters)
+        self.folder_path.mkdir(parents=True, exist_ok=True)
+        filter_key = filters.cache_key()
+        key = (
+            None
+            if filter_key is None
+            else (
+                type(self).sync_from_filters,
+                str(self.folder_path.resolve()),
+                self.bucket_name,
+                self.main_prefix,
+                self.debug,
+                filter_key,
+            )
+        )
+        paths = list(
+            memoized(
+                key,
+                lambda: tuple(
+                    self.sync_from_filters(
+                        bucket_name=self.bucket_name,
+                        filters=filters,
+                        local_dir=self.folder_path,
+                        debug=self.debug,
+                    )
+                ),
+            )
+        )
+        return self._validate_filter_pins(paths, filters)
+
     def resolve(
         self,
         filters: DatasetFilter | None = None,
@@ -416,12 +454,7 @@ class S3EpisodeResolver(EpisodeResolver):
 
         logger.info(f"Filters: {filters}")
 
-        filtered_paths = self.sync_from_filters(
-            bucket_name=self.bucket_name,
-            filters=filters,
-            local_dir=self.folder_path,
-            debug=self.debug,
-        )
+        filtered_paths = self.resolve_paths(filters)
 
         valid_hashes = {hashes for _, hashes in filtered_paths}
         if not valid_hashes:
@@ -454,9 +487,18 @@ class S3EpisodeResolver(EpisodeResolver):
             list[tuple[str, str]]: List of tuples, each containing (zarr_processed_path, episode_hash)
                                    for episodes passing the filter criteria.
         """
+        from egomimic.utils.aws.aws_sql import (
+            create_default_engine,
+            episode_table_to_df,
+        )
+
         filters = _ensure_dataset_filter(filters)
-        engine = create_default_engine()
-        df = episode_table_to_df(engine)
+        from egomimic.rldb.resolve_memo import memoized
+
+        df = memoized(
+            ("episode_table", episode_table_to_df),
+            lambda: episode_table_to_df(create_default_engine()),
+        )
         if df.empty:
             logger.info("Episode table is empty.")
             return []
@@ -805,6 +847,33 @@ class LocalEpisodeResolver(EpisodeResolver):
         logger.info("Local filtered paths: %s", filtered)
         return filtered
 
+    def resolve_paths(self, filters=None):
+        from egomimic.rldb.resolve_memo import memoized
+
+        filters = _ensure_dataset_filter(filters)
+        filter_key = filters.cache_key()
+        key = (
+            None
+            if filter_key is None
+            else (
+                type(self)._get_local_filtered_paths,
+                str(self.folder_path.resolve()),
+                self.debug,
+                filter_key,
+            )
+        )
+        paths = list(
+            memoized(
+                key,
+                lambda: tuple(
+                    self._get_local_filtered_paths(
+                        self.folder_path, filters, debug=self.debug
+                    )
+                ),
+            )
+        )
+        return self._validate_filter_pins(paths, filters)
+
     def resolve(
         self,
         sync_from_s3=False,
@@ -820,9 +889,7 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         filters = _ensure_dataset_filter(filters)
 
-        filtered_paths = self._get_local_filtered_paths(
-            self.folder_path, filters, debug=self.debug
-        )
+        filtered_paths = self.resolve_paths(filters)
 
         filtered_names = {folder_name for _, folder_name in filtered_paths}
         _validate_episode_name_pin(
@@ -1094,6 +1161,23 @@ class MultiDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.index_map)
 
+    def require_ordered_samples(self):
+        self._ordered_samples = True
+        for dataset in self.datasets.values():
+            dataset.require_ordered_samples()
+
+    def episode_id_at(self, index: int) -> str:
+        name, local = self.index_map[index]
+        return self.datasets[name].episode_id_at(local)
+
+    def frame_index_at(self, index: int) -> int:
+        name, local = self.index_map[index]
+        return self.datasets[name].frame_index_at(local)
+
+    def episode_length_at(self, index: int) -> int:
+        name, local = self.index_map[index]
+        return self.datasets[name].episode_length_at(local)
+
     @staticmethod
     def _episode_name_for_dataset(dataset, dataset_name: str) -> str:
         episode_path = getattr(dataset, "episode_path", None)
@@ -1273,6 +1357,10 @@ class MultiDataset(torch.utils.data.Dataset):
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
     ) -> tuple[int, int]:
+        if getattr(self, "_ordered_samples", False):
+            raise RuntimeError(
+                f"Ordered validation sample {idx} failed: {reason}; random fallback is disabled"
+            )
         attempts = (attempts or 0) + 1
         if attempts >= self.MAX_FALLBACK_ATTEMPTS:
             raise RuntimeError(
@@ -1306,7 +1394,12 @@ class MultiDataset(torch.utils.data.Dataset):
             resolved = resolver.resolve(sync_from_s3=sync_from_s3, filters=filters)
         else:
             resolved = resolver.resolve(filters=filters)
-
+        pinned = _ensure_dataset_filter(filters).episode_hashes
+        if missing := pinned - set(resolved):
+            raise ValueError(
+                "Pinned episodes did not load successfully: "
+                f"{sorted(missing)}. An unreadable or filtered episode cannot silently change a pinned split."
+            )
         return cls(datasets=resolved, **kwargs)
 
     # =====================================================================
@@ -1545,6 +1638,19 @@ class MultiDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def _compute_stats_for_array(X):
+        X = np.asarray(X)
+        if X.ndim < 1 or X.shape[0] == 0:
+            raise ValueError("Normalization requires at least one finite sample row")
+        finite = np.isfinite(X.reshape(len(X), -1)).all(axis=1)
+        if not finite.any():
+            raise ValueError(
+                "Normalization source contains no fully finite sample rows"
+            )
+        if not finite.all():
+            logger.warning(
+                "Excluding %d nonfinite normalization sample rows", int((~finite).sum())
+            )
+            X = X[finite]
         return {
             "mean": np.mean(X, axis=0),
             "std": np.std(X, axis=0),
@@ -1882,6 +1988,18 @@ class EvenStrideDataset(MultiDataset):
     def __getitem__(self, idx):
         return self.base[self.indices[idx]]
 
+    def require_ordered_samples(self):
+        self.base.require_ordered_samples()
+
+    def episode_id_at(self, index):
+        return self.base.episode_id_at(self.indices[index])
+
+    def frame_index_at(self, index):
+        return self.base.frame_index_at(self.indices[index])
+
+    def episode_length_at(self, index):
+        return self.base.episode_length_at(self.indices[index])
+
     def set_data_schematic(self, data_schematic) -> None:
         self.base.set_data_schematic(data_schematic)
         self.data_schematic = data_schematic
@@ -1937,7 +2055,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        embodiment_name = self._embodiment_override or self.metadata["embodiment"]
+        embodiment_name = (
+            getattr(self, "_embodiment_override", None) or self.metadata["embodiment"]
+        )
         self.embodiment = get_embodiment(get_embodiment_id(embodiment_name)).lower()
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
@@ -2014,6 +2134,23 @@ class ZarrDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.total_frames
 
+    def require_ordered_samples(self):
+        self._ordered_samples = True
+
+    def episode_id_at(self, index: int) -> str:
+        if not 0 <= index < len(self):
+            raise IndexError(index)
+        return Path(self.episode_path).stem
+
+    def frame_index_at(self, index: int) -> int:
+        if not 0 <= index < len(self):
+            raise IndexError(index)
+        return index
+
+    def episode_length_at(self, index: int) -> int:
+        self.frame_index_at(index)
+        return self.total_frames
+
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         """End index (exclusive) for a windowed read starting at ``start_idx``.
 
@@ -2054,6 +2191,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         def _next(reason: str, key: str = "") -> int:
             nonlocal attempts
+            if getattr(self, "_ordered_samples", False):
+                raise RuntimeError(
+                    f"Ordered sample failed at {self.episode_path}/{idx}: {reason}; random fallback is disabled"
+                )
             next_idx, attempts = get_fallback_idx(
                 idx=idx,
                 candidates=range(self.total_frames),

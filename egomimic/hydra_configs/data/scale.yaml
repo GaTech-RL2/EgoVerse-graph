@@ -1,4 +1,6 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   human_bimanual:
@@ -9,7 +11,8 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
-        has_head_pose: false
+        # sfs_to_egoverse_zarr writes world poses and obs_head_pose.
+        has_head_pose: true
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         action_mode: cartesian

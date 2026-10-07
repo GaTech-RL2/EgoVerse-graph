@@ -120,9 +120,25 @@ def _read_is_available(read: str, available: set[str]) -> bool:
 class Pipeline(Stage):
     """An ordered, registered list of stages."""
 
-    def __init__(self, stages: Sequence[Stage]):
+    def __init__(self, stages: Sequence[Stage], stage_ids=None):
         super().__init__()
         self.stages = nn.ModuleList(stages)
+        self.stage_ids = dict(stage_ids or {})
+        if any(
+            not isinstance(name, str)
+            or not name
+            or type(index) is not int
+            or not 0 <= index < len(self.stages)
+            for name, index in self.stage_ids.items()
+        ):
+            raise ValueError(
+                "stage_ids must map stable identifiers to valid stage positions"
+            )
+
+    def stage_by_id(self, stage_id: str):
+        if stage_id not in self.stage_ids:
+            raise ValueError(f"Pipeline does not declare stage_id {stage_id!r}")
+        return self.stages[self.stage_ids[stage_id]]
 
     def forward(self, batch: dict, mode: str = "train") -> dict:
         return self.execute(batch, mode=mode)

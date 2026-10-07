@@ -8,7 +8,8 @@ The root AGENTS.md applies here. Configure evaluators in
   `model.forward_eval(batch)[source]["pred_action"]`. It owns normalization,
   validation-group names, pose scores, optional repeated-sample scores and overlays.
 - `video.py`: shared `EvalVideo` episode/chunk buffering, file output, distributed
-  playback FPS and WandB video logging. Only rank zero buffers/writes videos.
+  playback FPS and WandB video logging. All ranks spool their own frames; only
+  rank zero encodes and uploads the reassembled episode videos.
 - `cartesian_metrics.py`, `distribution_metrics.py`: model-independent pose,
   DTW, Fréchet, reverse-KL and coverage calculations.
 - `arc_bimanual_cartesian_eval.py`, `arc_metrics.py`: ARC-specific decoding and

@@ -1,0 +1,756 @@
+{
+  "version": 1,
+  "legacy_source": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "graph_source": "161e3a0c40182ba003434d3adaeaa6cbd12107d8",
+  "cutover_ready": false,
+  "note": "Every old-only path is retained at the immutable legacy source. Pending is a blocker, never a retirement decision. Same-name changes require behavior comparisons as well.",
+  "old_only": [
+    {
+      "legacy_path": ".github/workflows/ci.yml",
+      "legacy_blob": "b8eed8da3a7d1c630b24895f701c83913322fdb3",
+      "category": "CI",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/algo/__init__.py",
+      "legacy_blob": "88b0ce5aa0843737e74912b0c7298442e86dc5ec",
+      "category": "policy runtime",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/algo/algo.py",
+      "legacy_blob": "a01e4cc861671c5ffe25a02a7a30db0e560bdb28",
+      "category": "policy runtime",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/algo/hpt.py",
+      "legacy_blob": "ad567b0fb6be4752d03f38dfb5554eb55a0943b5",
+      "category": "policy runtime",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/algo/pi.py",
+      "legacy_blob": "bfdc1117cbdc70322b1b24ef3fd17b8718f67def",
+      "category": "policy runtime",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/eval/eval_hpt.py",
+      "legacy_blob": "ee7af2a0e264bd93884745b9b0511bdae75d5a73",
+      "category": "evaluation",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/eval/eval_latent.py",
+      "legacy_blob": "3717694741581494620af90b8d0760fee4a5d1da",
+      "category": "evaluation",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/eval/eval_pi.py",
+      "legacy_blob": "720619770135e36dc8f0f6f3a7897ac6e791735e",
+      "category": "evaluation",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/eval/eval_video.py",
+      "legacy_blob": "9cf44d121c0fc72650514d062bafbbc6c34ce2b2",
+      "category": "evaluation",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/eval/latent_dataset.py",
+      "legacy_blob": "dcd078fc2ade5dba9d13ed3aafa5b390b3e58929",
+      "category": "evaluation",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/aria_keypoints.yaml",
+      "legacy_blob": "59d0a3ab624cad417974e5c4b20b0e572b0b03a6",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/aria_keypoints_wrist.yaml",
+      "legacy_blob": "4c22356e61df0c56cfe83f950cc22a56c6baf7b1",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/aria_qwen.yaml",
+      "legacy_blob": "b1cf807ca597c9c7badbdc54e9a81df5101ec192",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/bc_pickplace_eva_qwen.yaml",
+      "legacy_blob": "bfeba77ebcb878306d47e4a1925692396ce7feb2",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_base.yaml",
+      "legacy_blob": "e6ce59979ced994cb470b74b2b00edc4cb8b5b8c",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_lang.yaml",
+      "legacy_blob": "6dfdf34e2c0662c1f111f49780ab8c11244a57da",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_lang_wrist.yaml",
+      "legacy_blob": "641e483fa4b6ef3d5ca6bfee153bbdc217a6b892",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_latent.yaml",
+      "legacy_blob": "b00837624569612c8bb73dda4330b46e5c8dc752",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml",
+      "legacy_blob": "452ec91a0dfca0cb146125cc102f2a0a543f4a7e",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml",
+      "legacy_blob": "e225b9557bda121c9f498506167460b4b6ebb828",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen.yaml",
+      "legacy_blob": "c05902d4e055b1a86470e8259bf22dd2440740a1",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_objgen.yaml",
+      "legacy_blob": "abb5958ea5da5a959327afa66096a2c5a94bdda9",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/cotrain_pickplace_qwen_wrist.yaml",
+      "legacy_blob": "9ef6424d5a16a081bc02430c627a9bfd2301d4c3",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/eva_pi.yaml",
+      "legacy_blob": "c18e38599a81bdf952601af109d4387c88c22d1b",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/eva_pi_lang.yaml",
+      "legacy_blob": "7ab7020055277e49357c94b6ba6bed217c4b07e9",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/industry_eva_pi.yaml",
+      "legacy_blob": "39c88da22d20c48d0bb3c59f0da9a5dd49d384ef",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml",
+      "legacy_blob": "a2cd7272565e5863fbdc7a0de481f3f4b998e336",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/eval_hpt.yaml",
+      "legacy_blob": "901be307491f20ee0a1b07ac8f8ecef9a0592fef",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/eval_hpt_wrist.yaml",
+      "legacy_blob": "fc2099c1906e2d2b8fe0a120448d649a1959c286",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/eval_latent.yaml",
+      "legacy_blob": "f3b464390b78698be659d81240861a796ebb9e35",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/eval_pi.yaml",
+      "legacy_blob": "97b9c1a1f3e283ddbee6ba229d7cea9b77efd90e",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian.yaml",
+      "legacy_blob": "3501465aa672463b6b4ce7d7bcacf8b766e5e3fe",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist.yaml",
+      "legacy_blob": "e4aae52a72c12dfdaba30830828ee2281aaebe03",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/cartesian_wrist_lang.yaml",
+      "legacy_blob": "97f05d59eee1990cf2a54271180e2fc0a24c53fa",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/cotrain_lang.yaml",
+      "legacy_blob": "4325a04487a2756322f56d724e8fdc7e15991ad7",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/keypoints.yaml",
+      "legacy_blob": "cf5d1d218c36c2d0ed48feb85d9c748bd0123975",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/keypoints_wrist.yaml",
+      "legacy_blob": "cf5d1d218c36c2d0ed48feb85d9c748bd0123975",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml",
+      "legacy_blob": "986364687635aaf420a50c142ea03401211e4909",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang.yaml",
+      "legacy_blob": "1a4a1bf9a0fcc9a434dd8a72058be01bd75c4aa7",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml",
+      "legacy_blob": "8555eaad3361ffaa4ee24f1035b8be990dc44197",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/egobridge.yaml",
+      "legacy_blob": "d9dbffd3cee23b2bfa9d0d87817c0b9fbd5c057d",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml",
+      "legacy_blob": "3efb2c137a923be66bb302e706e60cb9b60bcfbb",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml",
+      "legacy_blob": "9f17c9bae99cf9be47766af43d5ca4ecbec7b7c6",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_human.yaml",
+      "legacy_blob": "219f73534d08efa8f558bb0a5252a49ba37192a1",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_mecka.yaml",
+      "legacy_blob": "3efb2c137a923be66bb302e706e60cb9b60bcfbb",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_flow_scale.yaml",
+      "legacy_blob": "97e8f8a1929565cce690b25fb34e4f8ed6c48c4c",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_keypoints_base.yaml",
+      "legacy_blob": "9ece64e9a27b40c055f84c8adb67bf4d67221246",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pertoken.yaml",
+      "legacy_blob": "0d07fe295285f5c9bea187ab808a1dc0e88919f2",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_bc_pickplace_qwen_pooled.yaml",
+      "legacy_blob": "1615a7c4cc6727ecf507388a7c56f826aaa270e9",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_enc_dec_base.yaml",
+      "legacy_blob": "e87e4c7db5aa5b4e504afd61671f049494089f47",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_flow_seperate_head.yaml",
+      "legacy_blob": "899741e69f0f2270e96edec64a77d4693233e711",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_flow_shared_head.yaml",
+      "legacy_blob": "98932a455a6d6d69df259ba99ef3f02b3929007c",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head.yaml",
+      "legacy_blob": "80e5a55f320c83425f1bf4ba17918629263e3376",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml",
+      "legacy_blob": "0cfd4ae67d41d9f02f35a332417ca17645cc4881",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_base.yaml",
+      "legacy_blob": "e94ff5c09588d1d8c48e52134f4d950c1334a6c8",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_aria.yaml",
+      "legacy_blob": "8782b4930422789674e37ea685352b7ef04425ea",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_eva.yaml",
+      "legacy_blob": "c08fe331ced4f5eb46df19e04be766e7d14d1f33",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml",
+      "legacy_blob": "8782b4930422789674e37ea685352b7ef04425ea",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_bc_scale.yaml",
+      "legacy_blob": "79ed54e8f27efec09fbdc8c94434b0a95cc5e84f",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria.yaml",
+      "legacy_blob": "d9c2695b68dbc7a6f843706a2a739829275cbb13",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml",
+      "legacy_blob": "79ed54e8f27efec09fbdc8c94434b0a95cc5e84f",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml",
+      "legacy_blob": "e45cfeea0aefdff98444a428fe9c8c6bc41d2d58",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/train_zarr_keypoints.yaml",
+      "legacy_blob": "170bffd2874f95f73d430a52101fdcf2e1b85184",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/hydra_configs/viz_language.yaml",
+      "legacy_blob": "aa607f953f4887a0d1c8f220ef57b8a1ffe3d24a",
+      "category": "recipe",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/models/act_nets.py",
+      "legacy_blob": "2126de8f6fa73a66516df9978f17a09dd3ccd6c5",
+      "category": "model component",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/models/denoising_policy.py",
+      "legacy_blob": "645a8c44e49059f2d0409a9c12102ea60c0ca1c3",
+      "category": "model component",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/models/fm_policy.py",
+      "legacy_blob": "e41f4943c1d287c1e1dc83d10e040bffd1f5649d",
+      "category": "model component",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/models/hpt_nets.py",
+      "legacy_blob": "3e76bcee43b506d993be4240ecbecec3137cf2f1",
+      "category": "model component",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/models/preprocess_pi_obs.py",
+      "legacy_blob": "475ececf7dd77f9d3e4717ce24bc06c87eeb3a63",
+      "category": "model component",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/rldb/resolve_memo.py",
+      "legacy_blob": "359a77f5d42ad60318522e639e8a77c3dfe37a1b",
+      "category": "data",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/rldb/zarr/hdf5_to_zarr.py",
+      "legacy_blob": "79ee1deb0865033953ba51f61d3792137c8c7db5",
+      "category": "data",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/data_visualisation.ipynb",
+      "legacy_blob": "22cf46dee597d2150ba56a052112175d52d4c34b",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/data_visualization.py",
+      "legacy_blob": "d92beced47e5a09477102ef65d7acf85b5d6d5ae",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/eva_process/check_zero.py",
+      "legacy_blob": "7518630e23a3abd9658e84418fd8f09a6d1c7b21",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/eva_process/check_zero.sbatch",
+      "legacy_blob": "ea3afbd2565fb3467631f4258241df3ef0281e12",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/evaluation/eval.py",
+      "legacy_blob": "63321515af6d5cbbe670f87c7d304b0f7c014e41",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/scripts/viz_language.py",
+      "legacy_blob": "191eb26401961af861fe8f644276cb32d8aa9a18",
+      "category": "tool",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/action_utils.py",
+      "legacy_blob": "75c4fac11e28cc0729598ce263ae688dcc83489f",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/hf_utils.py",
+      "legacy_blob": "46a9488733c4bf922743f50b780d23843ed9c28f",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/hydra_resolvers.py",
+      "legacy_blob": "8009fdecc8934ff785341358d72fd404d0705301",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/metrics.py",
+      "legacy_blob": "aa6c04756c124c23a7f4be8ec05cbc152ea98031",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/scheduler_utils.py",
+      "legacy_blob": "5378909bf23b3758759df01270b9ab15af5a6d8e",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    },
+    {
+      "legacy_path": "egomimic/utils/tensor_utils.py",
+      "legacy_blob": "70252e1c383a23fccde78eb64af8d9304e9b574e",
+      "category": "utility",
+      "owner": "graph-integration",
+      "disposition": "pending",
+      "replacement": null,
+      "evidence": []
+    }
+  ]
+}

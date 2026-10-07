@@ -13,11 +13,10 @@ import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
@@ -116,7 +115,7 @@ def normalizer():
     kinds = {
         "actions_cartesian": "action_keys",
         "observations.state.ee_pose": "proprio_keys",
-        "base_0_rgb": "camera_keys",
+        "observations.images.front_img_1": "camera_keys",
         "annotations": "annotation_keys",
     }
     norm.key_types = {6: kinds}
@@ -138,7 +137,7 @@ def batch():
     return {
         "opaque-input": {
             "embodiment": torch.tensor([6, 6]),
-            "base_0_rgb": torch.rand(2, 3, 32, 32),
+            "observations.images.front_img_1": torch.rand(2, 3, 32, 32),
             "observations.state.ee_pose": torch.zeros(2, 20),
             "actions_cartesian": torch.zeros(2, 100, 20),
             "annotations": [["Sort pens"], ["Sort rulers"]],

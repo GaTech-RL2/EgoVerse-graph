@@ -2,6 +2,8 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    sampler: 4
   stages:
   - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
     stems:
@@ -87,3 +89,345 @@ optimizer:
   lr: 0.0001
   weight_decay: 0.0001
 scheduler: null
+
+# Inference semantics belong to this model; station calibration is separate.
+inference_contracts:
+  time:
+    input:
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer: null
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder: null
+          rotation_mode: euler
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${hpt.action_horizon}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arcmean:
+    status: unsupported
+    reason: Chunk-mean ARC timing cannot reconstruct dwell or interval durations.
+      Retain this recipe for diagnostics; use a temporally resolved representation
+      for rollout.
+  arcvel:
+    input:
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_waypoint_progress
+        temporally_resolved: true
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcvel
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_profile
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arcdur:
+    input:
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_waypoint_duration
+        temporally_resolved: true
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcdur
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_dur
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  arclogdur:
+    input:
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_waypoint_log_duration
+        temporally_resolved: true
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arclogdur
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_logdur
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+          rotation_mode: euler
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+inference: ${model.inference_contracts.${e1.variant}}

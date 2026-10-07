@@ -1,11 +1,9 @@
 """Local graph inference for robot embodiments using the training data contract."""
 
 import copy
-import json
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -16,103 +14,68 @@ from scipy.spatial.transform import Rotation
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import (
+    build_inference_config,
     find_inference_config,
     load_inference_config,
+    validate_inference_config,
+    validate_input_constants,
 )
-from egomimic.pipeline.stages_flow import FlowDenoiserStage
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.pipeline.inference_controls import (
+    validate_control,
+    validate_control_value,
+)
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
 
 
 def resolve_inference_profile(training, inference_profiles):
-    """Select one YAML profile from checkpoint-declared graph structure."""
-    if not isinstance(inference_profiles, Mapping):
-        raise TypeError("Inference graph profiles must be a mapping")
-    stages = OmegaConf.select(training, "model.pipeline.stages")
-    if stages is None:
-        raise ValueError("Selected model must declare model.pipeline.stages")
-    stages = OmegaConf.to_container(stages, resolve=True)
-    if not isinstance(stages, list) or not all(
-        isinstance(stage, dict) for stage in stages
-    ):
-        raise ValueError("Selected model pipeline stages must be a list of mappings")
-    variant = OmegaConf.select(training, "e1.variant")
-    matches = []
-    for name, profile in inference_profiles.items():
-        if not isinstance(name, str) or not isinstance(profile, Mapping):
-            raise ValueError("Every policy inference profile must be a named mapping")
-        match = profile.get("match")
-        if not isinstance(match, Mapping):
-            raise ValueError(
-                f"Inference graph profile {name!r} match must be a mapping"
-            )
-        target = match.get("stage_target")
-        if not isinstance(target, str) or not target:
-            raise ValueError(
-                f"Inference graph profile {name!r} stage_target must be a string"
-            )
-        matching_stages = [stage for stage in stages if stage.get("_target_") == target]
-        if not matching_stages:
-            continue
-        if len(matching_stages) != 1:
-            raise ValueError(
-                f"Selected model contains {len(matching_stages)} stages matching {target!r}"
-            )
-        required_variant = match.get("variant")
-        if required_variant is not None and required_variant != variant:
-            continue
-        matches.append((name, profile, matching_stages[0]))
-    if len(matches) != 1:
-        targets = sorted(
-            stage.get("_target_") for stage in stages if stage.get("_target_")
-        )
+    """Resolve an explicitly declared stable stage identifier."""
+    if not isinstance(inference_profiles, Mapping) or len(inference_profiles) != 1:
+        raise ValueError("Declare exactly one resolved model-owned inference profile")
+    name, profile = next(iter(inference_profiles.items()))
+    if not isinstance(profile, Mapping):
+        raise ValueError("Inference profile must be a mapping")
+    stage_id = profile.get("stage_id")
+    stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
+    if not isinstance(stage_id, str) or stage_id not in stage_ids:
         raise ValueError(
-            "Selected model must match exactly one policy inference profile; "
-            f"matched {len(matches)} for variant={variant!r}, stages={targets}"
+            "Inference profile requires a declared stable stage_id. Legacy class-matched "
+            "profiles must be migrated explicitly to a model-owned inference contract."
         )
-    return matches[0]
+    index = stage_ids[stage_id]
+    stages = training.model.pipeline.stages
+    if type(index) is not int or not 0 <= index < len(stages):
+        raise ValueError(f"Invalid stage position for {stage_id!r}")
+    return name, profile, stages[index]
 
 
 def configure_adapter_for_training(adapter_config, training, inference_profiles=None):
-    """Apply the model-matched YAML adapter and validate native output shape."""
+    """Merge declared model semantics into the station's calibration adapter."""
     if not isinstance(adapter_config, Mapping):
         raise TypeError("policy.adapter must be a mapping")
     result = dict(adapter_config)
     if inference_profiles is None:
         return result
-    name, profile, stage = resolve_inference_profile(training, inference_profiles)
-    expected_shape = profile.get("native_shape")
-    if OmegaConf.is_list(expected_shape):
-        expected_shape = tuple(expected_shape)
+    name, profile, _ = resolve_inference_profile(training, inference_profiles)
+    shape = profile.get("native_shape")
+    if OmegaConf.is_list(shape):
+        shape = list(shape)
     if (
-        not isinstance(expected_shape, (list, tuple))
-        or len(expected_shape) != 2
-        or any(type(value) is not int or value <= 0 for value in expected_shape)
+        not isinstance(shape, (list, tuple))
+        or len(shape) != 2
+        or any(type(x) is not int or x <= 0 for x in shape)
     ):
         raise ValueError(
-            f"Inference graph profile {name!r} native_shape must be [H, D]"
-        )
-    action_dim = stage.get("action_dim")
-    action_horizon = stage.get("action_horizon")
-    if (
-        type(action_horizon) is not int
-        or type(action_dim) is not int
-        or action_horizon <= 0
-        or action_dim <= 0
-    ):
-        raise ValueError(
-            "Selected model hpt.action_horizon and hpt.action_dim must be positive integers"
-        )
-    actual_shape = (action_horizon, action_dim)
-    if tuple(expected_shape) != actual_shape:
-        raise ValueError(
-            f"Selected model emits {actual_shape}, but YAML profile {name!r} "
-            f"expects {tuple(expected_shape)}"
+            f"Inference profile {name!r} native_shape must be [horizon, width]"
         )
     override = profile.get("adapter", {})
+    declared_shape = OmegaConf.select(training, "model.inference.native_output.shape")
+    if declared_shape is None or list(declared_shape) != list(shape):
+        raise ValueError(
+            f"Inference profile {name!r} expects a different native shape than the model declaration"
+        )
     if not isinstance(override, Mapping):
-        raise ValueError(f"Inference graph profile {name!r} adapter must be a mapping")
+        raise ValueError(f"Inference profile {name!r} adapter must be a mapping")
     for key, value in override.items():
         if value is None:
             result.pop(key, None)
@@ -123,114 +86,40 @@ def configure_adapter_for_training(adapter_config, training, inference_profiles=
 
 @dataclass
 class _InferenceControlBinding:
-    """Validated YAML control plus its private runtime mutation target."""
-
     name: str
-    label: str
-    description: str
-    minimum: int
-    maximum: int
-    step: int
-    value: int
+    spec: dict
+    value: object
     target_kind: str
     attribute_path: str
     owner: object | None = None
     attribute: str | None = None
 
     def validate(self, value):
-        if type(value) is not int or not self.minimum <= value <= self.maximum:
-            raise ValueError(
-                f"Inference override {self.name!r} must be an integer in "
-                f"[{self.minimum}, {self.maximum}]"
-            )
-        if (value - self.minimum) % self.step:
-            raise ValueError(
-                f"Inference override {self.name!r} must use step {self.step}"
-            )
-        return value
+        return validate_control_value(self.name, self.spec, value)
 
     def public(self):
         return {
-            "label": self.label,
-            "description": self.description,
-            "type": "integer",
-            "min": self.minimum,
-            "max": self.maximum,
-            "step": self.step,
+            **{
+                key: value
+                for key, value in self.spec.items()
+                if key not in {"target", "default"}
+            },
             "value": self.value,
         }
 
 
 def configure_profile_controls(graph, training, inference_profiles):
-    """Bind only the runtime controls explicitly exposed by the matched profile."""
-    name, profile, _ = resolve_inference_profile(training, inference_profiles)
-    controls = profile.get("overrides", {})
-    if not isinstance(controls, Mapping):
-        raise ValueError(
-            f"Inference graph profile {name!r} overrides must be a mapping"
-        )
-    target = profile["match"]["stage_target"]
-    stages = [
-        stage
-        for stage in graph.pipeline.stages
-        if f"{type(stage).__module__}.{type(stage).__qualname__}" == target
-    ]
+    """Bind declared settings by stable stage ID, with atomic preflight."""
+    _, profile, _ = resolve_inference_profile(training, inference_profiles)
+    stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
     bindings = []
-    for control_name, spec in controls.items():
-        if (
-            not isinstance(control_name, str)
-            or not control_name.isidentifier()
-            or control_name.startswith("_")
-            or not isinstance(spec, Mapping)
-        ):
-            raise ValueError(
-                f"Inference graph profile {name!r} has an invalid override declaration"
-            )
-        if spec.get("type") != "integer":
-            raise ValueError(
-                f"Inference override {control_name!r} must declare type: integer"
-            )
-        label = spec.get("label")
-        description = spec.get("description", "")
-        if not isinstance(label, str) or not label or not isinstance(description, str):
-            raise ValueError(
-                f"Inference override {control_name!r} needs a label and description"
-            )
-        minimum, maximum = spec.get("min"), spec.get("max")
-        step, value = spec.get("step", 1), spec.get("default")
-        if (
-            type(minimum) is not int
-            or type(maximum) is not int
-            or type(step) is not int
-            or minimum > maximum
-            or step <= 0
-        ):
-            raise ValueError(
-                f"Inference override {control_name!r} has invalid integer bounds"
-            )
-        target_spec = spec.get("target")
-        if not isinstance(target_spec, Mapping):
-            raise ValueError(f"Inference override {control_name!r} needs a target")
-        target_kind = target_spec.get("kind")
-        path = target_spec.get("attribute_path")
-        if (
-            target_kind not in {"stage_attribute", "policy_attribute"}
-            or not isinstance(path, str)
-            or not path
-            or any(
-                not part.isidentifier() or part.startswith("_")
-                for part in path.split(".")
-            )
-        ):
-            raise ValueError(f"Inference override {control_name!r} target is invalid")
+    for name, spec in profile.get("overrides", {}).items():
+        validate_control(name, spec, stage_ids=stage_ids)
+        target = spec["target"]
+        kind, path = target["kind"], target["attribute_path"]
         owner = attribute = None
-        if target_kind == "stage_attribute":
-            if len(stages) != 1:
-                raise ValueError(
-                    f"YAML profile {name!r} requires exactly one {target}, "
-                    f"found {len(stages)}"
-                )
-            owner = stages[0]
+        if kind == "stage_attribute":
+            owner = graph.pipeline.stage_by_id(target["stage_id"])
             parts = path.split(".")
             for part in parts[:-1]:
                 if not hasattr(owner, part):
@@ -241,59 +130,30 @@ def configure_profile_controls(graph, training, inference_profiles):
             attribute = parts[-1]
             if not hasattr(owner, attribute):
                 raise ValueError(f"Inference override target {path!r} does not exist")
-        elif path != "replan_every":
-            raise ValueError(
-                "The only supported policy inference override is replan_every"
+        bindings.append(
+            _InferenceControlBinding(
+                name, dict(spec), spec["default"], kind, path, owner, attribute
             )
-        binding = _InferenceControlBinding(
-            name=control_name,
-            label=label,
-            description=description,
-            minimum=minimum,
-            maximum=maximum,
-            step=step,
-            value=value,
-            target_kind=target_kind,
-            attribute_path=path,
-            owner=owner,
-            attribute=attribute,
         )
-        binding.validate(value)
-        if target_kind == "stage_attribute":
-            setattr(owner, attribute, value)
-        bindings.append(binding)
+    # No mutation occurs until every target and every default is valid.
+    for binding in bindings:
+        if binding.owner is not None:
+            setattr(binding.owner, binding.attribute, binding.value)
     return tuple(bindings)
 
 
 def load_normalizer(path):
-    payload = json.loads(Path(path).read_text())
-    state = payload.get("normalizer_state", payload)
-    required = {
-        "norm_mode",
-        "embodiments",
-        "key_types",
-        "zarr_keys",
-        "shapes",
-        "norm_stats",
-    }
-    if not required <= state.keys():
-        raise ValueError(
-            "Export a full normalizer_state with trainHydra norm_stats_only=true and the training recipe"
-        )
-    for name in ("key_types", "zarr_keys", "shapes", "norm_stats"):
-        state[name] = {int(key): value for key, value in state[name].items()}
-    state["embodiments"] = [int(key) for key in state["embodiments"]]
-    normalizer = MultiDataset.from_state(state)
-    for embodiment in normalizer.embodiments:
-        for key, stats in normalizer.norm_stats[embodiment].items():
-            for values in stats.values():
-                tensor = torch.as_tensor(values)
-                if not torch.isfinite(tensor).all():
-                    raise ValueError(
-                        f"Nonfinite normalization statistics: {embodiment}/{key}"
-                    )
-                torch.broadcast_to(tensor, tuple(normalizer.key_shape(key, embodiment)))
-    return normalizer
+    """Compatibility alias owned by graph integration; migrate to data_context_loader."""
+    import warnings
+
+    from egomimic.rldb.zarr.data_module import load_normalizer as restore
+
+    warnings.warn(
+        "Import load_normalizer from rldb.zarr.data_module; alias owner: graph integration",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return restore(path)
 
 
 def validate_graph_device(device: str) -> torch.device:
@@ -329,18 +189,22 @@ def validate_graph_device(device: str) -> torch.device:
 def configure_flow_inference_steps(
     graph: PipelineAlgo, num_inference_steps: int
 ) -> None:
-    """Override the rollout-only Euler solver budget for one FlowDenoiser."""
+    """Deprecated setting alias; requires an explicit sampler ID, never class discovery."""
+    import warnings
+
+    warnings.warn(
+        "Use model.inference runtime controls; alias owner: graph integration",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if type(num_inference_steps) is not int or num_inference_steps <= 0:
         raise ValueError("num_inference_steps must be a positive integer")
-    stages = [
-        stage for stage in graph.pipeline.stages if isinstance(stage, FlowDenoiserStage)
-    ]
-    if len(stages) != 1:
+    stage = graph.pipeline.stage_by_id("sampler")
+    if not hasattr(stage, "num_inference_steps"):
         raise ValueError(
-            "A rollout num_inference_steps override requires exactly one "
-            f"FlowDenoiserStage, found {len(stages)}"
+            "sampler does not expose num_inference_steps; configure its declared control"
         )
-    stages[0].num_inference_steps = num_inference_steps
+    stage.num_inference_steps = num_inference_steps
 
 
 class InvalidGraphActionSample(ValueError):
@@ -394,6 +258,9 @@ class CartesianGraphAdapter:
         if not 0 <= self.gripper_clip_tolerance <= 0.5:
             raise ValueError("gripper_clip_tolerance must be in [0, 0.5]")
         self.prompt, self.decoder = prompt, decoder
+
+    def input_constants(self):
+        return {"embodiment": self.embodiment_id}
 
     def observation(self, obs):
         proprio = []
@@ -512,6 +379,7 @@ class GraphRobotPolicy:
             inference_graph = {}
         if not isinstance(inference_graph, Mapping):
             raise TypeError("policy.inference_graph must be a mapping")
+        validate_input_constants(inference_graph, adapter.input_constants())
         input_contract = inference_graph.get("input", {})
         output_contract = inference_graph.get("output", {})
         if not isinstance(input_contract, Mapping) or not isinstance(
@@ -555,10 +423,16 @@ class GraphRobotPolicy:
         }
         if len(self._inference_controls) != len(inference_controls):
             raise ValueError("Inference override names must be unique")
-        self._replan_every = None
+        self.replan_every = None
+        self.native_output = dict(inference_graph.get("native_output", {}))
         for control in self._inference_controls.values():
             if control.target_kind == "policy_attribute":
-                self._replan_every = control.value
+                # This robot policy explicitly exposes only these runtime settings.
+                if control.attribute_path not in {"replan_every", "max_valid_samples"}:
+                    raise ValueError(
+                        f"Robot policy does not expose {control.attribute_path!r}"
+                    )
+                setattr(self, control.attribute_path, control.value)
         embodiment = adapter.embodiment_id
         if embodiment not in normalizer.embodiments:
             raise ValueError("Embodiment is absent from the training normalizer")
@@ -608,16 +482,16 @@ class GraphRobotPolicy:
             if control.target_kind == "stage_attribute":
                 setattr(control.owner, control.attribute, value)
             else:
-                self._replan_every = value
+                setattr(self, control.attribute_path, value)
             control.value = value
         return self.inference_controls()
 
     def execution_plan(self, prediction):
         """Choose the executable prefix; the full prediction remains visualizable."""
         actions = np.asarray(prediction)
-        if self._replan_every is None:
+        if self.replan_every is None:
             return actions
-        return actions[: min(self._replan_every, len(actions))]
+        return actions[: min(self.replan_every, len(actions))]
 
     def _observation(self, obs):
         values = self.adapter.observation(obs)
@@ -649,7 +523,13 @@ class GraphRobotPolicy:
         batch = self.graph.process_batch_for_training({"robot": values})
         error = None
         for _ in range(self.max_valid_samples):
-            prediction = self.graph.forward_eval(batch)["robot"]["pred_action"]
+            output_key = self.native_output.get("key", "pred_action")
+            prediction = self.graph.forward_eval(batch)["robot"][output_key]
+            expected = self.native_output.get("shape")
+            if expected is not None and tuple(prediction.shape) != (1, *expected):
+                raise ValueError(
+                    f"Graph native output violates declared shape {expected}: {tuple(prediction.shape)}"
+                )
             native = self.normalizer.unnormalize(
                 {adapter.action_key: prediction}, adapter.embodiment_id
             )[adapter.action_key]
@@ -673,9 +553,43 @@ class GraphRobotPolicy:
 
 
 def load_graph_policy(config):
-    normalizer = load_normalizer(config["normalizer_path"])
     training = OmegaConf.load(config["training_config"])
     device = validate_graph_device(str(config["device"]))
+    inference_config_path = config.get("inference_config")
+    if inference_config_path is None:
+        inference_config_path = find_inference_config(config["checkpoint"])
+    inference_graph = (
+        load_inference_config(inference_config_path, training)
+        if inference_config_path is not None
+        else validate_inference_config(build_inference_config(training), training)
+    )
+    if inference_graph is not None and not isinstance(inference_graph, Mapping):
+        raise TypeError("policy.inference_graph must be a mapping")
+    inference_profiles = (
+        None if inference_graph is None else inference_graph.get("profiles")
+    )
+    adapter_config = configure_adapter_for_training(
+        config["adapter"], training, inference_profiles
+    )
+    adapter = instantiate(adapter_config)
+    validate_input_constants(inference_graph, adapter.input_constants())
+    supplied_keys = {
+        adapter.proprio_key,
+        "embodiment",
+        "annotations",
+        *adapter.camera_keys.values(),
+    }
+    missing = set(inference_graph["input"]["keys"]) - supplied_keys
+    if missing:
+        raise ValueError(
+            f"Station adapter cannot supply required model observations: {sorted(missing)}"
+        )
+    loader = training.get("data_context_loader")
+    if loader is None:
+        raise ValueError(
+            "Saved training config must declare data_context_loader for its immutable normalizer export"
+        )
+    normalizer = instantiate(loader, path=config["normalizer_path"])
     graph = instantiate(training.model.pipeline, device=str(device))
     if not isinstance(graph, PipelineAlgo):
         raise TypeError("Robot inference requires a graph PipelineAlgo")
@@ -686,37 +600,20 @@ def load_graph_policy(config):
     strict_load_pipeline_checkpoint(
         graph, checkpoint, use_ema=bool(config.get("use_ema", False))
     )
-    inference_config_path = config.get("inference_config")
-    if inference_config_path is None:
-        inference_config_path = find_inference_config(config["checkpoint"])
-    inference_graph = (
-        load_inference_config(inference_config_path, training)
-        if inference_config_path is not None
-        else config.get("inference_graph")
-    )
-    if inference_graph is not None and not isinstance(inference_graph, Mapping):
-        raise TypeError("policy.inference_graph must be a mapping")
-    inference_profiles = (
-        None if inference_graph is None else inference_graph.get("profiles")
-    )
-    if inference_profiles is None:
-        inference_profiles = config.get("inference_profiles")
     inference_controls = ()
     if inference_profiles is not None:
         inference_controls = configure_profile_controls(
             graph, training, inference_profiles
         )
     elif "num_inference_steps" in config:
-        # Backward compatibility for older Flow-only rollout profiles.
-        configure_flow_inference_steps(graph, config["num_inference_steps"])
+        raise ValueError(
+            "Move num_inference_steps into the model-owned typed inference controls"
+        )
     graph.nets.eval()
-    adapter_config = configure_adapter_for_training(
-        config["adapter"], training, inference_profiles
-    )
     return GraphRobotPolicy(
         graph,
         normalizer,
-        instantiate(adapter_config),
+        adapter,
         max_valid_samples=config.get("max_valid_samples", 1),
         inference_graph=inference_graph,
         inference_controls=inference_controls,

@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal
@@ -73,6 +74,19 @@ class Embodiment(ABC):
     INTRINSICS = None
     EXTRINSICS = None
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
+
+    @staticmethod
+    def canonical_keymap_mode(mode):
+        if mode == "cartesian_pi":
+            warnings.warn(
+                "cartesian_pi is a deprecated alias for cartesian; PI camera slots "
+                "are mapped by the model adapter. Owner: graph integration; retain "
+                "until saved-config migration is complete.",
+                FutureWarning,
+                stacklevel=3,
+            )
+            return "cartesian"
+        return mode
 
     @staticmethod
     def get_transform_list() -> list[Transform]:
@@ -166,7 +180,7 @@ class Embodiment(ABC):
         camera_keys: dict | None = None,
     ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
-        key_map = cls._get_keymap(keymap_mode)
+        key_map = cls._get_keymap(cls.canonical_keymap_mode(keymap_mode))
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",

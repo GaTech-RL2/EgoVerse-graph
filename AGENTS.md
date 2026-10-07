@@ -26,6 +26,9 @@ not imply a separate runtime for that task or model.
 | --- | --- |
 | Train/eval entry point, normalizer binding, checkpoint resume | [egomimic/trainHydra.py](egomimic/trainHydra.py) |
 | Model graph execution and stage contracts | [pipeline/core.py](egomimic/pipeline/core.py), [pipeline/algo.py](egomimic/pipeline/algo.py) |
+| Model-owned inference declarations and typed runtime controls | [pipeline/inference_config.py](egomimic/pipeline/inference_config.py), [pipeline/inference_controls.py](egomimic/pipeline/inference_controls.py), `model.inference` in the selected YAML |
+| Data construction, normalization restoration and evaluator preflight | [pl_utils/data_context.py](egomimic/pl_utils/data_context.py), [rldb/zarr/data_module.py](egomimic/rldb/zarr/data_module.py) |
+| Strict weights-only initialization and freeze schedules | [pipeline/initialization.py](egomimic/pipeline/initialization.py), [pl_utils/trainability_behavior.py](egomimic/pl_utils/trainability_behavior.py) |
 | HPT, flow, ARC, PI and other graph stages | `egomimic/pipeline/stages_*.py` |
 | Neural network implementations | `egomimic/models/`; HPT stems in `models/stems/`, optional PI backend in `models/pi05/` |
 | Shared Lightning training and validation hooks | [pl_utils/pl_model.py](egomimic/pl_utils/pl_model.py), [pl_utils/pl_data_utils.py](egomimic/pl_utils/pl_data_utils.py) |
@@ -56,6 +59,13 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 - Models use `PipelineAlgo` and the shared Lightning/data/evaluation system.
   Keep model-specific networks and graph stages in their corresponding folders.
   Add general data, metric and video capabilities to the shared components.
+- Shared orchestration consumes declared capabilities. Model YAML owns output
+  representation, time grids, deployment profiles and decoder selection.
+  DataModules own dataset construction and normalization; standalone evaluation
+  restores an immutable data context without reopening the training corpus.
+- Evaluators expose `data_requirements()` and `trainer_overrides()`. Complete
+  episode requests must reject partial loaders or validation-loop limits before
+  model construction. See [the integration contract](docs/GENERIC_PIPELINE_CONTRACT.md).
 - `egomimic/campaigns/pi05/`, `e1_fold.py`, and `pi05_graph_eval.py` retain old
   import names. Their implementations now live at the canonical paths above.
   Use current YAML examples when migrating older serialized configuration APIs.

@@ -1,0 +1,149 @@
+27c389d88a41a9a5ea085c1b0f247d9cc1e50973
+.gitignore
+README.md
+egomimic/algo/__init__.py
+egomimic/algo/hpt.py
+egomimic/eval/eval_latent.py
+egomimic/eval/latent_dataset.py
+egomimic/hydra_configs/data/aria.yaml
+egomimic/hydra_configs/data/aria_keypoints.yaml
+egomimic/hydra_configs/data/aria_keypoints_wrist.yaml
+egomimic/hydra_configs/data/aria_qwen.yaml
+egomimic/hydra_configs/data/cotrain_dense_language.yaml
+egomimic/hydra_configs/data/cotrain_dense_language_base.yaml
+egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml
+egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml
+egomimic/hydra_configs/data/eva.yaml
+egomimic/hydra_configs/data/eva_dense_language.yaml
+egomimic/hydra_configs/data/eva_pi.yaml
+egomimic/hydra_configs/data/industry_eva_pi.yaml
+egomimic/hydra_configs/data/mecka.yaml
+egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml
+egomimic/hydra_configs/data/scale.yaml
+egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml
+egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml
+egomimic/hydra_configs/model/pi0.5_base.yaml
+egomimic/hydra_configs/paths/default.yaml
+egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml
+egomimic/hydra_configs/train_zarr_keypoints.yaml
+egomimic/hydra_configs/viz_language.yaml
+egomimic/models/hpt_nets.py
+egomimic/models/pi05/policy.py
+egomimic/pl_utils/pl_data_utils.py
+egomimic/pl_utils/pl_model.py
+egomimic/rldb/embodiment/eva.py
+egomimic/rldb/embodiment/human.py
+egomimic/rldb/zarr/action_chunk_transforms.py
+egomimic/rldb/zarr/hdf5_to_zarr.py
+egomimic/rldb/zarr/test_action_chunk_transforms_unit.py
+egomimic/rldb/zarr/zarr_dataset_multi.py
+egomimic/robot/collect_demo.py
+egomimic/robot/rollout.py
+egomimic/scripts/data_visualisation.ipynb
+egomimic/scripts/data_visualization.py
+egomimic/scripts/language_process/scale_to_zarr_annotation.py
+egomimic/scripts/mecka_process/scan_zero_rows.py
+egomimic/scripts/mecka_process/test_data.py
+egomimic/scripts/tutorials/zarr_data_viz.ipynb
+egomimic/trainHydra.py
+egomimic/utils/pose_utils.py
+egomimic/utils/tensor_utils.py
+environment.yaml
+pyproject.toml
+tests/integration/scan_mecka_zero_rows.py
+tests/integration/test_pi05.py
+tests/test_action_chunk_transforms.py
+tests/unit/test_action_chunk_transforms.py
+
+Auto-merging .github/scripts/pr_review.py
+Auto-merging .gitignore
+CONFLICT (content): Merge conflict in .gitignore
+Auto-merging AGENTS.md
+Auto-merging README.md
+CONFLICT (content): Merge conflict in README.md
+CONFLICT (modify/delete): egomimic/algo/__init__.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/algo/__init__.py left in tree.
+CONFLICT (modify/delete): egomimic/algo/hpt.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/algo/hpt.py left in tree.
+Auto-merging egomimic/eval/distribution_metrics.py
+CONFLICT (modify/delete): egomimic/eval/eval_latent.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/eval/eval_latent.py left in tree.
+CONFLICT (modify/delete): egomimic/eval/latent_dataset.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/eval/latent_dataset.py left in tree.
+Auto-merging egomimic/hydra_configs/data/aria.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/aria.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/data/aria_keypoints.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/aria_keypoints.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/data/aria_keypoints_wrist.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/aria_keypoints_wrist.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/data/aria_qwen.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/aria_qwen.yaml left in tree.
+Auto-merging egomimic/hydra_configs/data/cotrain_dense_language.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/cotrain_dense_language.yaml
+Auto-merging egomimic/hydra_configs/data/cotrain_dense_language_base.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/cotrain_dense_language_base.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/cotrain_pi_pickplace_qwen.yaml left in tree.
+Auto-merging egomimic/hydra_configs/data/eva.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/eva.yaml
+Auto-merging egomimic/hydra_configs/data/eva_dense_language.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/eva_dense_language.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/data/eva_pi.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/eva_pi.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/data/industry_eva_pi.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/industry_eva_pi.yaml left in tree.
+Auto-merging egomimic/hydra_configs/data/mecka.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/mecka.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml left in tree.
+Auto-merging egomimic/hydra_configs/data/scale.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/data/scale.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/evaluator/viz/pi_cartesian.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/evaluator/viz/pi_cartesian_lang_wrist.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/model/pi0.5_base.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/model/pi0.5_base.yaml left in tree.
+Auto-merging egomimic/hydra_configs/paths/default.yaml
+CONFLICT (content): Merge conflict in egomimic/hydra_configs/paths/default.yaml
+Auto-merging egomimic/hydra_configs/train_zarr_cartesian.yaml
+CONFLICT (modify/delete): egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/train_zarr_keypoints.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/train_zarr_keypoints.yaml left in tree.
+CONFLICT (modify/delete): egomimic/hydra_configs/viz_language.yaml deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/hydra_configs/viz_language.yaml left in tree.
+CONFLICT (modify/delete): egomimic/models/hpt_nets.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/models/hpt_nets.py left in tree.
+Auto-merging egomimic/models/pi05/observations.py
+Auto-merging egomimic/models/pi05/policy.py
+CONFLICT (content): Merge conflict in egomimic/models/pi05/policy.py
+Auto-merging egomimic/pl_utils/pl_data_utils.py
+CONFLICT (content): Merge conflict in egomimic/pl_utils/pl_data_utils.py
+Auto-merging egomimic/pl_utils/pl_model.py
+CONFLICT (content): Merge conflict in egomimic/pl_utils/pl_model.py
+Auto-merging egomimic/rldb/embodiment/embodiment.py
+Auto-merging egomimic/rldb/embodiment/eva.py
+CONFLICT (content): Merge conflict in egomimic/rldb/embodiment/eva.py
+Auto-merging egomimic/rldb/embodiment/human.py
+CONFLICT (content): Merge conflict in egomimic/rldb/embodiment/human.py
+Auto-merging egomimic/rldb/zarr/action_chunk_transforms.py
+CONFLICT (content): Merge conflict in egomimic/rldb/zarr/action_chunk_transforms.py
+CONFLICT (modify/delete): egomimic/rldb/zarr/hdf5_to_zarr.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/rldb/zarr/hdf5_to_zarr.py left in tree.
+Auto-merging egomimic/rldb/zarr/test_action_chunk_transforms_unit.py
+CONFLICT (rename/rename): egomimic/rldb/zarr/test_action_chunk_transforms_unit.py renamed to tests/unit/test_action_chunk_transforms.py in refs/remotes/integration-audit/egoverse-main and to tests/test_action_chunk_transforms.py in refs/remotes/integration-audit/graph-main.
+Auto-merging egomimic/rldb/zarr/zarr_dataset_multi.py
+CONFLICT (content): Merge conflict in egomimic/rldb/zarr/zarr_dataset_multi.py
+Auto-merging egomimic/robot/collect_demo.py
+CONFLICT (content): Merge conflict in egomimic/robot/collect_demo.py
+Auto-merging egomimic/robot/eva/eva_ws/src/eva/robot_interface.py
+Auto-merging egomimic/robot/eva/eva_ws/src/eva/stream_aria.py
+Auto-merging egomimic/robot/rollout.py
+CONFLICT (content): Merge conflict in egomimic/robot/rollout.py
+Auto-merging egomimic/scripts/aria_process/aria_to_zarr.py
+CONFLICT (modify/delete): egomimic/scripts/data_visualisation.ipynb deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/scripts/data_visualisation.ipynb left in tree.
+CONFLICT (modify/delete): egomimic/scripts/data_visualization.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/scripts/data_visualization.py left in tree.
+Auto-merging egomimic/scripts/data_visualization/inspector_lib/dataset_view.py
+Auto-merging egomimic/scripts/data_visualization/latent_inspector.py
+Auto-merging egomimic/scripts/eva_process/eva_to_zarr.py
+Auto-merging egomimic/scripts/language_process/scale_to_zarr_annotation.py
+CONFLICT (content): Merge conflict in egomimic/scripts/language_process/scale_to_zarr_annotation.py
+Auto-merging egomimic/scripts/mecka_process/test_data.py
+CONFLICT (rename/rename): egomimic/scripts/mecka_process/test_data.py renamed to tests/integration/scan_mecka_zero_rows.py in refs/remotes/integration-audit/egoverse-main and to egomimic/scripts/mecka_process/scan_zero_rows.py in refs/remotes/integration-audit/graph-main.
+Auto-merging egomimic/scripts/tutorials/aria_to_mano_convert.py
+Auto-merging egomimic/scripts/tutorials/zarr_data_viz.ipynb
+CONFLICT (content): Merge conflict in egomimic/scripts/tutorials/zarr_data_viz.ipynb
+Auto-merging egomimic/trainHydra.py
+CONFLICT (content): Merge conflict in egomimic/trainHydra.py
+Auto-merging egomimic/utils/pose_utils.py
+CONFLICT (content): Merge conflict in egomimic/utils/pose_utils.py
+CONFLICT (modify/delete): egomimic/utils/tensor_utils.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of egomimic/utils/tensor_utils.py left in tree.
+CONFLICT (modify/delete): environment.yaml deleted in refs/remotes/integration-audit/egoverse-main and modified in refs/remotes/integration-audit/graph-main.  Version refs/remotes/integration-audit/graph-main of environment.yaml left in tree.
+Auto-merging pyproject.toml
+CONFLICT (content): Merge conflict in pyproject.toml
+CONFLICT (rename/delete): egomimic/algo/test_pi.py renamed to tests/integration/test_pi05.py in refs/remotes/integration-audit/egoverse-main, but deleted in refs/remotes/integration-audit/graph-main.
+CONFLICT (modify/delete): tests/integration/test_pi05.py deleted in refs/remotes/integration-audit/graph-main and modified in refs/remotes/integration-audit/egoverse-main.  Version refs/remotes/integration-audit/egoverse-main of tests/integration/test_pi05.py left in tree.
+Auto-merging uv.lock

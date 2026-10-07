@@ -49,4 +49,5 @@ test -s "$AF_OUTPUT_DIR/COMPLETE.json" || die "native child completion missing"
 if test "$phase" = smoke; then
  "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action finalize --repo "$AF_REPO" --output "$AF_OUTPUT_DIR"
  "$AF_PYTHON" "$AF_SMOKE_VERIFIER" "$AF_OUTPUT_DIR" --experiment "$AF_EXPERIMENT" --expected-head "$AF_EXPECTED_HEAD" --expected-config-sha256 "$(sha256 "$AF_OUTPUT_DIR/.hydra/config.yaml")" --expected-split-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" --expected-normalization-sha256 "$AF_EXPECTED_NORM_SHA256" --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256"
+ test -s "$AF_OUTPUT_DIR/SMOKE_RESULT.json" || die "native smoke verifier did not publish a nonempty SMOKE_RESULT.json"
 fi

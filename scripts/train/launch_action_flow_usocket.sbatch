@@ -162,6 +162,7 @@ case "$AF_EXPERIMENT" in
     test "$AF_SEED" = 42 || die "LIBERO seed42 required"
     AF_DATASET_VALIDATOR=$AF_NATIVE_DATASET_VALIDATOR
     AF_CONFIG_VALIDATOR=$AF_NATIVE_CONFIG_VALIDATOR
+    test "$AF_NATIVE_SMOKE_VERIFIER" = "$AF_REPO/scripts/train/verify_action_flow_training_smoke.py" || die "native smoke requires the maintained shared CLI typed dispatcher"
     AF_SMOKE_VERIFIER=$AF_NATIVE_SMOKE_VERIFIER
     ;;
 

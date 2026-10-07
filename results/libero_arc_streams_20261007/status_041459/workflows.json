@@ -1,0 +1,899 @@
+[
+  {
+    "name": "arc-ss-20261005-object-1",
+    "status": "COMPLETED",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-07T04:15:55.016163+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:38.663726",
+        "end_time": "2026-10-05T20:01:28.279015"
+      },
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:42.310164",
+        "end_time": "2026-10-05T21:23:15.962448"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:43.069364",
+        "end_time": "2026-10-05T20:46:12.498318"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:03.743567",
+        "end_time": "2026-10-05T20:36:41.365411"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:43.739989",
+        "end_time": "2026-10-05T21:31:50.127082"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:38.788849",
+        "end_time": "2026-10-05T20:09:31.618369"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:42.761179",
+        "end_time": "2026-10-05T21:21:47.052822"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:31.735441",
+        "end_time": "2026-10-05T21:41:10.241118"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:01:37.189941",
+        "end_time": "2026-10-05T23:27:04.024370"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:46:22.193318",
+        "end_time": "2026-10-05T23:58:12.556890"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:36:50.297935",
+        "end_time": "2026-10-06T00:21:38.272100"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:31:59.744880",
+        "end_time": "2026-10-06T01:04:30.086221"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:09:41.108797",
+        "end_time": "2026-10-05T23:46:05.529926"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:23:27.580868",
+        "end_time": "2026-10-06T01:00:16.323704"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:21:56.643699",
+        "end_time": "2026-10-06T00:41:14.288455"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:41:19.161724",
+        "end_time": "2026-10-06T01:21:18.728599"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T23:35:05.824170",
+        "end_time": "2026-10-06T03:09:13.582627"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T00:30:04.295900",
+        "end_time": "2026-10-06T03:10:25.308952"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T00:32:57.704058",
+        "end_time": "2026-10-06T04:51:47.118070"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:04:39.847061",
+        "end_time": "2026-10-06T05:07:02.460965"
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.883265",
+        "end_time": "2026-10-05T17:51:29.235354"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:51:12.848142",
+        "end_time": "2026-10-05T17:51:29.207986"
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-10-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-07T04:15:55.625087+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:54:22.962278",
+        "end_time": "2026-10-06T15:38:48.024676"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T12:01:18.354208",
+        "end_time": "2026-10-06T16:02:15.933911"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T12:28:59.654388",
+        "end_time": "2026-10-06T16:16:09.774684"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T12:12:17.140594",
+        "end_time": "2026-10-06T16:01:55.218940"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T15:38:56.973141",
+        "end_time": "2026-10-06T19:28:45.644895"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T16:02:25.676952",
+        "end_time": "2026-10-06T20:05:30.484421"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-10",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-11",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-12",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-13",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-14",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:52.052093",
+        "end_time": "2026-10-05T17:58:10.376405"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:52.082597",
+        "end_time": "2026-10-05T17:58:09.432834"
+      },
+      {
+        "name": "train-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:15:20.563444",
+        "end_time": "2026-10-06T11:54:14.550979"
+      },
+      {
+        "name": "train-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:15:20.622353",
+        "end_time": "2026-10-06T11:56:12.221075"
+      },
+      {
+        "name": "train-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:16:51.952437",
+        "end_time": "2026-10-06T12:28:43.176141"
+      },
+      {
+        "name": "train-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:22:08.894853",
+        "end_time": "2026-10-06T12:12:07.710116"
+      },
+      {
+        "name": "train-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:16:58.934932",
+        "end_time": "2026-10-06T12:04:39.673569"
+      },
+      {
+        "name": "train-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:22:10.032539",
+        "end_time": "2026-10-06T13:46:12.136417"
+      },
+      {
+        "name": "train-09",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T11:54:25.521484",
+        "end_time": null
+      },
+      {
+        "name": "train-10",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T12:01:45.926287",
+        "end_time": null
+      },
+      {
+        "name": "train-11",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T12:28:59.778045",
+        "end_time": null
+      },
+      {
+        "name": "train-12",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T12:12:18.145586",
+        "end_time": null
+      },
+      {
+        "name": "train-13",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T12:10:17.972340",
+        "end_time": null
+      },
+      {
+        "name": "train-14",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T13:46:23.476124",
+        "end_time": null
+      },
+      {
+        "name": "train-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "train-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-goal-1",
+    "status": "COMPLETED",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-07T04:15:55.537096+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:19.407763",
+        "end_time": "2026-10-05T18:33:32.845195"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:07.767400",
+        "end_time": "2026-10-05T19:34:31.518781"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:50.643348",
+        "end_time": "2026-10-05T20:36:58.747823"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:02:32.155396",
+        "end_time": "2026-10-05T19:45:47.873602"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:49.135462",
+        "end_time": "2026-10-05T19:45:02.711169"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:46.127927",
+        "end_time": "2026-10-05T19:39:01.255715"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:33:42.796138",
+        "end_time": "2026-10-05T21:04:47.300325"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:48:12.971475",
+        "end_time": "2026-10-06T09:49:00.784686"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:56:10.155767",
+        "end_time": "2026-10-06T09:38:26.485055"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:23:39.488879",
+        "end_time": "2026-10-06T13:25:37.079170"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:41:46.213664",
+        "end_time": "2026-10-06T13:25:29.414936"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:43:26.894344",
+        "end_time": "2026-10-06T13:46:10.980993"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T12:04:45.151661",
+        "end_time": "2026-10-06T14:02:10.153401"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T19:14:43.963573",
+        "end_time": "2026-10-06T20:51:35.612334"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T19:26:24.895716",
+        "end_time": "2026-10-06T21:02:48.680367"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T23:04:35.971480",
+        "end_time": "2026-10-07T00:43:15.185695"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T23:29:53.999151",
+        "end_time": "2026-10-07T01:04:17.606921"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T23:23:38.292107",
+        "end_time": "2026-10-07T01:44:06.899847"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "COMPLETED",
+        "start_time": "2026-10-07T00:02:46.130706",
+        "end_time": "2026-10-07T01:44:26.464247"
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:20.821259",
+        "end_time": "2026-10-05T17:57:37.109307"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:21.944524",
+        "end_time": "2026-10-05T17:57:39.178313"
+      },
+      {
+        "name": "train-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:10:58.272764",
+        "end_time": "2026-10-06T07:48:02.998759"
+      },
+      {
+        "name": "train-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:22:59.679649",
+        "end_time": "2026-10-06T07:56:00.359864"
+      },
+      {
+        "name": "train-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T00:52:20.208701",
+        "end_time": "2026-10-06T11:19:02.108920"
+      },
+      {
+        "name": "train-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:02:20.989502",
+        "end_time": "2026-10-06T11:36:39.930152"
+      },
+      {
+        "name": "train-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:08:36.211139",
+        "end_time": "2026-10-06T11:43:17.346848"
+      },
+      {
+        "name": "train-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T01:08:35.747327",
+        "end_time": "2026-10-06T12:04:36.222705"
+      },
+      {
+        "name": "train-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:48:14.386209",
+        "end_time": "2026-10-06T19:14:35.647822"
+      },
+      {
+        "name": "train-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:56:11.816583",
+        "end_time": "2026-10-06T19:21:17.379187"
+      },
+      {
+        "name": "train-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:24:23.097301",
+        "end_time": "2026-10-06T23:04:28.486665"
+      },
+      {
+        "name": "train-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:36:50.953925",
+        "end_time": "2026-10-06T23:29:40.818786"
+      },
+      {
+        "name": "train-19",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T11:43:27.506075",
+        "end_time": "2026-10-06T23:23:29.445965"
+      },
+      {
+        "name": "train-20",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T12:10:11.741251",
+        "end_time": "2026-10-06T23:57:39.680393"
+      }
+    ]
+  },
+  {
+    "name": "arc-st-20261005-spatial-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-07T04:15:55.566843+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-01",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:01:54.612536",
+        "end_time": "2026-10-05T18:40:16.568920"
+      },
+      {
+        "name": "evaluate-02",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:20.096246",
+        "end_time": "2026-10-05T19:58:32.571936"
+      },
+      {
+        "name": "evaluate-03",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:19.393728",
+        "end_time": "2026-10-05T20:16:13.977808"
+      },
+      {
+        "name": "evaluate-04",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:27.664823",
+        "end_time": "2026-10-05T21:45:10.620498"
+      },
+      {
+        "name": "evaluate-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:22:53.621902",
+        "end_time": "2026-10-05T23:34:56.995784"
+      },
+      {
+        "name": "evaluate-06",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:28.830297",
+        "end_time": "2026-10-05T21:15:09.606463"
+      },
+      {
+        "name": "evaluate-07",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:57:18.899887",
+        "end_time": "2026-10-05T20:40:46.999946"
+      },
+      {
+        "name": "evaluate-08",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:40:25.754639",
+        "end_time": "2026-10-05T22:09:37.703895"
+      },
+      {
+        "name": "evaluate-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T04:33:02.140281",
+        "end_time": "2026-10-06T07:43:08.952958"
+      },
+      {
+        "name": "evaluate-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T05:14:04.639574",
+        "end_time": "2026-10-06T08:05:46.332611"
+      },
+      {
+        "name": "evaluate-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T14:14:29.218339",
+        "end_time": "2026-10-06T17:16:47.147190"
+      },
+      {
+        "name": "evaluate-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T05:57:21.806542",
+        "end_time": "2026-10-06T08:47:53.828963"
+      },
+      {
+        "name": "evaluate-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T06:20:51.841368",
+        "end_time": "2026-10-06T09:12:25.586782"
+      },
+      {
+        "name": "evaluate-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:46:26.116236",
+        "end_time": "2026-10-06T10:31:21.585779"
+      },
+      {
+        "name": "evaluate-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T15:44:27.473465",
+        "end_time": "2026-10-06T18:12:03.628264"
+      },
+      {
+        "name": "evaluate-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T16:33:46.411039",
+        "end_time": "2026-10-06T19:04:15.229817"
+      },
+      {
+        "name": "evaluate-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T17:40:19.878070",
+        "end_time": "2026-10-06T20:14:23.388978"
+      },
+      {
+        "name": "evaluate-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T18:01:35.934836",
+        "end_time": "2026-10-06T20:33:39.063391"
+      },
+      {
+        "name": "evaluate-19",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T19:22:43.581768",
+        "end_time": "2026-10-06T22:34:05.129956"
+      },
+      {
+        "name": "evaluate-20",
+        "status": "RUNNING",
+        "start_time": "2026-10-07T02:00:28.522652",
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:54.193081",
+        "end_time": "2026-10-05T17:57:09.482695"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T17:56:54.137206",
+        "end_time": "2026-10-05T17:57:10.546494"
+      },
+      {
+        "name": "train-05",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:18:57.298308",
+        "end_time": "2026-10-05T20:22:42.391614"
+      },
+      {
+        "name": "train-09",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T18:33:04.459125",
+        "end_time": "2026-10-06T04:28:33.573871"
+      },
+      {
+        "name": "train-10",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T19:13:38.162852",
+        "end_time": "2026-10-06T05:13:54.677010"
+      },
+      {
+        "name": "train-11",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T03:18:25.533281",
+        "end_time": "2026-10-06T14:14:19.333256"
+      },
+      {
+        "name": "train-12",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T19:49:20.078270",
+        "end_time": "2026-10-06T05:57:12.526911"
+      },
+      {
+        "name": "train-13",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T20:22:51.846052",
+        "end_time": "2026-10-06T06:16:11.110466"
+      },
+      {
+        "name": "train-14",
+        "status": "COMPLETED",
+        "start_time": "2026-10-05T21:02:23.534215",
+        "end_time": "2026-10-06T07:46:14.279865"
+      },
+      {
+        "name": "train-15",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T04:34:07.131752",
+        "end_time": "2026-10-06T15:44:00.349962"
+      },
+      {
+        "name": "train-16",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T05:14:06.410133",
+        "end_time": "2026-10-06T16:33:37.685250"
+      },
+      {
+        "name": "train-17",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T06:02:40.607295",
+        "end_time": "2026-10-06T17:40:10.734159"
+      },
+      {
+        "name": "train-18",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T06:21:36.031628",
+        "end_time": "2026-10-06T18:01:26.853671"
+      },
+      {
+        "name": "train-19",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T07:51:40.221570",
+        "end_time": "2026-10-06T19:22:34.420582"
+      },
+      {
+        "name": "train-20",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T14:14:30.805284",
+        "end_time": "2026-10-07T01:55:24.589829"
+      }
+    ]
+  },
+  {
+    "name": "arc-su-20261006-10-tail-1",
+    "status": "RUNNING",
+    "pool": "groot-l40s-01",
+    "priority": "NORMAL",
+    "observed_at_utc": "2026-10-07T04:15:56.501867+00:00",
+    "tasks": [
+      {
+        "name": "evaluate-15",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-16",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-17",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-18",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-19",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "evaluate-20",
+        "status": "WAITING",
+        "start_time": null,
+        "end_time": null
+      },
+      {
+        "name": "reference-dur-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T17:15:32.344010",
+        "end_time": "2026-10-06T17:15:50.654431"
+      },
+      {
+        "name": "reference-stk-ready",
+        "status": "COMPLETED",
+        "start_time": "2026-10-06T17:15:32.384300",
+        "end_time": "2026-10-06T17:15:48.632066"
+      },
+      {
+        "name": "train-15",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:20:52.043257",
+        "end_time": null
+      },
+      {
+        "name": "train-16",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:15:35.287627",
+        "end_time": null
+      },
+      {
+        "name": "train-17",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:15:36.587139",
+        "end_time": null
+      },
+      {
+        "name": "train-18",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:20:57.927682",
+        "end_time": null
+      },
+      {
+        "name": "train-19",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:15:37.228721",
+        "end_time": null
+      },
+      {
+        "name": "train-20",
+        "status": "RUNNING",
+        "start_time": "2026-10-06T17:15:38.702794",
+        "end_time": null
+      }
+    ]
+  }
+]

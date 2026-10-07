@@ -1,0 +1,23 @@
+variant,mode,Spatial,Object,Goal,LIBERO-10
+reference,STK,68.64% | 2500/2500 episodes | 10/10 tasks | FINAL,47.16% | 2500/2500 episodes | 10/10 tasks | FINAL,85.52% | 2500/2500 episodes | 10/10 tasks | FINAL,54.64% | 2500/2500 episodes | 10/10 tasks | FINAL
+reference,DUR,69.48% | 2500/2500 episodes | 10/10 tasks | FINAL,41.96% | 2500/2500 episodes | 10/10 tasks | FINAL,89.36% | 2500/2500 episodes | 10/10 tasks | FINAL,53.80% | 2500/2500 episodes | 10/10 tasks | FINAL
+gripper,STK,65.96% | 2500/2500 episodes | 10/10 tasks | FINAL,54.20% | 2500/2500 episodes | 10/10 tasks | FINAL,87.04% | 2500/2500 episodes | 10/10 tasks | FINAL,55.60% | 2500/2500 episodes | 10/10 tasks | FINAL
+gripper,DUR,67.04% | 2500/2500 episodes | 10/10 tasks | FINAL,63.72% | 2500/2500 episodes | 10/10 tasks | FINAL,88.92% | 2500/2500 episodes | 10/10 tasks | FINAL,55.80% | 2500/2500 episodes | 10/10 tasks | FINAL
+component_time,STK,48.24% | 2500/2500 episodes | 10/10 tasks | FINAL,43.88% | 2500/2500 episodes | 10/10 tasks | FINAL,75.68% | 2500/2500 episodes | 10/10 tasks | FINAL,46.88% | 2500/2500 episodes | 10/10 tasks | FINAL
+component_time,DUR,68.24% | 2500/2500 episodes | 10/10 tasks | FINAL,52.36% | 2500/2500 episodes | 10/10 tasks | FINAL,88.12% | 2500/2500 episodes | 10/10 tasks | FINAL,54.68% | 2500/2500 episodes | 10/10 tasks | FINAL
+xyz_scalar,STK,51.68% | 2500/2500 episodes | 10/10 tasks | FINAL,40.60% | 2500/2500 episodes | 10/10 tasks | FINAL,68.04% | 2500/2500 episodes | 10/10 tasks | FINAL,41.92% | 2500/2500 episodes | 10/10 tasks | FINAL
+xyz_scalar,DUR,66.76% | 2500/2500 episodes | 10/10 tasks | FINAL,45.84% | 2500/2500 episodes | 10/10 tasks | FINAL,87.84% | 2500/2500 episodes | 10/10 tasks | FINAL,53.20% | 2500/2500 episodes | 10/10 tasks | FINAL
+component_velocity,STK,63.60% | 2500/2500 episodes | 10/10 tasks | FINAL,49.56% | 2500/2500 episodes | 10/10 tasks | FINAL,85.40% | 2500/2500 episodes | 10/10 tasks | FINAL,53.44% | 2500/2500 episodes | 10/10 tasks | FINAL
+component_velocity,DUR,67.32% | 2500/2500 episodes | 10/10 tasks | FINAL,52.64% | 2500/2500 episodes | 10/10 tasks | FINAL,88.32% | 2500/2500 episodes | 10/10 tasks | FINAL,52.80% | 2500/2500 episodes | 10/10 tasks | FINAL
+x_yz,STK,62.36% | 2500/2500 episodes | 10/10 tasks | FINAL,44.92% | 2500/2500 episodes | 10/10 tasks | FINAL,80.20% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+x_yz,DUR,66.24% | 2500/2500 episodes | 10/10 tasks | FINAL,51.16% | 2500/2500 episodes | 10/10 tasks | FINAL,87.56% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+y_xz,STK,57.36% | 2500/2500 episodes | 10/10 tasks | FINAL,35.00% | 2500/2500 episodes | 10/10 tasks | FINAL,79.00% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+y_xz,DUR,63.92% | 2500/2500 episodes | 10/10 tasks | FINAL,51.84% | 2500/2500 episodes | 10/10 tasks | FINAL,87.52% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+z_xy,STK,63.04% | 2500/2500 episodes | 10/10 tasks | FINAL,38.08% | 2500/2500 episodes | 10/10 tasks | FINAL,79.64% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+z_xy,DUR,65.56% | 2500/2500 episodes | 10/10 tasks | FINAL,50.16% | 2500/2500 episodes | 10/10 tasks | FINAL,88.56% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+angular_driver,STK,72.12% | 2500/2500 episodes | 10/10 tasks | FINAL,46.76% | 2500/2500 episodes | 10/10 tasks | FINAL,90.52% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+angular_driver,DUR,71.76% | 2500/2500 episodes | 10/10 tasks | FINAL,52.08% | 2500/2500 episodes | 10/10 tasks | FINAL,90.88% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+angular_scalar,STK,68.44% | 2500/2500 episodes | 10/10 tasks | FINAL,52.32% | 2500/2500 episodes | 10/10 tasks | FINAL,88.52% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+angular_scalar,DUR,70.40% | 2500/2500 episodes | 10/10 tasks | FINAL,67.92% | 2500/2500 episodes | 10/10 tasks | FINAL,91.28% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+all_scalar,STK,52.16% | 2500/2500 episodes | 10/10 tasks | FINAL,18.48% | 2500/2500 episodes | 10/10 tasks | FINAL,71.56% | 2500/2500 episodes | 10/10 tasks | FINAL,pending
+all_scalar,DUR,71.89% | 2302/2500 episodes | 10/10 tasks | PARTIAL,38.52% | 2500/2500 episodes | 10/10 tasks | FINAL,88.56% | 2500/2500 episodes | 10/10 tasks | FINAL,pending

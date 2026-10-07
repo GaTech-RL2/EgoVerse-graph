@@ -1,0 +1,16 @@
+# @package _global_
+# Candidate only: maintained launcher whitelist/source audit/smoke still required.
+defaults:
+  - /experiment/libero/action_flow_libero10_avln_80k_s42
+  - override /model: bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf
+  - override /callbacks: action_flow_avln_libero_dit_half
+  - _self_
+
+name: action_flow_libero10_h240_euler50_dithalf_80k_s42
+description: "LIBERO-10 native7D H240/eightheads/halfwidth vision Euler50 DiT-half; one source32, homogeneous N/A"
+
+# Explicit operational fields consumed by the maintained shared BASE vector.
+trainer:
+  strategy: auto
+  sync_batchnorm: false
+  num_nodes: 1

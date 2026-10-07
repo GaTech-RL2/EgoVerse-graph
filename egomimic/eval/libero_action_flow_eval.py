@@ -18,8 +18,16 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
         energy_seed_bank_path=None,
         energy_seed_bank_sha256=None,
         diagnostic_raw_noise_levels=(0.0, 0.25, 0.5, 0.75, 1.0),
+        artifact_root=None,
+        artifact_identity=None,
     ):
         super().__init__()
+        self.artifact_root = artifact_root
+        self.artifact_identity = artifact_identity
+        self.artifact_batches = []
+        if artifact_root is not None:
+            from egomimic.benchmarks.libero.action_flow_artifacts import validate_identity
+            validate_identity(dict(artifact_identity))
         # The inner PipelineAlgo has no diagnostic provider. Ask the Action
         # Flow behavior to bind its generic ModelWrapper at validation start.
         self.action_flow_diagnostics_enabled = True
@@ -120,3 +128,28 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
                     f"{prefix}/{key}", metric, batch_size=len(target),
                     on_step=False, on_epoch=True, sync_dist=True,
                 )
+            if self.artifact_root is not None:
+                if source != "libero_panda":
+                    raise ValueError("native LIBERO artifact source mismatch")
+                if batch_idx == 0:
+                    self.artifact_batches = []
+                raw = target_norm.detach().contiguous().reshape(-1).view(torch.uint8).cpu().numpy().tobytes()
+                self.artifact_batches.append({
+                    "batch_index": int(batch_idx), "batch_size": len(target),
+                    "normalized_target_sha256": hashlib.sha256(raw).hexdigest(),
+                    "metrics": {key: float(value.detach().cpu()) for key, value in metrics.items()},
+                })
+
+    def on_validation_end(self):
+        if self.artifact_root is None:
+            return super().on_validation_end()
+        from egomimic.benchmarks.libero.action_flow_artifacts import canonical_sha, write_artifact
+        identity = dict(self.artifact_identity)
+        write_artifact(self.artifact_root, {
+            "schema": "libero-native-action-flow-metrics/v1",
+            "identity": identity, "identity_sha256": canonical_sha(identity),
+            "global_step": int(self.model.global_step), "source": "libero_panda",
+            "group": self.group, "batches": self.artifact_batches,
+            "checkpoint_binding": "global_step_only_requires_scheduled_smoke_checkpoint_SHA_binding",
+        })
+        self.artifact_batches = []

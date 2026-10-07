@@ -19,3 +19,6 @@ data:
       resolver:
         key_map:
           drop_wrist_images: false
+
+e1:
+  policy_domain: yam

@@ -27,6 +27,17 @@ A composed experiment may override all three groups. Keep the dataset split,
 normalization artifact, stage dimensions, optimizer, and evaluation contract
 inside that experiment so its resolved Hydra output is a complete run record.
 
+The `train_zarr_cartesian_pi` convenience entry point is an explicit exception:
+it selects the existing ABC/6D/wrist-frame recipe and requires a pretrained
+weight path. See the [migration guide](docs/integration/MIGRATION.md) for concrete
+retained HPT/PI commands and the source-pinned environment.
+
+Each deployable model declares `model.data_requirements`, including its frame
+and sampling/tokenizer semantics. The trainer checks that declaration against
+the data context before constructing a network. The same requirements enter
+checkpoint and inference-artifact compatibility hashes. Dataset locations and
+episode selections are outside that semantic contract.
+
 Use `mode=train` for optimization and `mode=eval` for standalone evaluation.
 The deprecated boolean mode aliases are not supported.
 

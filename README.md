@@ -3,6 +3,11 @@
 This repository contains EgoVerse data processing plus a dependency-aware Pipeline
 stack for training and evaluation.
 
+For the integration branch, start with the [migration guide](docs/integration/MIGRATION.md)
+for the locked environment, retained HPT/PI recipes, data tools, and checkpoint
+rules. [Integration status](docs/integration/PLAN.md) records the draft stack and
+the remaining GPU and assembled-tree gates.
+
 ---
 
 ## Change Log
@@ -44,6 +49,9 @@ uv sync --locked
 source .venv/bin/activate
 uv run pre-commit install
 ```
+
+PI additionally requires the locked `pi05` extra and the verified OpenPI source
+installer; follow the [dependency policy](docs/integration/DEPENDENCIES.md).
 
 ### Conda
 ```

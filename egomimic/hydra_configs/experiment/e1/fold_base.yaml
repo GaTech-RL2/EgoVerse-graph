@@ -12,6 +12,7 @@ defaults:
 - override /evaluator: e1/fold_tempo
 - _self_
 e1:
+  policy_domain: human
   variant: ???
   spread: ???
   train_root: ???

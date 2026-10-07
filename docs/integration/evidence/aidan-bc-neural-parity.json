@@ -1,0 +1,4509 @@
+{
+  "scratch_rl2_stattempo_elmoaidan_arcdur": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcdur_hpt300": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 840,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 10,
+                    "crossattn_dim_head": 84,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 840
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 840,
+                  "widths": [
+                    840
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 840,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 840,
+              "num_blocks": 19,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 840,
+                "num_heads": 10,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 840,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 840,
+              "hidden_dim": 320,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 840,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 10,
+                    "crossattn_dim_head": 84,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 840
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 840,
+                  "widths": [
+                    840
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 840,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 840,
+              "num_blocks": 19,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 840,
+                "num_heads": 10,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 840,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 840,
+              "hidden_dim": 320,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcdurhyb": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_elmoaidan_arcvel": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_elmoaidan_time": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_elmoaidan_time_hpt300": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 840,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 10,
+                    "crossattn_dim_head": 84,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 840
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 840,
+                  "widths": [
+                    840
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 840,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 840,
+              "num_blocks": 19,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 840,
+                "num_heads": 10,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 840,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 840,
+              "hidden_dim": 320,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 840,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 10,
+                    "crossattn_dim_head": 84,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 840
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 840,
+                  "widths": [
+                    840
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 840,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 10,
+                      "crossattn_dim_head": 84,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 840
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 840,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 840,
+              "num_blocks": 19,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 840,
+                "num_heads": 10,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 840,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 6,
+              "cond_dim": 840,
+              "hidden_dim": 320,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 218,
+        "sha256": "b5411d1126ef1ccdab8cb331a8a5b1b39f54b56bdb13f4925142b085dfb6c448",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 11,
+        "sha256": "0b402d6ffe66aa9ade1c9734e0958cb1f4303fa4c66d3c40a98200de2fcf2c91",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcdur": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "train_datasets.human_bimanual": {
+        "n": 37,
+        "sha256": "9a186b35839f1197a9f3d4c522d992fe34e3aace6590e459886b12ade400120e",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcdurhyb": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "train_datasets.human_bimanual": {
+        "n": 37,
+        "sha256": "9a186b35839f1197a9f3d4c522d992fe34e3aace6590e459886b12ade400120e",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcvel": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 16,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 16,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "train_datasets.human_bimanual": {
+        "n": 37,
+        "sha256": "9a186b35839f1197a9f3d4c522d992fe34e3aace6590e459886b12ade400120e",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_arcvelhyb": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 18,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 18,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "train_datasets.human_bimanual": {
+        "n": 37,
+        "sha256": "9a186b35839f1197a9f3d4c522d992fe34e3aace6590e459886b12ade400120e",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "cotrain_rl2_stattempo_slowpace_aria_time": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 4
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "sampler": 4
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTStemStage",
+            "stems": {
+              "observations.images.front_img_1": {
+                "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                "output_dim": 640,
+                "weights": "DEFAULT",
+                "specs": {
+                  "random_horizon_masking": false,
+                  "cross_attn": {
+                    "crossattn_latent": 16,
+                    "crossattn_heads": 8,
+                    "crossattn_dim_head": 80,
+                    "crossattn_modality_dropout": 0.1,
+                    "modality_embed_dim": 640
+                  }
+                }
+              }
+            },
+            "domain_stems": {
+              "yam_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.left_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                },
+                "observations.images.right_wrist_img": {
+                  "_target_": "egomimic.models.stems.e1_image.E1ImageStem",
+                  "output_dim": 640,
+                  "weights": "DEFAULT",
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              },
+              "human_bimanual": {
+                "observations.state.ee_pose": {
+                  "_target_": "egomimic.models.stems.hpt_stems.MLPPolicyStem",
+                  "input_dim": 14,
+                  "output_dim": 640,
+                  "widths": [
+                    640
+                  ],
+                  "specs": {
+                    "random_horizon_masking": false,
+                    "cross_attn": {
+                      "crossattn_latent": 16,
+                      "crossattn_heads": 8,
+                      "crossattn_dim_head": 80,
+                      "crossattn_modality_dropout": 0.1,
+                      "modality_embed_dim": 640
+                    }
+                  }
+                }
+              }
+            },
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_hpt.HPTTrunkStage",
+            "embed_dim": 640,
+            "token_postprocessing": "action_token",
+            "use_position_embedding": true,
+            "max_tokens": 512,
+            "trunk": {
+              "_target_": "egomimic.models.cores.hpt_transformer.SimpleTransformer",
+              "embed_dim": 640,
+              "num_blocks": 8,
+              "drop_path_rate": 0.1,
+              "weight_init_style": "pytorch",
+              "attn_target": {
+                "_target_": "egomimic.models.cores.hpt_transformer.MultiheadAttention",
+                "_partial_": true,
+                "embed_dim": 640,
+                "num_heads": 8,
+                "batch_first": true
+              }
+            },
+            "use_domain_embedding": true,
+            "domains": [
+              "yam_bimanual",
+              "human_bimanual"
+            ],
+            "selector_aliases": {
+              "3": "human_bimanual",
+              "7": "yam_bimanual"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "time_dist": "beta",
+            "beta_alpha": 1.5,
+            "beta_beta": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 640,
+            "num_inference_steps": 50,
+            "condition_as_tokens": true,
+            "model": {
+              "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+              "nblocks": 10,
+              "cond_dim": 640,
+              "hidden_dim": 384,
+              "act_dim": 14,
+              "act_seq": 100,
+              "n_heads": 8,
+              "dropout": 0.1,
+              "mlp_layers": 4,
+              "mlp_ratio": 4,
+              "time_conditioning": "additive"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_flow.FlowVelocityLossStage"
+          }
+        ]
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "train_datasets.human_bimanual": {
+        "n": 37,
+        "sha256": "9a186b35839f1197a9f3d4c522d992fe34e3aace6590e459886b12ade400120e",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 4
+      }
+    }
+  },
+  "scratch_rl2_stattempo_slowpace_time_dp180pt": {
+    "pipeline": {
+      "differences": [
+        [
+          "pipeline.stage_ids",
+          "__missing",
+          {
+            "sampler": 3
+          }
+        ]
+      ],
+      "donor": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_sampler.FusedObsEncoder",
+            "n_obs_steps": 1,
+            "inputs": {
+              "front_img_1": "observations.images.front_img_1",
+              "left_wrist_img": "observations.images.left_wrist_img",
+              "right_wrist_img": "observations.images.right_wrist_img",
+              "ee_pose": "observations.state.ee_pose"
+            },
+            "encoder": {
+              "_target_": "egomimic.pipeline.stages_sampler.DPStyleObsEncoder",
+              "obs_specs": {
+                "ee_pose": {
+                  "input_dim": 14,
+                  "input_slice": [
+                    0,
+                    14
+                  ]
+                }
+              },
+              "img_encoders": {
+                "front_img_1": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                },
+                "left_wrist_img": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                },
+                "right_wrist_img": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                }
+              }
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "noise_scheduler": {
+              "_target_": "egomimic.models.ddim_scheduler.DDIMScheduler",
+              "num_train_timesteps": 100,
+              "beta_schedule": "squaredcos_cap_v2",
+              "prediction_type": "epsilon"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 398,
+            "policy": {
+              "_target_": "egomimic.models.diffusion_policy.DiffusionPolicy",
+              "action_horizon": 100,
+              "num_inference_steps": 100,
+              "model": {
+                "_target_": "egomimic.models.denoising_nets.ConditionalUnet1D",
+                "input_dim": 14,
+                "cond_dim": 398,
+                "ac_latent_seq": 1,
+                "diffusion_step_embed_dim": 512,
+                "down_dims": [
+                  488,
+                  976,
+                  1952
+                ],
+                "kernel_size": 3
+              },
+              "noise_scheduler": {
+                "_target_": "egomimic.models.ddim_scheduler.DDIMScheduler",
+                "num_train_timesteps": 100,
+                "beta_schedule": "squaredcos_cap_v2",
+                "prediction_type": "epsilon"
+              }
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage"
+          }
+        ]
+      },
+      "migrated": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_sampler.FusedObsEncoder",
+            "n_obs_steps": 1,
+            "inputs": {
+              "front_img_1": "observations.images.front_img_1",
+              "left_wrist_img": "observations.images.left_wrist_img",
+              "right_wrist_img": "observations.images.right_wrist_img",
+              "ee_pose": "observations.state.ee_pose"
+            },
+            "encoder": {
+              "_target_": "egomimic.pipeline.stages_sampler.DPStyleObsEncoder",
+              "obs_specs": {
+                "ee_pose": {
+                  "input_dim": 14,
+                  "input_slice": [
+                    0,
+                    14
+                  ]
+                }
+              },
+              "img_encoders": {
+                "front_img_1": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                },
+                "left_wrist_img": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                },
+                "right_wrist_img": {
+                  "_target_": "egomimic.models.stems.visual_core.VisualCore",
+                  "in_channels": 3,
+                  "image_size": 480,
+                  "image_width": 640,
+                  "num_kp": 64,
+                  "feature_dimension": 128,
+                  "pretrained": true,
+                  "crop_aug": true,
+                  "crop_height": 432,
+                  "crop_width": 576,
+                  "crop_eval_mode": "center",
+                  "crop_sample_mode": "v02",
+                  "crop_scope": "frame",
+                  "norm_layer": "batch",
+                  "pool_type": "spatial_softmax"
+                }
+              }
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_io.ActionTargetBuilder",
+            "action_key": "actions_cartesian"
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionNoisingStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "noise_scheduler": {
+              "_target_": "egomimic.models.ddim_scheduler.DDIMScheduler",
+              "num_train_timesteps": 100,
+              "beta_schedule": "squaredcos_cap_v2",
+              "prediction_type": "epsilon"
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage",
+            "action_horizon": 100,
+            "action_dim": 14,
+            "condition_input_dim": 398,
+            "policy": {
+              "_target_": "egomimic.models.diffusion_policy.DiffusionPolicy",
+              "action_horizon": 100,
+              "num_inference_steps": 100,
+              "model": {
+                "_target_": "egomimic.models.denoising_nets.ConditionalUnet1D",
+                "input_dim": 14,
+                "cond_dim": 398,
+                "ac_latent_seq": 1,
+                "diffusion_step_embed_dim": 512,
+                "down_dims": [
+                  488,
+                  976,
+                  1952
+                ],
+                "kernel_size": 3
+              },
+              "noise_scheduler": {
+                "_target_": "egomimic.models.ddim_scheduler.DDIMScheduler",
+                "num_train_timesteps": 100,
+                "beta_schedule": "squaredcos_cap_v2",
+                "prediction_type": "epsilon"
+              }
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage"
+          }
+        ],
+        "stage_ids": {
+          "sampler": 3
+        }
+      }
+    },
+    "optimizer": {
+      "differences": [],
+      "donor": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      },
+      "migrated": {
+        "_target_": "torch.optim.AdamW",
+        "_partial_": true,
+        "lr": 0.0001,
+        "weight_decay": 0.0001
+      }
+    },
+    "scheduler": {
+      "donor": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      },
+      "migrated": {
+        "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+        "_partial_": true,
+        "max_steps": 240000,
+        "warmup_steps": 10000,
+        "warmup_start_factor": 0.1,
+        "eta_min": 1e-05
+      }
+    },
+    "manifest_identity": {
+      "train_datasets.yam_bimanual": {
+        "n": 217,
+        "sha256": "119b8b739131fdb1e7353f2cd0a4e90c2f25fb25196062650e00c2a6d9350547",
+        "fps": 30.0
+      },
+      "valid_datasets.yam_bimanual": {
+        "n": 24,
+        "sha256": "ce3878ce20a340a87f4cc595b131c55bdd0f64362481e83c827b8499e7aaae5d",
+        "fps": 30.0
+      }
+    },
+    "verified_neural_optimizer_scheduler_equivalent": true,
+    "intentional_neural_metadata_only": {
+      "stage_ids": {
+        "sampler": 3
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# The architecture is shared; target coordinates are an explicit model contract.
+defaults:
+  - hpt_bc_keypoints_base
+  - _self_
+
+data_requirements:
+  preprocessing:
+    '3':
+      transforms:
+        coord_frame: eef_frame

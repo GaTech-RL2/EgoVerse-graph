@@ -539,6 +539,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         normalizer=cfg.get("normalizer"),
         restored_state=None if checkpoint is None else checkpoint.get("data_context"),
     )
+    from egomimic.pipeline.inference_config import validate_model_data_context
+
+    validate_model_data_context(cfg, context)
     if cfg.get("norm_stats_only", False):
         return {}, {
             "cfg": cfg,

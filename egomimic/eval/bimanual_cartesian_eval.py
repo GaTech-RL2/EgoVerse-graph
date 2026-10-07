@@ -115,6 +115,7 @@ class BimanualCartesianEval(EvalVideo):
         deterministic_seed: int = 420042,
         limit_val_batches: int | float | None = None,
         pose_metrics: bool = False,
+        camera_mse_wrap: bool = True,
         rkl_samples: int = 1,
         group_options: Mapping | None = None,
         viz_every_n_epochs: int = 1,
@@ -133,6 +134,9 @@ class BimanualCartesianEval(EvalVideo):
             mode=video_mode,
         )
         self.pose_metrics = pose_metrics
+        if type(camera_mse_wrap) is not bool:
+            raise TypeError("camera_mse_wrap must be a boolean")
+        self.camera_mse_wrap = camera_mse_wrap
         self.rkl_samples = int(rkl_samples)
         if self.rkl_samples < 1:
             raise ValueError("rkl_samples must be at least one")
@@ -193,6 +197,26 @@ class BimanualCartesianEval(EvalVideo):
         # (group, embodiment_name, path) accumulated across the epoch and
         # flushed to WandB in on_validation_end.
         self._written_paths: list = []
+        self._written_fps: dict = {}
+
+    def data_requirements(self):
+        from dataclasses import replace
+
+        requirements = super().data_requirements()
+        if self.complete_video_episodes:
+            if not self.viz_func or self.viz_every_n_epochs <= 0:
+                raise ValueError("Complete-episode videos require enabled renderers")
+            missing = set(self.viz_func) - set(self.revert_transforms)
+            if missing:
+                raise ValueError(
+                    f"Complete-episode videos require declared frame reversion for {sorted(missing)}"
+                )
+        if self.complete_video_episodes:
+            requirements = replace(
+                requirements,
+                required_keys=(self.action_key, self.obs_pose_key, self.image_key),
+            )
+        return requirements
 
     def trainer_overrides(self):
         return dict(self._trainer_overrides)
@@ -445,8 +469,16 @@ class BimanualCartesianEval(EvalVideo):
         """
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires a renderer for {embodiment_name}"
+                )
             return
         if self.obs_pose_key not in source_batch:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires pose key {self.obs_pose_key!r}"
+                )
             # Overlay needs the obs pose to recompose eef-frame actions into
             # cam frame; without it we can't draw a meaningful trajectory.
             return
@@ -476,6 +508,10 @@ class BimanualCartesianEval(EvalVideo):
             embodiment_name=embodiment_name,
         )
         if pred_camframe is None:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires frame reversion for {embodiment_name}"
+                )
             return
         gt_camframe = self._revert_to_camframe(
             actions=gt_native,
@@ -636,7 +672,10 @@ class BimanualCartesianEval(EvalVideo):
                         {
                             "cam_" + k: v
                             for k, v in cartesian_metrics(
-                                cam_pred, cam_target, distribution=False
+                                cam_pred,
+                                cam_target,
+                                distribution=False,
+                                wrap_angles=self.camera_mse_wrap,
                             ).items()
                         }
                     )

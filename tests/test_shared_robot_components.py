@@ -1,9 +1,41 @@
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 from egomimic.eval.bimanual_cartesian_eval import BimanualCartesianEval
 from egomimic.rldb.zarr import zarr_dataset_multi as data
+
+
+def test_camera_mse_preserves_source_semantics_at_angle_wrap():
+    from hydra import compose, initialize_config_dir
+
+    from egomimic.eval.cartesian_metrics import cartesian_metrics
+    from tests.test_retained_recipe_steps import CONFIGS
+
+    target = torch.zeros(1, 2, 14)
+    prediction = target.clone()
+    target[..., 3] = torch.pi - 0.01
+    prediction[..., 3] = -torch.pi + 0.01
+    for recipe in ("eval_hpt", "eval_pi"):
+        with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
+            cfg = compose(
+                config_name="train_zarr_cartesian", overrides=[f"evaluator={recipe}"]
+            )
+        assert cfg.evaluator.camera_mse_wrap is False
+        values = cartesian_metrics(
+            prediction,
+            target,
+            distribution=False,
+            wrap_angles=cfg.evaluator.camera_mse_wrap,
+        )
+        torch.testing.assert_close(
+            values["paired_mse_avg"], (prediction - target).square().mean()
+        )
+    wrapped = cartesian_metrics(
+        prediction, target, distribution=False, wrap_angles=True
+    )
+    assert wrapped["paired_mse_avg"].item() == pytest.approx(0.02**2 / 14, rel=1e-4)
 
 
 def test_vendor_metadata_is_canonicalized_without_editing_episode(monkeypatch):

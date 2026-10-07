@@ -10,9 +10,16 @@
       "legacy_blob": "b8eed8da3a7d1c630b24895f701c83913322fdb3",
       "category": "CI",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": ".github/workflows/ci.yml",
+      "evidence": [
+        "docs/integration/VALIDATION.md",
+        "tests/test_recursive_config_audit.py",
+        "tests/test_installed_package.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/algo/__init__.py",
@@ -1225,9 +1232,14 @@
       "legacy_blob": "359a77f5d42ad60318522e639e8a77c3dfe37a1b",
       "category": "data",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/rldb/resolve_memo.py",
+      "evidence": [
+        "tests/test_recursive_config_audit.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/rldb/zarr/hdf5_to_zarr.py",
@@ -1372,18 +1384,32 @@
       "legacy_blob": "aa6c04756c124c23a7f4be8ec05cbc152ea98031",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/eval/cartesian_metrics.py; egomimic/eval/distribution_metrics.py",
+      "evidence": [
+        "docs/integration/FIXED_FIXTURE_PARITY.md",
+        "tests/test_legacy_data_metric_parity.py",
+        "tests/test_shared_robot_components.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/scheduler_utils.py",
       "legacy_blob": "5378909bf23b3758759df01270b9ab15af5a6d8e",
       "category": "utility",
       "owner": "graph-integration",
-      "disposition": "pending",
-      "replacement": null,
-      "evidence": []
+      "disposition": "replaced",
+      "replacement": "egomimic/utils/schedulers.py",
+      "evidence": [
+        "docs/integration/FIXED_FIXTURE_PARITY.md",
+        "tests/test_legacy_data_metric_parity.py",
+        "tests/test_retained_language.py"
+      ],
+      "remaining_gates": [
+        "assembled-destination parity"
+      ]
     },
     {
       "legacy_path": "egomimic/utils/tensor_utils.py",

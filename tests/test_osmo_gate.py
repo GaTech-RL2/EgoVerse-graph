@@ -38,9 +38,7 @@ def test_input_staging_checks_hashes_and_never_replaces_existing_data(tmp_path):
         relative_path("../../outside")
 
 
-def test_training_harness_runs_five_updates_validation_and_bound_reload(
-    monkeypatch, tmp_path
-):
+def harness_inputs(monkeypatch, tmp_path):
     inputs, output = tmp_path / "inputs", tmp_path / "result"
     output.mkdir()
     data = inputs / "data/eva"
@@ -65,6 +63,37 @@ def test_training_harness_runs_five_updates_validation_and_bound_reload(
     matrix.cases["hpt-eva"].batch_size = 2
     matrix_path = tmp_path / "matrix.yaml"
     OmegaConf.save(matrix, matrix_path)
+    return inputs, output, matrix_path
+
+
+@pytest.mark.parametrize("export", [True, False])
+def test_wrong_target_frame_rejected_before_network_construction(
+    monkeypatch, tmp_path, export
+):
+    import egomimic.trainHydra as entrypoint
+
+    inputs, output, matrix_path = harness_inputs(monkeypatch, tmp_path)
+    cfg, _, _ = run_gate.configured_case(matrix_path, "hpt-eva", inputs, output)
+    cfg.inference_config.enabled = export
+    for split in ("train_datasets", "valid_datasets"):
+        ds = cfg.data[split].eva_bimanual
+        with open_dict(ds):
+            ds.bounds_check = False
+            ds.resolver.transform_list.coord_frame = "eef_frame"
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Network was constructed before frame preflight")
+
+    monkeypatch.setattr(entrypoint, "_instantiate_model_wrapper", forbidden)
+    with pytest.raises(ValueError, match="coord_frame.*camframe.*eef_frame"):
+        entrypoint.train(cfg)
+    assert not (output / "checkpoints/inference-config.yaml").exists()
+
+
+def test_training_harness_runs_five_updates_validation_and_bound_reload(
+    monkeypatch, tmp_path
+):
+    inputs, output, matrix_path = harness_inputs(monkeypatch, tmp_path)
     original = run_gate.configured_case
 
     def configured(*args, **kwargs):

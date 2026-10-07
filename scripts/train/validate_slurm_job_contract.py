@@ -239,7 +239,7 @@ def evaluate_contract(
         observed["requested_tres_memory_bytes"] = parse_slurm_memory(
             requested_tres["mem"]
         )
-        observed["requested_tres_gpus"] = int(requested_tres["gres/gpu"])
+        observed["requested_tres_gpus"] = None if native else int(requested_tres["gres/gpu"])
     except (KeyError, ValueError) as exc:
         raise ContractError(
             "ReqTRES must contain integer node, cpu, and generic gres/gpu values "
@@ -294,15 +294,28 @@ def evaluate_contract(
             expected_memory_bytes,
             observed["requested_tres_memory_bytes"],
         ),
-        ("requested_tres_gpus", 1, observed["requested_tres_gpus"]),
-        ("typed_gpu_tres", ["gres/gpu:h100"] if native else [], observed["typed_gpu_tres"]),
+        ("requested_tres_gpus", None if native else 1, observed["requested_tres_gpus"]),
+        ("typed_gpu_tres", [], observed["typed_gpu_tres"]),
     ]
     if native:
+        # Lambda Slurm does not account GPU GRES in ReqTRES/AllocTRES.
+        # Bind its actual job request and per-node allocated device record instead.
         allocated = parse_tres(_required_field(fields, 'AllocTRES'))
-        for label, tres in [('requested', requested_tres), ('allocated', allocated)]:
-            comparisons.append((label+'_h100_count', '1', tres.get('gres/gpu:h100')))
-            comparisons.append((label+'_gpu_count', '1', tres.get('gres/gpu')))
-            comparisons.append((label+'_gpu_types', ['gres/gpu:h100'], sorted(k for k in tres if k.startswith('gres/gpu:'))))
+        if any(k.startswith('gres/gpu') for k in requested_tres) or any(k.startswith('gres/gpu') for k in allocated):
+            raise ContractError('native Lambda contract requires exact captured CPU-only TRES representation')
+        for key, expected_value in [('cpu', str(expected_cpus)), ('node', '1')]:
+            comparisons.append(('allocated_'+key, expected_value, allocated.get(key)))
+        comparisons.append(('allocated_mem', expected_memory_bytes, parse_slurm_memory(allocated.get('mem', ''))))
+        comparisons.append(('job_gres', 'gpu:h100:1', _required_field(fields, 'JOB_GRES')))
+        comparisons.append(('tres_per_node', 'gres/gpu:h100:1', _required_field(fields, 'TresPerNode')))
+        node = _required_field(fields, 'NodeList')
+        if not re.fullmatch(r'[A-Za-z0-9_-]+', node):
+            raise ContractError('native GPU allocation requires one explicit node')
+        comparisons.append(('allocated_node', node, _required_field(fields, 'Nodes')))
+        allocated_gres = _required_field(fields, 'GRES')
+        if not re.fullmatch(r'gpu:h100:1\(IDX:[0-9]+\)', allocated_gres):
+            raise ContractError('exact allocated native H100 count and device index required')
+        observed['native_gpu_allocation'] = {'node': node, 'gres': allocated_gres, 'job_gres': fields['JOB_GRES'], 'tres_per_node': fields['TresPerNode']}
     failures = [
         {"field": field, "expected": expected_value, "observed": observed_value}
         for field, expected_value, observed_value in comparisons

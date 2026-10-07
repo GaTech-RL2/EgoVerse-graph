@@ -67,8 +67,10 @@ def test_frozen_aria37_rebuild_preserves_both_domain_contracts(variant):
         assert decoder.rotation_distance_unit == builders.ROTATION_DISTANCE_UNIT
 
 
-def test_pace_login_guard_requires_a_srun_step(monkeypatch):
-    monkeypatch.setattr(builders.socket, "gethostname", lambda: "phoenix-login-1")
+@pytest.mark.parametrize("hostname", ["atl1-login2", "phoenix-login1", "ice-login1"])
+def test_pace_login_guard_requires_a_srun_step(monkeypatch, hostname):
+    monkeypatch.setattr(builders.socket, "gethostname", lambda: hostname)
+    monkeypatch.delenv("PACE_CLUSTER", raising=False)
     monkeypatch.delenv("SLURM_STEP_ID", raising=False)
     monkeypatch.setenv("SLURM_JOB_ID", "123")
     with pytest.raises(RuntimeError, match="srun"):

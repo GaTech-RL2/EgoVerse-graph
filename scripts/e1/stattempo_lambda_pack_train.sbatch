@@ -122,6 +122,7 @@ STEP
           --output="$RUN_ROOT/step-%j-$i.log")
   if [ "${RUNTIME:-pyxis}" = enroot ]; then
     srun "${common[@]}" bash "$RUN_ROOT/enroot_step-$SLURM_JOB_ID.sh" "$CNAME" "$stepfile" &
+    sleep 20  # stagger: simultaneous enroot starts of the shared container race for its rootfs lock (job 408657: 2 of 8 steps died)
   else
     srun "${common[@]}" --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw${STAGED:+,$STAGED:$DATA_DIR:ro} --container-workdir="$SRC" bash "$stepfile" &
   fi

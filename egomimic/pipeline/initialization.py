@@ -7,6 +7,8 @@ from pathlib import Path
 import torch
 from torch import nn
 
+from egomimic.pipeline.construction import restoring_parameters
+
 
 def stage_module(pipeline, stage_id, module_path=""):
     module = pipeline.stage_by_id(stage_id)
@@ -26,8 +28,17 @@ def initialize_weights(pipeline, specifications):
     unknown keys or infer legacy architectures from shapes. This only loads
     weights, never optimizer state or a training step.
     """
-    pending, receipts = [], []
+    if restoring_parameters():
+        return []
+    pending, receipts, occupied = [], [], set()
     for spec in specifications or ():
+        module = stage_module(pipeline, spec["stage_id"], spec.get("module_path", ""))
+        targets = {id(value) for value in (*module.parameters(), *module.buffers())}
+        if occupied & targets:
+            raise ValueError(
+                "Initialization specifications overlap the same parameters or buffers"
+            )
+        occupied.update(targets)
         source = spec["source"]
         if isinstance(source, Mapping):
             from huggingface_hub import hf_hub_download
@@ -58,7 +69,6 @@ def initialize_weights(pipeline, specifications):
             for key, value in payload.items()
             if key.startswith(prefix)
         }
-        module = stage_module(pipeline, spec["stage_id"], spec.get("module_path", ""))
         expected = module.state_dict()
         if set(state) != set(expected):
             raise ValueError(

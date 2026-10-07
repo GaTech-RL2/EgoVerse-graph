@@ -432,6 +432,24 @@ def _resolve_training_checkpoint(
         return selected_path
 
     configured_path = cfg.get("ckpt_path")
+    if configured_path in {"last", "best", "hpc"}:
+        if configured_path != "last":
+            raise ValueError(
+                "Preflight requires an explicit checkpoint path; only 'last' has a deterministic default location"
+            )
+        configured_path = os.path.join(
+            trainer.default_root_dir
+            if trainer is not None
+            else str(cfg.trainer.default_root_dir),
+            "checkpoints",
+            "last.ckpt",
+        )
+        if not Path(configured_path).is_file():
+            raise FileNotFoundError(
+                f"Requested last checkpoint does not exist: {configured_path}"
+            )
+        with open_dict(cfg):
+            cfg.ckpt_path = configured_path
     if (
         os.environ.get("SLURM_JOB_ID")
         and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
@@ -469,17 +487,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     mode = _validate_run_config(cfg)
     if mode == "train":
         configure_runner_wandb(cfg)
-        if not cfg.get("norm_stats_only", False):
-            exported = export_configured_inference_artifact(cfg)
-            if exported is not None:
-                artifact_path, artifact = exported
-                message = (
-                    f"Inference config artifact ({artifact['status']}): {artifact_path}"
-                )
-                if artifact["status"] == "ready":
-                    log.info(message)
-                else:
-                    log.warning(f"{message}; {artifact['reason']}")
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed") is not None:
@@ -510,6 +517,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         validate_validation_loop(requirements, cfg.trainer, mode=mode)
     checkpoint = None
     if cfg.get("ckpt_path"):
+        if cfg.ckpt_path in {"last", "best", "hpc"}:
+            raise ValueError(
+                "Standalone evaluation requires an explicit checkpoint path"
+            )
         checkpoint = MmapCheckpointIO().load_checkpoint(
             str(cfg.ckpt_path), map_location="cpu", weights_only=False
         )
@@ -536,9 +547,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         }
     if eval_obj is not None:
         datamodule.configure_evaluation(requirements)
+    if checkpoint is not None:
+        from egomimic.pipeline.checkpoint_binding import validate_checkpoint_binding
+
+        validate_checkpoint_binding(checkpoint, cfg, context)
+    if mode == "train":
+        exported = export_configured_inference_artifact(cfg, data_context=context)
+        if exported is not None:
+            artifact_path, artifact = exported
+            message = (
+                f"Inference config artifact ({artifact['status']}): {artifact_path}"
+            )
+            if artifact["status"] == "ready":
+                log.info(message)
+            else:
+                log.warning(f"{message}; {artifact['reason']}")
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = _instantiate_model_wrapper(cfg)
-    context.bind(model.model, eval_obj)
+    from egomimic.pipeline.construction import checkpoint_construction
+
+    with checkpoint_construction(enabled=checkpoint is not None):
+        model: LightningModule = _instantiate_model_wrapper(cfg)
+        context.bind(model.model, eval_obj)
     model.data_context = context
     log.info(
         "Dataset frames:\n"

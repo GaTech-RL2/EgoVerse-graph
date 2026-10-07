@@ -121,6 +121,40 @@ def test_eval_requires_context_and_rejects_corruption_or_mode_drift():
         )
 
 
+def test_preprocessing_contract_preserves_frames_but_allows_new_evaluation_locations():
+    from egomimic.rldb.zarr.data_module import _preprocessing_contract
+
+    config = {
+        "resolver": {
+            "folder_path": "/original/train",
+            "key_map": {"action_mode": "cartesian"},
+            "transform_list": {"coord_frame": "camframe", "stride": 3},
+        },
+        "filters": {"episode_hashes": ["train"]},
+    }
+    expected = _preprocessing_contract(config, 30)
+    relocated = deepcopy(config)
+    relocated["resolver"]["folder_path"] = "/elsewhere/validation"
+    relocated["filters"]["episode_hashes"] = ["heldout"]
+    assert _preprocessing_contract(relocated, 30) == expected
+    relocated["resolver"]["transform_list"]["coord_frame"] = "eef_frame"
+    assert _preprocessing_contract(relocated, 30) != expected
+    assert _preprocessing_contract(config, 60) != expected
+
+    state = _state()
+    with pytest.raises(ValueError, match="preprocessing/frame"):
+        _module().prepare_context(
+            mode="eval",
+            normalization={},
+            restored_state={
+                "kind": "zarr-normalizer-v1",
+                "normalizer_state": state,
+                "sha256": _digest(state),
+                "preprocessing": {"7": expected},
+            },
+        )
+
+
 def test_evaluator_capabilities_force_order_and_limit_complete_episodes():
     module = MultiDataModuleWrapper(
         {},

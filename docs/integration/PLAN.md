@@ -44,48 +44,38 @@ applicable parity and assembled-tree gates pass.
 
 ## Current status
 
-The first contracts layer implements model-owned declarations and stable typed
-controls, explicit evaluator requirements, data-owned normalization and strict
-standalone-eval restoration, immutable-source OpenPI installation, and package
-resource coverage. It includes complete-episode preflight and bounded video
-spooling/gathering. No destination merge, legacy removal, GPU launch, or final
-parity completion has occurred.
+Published draft stack in EgoVerse-graph:
 
-The working integration tree has passed 1,347 CPU tests. A follow-up run passed
-44 video/data-context/initialization tests, including an actual h264 round trip,
-nonzero-rank rendering, and full-episode truncation rejection. The recursive
-audit resolves 235/235 YAMLs; lint/format and lock checks pass. These receipts
-refer to the working integration tree, not an assembled EgoVerse destination or
-a real-weight GPU run. Each published layer is checked separately before push.
+| Layer | PR | Head | Isolated CPU tests |
+| --- | --- | --- | --- |
+| Contracts | #150 | `ee94a8a3` | 1,350 |
+| HPT recipe parity | #151 | `64251fce` | 1,369 |
+| PI recipe/diagnostic parity | #152 | `daeaf924` | 1,388 |
+| Recorded-data tools | #153 | `5cb26b9e` | 1,392 |
 
-Retained HPT/PI recipe ports, keypoint paths, initialization scheduling and CI
-work are being split into subsequent review layers. OT/DTW, latent diagnostics,
-data tools, real-weight OSMO gates, fixed-fixture comparisons and destination
-assembly remain open. The parity manifest stays blocked until evidence exists
-for every retained capability.
+Each layer's tested tree, snapshot and log hash are recorded under `evidence/`.
+The data-tool layer includes real HDF5 conversion, immutable output checks,
+complete annotated video encoding and data preview without a model or fitting
+normalization. The recursive working-tree audit resolves 253/253 shipped YAMLs.
 
-Published stack: contracts PR #150 (`ee94a8a3`) → HPT PR #151 (`64251fce`).
-The isolated HPT layer passed 1,369 tests; see `evidence/hpt-cpu-receipt.json`.
-The PI layer is on `codex/graph-integration-20260924/03-pi-parity`: retained
-source recipes and schedules, mixed-source shape isolation, explicit diagnostic
-providers, latent sampling/reductions/rebuilds, and hash-verified OpenPI patches.
-Its focused gates pass (48 PI/data/diagnostic cases plus two cotrain/schedule
-cases). The working-tree recursive audit resolves 243/243 YAMLs. Full isolated
-PI-layer validation is next; none of these receipts closes the final GPU or
-assembled-destination gates.
+The next branch is `codex/graph-integration-20260924/05-bound-inference`.
+It binds checkpoints and artifacts to full preprocessing/normalization state,
+shares strict loading between no-hardware inference and robot rollout, and
+suppresses external parameter initialization during strict checkpoint restore.
+The focused tests include corrupt bundles, source-frame drift, all eight
+HPT/stub-PI retained source recipes and runtime controls. An isolated full-suite
+receipt is required before this layer is pushed.
 
-The HPT layer now includes every retained root HPT recipe plus EgoBridge's
-configured cross-source OT/DTW graph. CPU comparisons against pinned original
-methods check loss and gradients, the BC-only detach boundary, independent
-feature passes and checkpointed warm starts. Pooled/per-token language tests
-run two optimizer steps and encode actual annotation-overlay videos with a
-substituted text backend. Real-weight GPU and assembled-destination gates remain
-open. Draft PR #150 contains the contracts base; subsequent layers build on it.
+Remaining gates: recursive construction/CI, real-weight/data OSMO L40/L40S
+training and distributed smokes, complete fixed-fixture parity, explicit
+model-versus-data frame compatibility, refreshed destination conflict inventory,
+assembled-tree validation and gated cutover. Public PI weight metadata matches
+the pinned OpenPI architecture, and read-only R2 audits located real bimanual
+EVA/Aria/Mecka/Scale/Yam episodes; neither observation is a real training result.
+No destination merge, legacy runtime removal, or integration GPU launch has
+occurred. DQC remains stopped.
 
-The isolated first contracts layer passed **1,350 tests** on tree
-`7182a483fbf8d988c4496f316319e48999882d03`; see
-`evidence/contracts-cpu-receipt.json`. Subsequent changes in that layer only add
-this receipt and navigation/status documentation. The test run includes wheel
-installation, typed controls, per-source PI width/time-grid decoding, full
-episode checks, and video encoding. It does not depend on the uncommitted
-retained-recipe ports or CI formatting layer.
+The checkpoint policy decision is recorded in `CHECKPOINTS.md`: new high-level
+loaders reject unbound historical checkpoints rather than silently pairing them
+with current declarations or statistics. Original source, environments, branches
+and data remain available; no automatic old-checkpoint converter is claimed.

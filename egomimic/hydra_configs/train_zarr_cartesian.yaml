@@ -18,7 +18,7 @@ norm_stats_only: false
 
 # Immutable evaluation/rollout state is restored by the configured data adapter.
 data_context_loader:
-  _target_: egomimic.rldb.zarr.data_module.load_normalizer
+  _target_: egomimic.rldb.zarr.data_module.load_data_context
 
 # Every training run emits a checkpoint-bound model inference contract. Robot
 # calibration, camera mapping, prompts, and safety limits remain station-owned.

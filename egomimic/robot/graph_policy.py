@@ -3,7 +3,6 @@
 import copy
 from collections import deque
 from collections.abc import Mapping
-from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -11,7 +10,6 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation
 
-from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import (
     build_inference_config,
@@ -21,32 +19,14 @@ from egomimic.pipeline.inference_config import (
     validate_input_constants,
 )
 from egomimic.pipeline.inference_controls import (
-    validate_control,
-    validate_control_value,
+    configure_profile_controls as configure_profile_controls,
 )
+from egomimic.pipeline.inference_controls import (
+    resolve_inference_profile as resolve_inference_profile,
+)
+from egomimic.pipeline.inference_session import load_bound_graph
 from egomimic.robot.interface import ARM_OFFSET, pose_matrix, pose_vector
 from egomimic.robot.teleop import rigid_transform
-
-
-def resolve_inference_profile(training, inference_profiles):
-    """Resolve an explicitly declared stable stage identifier."""
-    if not isinstance(inference_profiles, Mapping) or len(inference_profiles) != 1:
-        raise ValueError("Declare exactly one resolved model-owned inference profile")
-    name, profile = next(iter(inference_profiles.items()))
-    if not isinstance(profile, Mapping):
-        raise ValueError("Inference profile must be a mapping")
-    stage_id = profile.get("stage_id")
-    stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
-    if not isinstance(stage_id, str) or stage_id not in stage_ids:
-        raise ValueError(
-            "Inference profile requires a declared stable stage_id. Legacy class-matched "
-            "profiles must be migrated explicitly to a model-owned inference contract."
-        )
-    index = stage_ids[stage_id]
-    stages = training.model.pipeline.stages
-    if type(index) is not int or not 0 <= index < len(stages):
-        raise ValueError(f"Invalid stage position for {stage_id!r}")
-    return name, profile, stages[index]
 
 
 def configure_adapter_for_training(adapter_config, training, inference_profiles=None):
@@ -82,64 +62,6 @@ def configure_adapter_for_training(adapter_config, training, inference_profiles=
         else:
             result[key] = copy.deepcopy(value)
     return result
-
-
-@dataclass
-class _InferenceControlBinding:
-    name: str
-    spec: dict
-    value: object
-    target_kind: str
-    attribute_path: str
-    owner: object | None = None
-    attribute: str | None = None
-
-    def validate(self, value):
-        return validate_control_value(self.name, self.spec, value)
-
-    def public(self):
-        return {
-            **{
-                key: value
-                for key, value in self.spec.items()
-                if key not in {"target", "default"}
-            },
-            "value": self.value,
-        }
-
-
-def configure_profile_controls(graph, training, inference_profiles):
-    """Bind declared settings by stable stage ID, with atomic preflight."""
-    _, profile, _ = resolve_inference_profile(training, inference_profiles)
-    stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
-    bindings = []
-    for name, spec in profile.get("overrides", {}).items():
-        validate_control(name, spec, stage_ids=stage_ids)
-        target = spec["target"]
-        kind, path = target["kind"], target["attribute_path"]
-        owner = attribute = None
-        if kind == "stage_attribute":
-            owner = graph.pipeline.stage_by_id(target["stage_id"])
-            parts = path.split(".")
-            for part in parts[:-1]:
-                if not hasattr(owner, part):
-                    raise ValueError(
-                        f"Inference override target {path!r} does not exist"
-                    )
-                owner = getattr(owner, part)
-            attribute = parts[-1]
-            if not hasattr(owner, attribute):
-                raise ValueError(f"Inference override target {path!r} does not exist")
-        bindings.append(
-            _InferenceControlBinding(
-                name, dict(spec), spec["default"], kind, path, owner, attribute
-            )
-        )
-    # No mutation occurs until every target and every default is valid.
-    for binding in bindings:
-        if binding.owner is not None:
-            setattr(binding.owner, binding.attribute, binding.value)
-    return tuple(bindings)
 
 
 def load_normalizer(path):
@@ -434,24 +356,14 @@ class GraphRobotPolicy:
                     )
                 setattr(self, control.attribute_path, control.value)
         embodiment = adapter.embodiment_id
-        if embodiment not in normalizer.embodiments:
-            raise ValueError("Embodiment is absent from the training normalizer")
-        for key in (adapter.proprio_key, adapter.action_key):
-            if (
-                normalizer.zarr_keys[embodiment].get(key) != key
-                or normalizer.key_types[embodiment].get(key)
-                not in normalizer.NORMALIZE_KEY_TYPES
-            ):
-                raise ValueError(
-                    f"Live graph key must match the normalized training keymap: {key}"
-                )
-            if key not in normalizer.shapes[embodiment]:
-                raise ValueError(f"Key is absent from the training schema: {key}")
-            if (
-                normalizer.norm_mode != "none"
-                and key not in normalizer.norm_stats[embodiment]
-            ):
-                raise ValueError(f"Missing normalization statistics: {key}")
+        schema = inference_graph.get("compatibility", {}).get(
+            "normalizer_schema", {"action_key": adapter.action_key}
+        )
+        if schema["action_key"] != adapter.action_key:
+            raise ValueError("Station action key differs from the model declaration")
+        normalizer.validate_inference_schema(
+            schema, identity=embodiment, required_keys=(adapter.proprio_key,)
+        )
 
     def reset(self):
         """Clear inference-owned observation history at an episode boundary."""
@@ -584,21 +496,14 @@ def load_graph_policy(config):
         raise ValueError(
             f"Station adapter cannot supply required model observations: {sorted(missing)}"
         )
-    loader = training.get("data_context_loader")
-    if loader is None:
-        raise ValueError(
-            "Saved training config must declare data_context_loader for its immutable normalizer export"
-        )
-    normalizer = instantiate(loader, path=config["normalizer_path"])
-    graph = instantiate(training.model.pipeline, device=str(device))
-    if not isinstance(graph, PipelineAlgo):
-        raise TypeError("Robot inference requires a graph PipelineAlgo")
-    graph.bind_data_context(normalizer=normalizer)
-    checkpoint = torch.load(
-        config["checkpoint"], map_location="cpu", weights_only=False
-    )
-    strict_load_pipeline_checkpoint(
-        graph, checkpoint, use_ema=bool(config.get("use_ema", False))
+    graph, context, inference_graph = load_bound_graph(
+        training,
+        checkpoint_path=config["checkpoint"],
+        context_path=config["normalizer_path"],
+        artifact_path=inference_config_path,
+        device=str(device),
+        use_ema=config.get("use_ema", False),
+        identity=adapter.embodiment_id,
     )
     inference_controls = ()
     if inference_profiles is not None:
@@ -612,7 +517,7 @@ def load_graph_policy(config):
     graph.nets.eval()
     return GraphRobotPolicy(
         graph,
-        normalizer,
+        context.normalizer,
         adapter,
         max_valid_samples=config.get("max_valid_samples", 1),
         inference_graph=inference_graph,

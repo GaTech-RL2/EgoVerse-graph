@@ -195,6 +195,26 @@ def test_pi_training_inference_and_strict_checkpoint(tiny_openpi, tmp_path):
         graph.bind_data_context(normalizer=normalizer())
 
 
+def test_pi_strict_restore_does_not_open_original_pretraining_files(
+    tiny_openpi, tmp_path
+):
+    from egomimic.pipeline.construction import checkpoint_construction
+
+    cfg = config()
+    original = instantiate(cfg.model.pipeline)
+    original.bind_data_context(normalizer=normalizer())
+    checkpoint = {"state_dict": ModelWrapper(pipeline=original).state_dict()}
+    cfg.model.pipeline.stages[0].policy.config.pytorch_weight_path = str(
+        tmp_path / "absent"
+    )
+    with checkpoint_construction():
+        restored = instantiate(cfg.model.pipeline)
+        restored.bind_data_context(normalizer=normalizer())
+    strict_load_pipeline_checkpoint(restored, checkpoint)
+    for name, expected in original.nets.state_dict().items():
+        torch.testing.assert_close(restored.nets.state_dict()[name], expected)
+
+
 def test_pi_evaluator_works_through_lightning_wrapper(tiny_openpi, tmp_path):
     cfg = config()
     norm = normalizer()

@@ -13,7 +13,24 @@ env:
   RUFF_VERSION: "0.8.6"
 
 jobs:
+  validation-artifacts:
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/graph-validation-') && startsWith(github.base_ref, 'codex/graph-validation-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate companion scope, inventory, syntax, and immutable source pins
+        env:
+          COMPANION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COMPANION_HEAD_SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$COMPANION_BASE_SHA"
+          python .github/scripts/check_validation_companion.py --base "$COMPANION_BASE_SHA" --head "$COMPANION_HEAD_SHA"
+
   static:
+    if: ${{ github.event_name != 'pull_request' || !(startsWith(github.head_ref, 'codex/graph-validation-') && startsWith(github.base_ref, 'codex/graph-validation-')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +44,7 @@ jobs:
       - run: uvx ruff@${RUFF_VERSION} format --check egomimic tests scripts tools .github/scripts/restore_validation.py
 
   cpu-and-wheel:
+    if: ${{ github.event_name != 'pull_request' || !(startsWith(github.head_ref, 'codex/graph-validation-') && startsWith(github.base_ref, 'codex/graph-validation-')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

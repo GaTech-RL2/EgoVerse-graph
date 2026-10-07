@@ -35,12 +35,21 @@ EXPERIMENT_CONTEXTS.update(
         "model/e1/hpt300_flow_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_hpt300_lambda",
         "model/e1/dp300_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_dp300_lambda",
         "model/e1/dp300pt_wrists_arcdur": "yam_arc_grid/scratch_rl2_towels394_arcdur_dp300pt_lambda",
+        "model/e1/dp180pt_wrists_time": "yam_arc_grid/scratch_rl2_stattempo_slowpace_time_dp180pt",
+        "model/e1/hpt300_flow_wrists_time": "yam_arc_grid/scratch_rl2_stattempo_elmoaidan_time_hpt300",
+        "model/e1/hpt_flow_wrists_ft_arcdurhyb": "yam_arc_grid/scratch_rl2_stattempo_elmoaidan_arcdurhyb",
+        "model/e1/hpt_flow_wrists_ft_cotrain": "yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_time",
+        "model/e1/hpt_flow_wrists_ft_arcdur_cotrain": "yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_arcdur",
+        "model/e1/hpt_flow_wrists_ft_arcdurhyb_cotrain": "yam_arc_grid/cotrain_rl2_stattempo_slowpace_aria_arcdurhyb",
         "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
         "model/abc_arc/hpt_bimanual_visual": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
         "model/abc_arc/hpt_yam_visual_arc_stream": "abc_arc/robot_bc/abc_towels_hpt180_hybrid_mot_parallel_visual_openloop",
         "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
         "model_contract/e1_wrists": "e1/abcs_time",
         "model_contract/visual_bimanual": "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop",
+        "model_contract/arc_rollout_controls": "e1/abcs_time",
+        "model_contract/arc_lab_pr193": "yam_arc_grid/scratch_rl2_stattempo_elmoaidan_arcdur",
+        "model_contract/arc_m28_historical": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
         "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
         "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
         "data/abc_arc/stationery_rl2_hpt_baseline": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
@@ -52,6 +61,20 @@ MODEL_CONTEXTS = {
     "experiment/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
     "experiment/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
     "experiment/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
+}
+FRAGMENT_OVERRIDES = {
+    "model_contract/arc_lab_pr193": [
+        "model.lab_arc.velocity_layout=wide",
+        "model.lab_arc.token_rows=100",
+        "model.action_token_dim=28",
+    ],
+    # Synthetic offline composition inputs only: this audit does not export an
+    # artifact, bind a checkpoint, or authorize historical codec migration.
+    "model_contract/arc_m28_historical": [
+        "model.historical_arc_verified_data_identity=offline-config-audit-unbound",
+        "model.historical_arc_data_requirements={preprocessing:{7:{transforms:{codec_version:m28_99be4af0}}}}",
+        "abc.arc_chunking_mode=multistream",
+    ],
 }
 
 
@@ -112,6 +135,7 @@ def audit_context(path):
             else "+"
         )
         overrides.append(f"{prefix}{group}={entry}")
+    overrides.extend(FRAGMENT_OVERRIDES.get(name, []))
     return config_name, overrides
 
 

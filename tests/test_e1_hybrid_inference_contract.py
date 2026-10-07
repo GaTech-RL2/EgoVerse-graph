@@ -72,7 +72,12 @@ def _training(variant):
         Path(e1_arc_tokenizer.__file__).parents[2]
         / "hydra_configs/model_contract/e1_wrists.yaml"
     )
+    # The BC layer declares the codec; its rollout child adds shared controls.
+    # Load the same sibling defaults when present without inventing them here.
+    controls_path = contract_path.with_name("arc_rollout_controls.yaml")
     contract = OmegaConf.load(contract_path)
+    if controls_path.is_file():
+        contract = OmegaConf.merge(OmegaConf.load(controls_path), contract)
     return OmegaConf.merge(
         {"model": contract},
         {

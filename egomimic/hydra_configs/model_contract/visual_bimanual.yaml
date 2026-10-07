@@ -1,5 +1,5 @@
 # @package model
-# Model-owned visual input, normalization and output contracts.
+# Model-owned explicit mode/layout selection. Shared declarations preserve canonical200 per-arm clocks and exact native tensor contracts.
 policy_domain: yam
 source_identities:
   yam: 7
@@ -26,7 +26,7 @@ visual_history:
   - observations.state.ee_pose
 visual_inference:
   cartesian:
-    input:
+    input: &id012
       history_length: 1
       keys: ${model.visual_inputs.${model.policy_domain}}
       history_keys: ${model.visual_history.${model.policy_domain}}
@@ -52,12 +52,12 @@ visual_inference:
       - 100
       - 14
       frame: eef_frame
-      timing:
+      timing: &id013
         kind: control_period
         temporally_resolved: true
         dt: 0.03333333333333333
     compatibility:
-      normalizer_schema:
+      normalizer_schema: &id014
         action_key: actions_cartesian
         native_shape: *id001
       tokenizer: null
@@ -70,18 +70,23 @@ visual_inference:
           rotation_mode: euler
           action_frame: eef_frame
           decoder:
-            _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
-            native_shape: *id001
-            native_duration: 3.3
-            output_horizon: 100
-            output_dt: 0.03333333333333333
-            angular_indices:
-            - 3
-            - 4
-            - 5
-            - 10
-            - 11
-            - 12
+            _target_: egomimic.pipeline.sequence_decoder.SequentialActionDecoder
+            decoders:
+            - _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+              native_shape: *id001
+              native_duration: 3.3
+              output_horizon: 100
+              output_dt: 0.03333333333333333
+              angular_indices:
+              - 3
+              - 4
+              - 5
+              - 10
+              - 11
+              - 12
+            - _target_: egomimic.robot.arc_decoder.TimeChunkRetimer
+              action_horizon: 100
+              dt: 0.03333333333333333
         overrides:
           inference_steps:
             label: Sampling steps
@@ -90,7 +95,7 @@ visual_inference:
             max: 100
             step: 1
             default: 50
-            target:
+            target: &id015
               kind: stage_attribute
               stage_id: sampler
               attribute_path: num_inference_steps
@@ -101,19 +106,33 @@ visual_inference:
             max: 100
             step: 1
             default: 30
-            target:
+            target: &id016
               kind: policy_attribute
               attribute_path: replan_every
-  arc_tokenizer_cartesian:
-    status: unsupported
-    reason: ABC ARC visual recipes require a validated mode-aware hybrid rollout adapter
-      profile; use their declared codec for offline reconstruction.
-    action_contract: ${run_provenance.action_contract}
-  hybrid_arc_tokenizer_cartesian:
-    status: unsupported
-    reason: ABC ARC visual recipes require a validated mode-aware hybrid rollout adapter
-      profile; use their declared codec for offline reconstruction.
-    action_contract: ${run_provenance.action_contract}
+          arc_speed_percent:
+            label: Replay speed (%)
+            description: 100 preserves demonstrated tempo; applies on the next prediction.
+            type: integer
+            min: 25
+            max: 400
+            step: 5
+            default: 100
+            target:
+              kind: policy_attribute
+              attribute_path: adapter.decoder.decoders.1.speed_percent
+          arc_hold_speed_percent:
+            label: Hold speed (%)
+            description: Tempo of stationary grasps and placements.
+            type: integer
+            min: 25
+            max: 400
+            step: 5
+            default: 100
+            target:
+              kind: policy_attribute
+              attribute_path: adapter.decoder.decoders.1.hold_speed_percent
+  arc_tokenizer_cartesian: ${model.visual_arc_contracts.arc_tokenizer_cartesian.${abc.arc_chunking_mode}.${abc.arc_velocity_mode}.${run_provenance.action_contract.velocity_layout}}
+  hybrid_arc_tokenizer_cartesian: ${model.visual_arc_contracts.hybrid_arc_tokenizer_cartesian.${abc.arc_chunking_mode}.${abc.arc_velocity_mode}.${run_provenance.action_contract.velocity_layout}}
 inference: ${model.visual_inference.${abc.action_mode}}
 normalization_action_contracts:
   cartesian: null
@@ -134,7 +153,7 @@ visual_data_contracts:
         source_fps: 30.0
     normalizer_state:
       shapes:
-        '7':
+        '7': &id002
           actions_cartesian:
           - ${hpt.action_horizon}
           - ${oc.select:hpt.token_dim,${hpt.action_dim}}
@@ -152,12 +171,363 @@ visual_data_contracts:
         source_fps: 30.0
     normalizer_state:
       shapes:
-        '3':
-          actions_cartesian:
-          - ${hpt.action_horizon}
-          - ${oc.select:hpt.token_dim,${hpt.action_dim}}
+        '3': *id002
 human_action_modes:
   cartesian: cartesian_gripper_padded
   hybrid_arc_tokenizer_cartesian: hybrid_arc_tokenizer_cartesian
   arc_tokenizer_cartesian: arc_tokenizer_cartesian_gripper_padded
 data_requirements: ${model.visual_data_contracts.${model.policy_domain}}
+defaults:
+- /model_contract/arc_rollout_controls@_here_
+- _self_
+visual_arc_contracts:
+  arc_tokenizer_cartesian:
+    joint_distance: &id005
+      mean: &id006
+        wide: &id003
+          status: unsupported
+          reason: Chunk-mean timing cannot reconstruct dwell or interval durations; select per_waypoint or duration.
+          action_contract: ${run_provenance.action_contract}
+        stacked: *id003
+        clock: *id003
+      per_waypoint:
+        wide: &id004
+          status: unsupported
+          reason: Non-multistream Cartesian ARC requires the declared stacked layout; use an explicit PR193 lab contract for
+            lab tokens.
+          action_contract: ${run_provenance.action_contract}
+        stacked: ${model.visual_arc_profiles.plain_per_waypoint}
+        clock: &id009
+          status: unsupported
+          reason: The clock18 native layout requires duration timing.
+          action_contract: ${run_provenance.action_contract}
+      duration:
+        wide: *id004
+        stacked: ${model.visual_arc_profiles.plain_duration}
+        clock: *id004
+    race: *id005
+    multistream:
+      mean: *id006
+      per_waypoint: &id008
+        wide: &id007
+          status: unsupported
+          reason: Multistream execution requires a declared hybrid rotation budget.
+          action_contract: ${run_provenance.action_contract}
+        stacked: *id007
+        clock: *id007
+      duration: *id008
+  hybrid_arc_tokenizer_cartesian:
+    joint_distance: &id011
+      mean: *id006
+      per_waypoint:
+        wide: *id004
+        stacked: ${model.visual_arc_profiles.hybrid_per_waypoint}
+        clock: *id009
+      duration:
+        wide: &id010
+          status: unsupported
+          reason: Non-multistream hybrid tokens require per_waypoint timing.
+          action_contract: ${run_provenance.action_contract}
+        stacked: *id010
+        clock: *id010
+    race: *id011
+    multistream:
+      mean: *id006
+      per_waypoint:
+        wide: ${model.visual_arc_profiles.multistream_per_waypoint_wide}
+        stacked: ${model.visual_arc_profiles.multistream_per_waypoint_stacked}
+        clock: *id009
+      duration:
+        wide: ${model.visual_arc_profiles.multistream_duration_wide}
+        stacked: ${model.visual_arc_profiles.multistream_duration_stacked}
+        clock: ${model.visual_arc_profiles.multistream_duration_clock}
+visual_arc_profiles:
+  plain_per_waypoint:
+    input: *id012
+    native_output: &id020
+      key: pred_action
+      representation: normalized_action
+      shape: *id001
+      frame: eef_frame
+      timing: &id021
+        kind: per_stream_interval_speed
+        temporally_resolved: true
+    output: &id017
+      key: actions
+      representation: cartesian
+      shape:
+      - ${abc.action_horizon}
+      - 14
+      frame: eef_frame
+      timing: *id013
+    compatibility: &id018
+      normalizer_schema: *id014
+      tokenizer: &id023
+        action_contract: ${run_provenance.action_contract}
+        codec_version: canonical200
+        rotation_clock: per_arm_progress
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: null
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: null
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            token_layout: cartesian_per_waypoint
+            codec_version: canonical200
+        overrides: &id019
+          inference_steps: &id024
+            label: Sampling steps
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_rollout.flow_steps}
+            target: *id015
+          replan_every: &id025
+            label: Actions before replanning
+            type: integer
+            min: 1
+            max: ${abc.action_horizon}
+            step: 1
+            default: 30
+            target: *id016
+          arc_speed_percent: ${model.rollout_controls.speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  plain_duration:
+    input: *id012
+    native_output: &id029
+      key: pred_action
+      representation: normalized_action
+      shape: *id001
+      frame: eef_frame
+      timing: &id027
+        kind: per_stream_interval_duration
+        temporally_resolved: true
+    output: *id017
+    compatibility: *id018
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: null
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: null
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            token_layout: cartesian_duration
+            codec_version: canonical200
+        overrides: *id019
+  hybrid_per_waypoint:
+    input: *id012
+    native_output: *id020
+    output: *id017
+    compatibility: *id018
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            token_layout: cartesian_per_waypoint
+            codec_version: canonical200
+        overrides: *id019
+  multistream_per_waypoint_wide:
+    input: *id012
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: &id022
+      - ${abc.arc_waypoints}
+      - 28
+      frame: eef_frame
+      timing: *id021
+    output: *id017
+    compatibility: &id028
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape: *id022
+      tokenizer: *id023
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id022
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            velocity_mode: per_waypoint
+            velocity_layout: wide
+            codec_version: canonical200
+        overrides: &id026
+          inference_steps: *id024
+          replan_every: *id025
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  multistream_per_waypoint_stacked:
+    input: *id012
+    native_output: *id020
+    output: *id017
+    compatibility: *id018
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            velocity_mode: per_waypoint
+            velocity_layout: stacked
+            codec_version: canonical200
+        overrides: *id026
+  multistream_duration_wide:
+    input: *id012
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: *id022
+      frame: eef_frame
+      timing: *id027
+    output: *id017
+    compatibility: *id028
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id022
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            velocity_mode: duration
+            velocity_layout: wide
+            codec_version: canonical200
+        overrides: *id026
+  multistream_duration_stacked:
+    input: *id012
+    native_output: *id029
+    output: *id017
+    compatibility: *id018
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            velocity_mode: duration
+            velocity_layout: stacked
+            codec_version: canonical200
+        overrides: *id026
+  multistream_duration_clock:
+    input: *id012
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: &id030
+      - ${abc.arc_waypoints}
+      - 18
+      frame: eef_frame
+      timing: *id027
+    output: *id017
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape: *id030
+      tokenizer: *id023
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id030
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          rotation_mode: euler
+          action_frame: eef_frame
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: ${evaluator.control_dt}
+            action_horizon: ${abc.action_horizon}
+            arc_chunking_mode: ${abc.arc_chunking_mode}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            velocity_mode: duration
+            velocity_layout: clock
+            codec_version: canonical200
+        overrides: *id026

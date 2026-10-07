@@ -51,7 +51,8 @@ frequency: 30
 max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-max_steps: 3000
+# The operator ends an interactive rollout; a positive integer bounds a test run.
+max_steps: null
 camera_timeout: 30.0
 # The dashboard records an operator-started, synchronized three-camera MP4.
 # It observes existing RGB frames only and never participates in robot control.
@@ -59,6 +60,10 @@ video_recording:
   enabled: true
   directory: /home/rohan/rollouts/yam_hptflow
   fps: 12
+episode_recording:
+  enabled: true
+  directory: ${oc.env:YAM_ROLLOUT_EPISODES_DIR,/home/rohan/rollouts/yam_hptflow/episodes}
+  min_free_gb: 20
 # Browser-only checkpoint picker. It can browse only under this root, and a
 # chosen .ckpt is strictly loaded before the robot executes a fresh plan.
 model_browser:

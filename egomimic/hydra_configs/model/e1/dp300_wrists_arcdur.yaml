@@ -1,4 +1,4 @@
-# E1 arcdur DP-300M: three spatial-softmax encoders, 398D condition, DDIM-100.
+# Shared DP graph; compact leaves change only declared action dimensions and UNet widths.
 defaults:
 - /model_contract/e1_wrists@_here_
 - _self_
@@ -128,3 +128,4 @@ unet_down_dims:
 - 512
 - 1024
 - 2048
+arc_sampling_steps: ${model.sampling_steps}

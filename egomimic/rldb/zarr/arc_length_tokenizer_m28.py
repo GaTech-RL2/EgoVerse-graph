@@ -1,3 +1,11 @@
+# Vendored verbatim from GaTech-RL2/EgoVerse-graph @ 99be4af0dc374e030e3e4e205208f08f7baffa85
+# (Lambda canonical checkout, M28 stack; not yet pushed to origin),
+# egomimic/rldb/zarr/arc_length_tokenizer.py. This is the codec that trained the
+# M28 hybrid multistream runs: per-arm translation AND rotation clocks, wide
+# (M, 28) / stacked (2M, 14) per_waypoint tokens and four-clock duration (M, 18)
+# tokens. The station's own arc_length_tokenizer.py shares one rotation clock
+# between the arms and has no clock layout, so the two are kept apart.
+# Do not edit; re-vendor instead.
 """Bimanual arc-length tokenizer for EEF pose action chunks.
 
 Re-parameterizes a time-indexed bimanual cartesian action chunk by translational

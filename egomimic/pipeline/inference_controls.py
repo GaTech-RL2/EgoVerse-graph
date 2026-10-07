@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from omegaconf import OmegaConf
 
@@ -114,7 +114,11 @@ class _InferenceControlBinding:
     attribute: str | None = None
 
     def validate(self, value):
-        return validate_control_value(self.name, self.spec, value)
+        value = validate_control_value(self.name, self.spec, value)
+        validate = getattr(self.owner, "validate_inference_control", None)
+        if callable(validate) and self.attribute is not None:
+            validate(self.attribute, value)
+        return value
 
     def public(self):
         return {
@@ -125,6 +129,106 @@ class _InferenceControlBinding:
             },
             "value": self.value,
         }
+
+
+def resolve_control_attribute(owner, path):
+    """Resolve an explicit public attribute path without interpreting its owner."""
+    parts = path.split(".") if isinstance(path, str) else ()
+    if not parts or any(
+        not (part.isidentifier() or part.isdecimal()) or part.startswith("_")
+        for part in parts
+    ):
+        raise ValueError("Inference controls require a public attribute path")
+    for part in parts[:-1]:
+        if part.isdecimal():
+            index = int(part)
+            if not isinstance(owner, (list, tuple)) or index >= len(owner):
+                raise ValueError(f"Inference override target {path!r} does not exist")
+            owner = owner[index]
+            continue
+        if not hasattr(owner, part):
+            raise ValueError(f"Inference override target {path!r} does not exist")
+        owner = getattr(owner, part)
+    attribute = parts[-1]
+    if attribute.isdecimal():
+        raise ValueError(
+            "Inference controls must target a public attribute, not a sequence slot"
+        )
+    if not hasattr(owner, attribute):
+        raise ValueError(f"Inference override target {path!r} does not exist")
+    return owner, attribute
+
+
+def apply_control_values(bindings, values):
+    """Preflight every declared setting, then apply or restore all touched values.
+
+    Owners may expose ``validate_inference_control(attribute, value)`` for pure
+    domain validation beyond the profile's type and bounds. Setter rejection
+    also restores previously touched attributes, including the failing target.
+    Operator-visible values change only after all setters succeed.
+    """
+    controls = {binding.name: binding for binding in bindings}
+    if len(controls) != len(bindings):
+        raise ValueError("Inference override names must be unique")
+    if not isinstance(values, Mapping) or not values:
+        raise ValueError("Inference overrides must be a nonempty mapping")
+    unknown = set(values) - set(controls)
+    if unknown:
+        raise ValueError(
+            "Inference override is not exposed by this model profile: "
+            + ", ".join(sorted(unknown))
+        )
+    pending, targets = [], set()
+    for name, value in values.items():
+        binding = controls[name]
+        if binding.owner is None or binding.attribute is None:
+            raise ValueError(f"Inference control {name!r} has no bound target")
+        target = (id(binding.owner), binding.attribute)
+        if target in targets:
+            raise ValueError("Inference controls cannot alias the same target")
+        targets.add(target)
+        value = binding.validate(value)
+        previous = getattr(binding.owner, binding.attribute)
+        pending.append((binding, value, previous))
+    touched = []
+    try:
+        for binding, value, previous in pending:
+            touched.append((binding, previous))
+            setattr(binding.owner, binding.attribute, value)
+    except Exception as error:
+        rollback_errors = []
+        for binding, previous in reversed(touched):
+            try:
+                setattr(binding.owner, binding.attribute, previous)
+            except Exception as rollback_error:
+                rollback_errors.append(rollback_error)
+        if rollback_errors:
+            raise RuntimeError(
+                "Inference control update failed and its prior state could not be restored"
+            ) from error
+        raise
+    for binding, value, _previous in pending:
+        binding.value = value
+
+
+def bind_policy_controls(policy, bindings, *, allowed_paths):
+    """Bind only the public settings explicitly exposed by the policy adapter."""
+    resolved, selected = [], []
+    for binding in bindings:
+        if binding.target_kind == "policy_attribute":
+            if binding.attribute_path not in allowed_paths:
+                raise ValueError(
+                    f"Robot policy does not expose {binding.attribute_path!r}"
+                )
+            owner, attribute = resolve_control_attribute(policy, binding.attribute_path)
+            binding = replace(binding, owner=owner, attribute=attribute)
+            selected.append(binding)
+        resolved.append(binding)
+    if selected:
+        apply_control_values(
+            selected, {binding.name: binding.value for binding in selected}
+        )
+    return tuple(resolved)
 
 
 def configure_profile_controls(graph, training, inference_profiles):
@@ -139,23 +243,15 @@ def configure_profile_controls(graph, training, inference_profiles):
         owner = attribute = None
         if kind == "stage_attribute":
             owner = graph.pipeline.stage_by_id(target["stage_id"])
-            parts = path.split(".")
-            for part in parts[:-1]:
-                if not hasattr(owner, part):
-                    raise ValueError(
-                        f"Inference override target {path!r} does not exist"
-                    )
-                owner = getattr(owner, part)
-            attribute = parts[-1]
-            if not hasattr(owner, attribute):
-                raise ValueError(f"Inference override target {path!r} does not exist")
+            owner, attribute = resolve_control_attribute(owner, path)
         bindings.append(
             _InferenceControlBinding(
                 name, dict(spec), spec["default"], kind, path, owner, attribute
             )
         )
-    # No mutation occurs until every target and every default is valid.
-    for binding in bindings:
-        if binding.owner is not None:
-            setattr(binding.owner, binding.attribute, binding.value)
+    selected = [binding for binding in bindings if binding.owner is not None]
+    if selected:
+        apply_control_values(
+            selected, {binding.name: binding.value for binding in selected}
+        )
     return tuple(bindings)

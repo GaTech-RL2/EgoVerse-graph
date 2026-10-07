@@ -1,0 +1,89 @@
+# @package model
+# Explicit historical M28 compatibility requires a verified immutable data identity and checkpoint-bound requirements.
+defaults:
+- /model_contract/visual_bimanual@_here_
+- _self_
+historical_arc_verified_data_identity: ???
+historical_arc_data_requirements: ???
+data_requirements: ${model.historical_arc_data_requirements}
+visual_arc_profiles:
+  plain_per_waypoint:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  plain_duration:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  hybrid_per_waypoint:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  multistream_per_waypoint_wide:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  multistream_per_waypoint_stacked:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  multistream_duration_wide:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  multistream_duration_stacked:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0
+  multistream_duration_clock:
+    compatibility:
+      tokenizer:
+        codec_version: m28_99be4af0
+        verified_data_identity: ${model.historical_arc_verified_data_identity}
+    profiles:
+      default:
+        adapter:
+          decoder:
+            codec_version: m28_99be4af0

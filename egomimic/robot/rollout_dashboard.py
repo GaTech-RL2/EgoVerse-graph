@@ -27,6 +27,11 @@ from egomimic.pipeline.inference_config import (
     find_inference_config,
 )
 from egomimic.robot.interface import ARM_OFFSET
+from egomimic.robot.rollout_episode import (
+    OUTCOMES,
+    list_rollout_episodes,
+    validate_episode_recording,
+)
 from egomimic.robot.rollout_video import (
     list_rollout_videos,
     rollout_video_path,
@@ -230,10 +235,15 @@ class CheckpointBrowser:
             )
         return bundle
 
-    def list_directory(self, relative: object = ".") -> dict:
+    def list_directory(self, relative: object = ".", query: object = "") -> dict:
         directory = self._resolve(relative)
         if not directory.is_dir():
             raise ValueError("Checkpoint browser path is not a directory")
+        if not isinstance(query, str) or len(query) > 200:
+            raise ValueError(
+                "Checkpoint search must be a string of at most 200 characters"
+            )
+        needle = query.strip().casefold()
         entries = []
         try:
             children = tuple(directory.iterdir())
@@ -243,6 +253,8 @@ class CheckpointBrowser:
             children, key=lambda entry: (not entry.is_dir(), entry.name.lower())
         ):
             if child.name.startswith("."):
+                continue
+            if needle and needle not in child.name.casefold():
                 continue
             try:
                 resolved = child.resolve(strict=True)
@@ -550,6 +562,7 @@ class RolloutDashboard:
         video_recording=None,
         model_browser=None,
         policy=None,
+        episode_recording=None,
         **config,
     ) -> None:
         self.cameras = tuple(cameras)
@@ -557,6 +570,7 @@ class RolloutDashboard:
             raise ValueError("The rollout dashboard needs at least one camera")
         self.config, self.overlay = validate_rollout_preview(config, set(self.cameras))
         self.video_recording_config = validate_video_recording(video_recording)
+        self.episode_recording_config = validate_episode_recording(episode_recording)
         self.model_browser = validate_model_browser(model_browser, policy)
         if not self.config["enabled"]:
             raise ValueError(
@@ -572,6 +586,10 @@ class RolloutDashboard:
         self._inference_ms = deque(maxlen=20)
         self._video_recording = False
         self._video_last_saved: dict | None = None
+        self._episode_recording = False
+        self._episode_frames = 0
+        self._episode_last_saved: dict | None = None
+        self._episode_request: dict | None = None
         self._checkpoint = (
             None
             if self.model_browser is None
@@ -654,6 +672,44 @@ class RolloutDashboard:
         """Ask the rollout loop to start or save display-only MP4 recording."""
         if self.video_recording_config["enabled"]:
             self._video_record_requested.set()
+
+    def request_episode_action(self, action: object, outcome: object = None) -> bool:
+        """Queue start, save (with an outcome label) or discard of a rollout episode.
+
+        The rollout loop owns the recorder; the newest request replaces any
+        that the loop has not consumed yet."""
+        if not self.episode_recording_config["enabled"]:
+            return False
+        if action == "save":
+            if outcome not in OUTCOMES:
+                return False
+            request = {"action": "save", "outcome": outcome}
+        elif action in ("start", "discard"):
+            request = {"action": action}
+        else:
+            return False
+        with self._lock:
+            self._episode_request = request
+        return True
+
+    def take_episode_request(self) -> dict | None:
+        """Consume one browser episode request on the rollout control loop."""
+        with self._lock:
+            request, self._episode_request = self._episode_request, None
+        return request
+
+    def set_episode_recording(
+        self,
+        recording: bool,
+        frames: int = 0,
+        saved: Mapping[str, object] | None = None,
+    ) -> None:
+        """Publish recorder-owned episode state without adding a dashboard write path."""
+        with self._lock:
+            self._episode_recording = bool(recording)
+            self._episode_frames = int(frames)
+            if saved is not None:
+                self._episode_last_saved = dict(saved)
 
     def request_model_selection(self, relative: object) -> None:
         """Queue a selected model; rollout owns the actual model load."""
@@ -903,6 +959,13 @@ class RolloutDashboard:
                     if self._video_last_saved is None
                     else self._video_last_saved.copy()
                 ),
+                "episode_recording": self._episode_recording,
+                "episode_frames": self._episode_frames,
+                "episode_last_saved": (
+                    None
+                    if self._episode_last_saved is None
+                    else self._episode_last_saved.copy()
+                ),
                 "model_browser_enabled": self.model_browser is not None,
                 "checkpoint": self._checkpoint,
                 "velocity_prompt": (
@@ -979,6 +1042,11 @@ class RolloutDashboard:
                             "enabled"
                         ],
                         "video_recording": self._video_recording,
+                        "episode_recording_enabled": self.episode_recording_config[
+                            "enabled"
+                        ],
+                        "episode_recording": self._episode_recording,
+                        "episode_frames": self._episode_frames,
                         "model_browser_enabled": self.model_browser is not None,
                         "checkpoint": checkpoint,
                     }
@@ -1002,6 +1070,12 @@ class RolloutDashboard:
                         self.request_camera_reconnect()
                     if command.get("record_video") is True:
                         self.request_video_recording()
+                    if command.get("record_episode") == "start":
+                        self.request_episode_action("start")
+                    if "save_episode" in command:
+                        self.request_episode_action("save", command["save_episode"])
+                    if command.get("discard_episode") is True:
+                        self.request_episode_action("discard")
                     if "select_model" in command:
                         self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
@@ -1041,7 +1115,8 @@ class RolloutDashboard:
             async def checkpoints(request):
                 try:
                     listing = self.model_browser.list_directory(
-                        request.query.get("path", ".")
+                        request.query.get("path", "."),
+                        request.query.get("query", ""),
                     )
                 except ValueError as error:
                     raise web.HTTPBadRequest(text=str(error)) from error
@@ -1067,6 +1142,16 @@ class RolloutDashboard:
 
             app.router.add_get("/api/videos", videos)
             app.router.add_get("/api/videos/{video}", video)
+        if self.episode_recording_config["enabled"]:
+
+            async def episodes(_request):
+                # Metadata only: episode files are gigabytes and are read with
+                # h5py on the station, not streamed to the browser.
+                return web.json_response(
+                    list_rollout_episodes(self.episode_recording_config["directory"])
+                )
+
+            app.router.add_get("/api/episodes", episodes)
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
         await web.TCPSite(runner, self.config["host"], self.config["port"]).start()
@@ -1115,6 +1200,9 @@ class RolloutDashboard:
                         "inference": snapshot["inference"],
                         "video_recording": snapshot["video_recording"],
                         "video_last_saved": snapshot["video_last_saved"],
+                        "episode_recording": snapshot["episode_recording"],
+                        "episode_frames": snapshot["episode_frames"],
+                        "episode_last_saved": snapshot["episode_last_saved"],
                         "checkpoint": snapshot["checkpoint"],
                         "velocity_prompt": snapshot["velocity_prompt"],
                     }

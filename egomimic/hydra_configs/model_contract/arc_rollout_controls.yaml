@@ -1,0 +1,55 @@
+# @package model
+# Bounds below describe M=100. Other waypoint counts must declare whole-prefix bounds in the model leaf.
+arc_rollout:
+  execute_percent:
+    min: 2
+    max: 100
+    step: 1
+    default: 50
+  flow_steps: 20
+rollout_controls:
+  speed:
+    label: Replay speed (%)
+    description: 100 preserves demonstrated tempo; applies on the next prediction.
+    type: integer
+    min: 25
+    max: 400
+    step: 5
+    default: 100
+    target:
+      kind: policy_attribute
+      attribute_path: adapter.decoder.speed_percent
+  hold_speed:
+    label: Hold speed (%)
+    description: Tempo of stationary grasps and placements.
+    type: integer
+    min: 25
+    max: 400
+    step: 5
+    default: 100
+    target:
+      kind: policy_attribute
+      attribute_path: adapter.decoder.hold_speed_percent
+  first_stream:
+    label: Fastest-stream termination
+    description: Replan when the first moving stream reaches its waypoint cap.
+    type: integer
+    min: 0
+    max: 1
+    step: 1
+    default: 1
+    target:
+      kind: policy_attribute
+      attribute_path: adapter.decoder.first_stream
+  execute_percent:
+    label: Execute first % of waypoints
+    description: Whole waypoint prefix containing at least two waypoints; used in
+      fastest-stream mode.
+    type: integer
+    min: ${model.arc_rollout.execute_percent.min}
+    max: ${model.arc_rollout.execute_percent.max}
+    step: ${model.arc_rollout.execute_percent.step}
+    default: ${model.arc_rollout.execute_percent.default}
+    target:
+      kind: policy_attribute
+      attribute_path: adapter.decoder.execute_percent

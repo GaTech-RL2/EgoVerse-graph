@@ -11,6 +11,26 @@ class CartesianRotationDecoder:
             raise TypeError("has_gripper must be declared as a boolean")
         self.has_gripper = has_gripper
 
+    def validate_inference_contract(self, native_shape, canonical_shape):
+        try:
+            native, canonical = tuple(native_shape), tuple(canonical_shape)
+        except TypeError as error:
+            raise ValueError(
+                "Rotation decoder shapes must be [horizon, width]"
+            ) from error
+        if any(
+            len(shape) != 2 or any(type(n) is not int or n < 1 for n in shape)
+            for shape in (native, canonical)
+        ):
+            raise ValueError("Rotation decoder shapes require positive dimensions")
+        native_width = 2 * (9 + int(self.has_gripper))
+        canonical_width = 2 * (6 + int(self.has_gripper))
+        if native[1] != native_width or canonical != (native[0], canonical_width):
+            raise ValueError(
+                f"Rotation decoder requires ({native[0]}, {native_width}) to "
+                f"({native[0]}, {canonical_width}) without changing temporal rows"
+            )
+
     def __call__(self, actions):
         if torch.is_tensor(actions):
             actions = actions.detach().cpu().numpy()

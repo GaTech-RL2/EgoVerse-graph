@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM GELLO Teleop</title>
-    <link rel="stylesheet" href="/style.css?v=11">
+    <link rel="stylesheet" href="/style.css?v=13">
   </head>
   <body>
     <main>
@@ -22,6 +22,11 @@
         <button id="reset-home" class="home">Reset both YAM arms to home [y]</button>
         <button id="reconnect-cameras">Reconnect RGB cameras</button>
         <div id="controls" class="controls"></div>
+      </section>
+      <section id="gripper-settings" class="gripper-settings" aria-label="Gripper force settings" hidden>
+        <strong>Gripper force limit</strong>
+        <div id="gripper-controls"></div>
+        <small>Applied dynamically when resistance is detected (1–50 N).</small>
       </section>
       <section id="cameras" class="cameras" aria-label="Live RGB cameras"></section>
       <section class="bottom-bar" aria-label="Episode and collected demo controls">
@@ -79,6 +84,6 @@
         </section>
       </div>
     </dialog>
-    <script type="module" src="/app.js?v=12"></script>
+    <script type="module" src="/app.js?v=13"></script>
   </body>
 </html>

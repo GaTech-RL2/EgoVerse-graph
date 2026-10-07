@@ -29,6 +29,8 @@ def dur_token(left_hold=True, right_hold=True):
 
 
 def decoder(**kwargs):
+    # Tempo acts on the whole token here; the execution cap is tested separately.
+    kwargs.setdefault("execute_percent", 100)
     return BimanualArcDecoder("e1_dur", 0.4, M, DT, H, **kwargs)
 
 

@@ -31,6 +31,8 @@ p { margin: 0; color: #9aa8b8; }
 .inference-control input { width: 58px; border: 1px solid #667587; border-radius: 4px; background: #0d1116; color: #dce3ed; padding: 3px 5px; }
 .inference-control input:invalid { border-color: #ec7977; }
 .inference-control input:disabled { opacity: .55; }
+.inference-toggle input[type=checkbox] { width: 16px; height: 16px; accent-color: #5aa9e6; }
+.inference-toggle input[data-dirty=true] { outline: 2px solid #e0b252; outline-offset: 1px; }
 .inference-apply { border-color: #80c9a0; min-width: 116px; }
 .inference-apply-status { flex-basis: 100%; text-align: right; color: #93a2b4; font-size: 12px; }
 .rollout-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; margin: 12px 0; }

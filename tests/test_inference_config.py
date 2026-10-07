@@ -119,16 +119,18 @@ def test_flow_artifact_inherits_training_solver_steps_when_no_override_exists():
         ("arcvel", "e1_profile"),
         ("arcdur", "e1_dur"),
         ("arclogdur", "e1_logdur"),
+        ("arcdurhyb", "e1_durhyb"),
     ],
 )
 def test_arc_artifact_decodes_native_tokens_to_fixed_cartesian_output(variant, layout):
-    artifact = build_inference_config(training_config(variant=variant, action_dim=16))
+    width = 18 if variant == "arcdurhyb" else 16
+    artifact = build_inference_config(training_config(variant=variant, action_dim=width))
 
     assert artifact["status"] == "ready"
     graph = artifact["inference_graph"]
     assert graph["output"]["shape"] == [100, 14]
     profile = graph["profiles"][f"flow_{variant}"]
-    assert profile["native_shape"] == [100, 16]
+    assert profile["native_shape"] == [100, width]
     assert profile["adapter"]["decoder"] == {
         "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
         "token_layout": layout,
@@ -136,7 +138,12 @@ def test_arc_artifact_decodes_native_tokens_to_fixed_cartesian_output(variant, l
         "resampled_vector_length": 100,
         "dt": 1 / 30,
         "action_horizon": 100,
+        "execute_percent": 50,
     }
+    # The waypoint cap is a decoder control; Repredict every stays in actions.
+    replan = profile["overrides"]["replan_every"]
+    assert replan["label"] == "Repredict every"
+    assert (replan["min"], replan["max"], replan["default"]) == (1, 100, 30)
 
 
 def test_diffusion_artifact_targets_the_diffusion_policy_not_flow():
@@ -180,6 +187,7 @@ def test_hybrid_cartesian_arc_artifact_decodes_per_waypoint_tokens():
         "action_horizon": 100,
         "rotation_distance_unit": 0.4188790204786391,
         "arc_chunking_mode": "joint_distance",
+        "execute_percent": 50,
     }
 
 
@@ -200,6 +208,76 @@ def test_hybrid_cartesian_arc_defaults_legacy_chunking_to_joint_distance():
         "flow_cartesian_per_waypoint"
     ]["adapter"]["decoder"]
     assert decoder["arc_chunking_mode"] == "joint_distance"
+
+
+@pytest.mark.parametrize(
+    ("velocity_mode", "layout", "native"),
+    [
+        ("per_waypoint", "wide", (100, 28)),
+        ("per_waypoint", "stacked", (200, 14)),
+        ("duration", "clock", (100, 18)),
+    ],
+)
+def test_multistream_cartesian_arc_executes_first_stream_percent(
+    velocity_mode, layout, native
+):
+    training = training_config(horizon=native[0], action_dim=native[1])
+    training.abc = {
+        "action_mode": "hybrid_arc_tokenizer_cartesian",
+        "action_horizon": 100,
+        "arc_distance": 0.7143,
+        "arc_rotation_distance": 2.0997,
+        "arc_waypoints": 100,
+        "arc_velocity_mode": velocity_mode,
+        "arc_chunking_mode": "multistream",
+    }
+    training.evaluator.control_dt = 1 / 30
+    training.evaluator.execute_fraction = 0.3
+    artifact = build_inference_config(training)
+
+    assert artifact["status"] == "ready"
+    profile = artifact["inference_graph"]["profiles"][f"flow_cartesian_{velocity_mode}"]
+    assert profile["adapter"]["decoder"] == {
+        "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
+        "velocity_mode": velocity_mode,
+        "velocity_layout": layout,
+        "min_distance_unit": 0.7143,
+        "rotation_distance_unit": 2.0997,
+        "resampled_vector_length": 100,
+        "dt": 1 / 30,
+        "action_horizon": 100,
+        "arc_chunking_mode": "multistream",
+        "execute_percent": 50,
+    }
+    replan = profile["overrides"]["replan_every"]
+    assert (replan["min"], replan["max"], replan["step"], replan["default"]) == (
+        1,
+        100,
+        1,
+        30,
+    )
+    assert replan["target"] == {
+        "kind": "policy_attribute",
+        "attribute_path": "replan_every",
+    }
+
+
+def test_wide_cartesian_arc_without_multistream_fails_closed():
+    training = training_config(horizon=100, action_dim=28)
+    training.abc = {
+        "action_mode": "hybrid_arc_tokenizer_cartesian",
+        "action_horizon": 100,
+        "arc_distance": 0.7143,
+        "arc_rotation_distance": 2.0997,
+        "arc_waypoints": 100,
+        "arc_velocity_mode": "per_waypoint",
+        "arc_chunking_mode": "race",
+    }
+    training.evaluator.control_dt = 1 / 30
+    artifact = build_inference_config(training)
+
+    assert artifact["status"] == "unsupported"
+    assert "multistream" in artifact["reason"]
 
 
 def test_legacy_mean_timing_and_noncartesian_models_fail_closed():

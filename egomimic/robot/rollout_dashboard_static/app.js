@@ -298,8 +298,28 @@ function updateInferenceApplyState() {
   }
 }
 
+// A declared 0/1 integer control (e.g. fastest-stream termination) is an on/off
+// switch; it still submits the same integer the profile validates.
+function isToggleControl(spec) {
+  return spec.min === 0 && spec.max === 1 && spec.step === 1;
+}
+
+function inputDraft(input) {
+  return input.type === 'checkbox' ? (input.checked ? '1' : '0') : input.value;
+}
+
+function showInferenceValue(input, value) {
+  if (input.type === 'checkbox') {
+    input.checked = value === '1';
+    input.defaultChecked = input.checked;
+  } else {
+    input.value = value;
+    input.defaultValue = value;
+  }
+}
+
 function editInferenceControl(name, input) {
-  inferenceDrafts[name] = input.value;
+  inferenceDrafts[name] = inputDraft(input);
   inferenceApplyFeedback = '';
   const parsed = parsedInferenceDraft(name);
   input.setCustomValidity(parsed.valid ? '' : 'Use a valid value in the declared range.');
@@ -358,13 +378,17 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
       label.append(document.createTextNode(spec.label));
       const input = document.createElement('input');
       input.id = `inference-${name}`;
-      input.type = 'number';
-      input.min = String(spec.min);
-      input.max = String(spec.max);
-      input.step = String(spec.step);
-      input.value = String(spec.value);
-      input.defaultValue = String(spec.value);
-      inferenceDrafts[name] = input.value;
+      if (isToggleControl(spec)) {
+        input.type = 'checkbox';
+        label.classList.add('inference-toggle');
+      } else {
+        input.type = 'number';
+        input.min = String(spec.min);
+        input.max = String(spec.max);
+        input.step = String(spec.step);
+      }
+      showInferenceValue(input, String(spec.value));
+      inferenceDrafts[name] = inputDraft(input);
       input.oninput = event => editInferenceControl(name, event.target);
       input.onkeydown = event => {
         if (event.key === 'Enter') {
@@ -410,8 +434,7 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
     const parsed = parsedInferenceDraft(name);
     if (input && !pendingInferenceApply && !parsed.dirty && document.activeElement !== input) {
       inferenceDrafts[name] = String(spec.value);
-      input.value = String(spec.value);
-      input.defaultValue = String(spec.value);
+      showInferenceValue(input, String(spec.value));
       input.dataset.dirty = 'false';
       input.setCustomValidity('');
     }

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -25,6 +26,12 @@ ACTION_TARGET = "egomimic.pipeline.stages_io.ActionTargetBuilder"
 FLOW_DENOISER = "egomimic.pipeline.stages_flow.FlowDenoiserStage"
 DIFFUSION_DENOISER = "egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage"
 FUSED_OBS_ENCODER = "egomimic.pipeline.stages_sampler.FusedObsEncoder"
+FIRST_STREAM_DECODER = "egomimic.robot.arc_decoder.FirstStreamArcDecoder"
+# ARC rollout defaults (Aidan, 2026-10-06): ARC-decoded flow models start at 20
+# Euler steps and execute the first 50 % of each prediction's waypoints. Both
+# remain dashboard controls; time models keep their recorded flow_inference_steps.
+ARC_FLOW_INFERENCE_STEPS = 20
+ARC_EXECUTE_PERCENT = 50
 
 
 def _as_config(config: DictConfig | Mapping[str, Any]) -> DictConfig:
@@ -223,12 +230,16 @@ def _decoder_contract(
         "arcdur": "e1_dur",
         "arclogdur": "e1_logdur",
         "arcdurhyb": "e1_durhyb",
+        "arcvelhyb": "e1_profhyb",
+        "arcdurtri": "e1_durtri",
+        "arcveltri": "e1_proftri",
     }
     if variant not in layouts:
         raise ValueError(f"Unknown E1 action variant {variant!r}")
     waypoints = _positive_int(OmegaConf.select(config, "e1.M", default=None), "e1.M")
-    # arcdurhyb carries four timing columns (translation + rotation, per arm).
-    width = 18 if variant == "arcdurhyb" else 16
+    # Hybrid tokens carry four timing columns (translation + rotation, per arm);
+    # tri tokens six (+ a gripper stream per arm).
+    width = {"arcdurhyb": 18, "arcvelhyb": 18, "arcdurtri": 20, "arcveltri": 20}.get(variant, 16)
     if (native_horizon, native_dim) != (waypoints, width):
         raise ValueError(
             f"{variant} requires native shape [{waypoints}, {width}], got "
@@ -241,6 +252,10 @@ def _decoder_contract(
     dt = OmegaConf.select(config, "inference_config.action_dt", default=None)
     if dt is None:
         dt = OmegaConf.select(config, "evaluator.dt", default=None)
+    if dt is None:
+        # Runs scored by OpenLoopSimEval (the slowpace366 family) record the
+        # control period as evaluator.control_dt, as the other ARC contracts read.
+        dt = OmegaConf.select(config, "evaluator.control_dt", default=None)
     dt = _positive_float(dt, "ARC action dt")
     return output_horizon, {
         "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
@@ -269,11 +284,17 @@ def _cartesian_arc_contract(
         OmegaConf.select(config, "abc.arc_waypoints", default=None),
         "abc.arc_waypoints",
     )
-    expected_rows = 2 * waypoints
-    if (native_horizon, native_dim) != (expected_rows, 14):
+    # The native shape says which velocity layout the model emits.
+    layout = {
+        (2 * waypoints, 14): "stacked",
+        (waypoints, 28): "wide",
+        (waypoints, 18): "clock",
+    }.get((native_horizon, native_dim))
+    if layout is None or (layout == "clock" and velocity_mode != "duration"):
         raise ValueError(
             f"Cartesian ARC {velocity_mode} requires native shape "
-            f"[{expected_rows}, 14], got [{native_horizon}, {native_dim}]"
+            f"[{2 * waypoints}, 14], [{waypoints}, 28] or (duration) "
+            f"[{waypoints}, 18], got [{native_horizon}, {native_dim}]"
         )
     output_horizon = _positive_int(
         OmegaConf.select(config, "abc.action_horizon", default=None),
@@ -287,10 +308,13 @@ def _cartesian_arc_contract(
     rotation_distance = None
     chunking_mode = None
     if action_mode == "hybrid_arc_tokenizer_cartesian":
-        if velocity_mode != "per_waypoint":
+        if velocity_mode != "per_waypoint" and OmegaConf.select(
+            config, "abc.arc_chunking_mode", default=None
+        ) != "multistream":
             raise ValueError(
                 "hybrid_arc_tokenizer_cartesian requires "
-                "abc.arc_velocity_mode=per_waypoint"
+                "abc.arc_velocity_mode=per_waypoint unless "
+                "abc.arc_chunking_mode=multistream"
             )
         rotation_distance = _positive_float(
             OmegaConf.select(config, "abc.arc_rotation_distance", default=None),
@@ -314,6 +338,25 @@ def _cartesian_arc_contract(
     if dt is None:
         dt = OmegaConf.select(config, "evaluator.dt", default=None)
     dt = _positive_float(dt, "ARC action dt")
+    if chunking_mode == "multistream":
+        # The M28 multistream contract: the M28 codec, the first N % of the
+        # waypoints, replan when the first moving stream ends.
+        return output_horizon, {
+            "_target_": FIRST_STREAM_DECODER,
+            "velocity_mode": velocity_mode,
+            "velocity_layout": layout,
+            "min_distance_unit": distance,
+            "rotation_distance_unit": rotation_distance,
+            "resampled_vector_length": waypoints,
+            "dt": dt,
+            "action_horizon": output_horizon,
+            "arc_chunking_mode": chunking_mode,
+        }
+    if layout != "stacked":
+        raise ValueError(
+            f"Cartesian ARC {layout} tokens are supported only with "
+            "abc.arc_chunking_mode=multistream"
+        )
     layout = f"cartesian_{velocity_mode}"
     return output_horizon, {
         "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
@@ -327,6 +370,19 @@ def _cartesian_arc_contract(
             "arc_chunking_mode": chunking_mode,
         } if rotation_distance is not None else {}),
     }
+
+
+def _execute_percent_default(config: DictConfig, waypoints: int) -> int:
+    """The decoder's starting waypoint cap: ARC_EXECUTE_PERCENT, rounded to a
+    whole two-waypoint prefix of M. (Until 2026-10-06 this followed the run's
+    evaluator.execute_fraction, 25 % for the slowpace366 runs; the rollout default
+    is now fixed so every ARC model starts from the same cap.)"""
+    del config  # the cap no longer depends on the training config
+    step = 100 // math.gcd(waypoints, 100)
+    minimum = step * max(1, math.ceil(2 * math.gcd(waypoints, 100) / waypoints))
+    if minimum > 100:
+        raise ValueError(f"M={waypoints} has no whole two-waypoint percent prefix")
+    return min(100, max(minimum, step * round(ARC_EXECUTE_PERCENT / step)))
 
 
 def _yam_arc_transform(config: DictConfig) -> dict[str, Any] | None:
@@ -494,6 +550,14 @@ def build_inference_config(
             "inference_config.replan_every",
         )
         replan_default = min(replan_default, output_horizon)
+        if decoder is not None:
+            # Every ARC decoder starts in fastest-stream termination; the
+            # dashboard toggles it and its waypoint cap at runtime.
+            decoder["execute_percent"] = _execute_percent_default(
+                config, decoder["resampled_vector_length"]
+            )
+            if stage_target == FLOW_DENOISER:
+                steps = min(ARC_FLOW_INFERENCE_STEPS, max_steps)
         match: dict[str, Any] = {"stage_target": stage_target}
         if declared_variant is not None and lab_transform is None:
             match["variant"] = variant

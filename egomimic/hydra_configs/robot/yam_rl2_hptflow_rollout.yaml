@@ -1,3 +1,5 @@
+6da24029 2026-10-01 13:30:26 -0400 Aidan Gao feat(robot): roll out hybrid arcdur (100,18) and lab wide/stacked tokens
+007104c2 2026-09-30 23:51:52 -0400 Aidan Gao feat(robot): naive replay speed-up for time-indexed policies
 # RL2 YAM HPT-Flow rollout profile. This file resolves only the immutable
 # checkpoint bundle staged on the station; --check-config opens no robot devices.
 robot:
@@ -100,13 +102,17 @@ preview:
 
 policy:
   kind: graph
-  # The environment variables let an operator intentionally select another
-  # immutable 70k checkpoint bundle trained with pretrained/ImageNet-normalized
-  # HPT ResNet stems; auto_inference_config derives its Flow rollout profile.
+  # Default: RL2 stationery slow-pace Aria37 cotrain, E1 arcdurhyb (100, 18),
+  # final 240k step. Its four streams (translation and rotation per arm) run on
+  # their own clocks. ARC models start in fastest-stream termination (execute
+  # the first N % of the waypoints, repredict when the first moving stream
+  # reaches its cap); the dashboard toggles back to a fixed Repredict every.
+  # The environment variables let an operator select another immutable bundle (e.g. the arcdur/arcvel/time
+  # twins in the same directory); auto_inference_config derives its profile.
   # Override all three paths together when selecting another immutable bundle.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.resolved-config.yaml}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.ckpt}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/stationery_organize_elmo_val005_aligned_step50000/lambda_organize_baseline_elmo_val005_gb128_2gpu_20260928_step70000.norm_stats.json}
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k__epoch-2399-step-00240000__sha256-249d15917ef96836.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/norm_stats.json}
   device: cuda:0
   use_ema: false
   # These are the only config-controlled targets allowed during local graph
@@ -235,7 +241,7 @@ policy:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: 20
             target:
               kind: stage_attribute
               attribute_path: num_inference_steps
@@ -258,6 +264,7 @@ policy:
             resampled_vector_length: 100
             dt: 0.03333333333333333
             action_horizon: 100
+            execute_percent: 50
       flow_arcdur:
         match:
           stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
@@ -271,7 +278,7 @@ policy:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: 20
             target:
               kind: stage_attribute
               attribute_path: num_inference_steps
@@ -294,6 +301,7 @@ policy:
             resampled_vector_length: 100
             dt: 0.03333333333333333
             action_horizon: 100
+            execute_percent: 50
       # Hybrid arcdur: per-arm translation and rotation clocks, (100, 18).
       # The Elmo+Aidan lab wide (100, 28) / stacked (200, 14) tokens carry
       # no e1.variant; auto_inference_config derives their lab_pw_* decoder
@@ -311,7 +319,7 @@ policy:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: 20
             target:
               kind: stage_attribute
               attribute_path: num_inference_steps
@@ -334,6 +342,7 @@ policy:
             resampled_vector_length: 100
             dt: 0.03333333333333333
             action_horizon: 100
+            execute_percent: 50
       diffusion_time:
         match:
           stage_target: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage

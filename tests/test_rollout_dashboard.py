@@ -624,9 +624,11 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "shape": [100, 14],
     }
     profiles = inference["profiles"]
-    assert all(
-        profiles[name]["overrides"]["inference_steps"]["default"] == 10
-        for name in ("flow_time", "flow_arcvel", "flow_arcdur")
+    assert profiles["flow_time"]["overrides"]["inference_steps"]["default"] == 10
+    assert all(  # ARC models start at 20 Euler steps and a 50 % waypoint cap
+        profiles[name]["overrides"]["inference_steps"]["default"] == 20
+        and profiles[name]["adapter"]["decoder"]["execute_percent"] == 50
+        for name in ("flow_arcvel", "flow_arcdur", "flow_arcdurhyb")
     )
     assert profiles["diffusion_time"]["overrides"]["inference_steps"]["default"] == 100
     assert all(

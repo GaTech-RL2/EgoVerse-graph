@@ -2,6 +2,7 @@
 
 import copy
 import json
+import math
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -308,6 +309,40 @@ def arc_speed_controls(decoder):
         control = _InferenceControlBinding(
             name=name, label=label, description=description, minimum=low,
             maximum=high, step=5, value=getattr(decoder, attribute),
+            target_kind="decoder_attribute", attribute_path=attribute,
+            owner=decoder, attribute=attribute,
+        )
+        control.validate(control.value)
+        controls.append(control)
+    return tuple(controls)
+
+
+def chunk_termination_controls(decoder):
+    """Dashboard toggle between multistream fastest-stream chunk termination and
+    the original fixed repredict, plus the waypoint cap the former uses.
+
+    Only ARC decoders expose ``first_stream``; other policies get no controls.
+    Both apply atomically at the next replan, like every inference override.
+    """
+    if not hasattr(decoder, "first_stream"):
+        return ()
+    step = 100 // math.gcd(decoder.M, 100)
+    minimum = step * max(1, math.ceil(2 * math.gcd(decoder.M, 100) / decoder.M))
+    specs = (
+        ("multistream_fastest_stream", "Fastest-stream termination", "first_stream", 0, 1, 1,
+         "On: cap each prediction at the first N % of its waypoints, detokenize, and "
+         "repredict when the fastest moving stream reaches its cap. Off: the original "
+         "method -- decode the whole prediction and execute Repredict every actions."),
+        ("execute_waypoint_percent", "Execute first % of waypoints", "execute_percent",
+         minimum, 100, step,
+         "Fastest-stream termination only: the waypoint cap, as a percent of the "
+         "predicted waypoints. Ignored while that mode is off."),
+    )
+    controls = []
+    for name, label, attribute, low, high, increment, description in specs:
+        control = _InferenceControlBinding(
+            name=name, label=label, description=description, minimum=low,
+            maximum=high, step=increment, value=getattr(decoder, attribute),
             target_kind="decoder_attribute", attribute_path=attribute,
             owner=decoder, attribute=attribute,
         )
@@ -892,9 +927,13 @@ class GraphRobotPolicy:
     def execution_plan(self, prediction):
         """Choose the executable prefix; the full prediction remains visualizable."""
         actions = np.asarray(prediction)
+        stats = getattr(getattr(self.adapter, "decoder", None), "last_stats", None) or {}
+        if stats.get("replan_steps") is not None:
+            # Fastest-stream termination: replan where the first moving stream
+            # reached its cap. The decoder sets this only while that mode is on.
+            return actions[: min(stats["replan_steps"], len(actions))]
         if self._replan_every is None:
             return actions
-        stats = getattr(getattr(self.adapter, "decoder", None), "last_stats", None) or {}
         valid = stats.get("valid_steps")
         if valid is not None and valid < self._replan_every and stats.get("speed") != 1.0:
             print(
@@ -1051,7 +1090,11 @@ def load_graph_policy(config):
         horizon, width = normalizer.key_shape(adapter.action_key, adapter.embodiment_id)
         if width == 14:
             adapter.decoder = TimeChunkRetimer(int(horizon))
-    inference_controls = (*inference_controls, *arc_speed_controls(adapter.decoder))
+    inference_controls = (
+        *inference_controls,
+        *chunk_termination_controls(adapter.decoder),
+        *arc_speed_controls(adapter.decoder),
+    )
     if adapter.roundtrip_arc is not None:
         print(
             "TEMPORARY ARC round trip enabled: baseline predictions are "

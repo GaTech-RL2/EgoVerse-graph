@@ -191,9 +191,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -369,6 +369,23 @@ class SimpleTransformer(nn.Module):
         elif isinstance(m, (nn.LayerNorm)):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
+
+    def resume_from_block(self, block_outputs, start_block: int, *, detach=True):
+        """Resume a captured sequence at an explicit block boundary.
+
+        Detaching isolates a downstream objective without freezing the same
+        representation for a separately configured alignment objective.
+        """
+        if type(start_block) is not int or not 1 <= start_block <= len(self.blocks):
+            raise ValueError("start_block must be in [1, number of blocks]")
+        tokens = block_outputs[start_block - 1]
+        if detach:
+            tokens = tokens.detach()
+        for block in self.blocks[start_block:]:
+            tokens = block(tokens, attn_mask=None)
+        if self.post_transformer_layer is not None:
+            tokens = self.post_transformer_layer(tokens)
+        return tokens
 
 
 # --------------------------------------------------------

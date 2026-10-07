@@ -1,0 +1,11 @@
+defaults:
+  - viz@viz_func: keypoints
+  - _self_
+_target_: egomimic.eval.keypoint_eval.KeypointEval
+source_fps: 30
+revert_transforms:
+  human_bimanual:
+    _target_: builtins.list
+viz_every_n_epochs: 1
+viz_max_batches: 10
+rkl_samples: 1

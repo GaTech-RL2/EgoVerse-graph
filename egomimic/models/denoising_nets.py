@@ -523,6 +523,7 @@ class CrossTransformer(nn.Module):
         mlp_layers,
         mlp_ratio,
         time_conditioning="concat",
+        allow_input_bottleneck=False,
         **kwargs,
     ):
         super().__init__()
@@ -548,11 +549,12 @@ class CrossTransformer(nn.Module):
         action_embedding_dim = (
             hidden_dim // 2 if time_conditioning == "concat" else hidden_dim
         )
-        if action_embedding_dim < act_dim:
+        if action_embedding_dim < act_dim and not allow_input_bottleneck:
             raise ValueError(
                 "Rank-deficient denoiser input: action embedding width "
                 f"{action_embedding_dim} is smaller than noisy action dimension "
-                f"{act_dim}. Increase hidden_dim or use additive time conditioning."
+                f"{act_dim}. Increase hidden_dim or use additive time conditioning. "
+                "A deliberately retained bottleneck requires allow_input_bottleneck=true."
             )
         self.proj_u = nn.Linear(act_dim, action_embedding_dim)
         self.proj_d = nn.Linear(hidden_dim, act_dim)

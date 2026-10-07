@@ -1,0 +1,11 @@
+defaults:
+  - eval_hpt
+  - _self_
+revert_transforms:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: false

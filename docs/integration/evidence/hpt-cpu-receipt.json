@@ -1,0 +1,12 @@
+{
+  "tree": "ff2f6fbfff97bb99084c00acd76f1b8f944f6680",
+  "snapshot": "75b51796beea4f94d74271920f05009376006260",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-hpt-validation-20260924",
+  "status": "passed",
+  "tests": 1369,
+  "warnings": 18,
+  "seconds": 142.41,
+  "log_sha256": "ab0c9d075213f50ad32411c3090a15c9e7acbaf4b51c7aecaf72f00c11138bd2",
+  "command": "pytest tests -q",
+  "scope": "isolated HPT layer; real-weight GPU and assembled destination gates remain open"
+}

@@ -1,0 +1,38 @@
+# Retained selection and split from EgoVerse ec5c903c; graph data adapter.
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        stride: 3
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+    filters: null
+    mode: train
+    valid_ratio: 0.05
+valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters: ${data.train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10
+_recursive_: false
+source_fps: 30.0

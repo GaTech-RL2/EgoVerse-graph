@@ -89,8 +89,6 @@ optimizer:
   lr: 0.0003
   weight_decay: 0.0001
 scheduler: null
-
-# Inference semantics belong to this model; station calibration is separate.
 inference_contracts:
   time:
     input:
@@ -141,7 +139,10 @@ inference_contracts:
         - ${hpt.action_dim}
         adapter:
           _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
-          decoder: null
+          decoder:
+            _target_: egomimic.robot.arc_decoder.TimeChunkRetimer
+            action_horizon: ${hpt.action_horizon}
+            dt: 0.03333333333333333
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -168,11 +169,12 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
   arcmean:
     status: unsupported
-    reason: Chunk-mean ARC timing cannot reconstruct dwell or interval durations.
-      Retain this recipe for diagnostics; use a temporally resolved representation
-      for rollout.
+    reason: Chunk-mean ARC timing cannot reconstruct dwell or interval durations. Retain this recipe for diagnostics; use
+      a temporally resolved representation for rollout.
   arcvel:
     input:
       constants:
@@ -234,6 +236,8 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -244,7 +248,7 @@ inference_contracts:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: ${model.arc_sampling_steps}
             target:
               kind: stage_attribute
               stage_id: sampler
@@ -260,6 +264,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
   arcdur:
     input:
       constants:
@@ -321,6 +329,8 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -331,7 +341,7 @@ inference_contracts:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: ${model.arc_sampling_steps}
             target:
               kind: stage_attribute
               stage_id: sampler
@@ -347,6 +357,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
   arclogdur:
     input:
       constants:
@@ -408,6 +422,8 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -418,7 +434,7 @@ inference_contracts:
             min: 1
             max: 100
             step: 1
-            default: 10
+            default: ${model.arc_sampling_steps}
             target:
               kind: stage_attribute
               stage_id: sampler
@@ -434,9 +450,399 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  arcdurhyb:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_stream_interval_duration
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcdurhyb
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        layout: e1_durhyb
+        timing_convention: interval_rows_then_start_delay
+        rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_durhyb
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  arcvelhyb:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_stream_interval_speed
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcvelhyb
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        layout: e1_profhyb
+        timing_convention: interval_rows_then_start_delay
+        rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_profhyb
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  arcdurtri:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_stream_interval_duration
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcdurtri
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        layout: e1_durtri
+        timing_convention: interval_rows_then_start_delay
+        rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_durtri
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  arcveltri:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${hpt.action_horizon}
+      - ${hpt.action_dim}
+      timing:
+        kind: per_stream_interval_speed
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${e1.time_rows}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+      tokenizer:
+        variant: arcveltri
+        distance: ${e1.D}
+        waypoints: ${e1.M}
+        velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
+        progress_smooth_hz: ${e1.progress_smooth_hz}
+        layout: e1_proftri
+        timing_convention: interval_rows_then_start_delay
+        rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${hpt.action_horizon}
+        - ${hpt.action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: e1_proftri
+            min_distance_unit: ${e1.D}
+            resampled_vector_length: ${e1.M}
+            dt: 0.03333333333333333
+            action_horizon: ${e1.time_rows}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+            rotation_distance_unit: ${oc.select:e1.rotation_distance_unit,6.283185307179586}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${e1.time_rows}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          arc_hold_speed_percent: ${model.rollout_controls.hold_speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
 inference: ${model.inference_contracts.${e1.variant}}
-
-# Data and deployment routing are declared by the model and experiment.
 source_identities:
   human: 3
   yam: 7
@@ -484,3 +890,7 @@ data_contracts:
           embodiment: yam
         source_fps: 30.0
 data_requirements: ${model.data_contracts.${e1.policy_domain}}
+defaults:
+- /model_contract/arc_rollout_controls@_here_
+- _self_
+arc_sampling_steps: ${model.arc_rollout.flow_steps}

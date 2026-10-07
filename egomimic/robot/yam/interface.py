@@ -4,6 +4,7 @@ import copy
 import inspect
 import threading
 import time
+from functools import partial
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -68,6 +69,8 @@ class YamInterface:
             raise ValueError(
                 "Home, frequency, and gripper control values must be positive"
             )
+        if self.gripper_force_limit > 50:
+            raise ValueError("Gripper force limit must be in (0, 50] N")
         # Keep an immutable local copy so a disconnected RealSense pipeline can
         # be rebuilt without reopening CAN drivers or changing station settings.
         self._camera_config = copy.deepcopy(cameras)
@@ -102,11 +105,43 @@ class YamInterface:
                     enable_auto_recovery=enable_auto_recovery,
                 )
                 # Current i2rt pins the 50 N limiter in get_yam_robot. Pass the
-                # setting when upstream exposes it; otherwise verify the active
-                # value after construction instead of mutating private state.
+                # setting when upstream exposes it; otherwise use its setter or
+                # legacy limiter and verify the active value after registration.
                 if "limit_gripper_force" in inspect.signature(get_yam_robot).parameters:
                     kwargs["limit_gripper_force"] = self.gripper_force_limit
-                return get_yam_robot(**kwargs)
+                driver = get_yam_robot(**kwargs)
+                try:
+                    if (
+                        "limit_gripper_force"
+                        not in inspect.signature(get_yam_robot).parameters
+                    ):
+                        setter = getattr(driver, "set_gripper_force_limit", None)
+                        if self.gripper_force_limit != 50.0:
+                            if callable(setter):
+                                setter(self.gripper_force_limit)
+                            else:
+                                limiter = getattr(
+                                    driver, "_gripper_force_limiter", None
+                                )
+                                if limiter is None:
+                                    raise RuntimeError(
+                                        "Installed i2rt driver cannot set gripper force"
+                                    )
+                                limiter.max_force = self.gripper_force_limit
+                                limiter.gripper_force_torque_map = partial(
+                                    limiter._gripper_force_torque_map,
+                                    gripper_force=self.gripper_force_limit,
+                                )
+                                driver._limit_gripper_force = self.gripper_force_limit
+                except BaseException:
+                    # The caller registers only successfully configured drivers.
+                    # Close this one on failure or cancellation before it can
+                    # become unreachable to the caller's normal cleanup.
+                    close = getattr(driver, "close", None)
+                    if callable(close):
+                        close()
+                    raise
+                return driver
 
         solver_factory = solver_factory or MujocoArmKinematics
         try:
@@ -163,6 +198,83 @@ class YamInterface:
             f"YAM startup: {arm} gripper Kp={kp:g}, Kd={kd:g}, "
             f"force limit={force_limit:g} N"
         )
+
+    def set_gripper_force_limit(
+        self, force_limit: float, arm: str | None = None
+    ) -> dict[str, float]:
+        """Update one or all follower gripper limits during teleoperation."""
+        force_limit = float(force_limit)
+        if not np.isfinite(force_limit) or force_limit <= 0 or force_limit > 50:
+            raise ValueError("Gripper force limit must be in (0, 50] N")
+        arms = self.arms if arm is None else [arm]
+        if any(selected not in self.controller for selected in arms):
+            raise ValueError("Unknown Yam arm")
+        # Resolve capabilities and previous values for every arm before any write.
+        updates = []
+        for selected in arms:
+            driver = self.controller[selected]
+            get_info = getattr(driver, "get_robot_info", None)
+            if not callable(get_info):
+                raise RuntimeError(f"YAM {selected} driver cannot report gripper force")
+            previous = float(get_info().get("limit_gripper_effort", np.nan))
+            if not np.isfinite(previous) or not 0 < previous <= 50:
+                raise RuntimeError(
+                    f"YAM {selected} driver reported an invalid gripper force"
+                )
+            setter = getattr(driver, "set_gripper_force_limit", None)
+            if not callable(setter):
+                # Compatibility path for i2rt releases predating the public setter.
+                limiter = getattr(driver, "_gripper_force_limiter", None)
+                if limiter is None or not callable(
+                    getattr(limiter, "_gripper_force_torque_map", None)
+                ):
+                    raise RuntimeError(
+                        f"YAM {selected} driver cannot change gripper force"
+                    )
+
+                def setter(value, limiter=limiter, driver=driver):
+                    limiter.max_force = value
+                    limiter.gripper_force_torque_map = partial(
+                        limiter._gripper_force_torque_map, gripper_force=value
+                    )
+                    driver._limit_gripper_force = value
+
+            updates.append((selected, driver, setter, previous))
+        applied = []
+        try:
+            for selected, driver, setter, previous in updates:
+                applied.append((selected, driver, setter, previous))
+                setter(force_limit)
+            active = {
+                selected: float(driver.get_robot_info()["limit_gripper_effort"])
+                for selected, driver, _, _ in updates
+            }
+            if any(not np.isclose(value, force_limit) for value in active.values()):
+                raise RuntimeError(
+                    "YAM gripper force update did not match the requested limit"
+                )
+        except BaseException as error:
+            # Cancellation between arms must restore settings just like a
+            # rejected setter. Include the failing setter's possible mutation.
+            rollback_errors = []
+            for selected, driver, setter, previous in reversed(applied):
+                try:
+                    setter(previous)
+                    restored = float(driver.get_robot_info()["limit_gripper_effort"])
+                    if not np.isfinite(restored) or not np.isclose(restored, previous):
+                        raise RuntimeError(
+                            f"active limit {restored:g} N differs from prior {previous:g} N"
+                        )
+                except BaseException as rollback_error:
+                    rollback_errors.append(f"{selected}: {rollback_error}")
+            if rollback_errors:
+                raise RuntimeError(
+                    "YAM gripper force rollback failed: " + "; ".join(rollback_errors)
+                ) from error
+            raise
+        if arm is None:
+            self.gripper_force_limit = force_limit
+        return active
 
     def get_joints(self, arm):
         return joint_vector(self.controller[arm].get_joint_pos())

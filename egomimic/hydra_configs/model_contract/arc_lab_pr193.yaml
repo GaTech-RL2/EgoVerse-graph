@@ -1,0 +1,200 @@
+# @package model
+# Explicit PR193 lab layouts. A model leaf declares native rows/layout and exact preprocessing requirements.
+defaults:
+- /model_contract/arc_rollout_controls@_here_
+- _self_
+lab_arc:
+  velocity_layout: ???
+  waypoints: 100
+  distance: 0.4
+  token_rows: ???
+  output_horizon: 100
+  dt: 0.03333333333333333
+lab_arc_contracts:
+  wide:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape: &id001
+      - ${model.lab_arc.waypoints}
+      - 28
+      timing:
+        kind: per_waypoint_progress
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${model.lab_arc.output_horizon}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: ${model.lab_arc.dt}
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape: *id001
+      tokenizer:
+        action_mode: arc_tokenizer_cartesian
+        velocity_mode: per_waypoint
+        velocity_layout: wide
+        min_distance_unit: ${model.lab_arc.distance}
+        resampled_vector_length: ${model.lab_arc.waypoints}
+        rotation_distance_unit: null
+        codec_version: pr193_per_waypoint
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id001
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: lab_pw_wide
+            min_distance_unit: ${model.lab_arc.distance}
+            resampled_vector_length: ${model.lab_arc.waypoints}
+            dt: ${model.lab_arc.dt}
+            action_horizon: ${model.lab_arc.output_horizon}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${model.lab_arc.output_horizon}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+  stacked:
+    input:
+      constants:
+        embodiment: ${model.source_identities.${e1.policy_domain}}
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+    native_output:
+      frame: eef_frame
+      key: pred_action
+      representation: normalized_action
+      shape: &id002
+      - ${model.lab_arc.token_rows}
+      - 14
+      timing:
+        kind: per_waypoint_progress
+        temporally_resolved: true
+    output:
+      frame: eef_frame
+      key: actions
+      representation: cartesian
+      shape:
+      - ${model.lab_arc.output_horizon}
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: ${model.lab_arc.dt}
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape: *id002
+      tokenizer:
+        action_mode: arc_tokenizer_cartesian
+        velocity_mode: per_waypoint
+        velocity_layout: stacked
+        min_distance_unit: ${model.lab_arc.distance}
+        resampled_vector_length: ${model.lab_arc.waypoints}
+        rotation_distance_unit: null
+        codec_version: pr193_per_waypoint
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: *id002
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+            token_layout: lab_pw_stacked
+            min_distance_unit: ${model.lab_arc.distance}
+            resampled_vector_length: ${model.lab_arc.waypoints}
+            dt: ${model.lab_arc.dt}
+            action_horizon: ${model.lab_arc.output_horizon}
+            first_stream: 1
+            execute_percent: ${model.arc_rollout.execute_percent.default}
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: ${model.arc_sampling_steps}
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: ${model.sampling_attribute}
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: ${model.lab_arc.output_horizon}
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+          arc_speed_percent: ${model.rollout_controls.speed}
+          multistream_fastest_stream: ${model.rollout_controls.first_stream}
+          execute_waypoint_percent: ${model.rollout_controls.execute_percent}
+inference: ${model.lab_arc_contracts.${model.lab_arc.velocity_layout}}

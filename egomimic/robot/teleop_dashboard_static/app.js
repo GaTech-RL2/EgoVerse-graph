@@ -18,6 +18,12 @@ function send(key) {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({key}));
 }
 
+function sendGripperForce(arm, value) {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({gripper_force: {arm, value: Number(value)}}));
+  }
+}
+
 function reconnectCameras() {
   if (socket?.readyState !== WebSocket.OPEN) {
     $('status').textContent = 'Dashboard is not connected.';
@@ -33,6 +39,24 @@ function configure(message) {
   cameras.clear();
   $('cameras').replaceChildren();
   $('controls').replaceChildren();
+  const gripperRoot = $('gripper-controls');
+  gripperRoot.replaceChildren();
+  const forceLimits = message.gripper_force_limits ?? {};
+  for (const [arm, value] of Object.entries(forceLimits)) {
+    const label = document.createElement('label');
+    label.className = 'gripper-control';
+    const name = document.createElement('span');
+    name.textContent = `${arm} arm`;
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '1'; slider.max = '50'; slider.step = '1'; slider.value = value;
+    const readout = document.createElement('output');
+    readout.textContent = `${value} N`;
+    slider.oninput = () => { readout.textContent = `${slider.value} N`; };
+    slider.onchange = () => sendGripperForce(arm, slider.value);
+    label.append(name, slider, readout);
+    gripperRoot.append(label);
+  }
+  $('gripper-settings').hidden = Object.keys(forceLimits).length === 0;
   for (const name of message.cameras) {
     const card = document.createElement('article');
     card.className = 'camera waiting';
@@ -131,6 +155,14 @@ function frame(message) {
     || message.status.startsWith('Reconnecting RGB');
   $('reconnect-cameras').disabled = recovering;
   updateEpisode(message);
+  for (const [arm, value] of Object.entries(message.gripper_force_limits ?? {})) {
+    const slider = [...document.querySelectorAll('.gripper-control')].find(el => el.firstChild?.textContent === `${arm} arm`)
+      ?.querySelector('input');
+    if (slider && document.activeElement !== slider) {
+      slider.value = value;
+      slider.nextElementSibling.textContent = `${value} N`;
+    }
+  }
   for (const [name, tile] of cameras) {
     const image = message.images[name];
     if (image) {

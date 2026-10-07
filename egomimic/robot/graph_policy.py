@@ -19,6 +19,10 @@ from egomimic.pipeline.inference_config import (
     validate_input_constants,
 )
 from egomimic.pipeline.inference_controls import (
+    apply_control_values,
+    bind_policy_controls,
+)
+from egomimic.pipeline.inference_controls import (
     configure_profile_controls as configure_profile_controls,
 )
 from egomimic.pipeline.inference_controls import (
@@ -62,6 +66,23 @@ def configure_adapter_for_training(adapter_config, training, inference_profiles=
         else:
             result[key] = copy.deepcopy(value)
     return result
+
+
+def validate_adapter_inference_contract(adapter, inference_graph):
+    """Check a declared decoder boundary before loading checkpoint weights."""
+    native_shape = inference_graph.get("native_output", {}).get("shape")
+    canonical_shape = inference_graph.get("output", {}).get("shape")
+    # Legacy direct policy construction may omit a complete model artifact.
+    # load_graph_policy always supplies both validated shape declarations.
+    if native_shape is None or canonical_shape is None:
+        return
+    validate = getattr(adapter, "validate_inference_contract", None)
+    if not callable(validate):
+        validate = getattr(
+            getattr(adapter, "decoder", None), "validate_inference_contract", None
+        )
+    if callable(validate):
+        validate(native_shape, canonical_shape)
 
 
 def load_normalizer(path):
@@ -184,6 +205,11 @@ class CartesianGraphAdapter:
     def input_constants(self):
         return {"embodiment": self.embodiment_id}
 
+    def validate_inference_contract(self, native_shape, canonical_shape):
+        validate = getattr(self.decoder, "validate_inference_contract", None)
+        if callable(validate):
+            validate(native_shape, canonical_shape)
+
     def observation(self, obs):
         proprio = []
         for arm, offset in ARM_OFFSET.items():
@@ -281,6 +307,18 @@ class CartesianGraphAdapter:
 
 class GraphRobotPolicy:
     action_type = "cartesian"
+    control_paths = frozenset(
+        {
+            "replan_every",
+            "max_valid_samples",
+            "adapter.decoder.speed_percent",
+            "adapter.decoder.hold_speed_percent",
+            "adapter.decoder.first_stream",
+            "adapter.decoder.execute_percent",
+            "adapter.decoder.decoders.1.speed_percent",
+            "adapter.decoder.decoders.1.hold_speed_percent",
+        }
+    )
 
     def __init__(
         self,
@@ -339,22 +377,17 @@ class GraphRobotPolicy:
             raise ValueError("Inference graph output shape must be [H, D]")
         else:
             self.output_shape = tuple(output_shape)
-        inference_controls = tuple(inference_controls)
+        self.replan_every = None
+        self.native_output = dict(inference_graph.get("native_output", {}))
+        validate_adapter_inference_contract(adapter, inference_graph)
+        inference_controls = bind_policy_controls(
+            self, tuple(inference_controls), allowed_paths=self.control_paths
+        )
         self._inference_controls = {
             control.name: control for control in inference_controls
         }
         if len(self._inference_controls) != len(inference_controls):
             raise ValueError("Inference override names must be unique")
-        self.replan_every = None
-        self.native_output = dict(inference_graph.get("native_output", {}))
-        for control in self._inference_controls.values():
-            if control.target_kind == "policy_attribute":
-                # This robot policy explicitly exposes only these runtime settings.
-                if control.attribute_path not in {"replan_every", "max_valid_samples"}:
-                    raise ValueError(
-                        f"Robot policy does not expose {control.attribute_path!r}"
-                    )
-                setattr(self, control.attribute_path, control.value)
         embodiment = adapter.embodiment_id
         schema = inference_graph.get("compatibility", {}).get(
             "normalizer_schema", {"action_key": adapter.action_key}
@@ -377,30 +410,32 @@ class GraphRobotPolicy:
 
     def apply_inference_overrides(self, overrides):
         """Atomically validate and apply explicitly exposed inference values."""
-        if not isinstance(overrides, Mapping) or not overrides:
-            raise ValueError("Inference overrides must be a nonempty mapping")
-        unknown = set(overrides) - set(self._inference_controls)
-        if unknown:
-            raise ValueError(
-                "Inference override is not exposed by this model profile: "
-                + ", ".join(sorted(unknown))
-            )
-        validated = {
-            name: self._inference_controls[name].validate(value)
-            for name, value in overrides.items()
-        }
-        for name, value in validated.items():
-            control = self._inference_controls[name]
-            if control.target_kind == "stage_attribute":
-                setattr(control.owner, control.attribute, value)
-            else:
-                setattr(self, control.attribute_path, value)
-            control.value = value
+        apply_control_values(tuple(self._inference_controls.values()), overrides)
         return self.inference_controls()
+
+    def validate_inference_control(self, attribute, value):
+        """Enforce the policy's runtime limits independently of UI declarations."""
+        if attribute == "max_valid_samples" and (
+            type(value) is not int or not 1 <= value <= 16
+        ):
+            raise ValueError("max_valid_samples must be an integer in [1, 16]")
+        if attribute == "replan_every" and (type(value) is not int or value < 1):
+            raise ValueError("replan_every must be a positive integer")
 
     def execution_plan(self, prediction):
         """Choose the executable prefix; the full prediction remains visualizable."""
         actions = np.asarray(prediction)
+        execution_steps = getattr(
+            getattr(self.adapter, "decoder", None), "execution_steps", None
+        )
+        if callable(execution_steps):
+            count = execution_steps()
+            if count is not None:
+                if type(count) is not int or not 1 <= count <= len(actions):
+                    raise ValueError(
+                        "Decoder execution boundary is outside the predicted plan"
+                    )
+                return actions[:count]
         if self.replan_every is None:
             return actions
         return actions[: min(self.replan_every, len(actions))]
@@ -484,6 +519,7 @@ def load_graph_policy(config):
         config["adapter"], training, inference_profiles
     )
     adapter = instantiate(adapter_config)
+    validate_adapter_inference_contract(adapter, inference_graph)
     validate_input_constants(inference_graph, adapter.input_constants())
     supplied_keys = {
         adapter.proprio_key,

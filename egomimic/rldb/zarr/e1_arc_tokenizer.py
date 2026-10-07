@@ -106,7 +106,14 @@ E1_ARCVEL_DIM = 16
 E1_ARCDURHYB_DIM = (
     18  # also profhyb: [14 canonical | translation v L, R | rotation omega L, R]
 )
-HYBRID_MODES = ("durhyb", "profhyb")
+HYBRID_MODES = ("durhyb", "profhyb", "durtri", "proftri")
+TRI_MODES = ("durtri", "proftri")
+SPEED_MODES = ("profhyb", "proftri")
+E1_HYBRID_DIM = E1_ARCDURHYB_DIM
+E1_TRI_DIM = 20
+HYBRID_ROT_EPS = 1e-6
+GRIPPER_HOLD_EPSILON = 1e-3
+TRI_GRIPPER_MOVE_RANGE = 0.05
 # Rotation budget of the hybrid token: a full turn, i.e. the rotation stream spans the whole source window.
 # The lab hybrid's 24 deg (R24deg) fits a chunk that ENDS when a budget is spent; the E1 YAM window is a fixed
 # 100 frames, and on rl2 stationery the wrist turns more than 24 deg in 63 % of arm-windows (median 52 deg,
@@ -117,7 +124,8 @@ DEFAULT_ROTATION_DISTANCE_UNIT = 2 * np.pi
 
 def _dur_col_to_speed(col: np.ndarray, seg: np.ndarray, eps: float) -> np.ndarray:
     """durhyb timing column -> profhyb: rows 0..M-2 become segment length / duration; row M-1 (start
-    delay) is kept. A hold (stream length under ``eps``) is all zeros: nothing to time."""
+    delay) is kept. A hold (stream length under ``eps``) is all zeros: nothing to time.
+    """
     out = np.zeros_like(col)
     if float(seg.sum()) < eps:
         return out
@@ -354,6 +362,49 @@ def durations_to_clock_abs(
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
+def gripper_arc_length(grip: np.ndarray) -> np.ndarray:
+    """Cumulative gripper travel (sum of |d grip|) along a (T,) or (T, 1) track."""
+    g = np.asarray(grip, dtype=np.float64).reshape(-1)
+    return np.concatenate(([0.0], np.cumsum(np.abs(np.diff(g)))))
+
+
+def speed_columns_to_durations(
+    arc: np.ndarray, *, tri: bool, hold_time: float, eps: float = 1e-6
+) -> np.ndarray:
+    """A profhyb / proftri token as the durhyb / durtri token it encodes.
+
+    Done on the WHOLE token before any prefix is cut, so a held stream keeps
+    its share of ``hold_time`` (training decodes the whole token the same way:
+    ``hold_time = dt * (horizon - 1)``)."""
+    arc = np.array(arc, dtype=np.float64)
+    for k, (xyz_off, ypr_off, grip_off, _) in enumerate(ARM_LAYOUT):
+        arc[:, 14 + k] = _speed_col_to_dur(
+            arc[:, 14 + k],
+            np.diff(cumulative_arc_length(arc[:, xyz_off : xyz_off + 3])),
+            eps,
+            hold_time,
+        )
+        arc[:, 16 + k] = _speed_col_to_dur(
+            arc[:, 16 + k],
+            np.diff(rotation_arc_length(arc[:, ypr_off : ypr_off + 3])),
+            eps,
+            hold_time,
+        )
+        if tri:
+            arc[:, 18 + k] = _speed_col_to_dur(
+                arc[:, 18 + k],
+                np.diff(gripper_arc_length(arc[:, grip_off])),
+                GRIPPER_HOLD_EPSILON,
+                hold_time,
+            )
+    return arc
+
+
+def _geodesic_total(ypr: np.ndarray) -> float:
+    rot = R.from_euler("ZYX", ypr)
+    return float(np.sum((rot[:-1].inv() * rot[1:]).magnitude()))
+
+
 class CopyKeyRows(Transform):
     """``batch[dst] = batch[src][:n_rows]`` — carries the un-tokenized time chunk
     (``actions_time``) alongside the model target so the E1 evaluator can score
@@ -380,6 +431,13 @@ class CopyKeyRows(Transform):
 
 
 class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
+    """Train/decode the E1 hybrid contracts; replay tri tokens explicitly.
+
+    ``durtri`` and ``proftri`` are compatibility decoders only. Their external
+    training codec is not included, so transform() deliberately rejects them.
+    Existing durhyb/profhyb tokenization keeps its source-window semantics.
+    """
+
     def __init__(
         self,
         *,
@@ -420,7 +478,15 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     @property
     def token_dim(self) -> int:
-        return E1_ARCDURHYB_DIM if self.velocity_mode in HYBRID_MODES else E1_ARCVEL_DIM
+        return (
+            E1_TRI_DIM
+            if self.velocity_mode in TRI_MODES
+            else (
+                E1_ARCDURHYB_DIM
+                if self.velocity_mode in HYBRID_MODES
+                else E1_ARCVEL_DIM
+            )
+        )
 
     def _tokenize_arm_hybrid(self, arm: np.ndarray):
         """durhyb, one arm (T, 7) -> (waypoints (M, 7), translation dt (M,), rotation dt (M,)).
@@ -475,11 +541,22 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     @staticmethod
     def _stream_index(
-        col: np.ndarray, span: float, t: np.ndarray, lo: float, hi: float
+        col: np.ndarray,
+        span: float,
+        t: np.ndarray,
+        lo: float,
+        hi: float,
+        segment_lengths=None,
     ):
         """Fractional waypoint index at times t from one stream's duration column
         (rows 0..M-2 interval seconds, row M-1 start delay)."""
         M = len(col)
+        if segment_lengths is not None and np.any(
+            (np.asarray(segment_lengths) > 1e-9) & (col[:-1] <= 0)
+        ):
+            raise ValueError(
+                "Moving E1 stream intervals require positive durations; zero-time motion cannot be decoded"
+            )
         if span > 1e-9:
             clock = durations_to_clock_abs(col, span, min_speed=lo, max_speed=hi)
         else:  # a hold: nothing to bound the speed by; time the rows as stored
@@ -490,8 +567,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             t, clock + max(float(col[M - 1]), 0.0), np.arange(M, dtype=np.float64)
         )
 
-    def _detokenize_hybrid(self, arc: np.ndarray, h: int) -> np.ndarray:
-        t = self.tokenizer.config.dt * np.arange(h, dtype=np.float64)
+    def _detokenize_hybrid(self, arc: np.ndarray, h: int, times=None) -> np.ndarray:
+        t = (
+            self.tokenizer.config.dt * np.arange(h, dtype=np.float64)
+            if times is None
+            else times
+        )
         arms = []
         for k, (xyz_off, ypr_off, grip_off, _) in enumerate(ARM_LAYOUT):
             xyz_wp = arc[:, xyz_off : xyz_off + 3]
@@ -506,8 +587,17 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 )
                 t_col = _speed_col_to_dur(t_col, np.diff(cum_t), eps, hold)
                 r_col = _speed_col_to_dur(r_col, np.diff(cum_r), eps, hold)
-            f_t = self._stream_index(t_col, float(cum_t[-1]), t, self.min_speed, 5.0)
-            f_r = self._stream_index(r_col, float(cum_r[-1]), t, 0.01, 20.0)
+            f_t = self._stream_index(
+                t_col,
+                float(cum_t[-1]),
+                t,
+                self.min_speed,
+                5.0,
+                np.maximum(np.diff(cum_t), np.abs(np.diff(grip_wp[:, 0]))),
+            )
+            f_r = self._stream_index(
+                r_col, float(cum_r[-1]), t, 0.01, 20.0, np.diff(cum_r)
+            )
             arms.append(
                 np.concatenate(
                     [
@@ -584,6 +674,10 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     # -- tokenize ----------------------------------------------------------
     def transform(self, batch: dict) -> dict:
+        if self.velocity_mode in TRI_MODES:
+            raise NotImplementedError(
+                "E1 tri tokenization is decode-only; the training codec is not included"
+            )
         chunk = np.asarray(batch[self.action_key], dtype=np.float64)
         M = self.M
         dt = self.tokenizer.config.dt
@@ -705,19 +799,43 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         return batch
 
     # -- detokenize --------------------------------------------------------
-    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
+    def detokenize(
+        self,
+        arc_actions: np.ndarray,
+        action_horizon: int,
+        times: np.ndarray | None = None,
+    ) -> np.ndarray:
         arc = np.asarray(arc_actions, dtype=np.float64)
         h = int(action_horizon)
         dt = self.tokenizer.config.dt
-        t = dt * np.arange(h, dtype=np.float64)
+        if h < 1 or not np.isfinite(arc).all():
+            raise ValueError(
+                "E1 decode needs a positive horizon and finite native tokens"
+            )
+        t = (
+            dt * np.arange(h, dtype=np.float64)
+            if times is None
+            else np.asarray(times, dtype=np.float64)
+        )
+        if (
+            t.shape != (h,)
+            or not np.isfinite(t).all()
+            or t[0] < 0
+            or (np.diff(t) < 0).any()
+        ):
+            raise ValueError(
+                f"times must be a finite non-decreasing ({h},) grid starting at >=0"
+            )
         profile = self.wide
         if profile:
             if arc.ndim != 2 or arc.shape[1] != self.token_dim:
                 raise ValueError(
                     f"{self.velocity_mode} detokenize expects (M, {self.token_dim}), got {arc.shape}"
                 )
+            if self.velocity_mode in TRI_MODES:
+                return self._detokenize_tri(arc, t, dt * (h - 1))
             if self.velocity_mode in HYBRID_MODES:
-                return self._detokenize_hybrid(arc, h)
+                return self._detokenize_hybrid(arc, h, times=t)
             M = arc.shape[0]
         else:
             if arc.ndim != 2 or arc.shape[1] != 14:
@@ -763,6 +881,121 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             arms.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
         return np.concatenate(arms, axis=-1)  # (H, 14)
 
+    @property
+    def tri(self):
+        return self.velocity_mode in TRI_MODES
+
+    @property
+    def hybrid(self):
+        return self.velocity_mode in HYBRID_MODES
+
+    @property
+    def token_width(self):
+        return self.token_dim
+
+    def _check_hybrid(self, arc):
+        arc = np.asarray(arc, dtype=np.float64)
+        if (
+            arc.ndim != 2
+            or arc.shape[1] != self.token_dim
+            or len(arc) < 2
+            or not np.isfinite(arc).all()
+        ):
+            raise ValueError(
+                f"{self.velocity_mode} expects finite (M,{self.token_dim}) with M>=2"
+            )
+        return arc
+
+    def _as_durations(self, arc, hold_time=None):
+        if self.velocity_mode not in SPEED_MODES:
+            return arc
+        if hold_time is None:
+            hold_time = self.tokenizer.config.dt * (len(arc) - 1)
+        return speed_columns_to_durations(
+            arc,
+            tri=self.tri,
+            hold_time=hold_time,
+            eps=self.tokenizer.config.zero_dist_epsilon,
+        )
+
+    def hybrid_clocks(self, arc_actions, hold_time=None):
+        arc = self._as_durations(self._check_hybrid(arc_actions), hold_time)
+        clocks = []
+        for k, (xyz, ypr, grip, _) in enumerate(ARM_LAYOUT):
+            spans = [
+                float(cumulative_arc_length(arc[:, xyz : xyz + 3])[-1]),
+                float(rotation_arc_length(arc[:, ypr : ypr + 3])[-1]),
+            ]
+            if self.tri:
+                spans.append(float(gripper_arc_length(arc[:, grip])[-1]))
+            arm_clocks = []
+            for column, span, bounds in zip(
+                (14 + k, 16 + k, 18 + k),
+                spans,
+                ((self.min_speed, 5.0), (0.01, 20.0), (0.01, 20.0)),
+            ):
+                col = arc[:, column]
+                if span > 1e-9:
+                    clock = durations_to_clock_abs(
+                        col, span, min_speed=bounds[0], max_speed=bounds[1]
+                    )
+                else:
+                    clock = np.r_[0.0, np.cumsum(np.maximum(col[:-1], 0.0))]
+                arm_clocks.append(clock + max(float(col[-1]), 0.0))
+            clocks.append(tuple(arm_clocks + ([None] if not self.tri else [])))
+        return clocks
+
+    def hybrid_stream_ends(self, arc_actions):
+        arc = self._check_hybrid(arc_actions)
+        ends = []
+        for (xyz, ypr, grip, _), (tc, rc, gc) in zip(
+            ARM_LAYOUT, self.hybrid_clocks(arc)
+        ):
+            if cumulative_arc_length(arc[:, xyz : xyz + 3])[-1] >= 1e-9 or (
+                not self.tri and np.ptp(arc[:, grip]) > 1e-9
+            ):
+                ends.append(float(tc[-1]))
+            if _geodesic_total(arc[:, ypr : ypr + 3]) > HYBRID_ROT_EPS:
+                ends.append(float(rc[-1]))
+            if self.tri and np.ptp(arc[:, grip]) >= TRI_GRIPPER_MOVE_RANGE:
+                ends.append(float(gc[-1]))
+        return ends
+
+    def _detokenize_tri(self, arc, times, hold_time):
+        arc = self._as_durations(self._check_hybrid(arc), hold_time)
+        arms = []
+        for k, (xyz, ypr, grip, _) in enumerate(ARM_LAYOUT):
+            spans = [
+                float(cumulative_arc_length(arc[:, xyz : xyz + 3])[-1]),
+                float(rotation_arc_length(arc[:, ypr : ypr + 3])[-1]),
+                float(gripper_arc_length(arc[:, grip])[-1]),
+            ]
+            lengths = [
+                np.diff(cumulative_arc_length(arc[:, xyz : xyz + 3])),
+                np.diff(rotation_arc_length(arc[:, ypr : ypr + 3])),
+                np.diff(gripper_arc_length(arc[:, grip])),
+            ]
+            f = [
+                self._stream_index(arc[:, column], span, times, lo, hi, segment)
+                for column, span, (lo, hi), segment in zip(
+                    (14 + k, 16 + k, 18 + k),
+                    spans,
+                    ((self.min_speed, 5.0), (0.01, 20.0), (0.01, 20.0)),
+                    lengths,
+                )
+            ]
+            arms.append(
+                np.concatenate(
+                    [
+                        _lerp_rows(arc[:, xyz : xyz + 3], f[0]),
+                        _slerp_rows(arc[:, ypr : ypr + 3], f[1]),
+                        _lerp_rows(arc[:, grip : grip + 1], f[2]),
+                    ],
+                    axis=-1,
+                )
+            )
+        return np.concatenate(arms, axis=-1)
+
     def _wide_clock(self, col: np.ndarray, cum: np.ndarray) -> np.ndarray:
         """Time-of-progress at the M waypoints from one arm's timing column."""
         if self.velocity_mode == "logdur":
@@ -779,6 +1012,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:
         """Per arm, the token's implied time-of-progress at its M waypoints (s)."""
+        if self.hybrid:
+            return [c[0] for c in self.hybrid_clocks(arc_actions)]
         arc = np.asarray(arc_actions, dtype=np.float64)
         M = arc.shape[0] if self.wide else arc.shape[0] - 1
         out = []

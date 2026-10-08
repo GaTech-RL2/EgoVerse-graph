@@ -1,0 +1,6 @@
+defaults:
+  - action_flow_avln_libero
+  - _self_
+
+dit_half:
+  _target_: egomimic.utils.libero_dit_half.LiberoDiTHalf

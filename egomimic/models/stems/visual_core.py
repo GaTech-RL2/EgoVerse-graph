@@ -231,11 +231,39 @@ class VisualCore(nn.Module):
             backbone_size_h, backbone_size_w = self._in_hw
 
         weights = "DEFAULT" if pretrained else None
-        pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
-        if in_channels != 3:
+        if resnet_model == "resnet18_half":
+            if pretrained:
+                raise ValueError("resnet18_half has no pretrained weights")
+            from torchvision.models.resnet import BasicBlock
+
+            pretrained_model = torchvision.models.resnet18(weights=None)
+            pretrained_model.inplanes = 32
             pretrained_model.conv1 = nn.Conv2d(
-                in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+                in_channels, 32, kernel_size=7, stride=2, padding=3, bias=False
             )
+            pretrained_model.bn1 = nn.BatchNorm2d(32)
+            pretrained_model.layer1 = pretrained_model._make_layer(BasicBlock, 32, 2)
+            pretrained_model.layer2 = pretrained_model._make_layer(
+                BasicBlock, 64, 2, stride=2
+            )
+            pretrained_model.layer3 = pretrained_model._make_layer(
+                BasicBlock, 128, 2, stride=2
+            )
+            pretrained_model.layer4 = pretrained_model._make_layer(
+                BasicBlock, 256, 2, stride=2
+            )
+            for module in pretrained_model.modules():
+                if isinstance(module, nn.Conv2d):
+                    nn.init.kaiming_normal_(module.weight, mode="fan_out", nonlinearity="relu")
+                elif isinstance(module, (nn.BatchNorm2d, nn.GroupNorm)):
+                    nn.init.constant_(module.weight, 1)
+                    nn.init.constant_(module.bias, 0)
+        else:
+            pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
+            if in_channels != 3:
+                pretrained_model.conv1 = nn.Conv2d(
+                    in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+                )
         # ResNet18Conv backbone: cut avgpool + fc (last two children).
         self.backbone = nn.Sequential(*list(pretrained_model.children())[:-2])
         if self.norm_layer == "group":

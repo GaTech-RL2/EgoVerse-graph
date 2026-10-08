@@ -169,6 +169,12 @@ def _validate_run_config(cfg: DictConfig) -> str:
     return mode
 
 
+def _needs_final_validation(evaluator, global_step):
+    """Optional evaluator capability proves validation already completed here."""
+    completed = getattr(evaluator, "has_completed_validation", None)
+    return not (callable(completed) and completed(global_step) is True)
+
+
 def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     """Strictly restore a configured Pipeline for standalone evaluation."""
     algo = getattr(model, "model", None)
@@ -550,15 +556,36 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         instantiate_copy.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-        norm_stats.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
-            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-            precomputed_norm_path=OmegaConf.select(
-                cfg, "norm_stats.precomputed_norm_path", default=None
-            ),
+        native_saved_binding = OmegaConf.select(
+            cfg, "norm_stats.native_saved_state_binding", default=None
         )
+        if native_saved_binding is not None:
+            # This branch is strictly native LIBERO and fail closed. The maintained
+            # helper validates source/dataset/split receipt bindings before loading.
+            if OmegaConf.select(cfg, "normalizer._target_") != (
+                "egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowNormalizer"
+            ):
+                raise ValueError("native saved-state binding requires native LIBERO normalizer")
+            if OmegaConf.select(cfg, "norm_stats.precomputed_norm_path") is not None:
+                raise ValueError("native saved-state binding cannot use generic precomputed norms")
+            if len(datamodule.train_datasets) != 1:
+                raise ValueError("native saved-state binding requires one exact source")
+            from egomimic.rldb.zarr.libero_saved_state import bind_saved_native_state
+            norm_stats = bind_saved_native_state(
+                norm_stats=norm_stats, dataset=norm_dataset, dataset_name=dataset_name,
+                binding=OmegaConf.to_container(native_saved_binding, resolve=True),
+                run_provenance=OmegaConf.to_container(cfg.run_provenance, resolve=True),
+            )
+        else:
+            norm_stats.infer_norm_from_dataset(
+                norm_dataset,
+                dataset_name,
+                sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
+                num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
+                precomputed_norm_path=OmegaConf.select(
+                    cfg, "norm_stats.precomputed_norm_path", default=None
+                ),
+            )
         # Cache norm stats if save_cache_dir is set
         save_cache_dir = OmegaConf.select(
             cfg, "norm_stats.save_cache_dir", default=None
@@ -682,7 +709,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ckpt_path=cfg.get("ckpt_path"),
             weights_only=False,
         )
-        if cfg.get("val_at_end", False) and trainer.global_step >= cfg.trainer.max_steps:
+        if (
+            cfg.get("val_at_end", False)
+            and trainer.global_step >= cfg.trainer.max_steps
+            and _needs_final_validation(model.evaluator, trainer.global_step)
+        ):
             trainer.validate(model=model, datamodule=datamodule)
     elif mode == "eval":
         eval_obj.trainer = trainer

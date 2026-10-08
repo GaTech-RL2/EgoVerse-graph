@@ -1,0 +1,524 @@
+[
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10003,
+    "matches": [
+      {
+        "episode_id": "chain_gen-ef734c7223a27a2b738e",
+        "source": "chain_gen",
+        "obstacle_level": 27,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs27_002299.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10009,
+    "matches": [
+      {
+        "episode_id": "chain_gen-8f77d307022c7ecdac23",
+        "source": "chain_gen",
+        "obstacle_level": 11,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs11_002756.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-59d5cc2fcf51e23c09c4",
+        "source": "chain_gen",
+        "obstacle_level": 25,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs25_002218.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10014,
+    "matches": [
+      {
+        "episode_id": "chain_gen-6dc0763a472737c894f2",
+        "source": "chain_gen",
+        "obstacle_level": 10,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs10_002720.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-173f6d4baa65dc5a35f0",
+        "source": "chain_gen",
+        "obstacle_level": 17,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs17_001972.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10015,
+    "matches": [
+      {
+        "episode_id": "chain_gen-ec533f3db4570aeed6b4",
+        "source": "chain_gen",
+        "obstacle_level": 11,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs11_002771.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10019,
+    "matches": [
+      {
+        "episode_id": "chain_gen-f76dbd488bbf2d4a6953",
+        "source": "chain_gen",
+        "obstacle_level": 4,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs4_002556.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10030,
+    "matches": [
+      {
+        "episode_id": "chain_gen-e5bc2a20b4ee034f7f84",
+        "source": "chain_gen",
+        "obstacle_level": 3,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs3_000038.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 0,
+    "evaluation_seed": 10053,
+    "matches": [
+      {
+        "episode_id": "chain_gen-9ec18e2304b361e21737",
+        "source": "chain_gen",
+        "obstacle_level": 19,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs19_002025.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 1,
+    "evaluation_seed": 10164,
+    "matches": [
+      {
+        "episode_id": "chain_gen-a30af40bd0d7d56f76c1",
+        "source": "chain_gen",
+        "obstacle_level": 13,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs13_002457.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 1,
+    "evaluation_seed": 10737,
+    "matches": [
+      {
+        "episode_id": "chain_gen-e7de28e8b764971374ff",
+        "source": "chain_gen",
+        "obstacle_level": 21,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs21_002107.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-49673ec8cf66f8c42b67",
+        "source": "chain_gen",
+        "obstacle_level": 9,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs9_002694.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 1,
+    "evaluation_seed": 11232,
+    "matches": [
+      {
+        "episode_id": "chain_gen-78b3ef3c36af7bf9aa9c",
+        "source": "chain_gen",
+        "obstacle_level": 18,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs18_001988.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 2,
+    "evaluation_seed": 10737,
+    "matches": [
+      {
+        "episode_id": "chain_gen-e7de28e8b764971374ff",
+        "source": "chain_gen",
+        "obstacle_level": 21,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs21_002107.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-49673ec8cf66f8c42b67",
+        "source": "chain_gen",
+        "obstacle_level": 9,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs9_002694.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 2,
+    "evaluation_seed": 11032,
+    "matches": [
+      {
+        "episode_id": "chain_gen-399ccdbfa44a7567f453",
+        "source": "chain_gen",
+        "obstacle_level": 9,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs9_002692.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 3,
+    "evaluation_seed": 10536,
+    "matches": [
+      {
+        "episode_id": "chain_gen-9e4eecdf3be240197ab1",
+        "source": "chain_gen",
+        "obstacle_level": 22,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs22_002140.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 5,
+    "evaluation_seed": 10800,
+    "matches": [
+      {
+        "episode_id": "chain_gen-aa2a15b2edf3f323e207",
+        "source": "chain_gen",
+        "obstacle_level": 11,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs11_002776.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-916a0db700684dbbc52a",
+        "source": "chain_gen",
+        "obstacle_level": 20,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs20_002068.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 5,
+    "evaluation_seed": 11232,
+    "matches": [
+      {
+        "episode_id": "chain_gen-78b3ef3c36af7bf9aa9c",
+        "source": "chain_gen",
+        "obstacle_level": 18,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs18_001988.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 6,
+    "evaluation_seed": 10646,
+    "matches": [
+      {
+        "episode_id": "chain_gen-0611899725ddaa44be26",
+        "source": "chain_gen",
+        "obstacle_level": 15,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs15_002518.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 9,
+    "evaluation_seed": 10805,
+    "matches": [
+      {
+        "episode_id": "chain_gen-eb9dbb89373ca298eb51",
+        "source": "chain_gen",
+        "obstacle_level": 9,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs9_002708.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 12,
+    "evaluation_seed": 10615,
+    "matches": [
+      {
+        "episode_id": "chain_gen-41f76aa45aa1b84b6806",
+        "source": "chain_gen",
+        "obstacle_level": 4,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs4_002547.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 15,
+    "evaluation_seed": 10970,
+    "matches": [
+      {
+        "episode_id": "chain_gen-80d986d820c0d89a4799",
+        "source": "chain_gen",
+        "obstacle_level": 15,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs15_002515.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 18,
+    "evaluation_seed": 10754,
+    "matches": [
+      {
+        "episode_id": "chain_gen-8ce5e164c18b53b79762",
+        "source": "chain_gen",
+        "obstacle_level": 18,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs18_001989.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 19,
+    "evaluation_seed": 10764,
+    "matches": [
+      {
+        "episode_id": "chain_gen-fee74c5be52ed9d8e215",
+        "source": "chain_gen",
+        "obstacle_level": 19,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs19_002036.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 19,
+    "evaluation_seed": 10646,
+    "matches": [
+      {
+        "episode_id": "chain_gen-0611899725ddaa44be26",
+        "source": "chain_gen",
+        "obstacle_level": 15,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs15_002518.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 19,
+    "evaluation_seed": 10532,
+    "matches": [
+      {
+        "episode_id": "chain_gen-b08d1824190d53c83ffd",
+        "source": "chain_gen",
+        "obstacle_level": 19,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs19_002031.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 20,
+    "evaluation_seed": 10800,
+    "matches": [
+      {
+        "episode_id": "chain_gen-aa2a15b2edf3f323e207",
+        "source": "chain_gen",
+        "obstacle_level": 11,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs11_002776.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-916a0db700684dbbc52a",
+        "source": "chain_gen",
+        "obstacle_level": 20,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs20_002068.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 20,
+    "evaluation_seed": 10815,
+    "matches": [
+      {
+        "episode_id": "chain_gen-2a586be7b51dc0df3e11",
+        "source": "chain_gen",
+        "obstacle_level": 20,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs20_002056.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 20,
+    "evaluation_seed": 10283,
+    "matches": [
+      {
+        "episode_id": "chain_gen-82294ef5a13d38635614",
+        "source": "chain_gen",
+        "obstacle_level": 20,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs20_002055.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-ecebdd875c042169d64a",
+        "source": "chain_gen",
+        "obstacle_level": 29,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs29_002366.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 22,
+    "evaluation_seed": 10536,
+    "matches": [
+      {
+        "episode_id": "chain_gen-9e4eecdf3be240197ab1",
+        "source": "chain_gen",
+        "obstacle_level": 22,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs22_002140.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 23,
+    "evaluation_seed": 10800,
+    "matches": [
+      {
+        "episode_id": "chain_gen-aa2a15b2edf3f323e207",
+        "source": "chain_gen",
+        "obstacle_level": 11,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs11_002776.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-916a0db700684dbbc52a",
+        "source": "chain_gen",
+        "obstacle_level": 20,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs20_002068.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 23,
+    "evaluation_seed": 10307,
+    "matches": [
+      {
+        "episode_id": "chain_gen-e82bc9de71849e722973",
+        "source": "chain_gen",
+        "obstacle_level": 25,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs25_002220.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 23,
+    "evaluation_seed": 11232,
+    "matches": [
+      {
+        "episode_id": "chain_gen-78b3ef3c36af7bf9aa9c",
+        "source": "chain_gen",
+        "obstacle_level": 18,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs18_001988.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 23,
+    "evaluation_seed": 10136,
+    "matches": [
+      {
+        "episode_id": "chain_gen-3f0a2d154798e8dfd2c4",
+        "source": "chain_gen",
+        "obstacle_level": 5,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs5_002582.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 23,
+    "evaluation_seed": 10394,
+    "matches": [
+      {
+        "episode_id": "chain_gen-759b849c7ef7e57e2026",
+        "source": "chain_gen",
+        "obstacle_level": 23,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs23_002166.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 24,
+    "evaluation_seed": 10177,
+    "matches": [
+      {
+        "episode_id": "chain_gen-966cb14c085819bf496e",
+        "source": "chain_gen",
+        "obstacle_level": 26,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs26_002264.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 25,
+    "evaluation_seed": 10307,
+    "matches": [
+      {
+        "episode_id": "chain_gen-e82bc9de71849e722973",
+        "source": "chain_gen",
+        "obstacle_level": 25,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs25_002220.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 25,
+    "evaluation_seed": 10453,
+    "matches": [
+      {
+        "episode_id": "chain_gen-6dd030ae358add37c83b",
+        "source": "chain_gen",
+        "obstacle_level": 25,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs25_002225.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 26,
+    "evaluation_seed": 10136,
+    "matches": [
+      {
+        "episode_id": "chain_gen-6e6edc0173b4c48e739e",
+        "source": "chain_gen",
+        "obstacle_level": 26,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs26_002268.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 26,
+    "evaluation_seed": 10132,
+    "matches": [
+      {
+        "episode_id": "chain_gen-32136cdbdcf547f2e9b1",
+        "source": "chain_gen",
+        "obstacle_level": 26,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs26_002258.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 26,
+    "evaluation_seed": 10646,
+    "matches": [
+      {
+        "episode_id": "chain_gen-0611899725ddaa44be26",
+        "source": "chain_gen",
+        "obstacle_level": 15,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs15_002518.zarr/"
+      }
+    ]
+  },
+  {
+    "evaluation_level": 27,
+    "evaluation_seed": 10131,
+    "matches": [
+      {
+        "episode_id": "chain_gen-9ced21d4ee85e0f71980",
+        "source": "chain_gen",
+        "obstacle_level": 10,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs10_002748.zarr/"
+      },
+      {
+        "episode_id": "chain_gen-9ff3161e9faae5ca96a3",
+        "source": "chain_gen",
+        "obstacle_level": 4,
+        "source_prefix": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs4_002552.zarr/"
+      }
+    ]
+  }
+]

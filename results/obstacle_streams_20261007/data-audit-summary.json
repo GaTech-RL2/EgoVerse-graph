@@ -1,0 +1,33 @@
+{
+  "counts": {
+    "chain_clean": 3000,
+    "chain_gen": 2879,
+    "chain_obstacle": 3840,
+    "usocket": 2999
+  },
+  "split_counts": {
+    "pushshapes_sim_chain_gripper/train": 9636,
+    "pushshapes_sim_chain_gripper/valid": 83,
+    "pushshapes_sim_u_socket/train": 2962,
+    "pushshapes_sim_u_socket/valid": 37
+  },
+  "alignment_counts": {
+    "chain_clean/pre_step": 3000,
+    "chain_obstacle/post_step": 3840,
+    "usocket/pre_step": 2999,
+    "chain_gen/pre_step": 1247,
+    "chain_gen/post_step": 1632
+  },
+  "metadata_recovery_episodes": 17,
+  "total_frames": {
+    "chain_clean": 931061,
+    "chain_gen": 1137834,
+    "chain_obstacle": 1631269,
+    "usocket": 521676
+  },
+  "manifest": {
+    "bytes": 32166226,
+    "key": "experiments/obstacle-streams-20261007/data-v3/manifest.json",
+    "sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470"
+  }
+}

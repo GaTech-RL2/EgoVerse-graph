@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "data_manifest_sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470",
+  "seed_bank_sha256": "d82f7a35cd9acddbfadd2698cefab8e46ab96451f35bc5c5b1a62c9c14c32bad",
+  "excluded_corpus_episodes": 12718,
+  "checked_embodiment_resets": 3100,
+  "removed_seed_pairs": 39,
+  "known_pose_overlap": 0,
+  "known_seed_overlap": 0,
+  "includes_validation_in_exclusion": true
+}

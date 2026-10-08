@@ -1,0 +1,222 @@
+workflow:
+  name: obs-streams-seeds-1007-v1
+  resources:
+    default:
+      cpu: 8
+      gpu: 0
+      memory: 16Gi
+      storage: 10Gi
+      platform: ovx-l40s
+  timeout:
+    queue_timeout: 1h
+    exec_timeout: 2h
+  tasks:
+  - name: select-and-verify
+    image: docker.io/library/python:3.11-slim
+    command:
+    - bash
+    args:
+    - /tmp/entry.sh
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+    files:
+    - path: /tmp/entry.sh
+      contents: '#!/usr/bin/env bash
+
+        set -Eeuo pipefail
+
+        set +x
+
+        export DEBIAN_FRONTEND=noninteractive SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+        PYGAME_HIDE_SUPPORT_PROMPT=1
+
+        export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONUNBUFFERED=1
+
+        apt-get update -qq
+
+        apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+        python -m venv /workspace/stride5/emimic
+
+        source /workspace/stride5/emimic/bin/activate
+
+        python -m pip install --quiet numpy==2.4.4 gymnasium==1.1.1 pygame==2.6.1
+        pymunk==7.1.0 shapely==2.1.1 opencv-python==4.13.0.92 boto3 PyYAML cloudpickle==3.1.1
+        farama-notifications==0.0.4 cffi==1.17.1 pycparser==2.22
+
+        python /tmp/revise_planar_seed_bank.py
+
+        '
+    - path: /tmp/revise_planar_seed_bank.py
+      contents: "\"\"\"Freeze paired replacement resets when a new corpus overlaps\
+        \ an older bank.\"\"\"\nfrom concurrent.futures import ProcessPoolExecutor,\
+        \ as_completed\nfrom datetime import datetime, timezone\nimport hashlib\n\
+        import importlib.metadata\nimport json\nimport os\nfrom pathlib import Path\n\
+        import sys\nimport tarfile\nimport traceback\n\nimport boto3\nimport numpy\
+        \ as np\n\nROOT = Path(\"/workspace/seed-revision\")\nCONFIG = json.loads(Path(\"\
+        /tmp/seed-revision.json\").read_text())\nCLIENT = boto3.client(\"s3\", endpoint_url=os.environ[\"\
+        R2_ENDPOINT_URL\"],\n    aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"\
+        ],\n    aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"], region_name=\"\
+        auto\")\n\n\ndef download(receipt, path):\n    key = receipt.get(\"key\")\
+        \ or receipt[\"uri\"].removeprefix(\"s3://rldb/\")\n    path.parent.mkdir(parents=True,\
+        \ exist_ok=True)\n    CLIENT.download_file(\"rldb\", key, str(path))\n   \
+        \ assert hashlib.sha256(path.read_bytes()).hexdigest() == receipt[\"sha256\"\
+        ]\n\n\ndef write(name, value):\n    raw = (json.dumps(value, indent=2, allow_nan=False)\
+        \ + \"\\n\").encode()\n    key = CONFIG[\"output_prefix\"] + name\n    sha\
+        \ = hashlib.sha256(raw).hexdigest()\n    CLIENT.put_object(Bucket=\"rldb\"\
+        , Key=key, Body=raw, Metadata={\"sha256\": sha})\n    return {\"uri\": \"\
+        s3://rldb/\" + key, \"sha256\": sha, \"bytes\": len(raw)}\n\n\ndef revise_level(level):\n\
+        \    sys.path.insert(0, str(ROOT / \"simulator\"))\n    from Tsimulation.sim_v2.pushshapes.env\
+        \ import PushShapesEnv\n    from planar_seed_rules import paired_candidate,\
+        \ pose_vector, pose_matches\n    bank = json.loads((ROOT / \"old-bank.json\"\
+        ).read_text())\n    corpus = json.loads((ROOT / \"manifest.json\").read_text())[\"\
+        episodes\"]\n    contract = CONFIG[\"contract\"]\n    # Exclude both training\
+        \ and validation data, across all layouts.\n    poses = np.asarray([pose_vector(e[\"\
+        episode_init\"]) for e in corpus])\n    known_seeds = {int(e[\"episode_init\"\
+        ][\"reset_seed\"]) for e in corpus\n        if e[\"obstacle_level\"] == level\
+        \ and e[\"episode_init\"].get(\"reset_seed\") is not None}\n    original =\
+        \ bank[\"levels\"][str(level)]\n    kept, removed = [], []\n    for row in\
+        \ original[\"selected\"]:\n        overlap = int(row[\"seed\"]) in known_seeds\
+        \ or any(\n            pose_matches(pose_vector(init), poses, contract[\"\
+        initial_pose_tolerance\"])\n            for init in row[\"initial_states\"\
+        ].values())\n        (removed if overlap else kept).append(row)\n    if not\
+        \ removed:\n        return level, dict(original, replacement_audit={\"removed\"\
+        : [], \"added\": [], \"attempted\": 0})\n    environments = [PushShapesEnv(object_shape=\"\
+        T\", pusher_shape=p, obstacle_level=level, image_size=8)\n               \
+        \     for p in (\"chain_gripper\", \"u_socket\")]\n    for env in environments:\n\
+        \        env._skip_obs_render = True\n    added, attempted = [], 0\n    vectors\
+        \ = [pose_vector(row[\"initial_states\"][\"chaingripper\"]) for row in kept]\n\
+        \    first = max(int(row[\"seed\"]) for row in original[\"selected\"]) + 1\n\
+        \    try:\n        for seed in range(first, contract[\"seed_stop_exclusive\"\
+        ]):\n            if seed in known_seeds:\n                continue\n     \
+        \       attempted += 1\n            row = paired_candidate(*environments,\
+        \ seed, contract, poses)\n            if row is None:\n                continue\n\
+        \            vector = pose_vector(row[\"initial_states\"][\"chaingripper\"\
+        ])\n            if pose_matches(vector, vectors, contract[\"initial_pose_tolerance\"\
+        ]):\n                continue\n            added.append(row); vectors.append(vector)\n\
+        \            if len(added) == len(removed):\n                break\n     \
+        \   assert len(added) == len(removed), (level, len(added), len(removed))\n\
+        \        selected = kept + added\n        assert len(selected) == 50 and len({r[\"\
+        seed\"] for r in selected}) == 50\n        return level, {**original, \"selected\"\
+        : selected, \"replacement_audit\": {\n            \"removed\": [r[\"seed\"\
+        ] for r in removed], \"added\": [r[\"seed\"] for r in added],\n          \
+        \  \"attempted\": attempted, \"seed_start\": first}}\n    finally:\n     \
+        \   for env in environments:\n            env.close()\n\n\ndef main():\n \
+        \   assert not CLIENT.list_objects_v2(Bucket=\"rldb\", Prefix=CONFIG[\"output_prefix\"\
+        ], MaxKeys=1).get(\"KeyCount\")\n    versions = {p: importlib.metadata.version(p)\
+        \ for p in CONFIG[\"contract\"][\"simulator_dependencies\"]}\n    assert versions\
+        \ == CONFIG[\"contract\"][\"simulator_dependencies\"]\n    ROOT.mkdir(parents=True,\
+        \ exist_ok=True)\n    download(CONFIG[\"simulator\"], ROOT / \"simulator.tar\"\
+        )\n    with tarfile.open(ROOT / \"simulator.tar\") as stream:\n        stream.extractall(ROOT\
+        \ / \"simulator\", filter=\"data\")\n    assert hashlib.sha256((ROOT / \"\
+        simulator/Tsimulation/sim_v2/pushshapes/obstacles.py\").read_bytes()).hexdigest()\
+        \ == CONFIG[\"contract\"][\"obstacles_sha256\"]\n    download(CONFIG[\"old_seed_bank\"\
+        ], ROOT / \"old-bank.json\")\n    download(CONFIG[\"manifest\"], ROOT / \"\
+        manifest.json\")\n    write(\"STARTED.json\", {\"config\": CONFIG, \"versions\"\
+        : versions,\n        \"script_sha256\": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})\n\
+        \    levels = {}\n    with ProcessPoolExecutor(max_workers=8) as pool:\n \
+        \       for future in as_completed([pool.submit(revise_level, level) for level\
+        \ in range(31)]):\n            level, result = future.result(); levels[str(level)]\
+        \ = result\n            write(f\"level-{level:02d}.json\", result)\n     \
+        \       print(\"LEVEL_REVISED\", level, result[\"replacement_audit\"], flush=True)\n\
+        \    bank = json.loads((ROOT / \"old-bank.json\").read_text())\n    bank.update(name=CONFIG[\"\
+        contract\"][\"name\"], contract=CONFIG[\"contract\"],\n        created_at_utc=datetime.now(timezone.utc).isoformat(),\
+        \ versions=versions,\n        source_seed_bank=CONFIG[\"old_seed_bank\"],\
+        \ excluded_corpus=CONFIG[\"manifest\"],\n        levels={str(level): levels[str(level)]\
+        \ for level in range(31)})\n    receipt = write(\"seed-bank.json\", bank)\n\
+        \    write(\"READY.json\", {\"status\": \"PASS\", \"seed_bank\": receipt,\
+        \ \"contract\": CONFIG[\"contract\"],\n        \"removed_seed_pairs\": sum(len(level[\"\
+        replacement_audit\"][\"removed\"]) for level in levels.values()),\n      \
+        \  \"paired_resets\": 1550, \"excludes_train_and_validation\": True})\n\n\n\
+        if __name__ == \"__main__\":\n    try:\n        main()\n    except BaseException:\n\
+        \        write(\"FAILED.json\", {\"traceback\": traceback.format_exc()})\n\
+        \        raise\n"
+    - path: /tmp/planar_seed_rules.py
+      contents: "\"\"\"Shared validity and overlap checks for the explicitly new comparison\
+        \ bank.\"\"\"\nimport math\n\nimport numpy as np\n\nfrom Tsimulation.sim_v2.collect.obstacle_init\
+        \ import (\n    _arena_clearance, _obstacle_clearance, _physical_obstacle_polygons,\n\
+        \    _pusher_arena_overflow, evaluate_candidate, level_init_policy,\n)\n\n\
+        \ndef pose_vector(init):\n    return np.asarray(init[\"object_pose\"] + init[\"\
+        goal_pose\"], dtype=np.float64)\n\n\ndef pose_matches(vector, training, tolerance):\n\
+        \    if not len(training): return False\n    delta = np.asarray(training,\
+        \ dtype=np.float64) - vector\n    delta[:, [2, 5]] = (delta[:, [2, 5]] + math.pi)\
+        \ % (2 * math.pi) - math.pi\n    return bool(np.any(np.max(np.abs(delta),\
+        \ axis=1) <= tolerance))\n\n\ndef physically_valid(env, tolerance):\n    shapes\
+        \ = list(env.agent.physics_shapes(env))\n    values = [env._shapes_static_penetration_depth(env._pusher_body,\
+        \ shapes),\n              env._pusher_object_penetration_depth(), env._object_static_penetration_depth(),\n\
+        \              env._object_arena_metrics()[0], _pusher_arena_overflow(env)]\n\
+        \    return all(math.isfinite(float(v)) and float(v) <= tolerance for v in\
+        \ values)\n\n\ndef extra_goal_checks(env, contract):\n    polygon = env._build_object_polygon(env.goal_pose[:2],\
+        \ env.goal_pose[2])\n    arena = _arena_clearance(env, polygon)\n    wall\
+        \ = _obstacle_clearance(polygon, _physical_obstacle_polygons(env.obstacle_level))\n\
+        \    if arena < contract[\"goal_arena_clearance\"] or wall < contract[\"goal_obstacle_clearance\"\
+        ]:\n        return None\n    portal = level_init_policy(env.obstacle_level).gate_portal\n\
+        \    depth = None\n    if portal is not None:\n        a, b = np.asarray(portal,\
+        \ dtype=np.float64)\n        edge = b - a\n        relative = np.asarray(env.goal_pose[:2])\
+        \ - a\n        depth = float(abs(edge[0] * relative[1] - edge[1] * relative[0])\
+        \ / np.linalg.norm(edge))\n        if depth < contract[\"gate_goal_depth\"\
+        ]: return None\n    return {\"goal_arena_clearance\": float(arena), \"goal_obstacle_clearance\"\
+        : float(wall),\n            \"goal_portal_depth\": depth}\n\n\ndef paired_candidate(chain,\
+        \ socket, seed, contract, training_poses):\n    level = chain.obstacle_level\n\
+        \    if level:\n        candidate = evaluate_candidate(chain, seed)\n    \
+        \    if candidate is None: return None\n        extra = extra_goal_checks(chain,\
+        \ contract)\n        if extra is None: return None\n        candidate.update(extra)\n\
+        \    else:\n        chain.reset(seed=seed)\n        candidate = {\"level\"\
+        : 0, \"seed\": int(seed), \"route_type\": \"unobstructed\"}\n    if not physically_valid(chain,\
+        \ contract[\"geometry_tolerance\"]): return None\n    chain_init = chain.get_episode_init()\n\
+        \    if pose_matches(pose_vector(chain_init), training_poses, contract[\"\
+        initial_pose_tolerance\"]):\n        return None\n    socket.reset(seed=seed)\n\
+        \    if not physically_valid(socket, contract[\"geometry_tolerance\"]): return\
+        \ None\n    socket_init = socket.get_episode_init()\n    if not np.allclose(pose_vector(chain_init),\
+        \ pose_vector(socket_init),\n                       atol=contract[\"reset_replay_tolerance\"\
+        ], rtol=0):\n        raise ValueError(\"The two embodiments received different\
+        \ object/goal resets\")\n    candidate[\"initial_states\"] = {\"chaingripper\"\
+        : chain_init, \"usocket\": socket_init}\n    candidate[\"training_pose_overlap\"\
+        ] = False\n    return candidate\n\n\ndef assert_reset_matches(env, expected,\
+        \ contract):\n    actual = env.get_episode_init()\n    for key in [\"agent_pos\"\
+        , \"object_pose\", \"goal_pose\"]:\n        if not np.allclose(actual[key],\
+        \ expected[key], rtol=0,\n                           atol=contract[\"reset_replay_tolerance\"\
+        ]):\n            raise ValueError(\"Frozen reset mismatch: \" + key)\n   \
+        \ if not math.isclose(actual[\"agent_angle\"], expected[\"agent_angle\"],\
+        \ rel_tol=0,\n                        abs_tol=contract[\"reset_replay_tolerance\"\
+        ]):\n        raise ValueError(\"Frozen agent angle mismatch\")\n    if not\
+        \ physically_valid(env, contract[\"geometry_tolerance\"]):\n        raise\
+        \ ValueError(\"Invalid initial robot/object geometry\")\n    if env.obstacle_level\
+        \ and extra_goal_checks(env, contract) is None:\n        raise ValueError(\"\
+        Initial goal fails frozen clearance/depth constraints\")\n"
+    - path: /tmp/seed-revision.json
+      contents: '{"output_prefix": "experiments/obstacle-streams-20261007/preflight/seeds-v1/",
+        "contract": {"name": "pushshapes_four_source_50_20261007_v1", "label": "NONCANONICAL_FOUR_SOURCE_PAIRED_COMPARISON",
+        "canonical_oec56": false, "levels": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+        "rollouts_per_model_embodiment_level": 50, "seed_start": 10000, "seed_stop_exclusive":
+        1000000, "obstacle_candidate_pool": 200, "initial_pose_tolerance": 0.0001,
+        "reset_replay_tolerance": 1e-08, "goal_arena_clearance": 56.0, "goal_obstacle_clearance":
+        56.0, "gate_goal_depth": 90.0, "geometry_tolerance": 1e-08, "simulator_commit":
+        "7e75d4236baee59c88984f9f6a458790db2dce46", "obstacles_sha256": "12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8",
+        "fixed_physics": ["SOLID_PUSHER", "SOLID_CONTACT_GUARD", "SOCKET_INSIDE_FRICTION_ONLY"],
+        "simulator_dependencies": {"numpy": "2.4.4", "gymnasium": "1.1.1", "pygame":
+        "2.6.1", "pymunk": "7.1.0", "shapely": "2.1.1", "opencv-python": "4.13.0.92"},
+        "source_commit": "02db41a01cfdd018785b59c06a1485c2717ad683", "checkpoint_step":
+        240000, "use_ema": true, "sampler_steps": 100, "matmul_precision": "highest",
+        "decoded_action_start": 0, "dp_execution_steps": 8, "arc_execution": "independent_clocks_waypoint_fraction",
+        "arc_support_fraction": 0.5, "action_space": "cursor", "budget_statistic":
+        "p99", "budget_percentile_method": "linear", "budget_multiplier": 1.1, "coverage_threshold":
+        1.01, "run_full_budget": true, "ignore_success_termination": true, "episode_watchdog_seconds":
+        1800, "video_fps": 30, "metrics": ["mean_peak_coverage", "median_peak_coverage",
+        "SR80", "SR95"], "report_levels_separately": true, "pool_levels": false, "known_seed_overlap_allowed":
+        false, "known_initial_pose_overlap_allowed": false, "seed_revision_rule":
+        "Retain disjoint original pairs; replace overlaps with first valid disjoint
+        pairs above that level''s previous maximum seed; exclude full train and validation
+        corpus; freeze before model training or scoring."}, "old_seed_bank": {"uri":
+        "s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/all-levels-50-20260920/assets/1f40685afa43ba27aeb1a6bb05ee163d67ef3a3637ebafc91568796e8bd86e2d/seed-bank.json",
+        "sha256": "1f40685afa43ba27aeb1a6bb05ee163d67ef3a3637ebafc91568796e8bd86e2d",
+        "bytes": 7533235}, "simulator": {"uri": "s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/assets/52be6ec848df55fe9d4963c0c5fb74f10e1fb80f03250d461e969e1dab507488/simulator-7e75d423.tar",
+        "sha256": "52be6ec848df55fe9d4963c0c5fb74f10e1fb80f03250d461e969e1dab507488",
+        "commit": "7e75d4236baee59c88984f9f6a458790db2dce46", "obstacles_path": "Tsimulation/sim_v2/pushshapes/obstacles.py",
+        "obstacles_sha256": "12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8"},
+        "manifest": {"bytes": 32166226, "key": "experiments/obstacle-streams-20261007/data-v3/manifest.json",
+        "sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470"}}'

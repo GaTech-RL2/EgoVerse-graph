@@ -69,6 +69,7 @@ def main() -> None:
     parser.add_argument("--parameter-count", required=True, type=int)
     parser.add_argument("--expected-name", default="planar_v2_cotrain_clean_dp_standard_h16")
     parser.add_argument("--single-domain", default=None)
+    parser.add_argument("--start-step", type=int, default=0)
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
@@ -79,7 +80,7 @@ def main() -> None:
     assert cfg.name == args.expected_name
     if args.single_domain is None:
         assert cfg.run_provenance.obstacle_data is False
-    assert int(cfg.trainer.max_steps) == 2
+    assert int(cfg.trainer.max_steps) == args.start_step + 2
     assert int(cfg.trainer.val_check_interval) == 1
     assert int(cfg.trainer.limit_val_batches) == 1
     assert int(cfg.trainer.devices) == args.world_size
@@ -89,7 +90,7 @@ def main() -> None:
     assert cfg.callbacks.model_checkpoint.filename == "epoch-{epoch}-step-{step}"
 
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    assert int(checkpoint["global_step"]) == 2
+    assert int(checkpoint["global_step"]) == args.start_step + 2
     assert checkpoint.get("optimizer_states")
     assert len(checkpoint.get("lr_schedulers", [])) == 1
     del checkpoint
@@ -134,6 +135,10 @@ def main() -> None:
         if step >= 1 and valid_required <= row.keys()
     ]
     assert train_rows and valid_rows, history
+    if args.start_step:
+        assert cfg.model.train_log_on_step is True
+        assert len([step for step,row in history.items() if step >= args.start_step and train_required <= row.keys()]) >= 2
+        assert cfg.ckpt_path and str(cfg.logger.wandb.resume) == "never"
     checked = {
         key: value
         for row in (train_rows[-1], valid_rows[-1])
@@ -154,7 +159,9 @@ def main() -> None:
         "repo_head": args.expected_head,
         "run_dir": str(run_dir),
         "world_size": args.world_size,
-        "global_step": 2,
+        "global_step": args.start_step + 2,
+        "resume_start_step": args.start_step,
+        "resume_checkpoint_sha256": _sha256(Path(str(cfg.ckpt_path))) if args.start_step else None,
         "strict_checkpoint_reload": "passed",
         "parameter_count": restored_count,
         "config_sha256": _sha256(config_path),

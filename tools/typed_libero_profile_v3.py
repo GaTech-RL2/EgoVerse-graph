@@ -61,9 +61,10 @@ def phase_bindings(phase):
         raise ValueError("unknown maintained phase")
     return {**COMMON, **PHASES[phase]}
 
-def validate_flat_config(config, phase):
+def validate_flat_config(config, phase, *, training_seed=42):
     """Check flattened resolved values, not guessed Hydra argument reachability."""
-    for key, wanted in phase_bindings(phase).items():
+    wanted_bindings = {**phase_bindings(phase), "seed": training_seed}
+    for key, wanted in wanted_bindings.items():
         if key not in config or config[key] != wanted:
             raise ValueError(("resolved profile mismatch", key, wanted, config.get(key)))
     for stage in (4, 6):

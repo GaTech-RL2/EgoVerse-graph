@@ -32,7 +32,8 @@ def main():
   assert a.argv and a.phase
   env=dict(os.environ);env['AF_NATIVE_CONSTRUCT']='true' if a.action=='preflight' else 'false';env['AF_NATIVE_OPERATIONAL_VERIFIER_PENDING']='false';env['AF_NATIVE_PENDING_PROOFS']=''
   subprocess.run([sys.executable,str(a.repo/'scripts/train/libero_native_schema_contract.py'),'--repo',str(a.repo),'--phase',a.phase,'--output',str(a.output),'--argv',str(a.argv),'--expected-argv-sha256',sha(a.argv)],env=env,check=True,cwd=a.repo)
-  cfg=OmegaConf.to_container(OmegaConf.load(a.output/'resolved.yaml'),resolve=True);binding=cfg['norm_stats']['native_saved_state_binding'];fingerprint=contract_sha(cfg)
+  from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+  cfg=OmegaConf.to_container(OmegaConf.load(a.output/'resolved.yaml'),resolve=True);PROFILE=profile_for_config(cfg).experiment;binding=cfg['norm_stats']['native_saved_state_binding'];fingerprint=contract_sha(cfg)
   runtime=json.loads((a.output/'runtime-lock.json').read_text())
   if a.action=='preflight':
    result=json.loads((a.output/'RESULT.json').read_text());constructor=checked(result['CPU_constructor']['path'],result['CPU_constructor']['sha256']);constructor['model_contract_sha256']=fingerprint
@@ -52,7 +53,9 @@ def main():
     assert smoke['checkpoint']['parameter_count']==39750391 and smoke['strict_online_and_ema_reload'] is True and smoke['native_artifacts']['same_pass_verified'] is True
    write(a.output/'NATIVE_RUN_PREPARED.json',dict(status='PASS',phase=a.phase,model_contract_sha256=fingerprint,resolved_config_sha256=sha(a.output/'resolved.yaml'),preflight=reference(os.environ['AF_PREFLIGHT_RESULT'])))
  else:
-  root=a.output;cfg=OmegaConf.to_container(OmegaConf.load(root/'.hydra/config.yaml'),resolve=True)
+  root=a.output
+  from egomimic.benchmarks.libero.saved_hydra_context import load_saved_native_config
+  cfg=OmegaConf.to_container(load_saved_native_config(root,a.repo),resolve=True)
   preflight=checked(os.environ['AF_PREFLIGHT_RESULT'],os.environ['AF_EXPECTED_PREFLIGHT_SHA256']);assert contract_sha(cfg)==preflight['model_contract_sha256']
   artifact=root/'validation_predictions/native_action_flow/valid-step-000002.json';assert artifact.is_file()
   evidence=dict(schema='libero-native-postsmoke-evidence/v1',preflight=reference(os.environ['AF_PREFLIGHT_RESULT']),native_metrics_artifact=reference(artifact),resolved_config_sha256=sha(root/'.hydra/config.yaml'),model_contract_sha256=contract_sha(cfg))

@@ -8,6 +8,8 @@ import math
 import os
 from pathlib import Path
 
+from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config, profile_for_experiment
+
 PROFILE = "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"
 SOURCE = "libero_panda"
 EXPECTED_PARAMETER_COUNT = 39750391
@@ -40,8 +42,7 @@ def flatten(value, stem=""):
     return result
 
 def evaluator_overrides(profile):
-    if profile != PROFILE:
-        raise ValueError("unsupported LIBERO typed profile")
+    profile_for_experiment(profile)
     # Native LiberoActionFlowEvaluator has no energy_score_validation_view.
     return ("evaluator.energy_sample_count=32",
             "evaluator.energy_seed_bank_sha256="+SEED_BANK_SHA)
@@ -64,9 +65,11 @@ def validate_resolved(config, phase):
                  "typed_profile.velocity_augmentation": False,
                  "typed_profile.homogeneous": "not_applicable_single_source",
                  "typed_profile.checkpoint_policy": "dit-half"})
-    validate_flat_config(flat, phase)
-    if config["benchmark"]["suite"] != "libero10":
-        raise ValueError("wrong suite")
+    profile = profile_for_config(config)
+    seed = config.get("seed")
+    if type(seed) is not int or seed not in ({42, 43} if profile.suite in {"libero_goal", "libero_object"} else {42}):
+        raise ValueError("unsupported native training seed")
+    validate_flat_config(flat, phase, training_seed=seed)
     if config["callbacks"]["dit_half"]["_target_"] != "egomimic.utils.libero_dit_half.LiberoDiTHalf":
         raise ValueError("DiT-half callback unreachable")
     if config["callbacks"]["ema"]["validate_with_ema"] is not True:
@@ -83,9 +86,10 @@ def validate_resolved(config, phase):
         raise ValueError("must use train-only Action Flow normalizer, never base OAT all-frame limits")
     return True
 
-def validate_data_receipt(receipt, *, replay_path, expected_logical_sha):
+def validate_data_receipt(receipt, *, replay_path, expected_logical_sha, profile=PROFILE):
     """Cheap immutable cached identity; cache miss must run real native validator."""
-    if receipt["suite"] != "libero10" or receipt["replay_path"] != str(replay_path):
+    selected = profile_for_experiment(profile)
+    if receipt["suite"] != selected.suite or receipt["replay_path"] != str(replay_path):
         raise ValueError("receipt suite/path mismatch")
     if receipt["dataset_logical_sha256"] != expected_logical_sha:
         raise ValueError("logical replay identity mismatch")
@@ -96,6 +100,8 @@ def validate_data_receipt(receipt, *, replay_path, expected_logical_sha):
         raise ValueError("duplicate or incorrect episode counts")
     if set(train)&set(valid) or set(train)|set(valid) != set(range(500)):
         raise ValueError("episode overlap/incomplete corpus")
+    if "task_uids" in receipt and tuple(receipt["task_uids"]) != selected.task_uids:
+        raise ValueError("native receipt task inventory mismatch")
     if receipt["action_shape"] != [receipt["frames"], 7]:
         raise ValueError("native delta-OSC action shape mismatch")
     # These aren't distinct directories: each virtual episode path is rooted

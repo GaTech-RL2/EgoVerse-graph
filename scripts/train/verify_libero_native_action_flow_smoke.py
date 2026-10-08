@@ -22,9 +22,9 @@ def checked_ref(ref):
 
 def checked_json(ref):return json.loads(checked_ref(ref).read_text())
 
-def validate_preflight(preflight,identities):
+def validate_preflight(preflight,identities,expected_profile=PROFILE):
     require(preflight["schema"]=="libero-native-launch-preflight/v1" and preflight["status"]=="PASS","native preflight did not pass")
-    require(preflight["profile"]==PROFILE,"native profile mismatch")
+    require(preflight["profile"]==expected_profile,"native profile mismatch")
     for key,value in identities.items():
         if key != "resolved_config_sha256":require(preflight[key]==value,"native preflight identity mismatch: "+key)
     require(sha(preflight["resolved_config_path"])==preflight["resolved_config_sha256"],"immutable preflight snapshot changed")
@@ -59,21 +59,26 @@ def validate_dit_counts(rows,shared):
     require(all(row[k]>0 for k in names),"native DiT-half path inactive")
     return {"step":step,"counts":row}
 
-def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_split_sha256,expected_normalization_sha256,expected_preflight_sha256,shared):
+def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_split_sha256,expected_normalization_sha256,expected_preflight_sha256,shared,expected_profile=PROFILE):
     import torch,hydra
     from omegaconf import OmegaConf
     from egomimic.pl_utils.pl_model import ModelWrapper
     from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowNormalizer
     from egomimic.rldb.zarr.libero_saved_state import bind_saved_native_state
     from egomimic.benchmarks.libero.action_flow_artifacts import REQUIRED,validate_identity,validate_payload,verify_tensor_payload
-    run_dir=Path(run_dir).resolve(strict=True);configpath=run_dir/".hydra/config.yaml";config=OmegaConf.load(configpath)
+    run_dir=Path(run_dir).resolve(strict=True);configpath=run_dir/".hydra/config.yaml";config=None
+    from egomimic.benchmarks.libero.saved_hydra_context import load_saved_native_config
+    config=load_saved_native_config(run_dir,shared.REPOSITORY_ROOT)
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+    profile=profile_for_config(config).experiment
+    require(profile==expected_profile,"native requested/configured profile mismatch")
     require(all(v is not None for v in (expected_config_sha256,expected_split_sha256,expected_normalization_sha256,expected_preflight_sha256)),"native smoke needs every explicit expected hash")
     require(shared._git_head()==expected_head,"native verifier source HEAD mismatch")
     import subprocess
     require(not subprocess.check_output(["git","-C",str(shared.REPOSITORY_ROOT),"status","--porcelain","--untracked-files=all"],text=True),"native verifier source must be clean")
     require(sha(configpath)==expected_config_sha256,"native resolved config byte hash mismatch")
     select=lambda key:OmegaConf.select(config,key)
-    for key,value in (("model._target_","egomimic.pl_utils.pl_model.ModelWrapper"),("normalizer._target_","egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowNormalizer"),("model.action_flow_method",shared.STOPGRAD_UNITE_METHOD),("model.action_dim",7),("model.action_horizon",16),("model.hidden_dim",240),("model.num_inference_steps",50),("model.flow_samples_per_content",14),("model.flow_loss_aggregation","sum_samples"),("trainer.precision","bf16-mixed"),("trainer.max_steps",2),("trainer.devices",1),("trainer.num_nodes",1),("seed",42),("model.gradient_telemetry_cadence",2),("data.train_dataloader_params.libero_panda.batch_size",32),("model.optimizer._target_","egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer")):
+    for key,value in (("model._target_","egomimic.pl_utils.pl_model.ModelWrapper"),("normalizer._target_","egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowNormalizer"),("model.action_flow_method",shared.STOPGRAD_UNITE_METHOD),("model.action_dim",7),("model.action_horizon",16),("model.hidden_dim",240),("model.num_inference_steps",50),("model.flow_samples_per_content",14),("model.flow_loss_aggregation","sum_samples"),("trainer.precision","bf16-mixed"),("trainer.max_steps",2),("trainer.devices",1),("trainer.num_nodes",1),("model.gradient_telemetry_cadence",2),("data.train_dataloader_params.libero_panda.batch_size",32),("model.optimizer._target_","egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer")):
         require(select(key)==value,"native smoke config mismatch: "+key)
     require(set(config.data.train_datasets)=={SOURCE} and set(config.data.valid_datasets)=={SOURCE},"native smoke source inventory mismatch")
     require(len(config.model.pipeline.stages)==9,"native noaug topology mismatch")
@@ -97,7 +102,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     require(evidence["preflight"]["sha256"]==expected_preflight_sha256,"native immutable preflight hash mismatch")
     preflightpath=checked_ref(evidence["preflight"]);preflight=json.loads(preflightpath.read_text())
     require(contract_sha(OmegaConf.to_container(OmegaConf.load(preflight["resolved_config_path"]),resolve=True))==fingerprint,"preflight and smoke scientific contracts differ")
-    cpu=validate_preflight(preflight,{**identities,"model_contract_sha256":fingerprint})
+    cpu=validate_preflight(preflight,{**identities,"model_contract_sha256":fingerprint},profile)
     require(preflight["physical_proof"]=={"path":binding["physical_proof_path"],"sha256":binding["physical_proof_sha256"]},"native physical proof binding differs")
     gpu=shared._validate_gpu_probes(run_dir)
     checkpoint=shared._validate_checkpoint(run_dir,reconstruction_weight=1.,flow_weight=1.,method=shared.STOPGRAD_UNITE_METHOD,config=config,expected_parameter_count_override=PARAMETER_COUNT)
@@ -196,7 +201,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     tensors,numbers=shared._finite_tree(diagnostic["sources"][SOURCE]["computed"],"shared computed native diagnostic")
     require(tensors+numbers>0,"shared computed diagnostic empty")
     tensorproof=dict(native_metrics_sha256=evidence["native_metrics_artifact"]["sha256"],batch_count=len(native["batches"]),tensor_sha256=first["sha256"],shared_diagnostic_sha256=reference["sha256"],same_pass_verified=True)
-    result=dict(schema="libero-native-action-flow-smoke/v1",status="PASS",run_dir=str(run_dir),profile=PROFILE,identities=identities,model_contract_sha256=fingerprint,preflight={"path":str(preflightpath),"sha256":expected_preflight_sha256},checkpoint=checkpoint,gpu_probes=gpu,cpu_constructor=cpu,history=history,native_artifacts=tensorproof,wandb=dict(run_id=runid,stream_sha256=sha(streams[0]),exit_code=exitcode),strict_online_and_ema_reload=True,normalization=dict(storage="external_cached_native_state",embedded_in_checkpoint=False,checkpoint_context=checkpoint_context,actual_native_class_and_state_verified=True,metadata_resolver_decoded_cache=False))
+    result=dict(schema="libero-native-action-flow-smoke/v1",status="PASS",run_dir=str(run_dir),profile=profile,identities=identities,model_contract_sha256=fingerprint,preflight={"path":str(preflightpath),"sha256":expected_preflight_sha256},checkpoint=checkpoint,gpu_probes=gpu,cpu_constructor=cpu,history=history,native_artifacts=tensorproof,wandb=dict(run_id=runid,stream_sha256=sha(streams[0]),exit_code=exitcode),strict_online_and_ema_reload=True,normalization=dict(storage="external_cached_native_state",embedded_in_checkpoint=False,checkpoint_context=checkpoint_context,actual_native_class_and_state_verified=True,metadata_resolver_decoded_cache=False))
     destination=run_dir/"SMOKE_RESULT.json";rendered=json.dumps(result,sort_keys=True,indent=2,allow_nan=False)+"\n"
     if destination.exists():require(destination.read_text()==rendered,"native smoke result overwrite prohibited")
     else:

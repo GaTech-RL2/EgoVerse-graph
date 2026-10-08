@@ -191,12 +191,26 @@ def evaluate_contract(
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Return expected values, observed values, and every failed comparison."""
 
-    native = native_profile is not None
-    if native:
-        if native_profile != 'libero/action_flow_libero10_h240_euler50_dithalf_80k_s42' or expected_constraint != '(null)':
-            raise ContractError('exact native LIBERO profile and literal no-constraint contract required')
-        if not gpu_probe or gpu_probe.get('status') != 'PASSED' or gpu_probe.get('gpu_name') != 'NVIDIA H100 80GB HBM3' or gpu_probe.get('world_size') != 1 or gpu_probe.get('rank') != 0 or gpu_probe.get('local_rank') != 0 or gpu_probe.get('bf16_supported') is not True or gpu_probe.get('bf16_forward_backward', {}).get('finite') is not True:
-            raise ContractError('actual single H100 finite BF16 GPU probe required')
+    native_requested = native_profile is not None
+    native = native_requested and expected_constraint == '(null)'
+    if native_requested:
+        # Suite typing is independent of portable scheduler representation.
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from egomimic.benchmarks.libero.native_launch_profiles import profile_for_experiment
+        try:
+            selected_profile=profile_for_experiment(native_profile)
+            if selected_profile.suite == "libero_spatial" and native:
+                raise ValueError("Spatial ICE requires an explicit H100/H200 constraint")
+            if selected_profile.suite == "libero10" and not native:
+                raise ValueError("existing LIBERO10 native no-constraint contract required")
+        except ValueError as exc:
+            raise ContractError(str(exc)) from exc
+        allowed_names = {'NVIDIA H100 80GB HBM3'} if native else {'NVIDIA H100 80GB HBM3', 'NVIDIA H200'}
+        if expected_constraint == 'H100': allowed_names = {'NVIDIA H100 80GB HBM3'}
+        if expected_constraint == 'H200': allowed_names = {'NVIDIA H200'}
+        if not gpu_probe or gpu_probe.get('status') != 'PASSED' or gpu_probe.get('gpu_name') not in allowed_names or gpu_probe.get('world_size') != 1 or gpu_probe.get('rank') != 0 or gpu_probe.get('local_rank') != 0 or gpu_probe.get('bf16_supported') is not True or gpu_probe.get('bf16_forward_backward', {}).get('finite') is not True:
+            raise ContractError('actual single allowed native GPU finite BF16 probe required')
     if not native and expected_constraint not in ALLOWED_CONSTRAINTS:
         raise ContractError(
             "constraint must be one of "

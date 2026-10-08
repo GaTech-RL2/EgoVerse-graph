@@ -1,0 +1,14 @@
+{
+  "source_run": "obs-streams-1007-v7-multistream-stk-m56",
+  "retry_run": "obs-streams-1007-v8-multistream-stk-m56",
+  "receipt": {
+    "artifact": {
+      "uri": "s3://rldb/experiments/obstacle-streams-20261007/runs/obs-streams-1007-v7-multistream-stk-m56/normalizer.json",
+      "sha256": "cd8556d5487e3d0075d1aa531a3cdaa4121893dc04c1f6f977a58230f57821ed",
+      "bytes": 855628
+    },
+    "data_manifest_sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470",
+    "train_only": true
+  },
+  "reason": "Reuse the valid immutable training-only normalizer exported before the failed DDP smoke; no training updates were performed in that attempt."
+}

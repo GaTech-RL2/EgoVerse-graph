@@ -1,0 +1,1791 @@
+/workspace/cotrain/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[2026-10-08 08:43:05,287][egomimic.utils.utils][WARNING] - [rank: 0] Extras config not found! <cfg.extras=null>
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  train_log_on_step: true
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${planar.action_horizon}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: ${planar.action_dim}
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims:
+          - 512
+          - 1024
+          - 2048
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+          num_train_timesteps: 100
+          beta_schedule: squaredcos_cap_v2
+          variance_type: fixed_small
+          clip_sample: true
+          prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    homogeneous_training: true
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.95
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 240000
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+  output_dir: /workspace/cotrain/smoke
+  work_dir: /workspace/cotrain/source
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: ${launch_params.gpus_per_node}
+  precision: bf16-mixed
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  check_val_every_n_epoch: null
+  deterministic: false
+  strategy: ddp
+  num_nodes: ${launch_params.nodes}
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+  max_steps: 4
+  val_check_interval: 10000
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  enable_progress_bar: false
+  enable_checkpointing: false
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+  run_progress:
+    _target_: egomimic.utils.run_progress.RunProgressCallback
+    path: /workspace/cotrain/evidence/smoke-progress.json
+    every_n_steps: 100
+    require_homogeneous: true
+evaluator:
+  _target_: egomimic.eval.planar_action_eval.PlanarActionEval
+  limit_val_batches: 1.0
+  action_key: actions
+  native_decoder: null
+  energy_score_enabled: true
+  deterministic_seed: 420042
+  seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+  unite_diagnostics:
+    enabled: false
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: null
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: 16
+      sampler: dopri5
+      sampler_output_points: 50
+      sampler_atol: 1.0e-06
+      sampler_rtol: 0.001
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+name: planar_streams_x_y_stk_m56
+description: Pinned four-source Planar DP and independently timed ARC comparison
+ckpt_path: null
+mode: train
+norm_stats_only: false
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+runtime:
+  slurm_requeue_owner: none
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+seed: 42
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  num_workers: 8
+  save_cache_dir: /workspace/cotrain/normalization
+  precomputed_norm_path: /workspace/cotrain/normalization/norm_stats
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+planar:
+  action_dim: 9
+  action_dims:
+    pushshapes_sim_u_socket: ${planar.action_dim}
+    pushshapes_sim_chain_gripper: ${planar.action_dim}
+  eval_native_decoder: null
+  raw_action_horizon: 80
+  action_horizon: 56
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_dt: 0.0333333333333333
+  arc_rotation_radius: 30.0
+  hybrid_rotation_unit: null
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj:
+        input_dim: 3
+        input_slice:
+        - 0
+        - 3
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: velocity
+  cotrain_data_root: /workspace/cotrain/data
+  data_manifest_sha256: 995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470
+  translation_groups: x_y
+eval_checkpoint:
+  use_ema: true
+run_provenance:
+  campaign: obstacle-streams-20261007
+  data_manifest_sha256: ${planar.data_manifest_sha256}
+  source_alignment: 'manifest-specific offset: pre-step=1, post-step=2 with obs2'
+  training_seed: 42
+  effective_batch_size: 128
+  optimizer_updates: 240000
+  source_weighting: equal embodiment batches; frame-uniform mixture of ChainGripper
+    sources
+  decoded_image_cache: true
+  split: families grouped by action identity, initial state, and known generation
+    parent
+  timing_layout: shape_then_timing
+  action_contract:
+    prediction_horizon: ${planar.action_horizon}
+    raw_action_horizon: ${planar.raw_action_horizon}
+    rollout_action_chunk_start_index: 0
+    execution_rule: DP first 8 controls; ARC earliest active stream half-support clock
+  evaluation_protocol: custom frozen 31-layout 50-seed benchmark; not canonical OEC-56
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper
+
+Seed set to 42
+/workspace/cotrain/source/egomimic/trainHydra.py:499: UserWarning: Env file /root/.egoverse_env does not exist; AWS/R2 env vars not set. Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.
+  load_env()
+[2026-10-08 08:43:08,281][__main__][INFO] - [rank: 0] Instantiating datamodule <egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper>
+[2026-10-08 08:43:26,279][__main__][INFO] - [rank: 0] Inferring shapes for dataset <pushshapes_sim_u_socket>
+[2026-10-08 08:43:27,049][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=19
+[2026-10-08 08:43:27,049][__main__][INFO] - [rank: 0] Inferring shapes for dataset <pushshapes_sim_chain_gripper>
+[2026-10-08 08:43:28,472][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=20
+[2026-10-08 08:43:28,491][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Cached stats to /workspace/cotrain/normalization/norm_stats/norm_stats.json
+[2026-10-08 08:43:28,492][__main__][INFO] - [rank: 0] norm stats wired to 2 train and 2 valid datasets across 1 val group(s): ['valid']
+[2026-10-08 08:43:28,492][__main__][INFO] - [rank: 0] Instantiating model <egomimic.pl_utils.pl_model.ModelWrapper>
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `prediction_type` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'prediction_type' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.prediction_type'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `num_train_timesteps` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'num_train_timesteps' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.num_train_timesteps'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+[2026-10-08 08:43:30,019][egomimic.models.denoising_nets][INFO] - PaperConditionalUnet1D parameters: 251594377
+[2026-10-08 08:43:30,416][__main__][INFO] - [rank: 0] Dataset frame counts:
+╭──────────────┬──────────────────────────────┬───────────╮
+│ Split        │ Dataset                      │    Frames │
+├──────────────┼──────────────────────────────┼───────────┤
+│ train        │ pushshapes_sim_u_socket      │   515,263 │
+│ train        │ pushshapes_sim_chain_gripper │ 3,667,759 │
+│ TOTAL        │ (train)                      │ 4,183,022 │
+│ valid[valid] │ pushshapes_sim_u_socket      │     6,413 │
+│ valid[valid] │ pushshapes_sim_chain_gripper │    32,405 │
+│ TOTAL        │ (valid)                      │    38,818 │
+╰──────────────┴──────────────────────────────┴───────────╯
+[2026-10-08 08:43:30,416][__main__][INFO] - [rank: 0] Instantiating callbacks...
+[2026-10-08 08:43:30,417][egomimic.utils.instantiators][INFO] - [rank: 0] Instantiating callback <egomimic.utils.timing_callback.WandbProfilerLogger>
+[2026-10-08 08:43:30,731][egomimic.utils.instantiators][INFO] - [rank: 0] Instantiating callback <egomimic.utils.ema_callback.EMACallback>
+[2026-10-08 08:43:30,732][egomimic.utils.instantiators][INFO] - [rank: 0] Instantiating callback <egomimic.utils.run_progress.RunProgressCallback>
+[2026-10-08 08:43:30,733][__main__][INFO] - [rank: 0] Instantiating loggers...
+[2026-10-08 08:43:30,733][__main__][INFO] - [rank: 0] Instantiating trainer <lightning.pytorch.trainer.Trainer>
+[2026-10-08 08:43:30,738][pytorch_lightning.utilities.rank_zero][INFO] - Using bfloat16 Automatic Mixed Precision (AMP)
+[2026-10-08 08:43:30,745][pytorch_lightning.utilities.rank_zero][INFO] - GPU available: True (cuda), used: True
+[2026-10-08 08:43:30,745][pytorch_lightning.utilities.rank_zero][INFO] - TPU available: False, using: 0 TPU cores
+[2026-10-08 08:43:30,745][pytorch_lightning.utilities.rank_zero][INFO] - 💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+[2026-10-08 08:43:30,746][pytorch_lightning.utilities.rank_zero][INFO] - `Trainer(limit_train_batches=1.0)` was configured so 100% of the batches per epoch will be used..
+[2026-10-08 08:43:30,771][__main__][INFO] - [rank: 0] Starting training!
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/4
+/workspace/cotrain/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/workspace/cotrain/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/workspace/cotrain/emimic/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  train_log_on_step: true
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${planar.action_horizon}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: ${planar.action_dim}
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims:
+          - 512
+          - 1024
+          - 2048
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+          num_train_timesteps: 100
+          beta_schedule: squaredcos_cap_v2
+          variance_type: fixed_small
+          clip_sample: true
+          prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    homogeneous_training: true
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.95
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 240000
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+  output_dir: /workspace/cotrain/smoke
+  work_dir: /workspace/cotrain/source
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: ${launch_params.gpus_per_node}
+  precision: bf16-mixed
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  check_val_every_n_epoch: null
+  deterministic: false
+  strategy: ddp
+  num_nodes: ${launch_params.nodes}
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+  max_steps: 4
+  val_check_interval: 10000
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  enable_progress_bar: false
+  enable_checkpointing: false
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+  run_progress:
+    _target_: egomimic.utils.run_progress.RunProgressCallback
+    path: /workspace/cotrain/evidence/smoke-progress.json
+    every_n_steps: 100
+    require_homogeneous: true
+evaluator:
+  _target_: egomimic.eval.planar_action_eval.PlanarActionEval
+  limit_val_batches: 1.0
+  action_key: actions
+  native_decoder: null
+  energy_score_enabled: true
+  deterministic_seed: 420042
+  seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+  unite_diagnostics:
+    enabled: false
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: null
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: 16
+      sampler: dopri5
+      sampler_output_points: 50
+      sampler_atol: 1.0e-06
+      sampler_rtol: 0.001
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+name: planar_streams_x_y_stk_m56
+description: Pinned four-source Planar DP and independently timed ARC comparison
+ckpt_path: null
+mode: train
+norm_stats_only: false
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+runtime:
+  slurm_requeue_owner: none
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+seed: 42
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  num_workers: 8
+  save_cache_dir: /workspace/cotrain/normalization
+  precomputed_norm_path: /workspace/cotrain/normalization/norm_stats
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+planar:
+  action_dim: 9
+  action_dims:
+    pushshapes_sim_u_socket: ${planar.action_dim}
+    pushshapes_sim_chain_gripper: ${planar.action_dim}
+  eval_native_decoder: null
+  raw_action_horizon: 80
+  action_horizon: 56
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_dt: 0.0333333333333333
+  arc_rotation_radius: 30.0
+  hybrid_rotation_unit: null
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj:
+        input_dim: 3
+        input_slice:
+        - 0
+        - 3
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: velocity
+  cotrain_data_root: /workspace/cotrain/data
+  data_manifest_sha256: 995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470
+  translation_groups: x_y
+eval_checkpoint:
+  use_ema: true
+run_provenance:
+  campaign: obstacle-streams-20261007
+  data_manifest_sha256: ${planar.data_manifest_sha256}
+  source_alignment: 'manifest-specific offset: pre-step=1, post-step=2 with obs2'
+  training_seed: 42
+  effective_batch_size: 128
+  optimizer_updates: 240000
+  source_weighting: equal embodiment batches; frame-uniform mixture of ChainGripper
+    sources
+  decoded_image_cache: true
+  split: families grouped by action identity, initial state, and known generation
+    parent
+  timing_layout: shape_then_timing
+  action_contract:
+    prediction_horizon: ${planar.action_horizon}
+    raw_action_horizon: ${planar.raw_action_horizon}
+    rollout_action_chunk_start_index: 0
+    execution_rule: DP first 8 controls; ARC earliest active stream half-support clock
+  evaluation_protocol: custom frozen 31-layout 50-seed benchmark; not canonical OEC-56
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper
+
+[rank: 1] Seed set to 42
+/workspace/cotrain/source/egomimic/trainHydra.py:499: UserWarning: Env file /root/.egoverse_env does not exist; AWS/R2 env vars not set. Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.
+  load_env()
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  train_log_on_step: true
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${planar.action_horizon}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: ${planar.action_dim}
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims:
+          - 512
+          - 1024
+          - 2048
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+          num_train_timesteps: 100
+          beta_schedule: squaredcos_cap_v2
+          variance_type: fixed_small
+          clip_sample: true
+          prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    homogeneous_training: true
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.95
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 240000
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+  output_dir: /workspace/cotrain/smoke
+  work_dir: /workspace/cotrain/source
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: ${launch_params.gpus_per_node}
+  precision: bf16-mixed
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  check_val_every_n_epoch: null
+  deterministic: false
+  strategy: ddp
+  num_nodes: ${launch_params.nodes}
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+  max_steps: 4
+  val_check_interval: 10000
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  enable_progress_bar: false
+  enable_checkpointing: false
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+  run_progress:
+    _target_: egomimic.utils.run_progress.RunProgressCallback
+    path: /workspace/cotrain/evidence/smoke-progress.json
+    every_n_steps: 100
+    require_homogeneous: true
+evaluator:
+  _target_: egomimic.eval.planar_action_eval.PlanarActionEval
+  limit_val_batches: 1.0
+  action_key: actions
+  native_decoder: null
+  energy_score_enabled: true
+  deterministic_seed: 420042
+  seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+  unite_diagnostics:
+    enabled: false
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: null
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: 16
+      sampler: dopri5
+      sampler_output_points: 50
+      sampler_atol: 1.0e-06
+      sampler_rtol: 0.001
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+name: planar_streams_x_y_stk_m56
+description: Pinned four-source Planar DP and independently timed ARC comparison
+ckpt_path: null
+mode: train
+norm_stats_only: false
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+runtime:
+  slurm_requeue_owner: none
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+seed: 42
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  num_workers: 8
+  save_cache_dir: /workspace/cotrain/normalization
+  precomputed_norm_path: /workspace/cotrain/normalization/norm_stats
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+planar:
+  action_dim: 9
+  action_dims:
+    pushshapes_sim_u_socket: ${planar.action_dim}
+    pushshapes_sim_chain_gripper: ${planar.action_dim}
+  eval_native_decoder: null
+  raw_action_horizon: 80
+  action_horizon: 56
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_dt: 0.0333333333333333
+  arc_rotation_radius: 30.0
+  hybrid_rotation_unit: null
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj:
+        input_dim: 3
+        input_slice:
+        - 0
+        - 3
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: velocity
+  cotrain_data_root: /workspace/cotrain/data
+  data_manifest_sha256: 995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470
+  translation_groups: x_y
+eval_checkpoint:
+  use_ema: true
+run_provenance:
+  campaign: obstacle-streams-20261007
+  data_manifest_sha256: ${planar.data_manifest_sha256}
+  source_alignment: 'manifest-specific offset: pre-step=1, post-step=2 with obs2'
+  training_seed: 42
+  effective_batch_size: 128
+  optimizer_updates: 240000
+  source_weighting: equal embodiment batches; frame-uniform mixture of ChainGripper
+    sources
+  decoded_image_cache: true
+  split: families grouped by action identity, initial state, and known generation
+    parent
+  timing_layout: shape_then_timing
+  action_contract:
+    prediction_horizon: ${planar.action_horizon}
+    raw_action_horizon: ${planar.raw_action_horizon}
+    rollout_action_chunk_start_index: 0
+    execution_rule: DP first 8 controls; ARC earliest active stream half-support clock
+  evaluation_protocol: custom frozen 31-layout 50-seed benchmark; not canonical OEC-56
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper
+
+[rank: 2] Seed set to 42
+/workspace/cotrain/source/egomimic/trainHydra.py:499: UserWarning: Env file /root/.egoverse_env does not exist; AWS/R2 env vars not set. Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.
+  load_env()
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  train_log_on_step: true
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${planar.action_horizon}
+      action_dim: ${planar.action_dim}
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${planar.action_horizon}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: ${planar.action_dim}
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims:
+          - 512
+          - 1024
+          - 2048
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+          num_train_timesteps: 100
+          beta_schedule: squaredcos_cap_v2
+          variance_type: fixed_small
+          clip_sample: true
+          prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    homogeneous_training: true
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.95
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 240000
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+  output_dir: /workspace/cotrain/smoke
+  work_dir: /workspace/cotrain/source
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: ${launch_params.gpus_per_node}
+  precision: bf16-mixed
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  check_val_every_n_epoch: null
+  deterministic: false
+  strategy: ddp
+  num_nodes: ${launch_params.nodes}
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+  max_steps: 4
+  val_check_interval: 10000
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  enable_progress_bar: false
+  enable_checkpointing: false
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_u_socket
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: ${planar.cotrain_data_root}
+        manifest_sha256: ${planar.data_manifest_sha256}
+        embodiment: pushshapes_sim_chain_gripper
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: ${planar.raw_action_horizon}
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: ${planar.transform_target}
+          raw_action_horizon: ${planar.raw_action_horizon}
+          action_horizon: ${planar.action_horizon}
+          action_target_offset: 1
+          min_distance_unit: ${planar.arc_distance}
+          resampled_vector_length: ${planar.arc_waypoints}
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+          timing_mode: ${planar.arc_timing_mode}
+          translation_groups: ${planar.translation_groups}
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: ${planar.batch_size}
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+  run_progress:
+    _target_: egomimic.utils.run_progress.RunProgressCallback
+    path: /workspace/cotrain/evidence/smoke-progress.json
+    every_n_steps: 100
+    require_homogeneous: true
+evaluator:
+  _target_: egomimic.eval.planar_action_eval.PlanarActionEval
+  limit_val_batches: 1.0
+  action_key: actions
+  native_decoder: null
+  energy_score_enabled: true
+  deterministic_seed: 420042
+  seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+  unite_diagnostics:
+    enabled: false
+    noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: null
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: 16
+      sampler: dopri5
+      sampler_output_points: 50
+      sampler_atol: 1.0e-06
+      sampler_rtol: 0.001
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+name: planar_streams_x_y_stk_m56
+description: Pinned four-source Planar DP and independently timed ARC comparison
+ckpt_path: null
+mode: train
+norm_stats_only: false
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+runtime:
+  slurm_requeue_owner: none
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+seed: 42
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  num_workers: 8
+  save_cache_dir: /workspace/cotrain/normalization
+  precomputed_norm_path: /workspace/cotrain/normalization/norm_stats
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+planar:
+  action_dim: 9
+  action_dims:
+    pushshapes_sim_u_socket: ${planar.action_dim}
+    pushshapes_sim_chain_gripper: ${planar.action_dim}
+  eval_native_decoder: null
+  raw_action_horizon: 80
+  action_horizon: 56
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_dt: 0.0333333333333333
+  arc_rotation_radius: 30.0
+  hybrid_rotation_unit: null
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj:
+        input_dim: 3
+        input_slice:
+        - 0
+        - 3
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: velocity
+  cotrain_data_root: /workspace/cotrain/data
+  data_manifest_sha256: 995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470
+  translation_groups: x_y
+eval_checkpoint:
+  use_ema: true
+run_provenance:
+  campaign: obstacle-streams-20261007
+  data_manifest_sha256: ${planar.data_manifest_sha256}
+  source_alignment: 'manifest-specific offset: pre-step=1, post-step=2 with obs2'
+  training_seed: 42
+  effective_batch_size: 128
+  optimizer_updates: 240000
+  source_weighting: equal embodiment batches; frame-uniform mixture of ChainGripper
+    sources
+  decoded_image_cache: true
+  split: families grouped by action identity, initial state, and known generation
+    parent
+  timing_layout: shape_then_timing
+  action_contract:
+    prediction_horizon: ${planar.action_horizon}
+    raw_action_horizon: ${planar.raw_action_horizon}
+    rollout_action_chunk_start_index: 0
+    execution_rule: DP first 8 controls; ARC earliest active stream half-support clock
+  evaluation_protocol: custom frozen 31-layout 50-seed benchmark; not canonical OEC-56
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper
+
+[rank: 3] Seed set to 42
+/workspace/cotrain/source/egomimic/trainHydra.py:499: UserWarning: Env file /root/.egoverse_env does not exist; AWS/R2 env vars not set. Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.
+  load_env()
+[2026-10-08 08:43:58,999][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=19
+[2026-10-08 08:43:59,033][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=19
+[2026-10-08 08:44:00,472][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=20
+[2026-10-08 08:44:00,492][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Cached stats to /workspace/cotrain/normalization/norm_stats/norm_stats.json
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `prediction_type` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'prediction_type' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.prediction_type'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `num_train_timesteps` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'num_train_timesteps' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.num_train_timesteps'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+[2026-10-08 08:44:00,770][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=19
+Error executing job with overrides: ['+experiment=pusht/planar_streams_x_y_stk_m56', 'paths.output_dir=/workspace/cotrain/smoke', 'paths.work_dir=/workspace/cotrain/source', 'planar.cotrain_data_root=/workspace/cotrain/data', 'planar.data_manifest_sha256=995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470', 'seed=42', 'ckpt_path=null', 'launch_params.gpus_per_node=4', 'launch_params.nodes=1', 'trainer.limit_val_batches=0', 'trainer.limit_train_batches=1.0', 'trainer.num_sanity_val_steps=0', 'trainer.accumulate_grad_batches=1', '++trainer.enable_progress_bar=false', 'runtime.slurm_requeue_owner=none', 'norm_stats.norm_mode=quantile', 'norm_stats.sample_frac=0.05', 'norm_stats.num_workers=8', 'norm_stats.save_cache_dir=/workspace/cotrain/normalization', 'trainer.max_steps=4', '~logger', '~callbacks.model_checkpoint', '++trainer.enable_checkpointing=false', 'norm_stats.precomputed_norm_path=/workspace/cotrain/normalization/norm_stats', 'callbacks.run_progress.path=/workspace/cotrain/evidence/smoke-progress.json']
+Traceback (most recent call last):
+  File "/workspace/cotrain/source/egomimic/trainHydra.py", line 723, in <module>
+    main()
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/main.py", line 94, in decorated_main
+    _run_hydra(
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+    _run_app(
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+    run_and_report(
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/utils.py", line 223, in run_and_report
+    raise ex
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+    return func()
+           ^^^^^^
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+    lambda: hydra.run(
+            ^^^^^^^^^^
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/_internal/hydra.py", line 132, in run
+    _ = ret.return_value
+        ^^^^^^^^^^^^^^^^
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/core/utils.py", line 260, in return_value
+    raise self._return_value
+  File "/workspace/cotrain/emimic/lib/python3.11/site-packages/hydra/core/utils.py", line 186, in run_job
+    ret.return_value = task_function(task_cfg)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/cotrain/source/egomimic/trainHydra.py", line 719, in main
+    train(cfg)
+  File "/workspace/cotrain/source/egomimic/utils/utils.py", line 78, in wrap
+    raise ex
+  File "/workspace/cotrain/source/egomimic/utils/utils.py", line 68, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/workspace/cotrain/source/egomimic/trainHydra.py", line 551, in train
+    norm_stats.infer_norm_from_dataset(
+  File "/workspace/cotrain/source/egomimic/rldb/zarr/zarr_dataset_multi.py", line 1483, in infer_norm_from_dataset
+    self._load_precomputed_stats(precomputed_file, embodiment, norm_keys)
+  File "/workspace/cotrain/source/egomimic/rldb/zarr/zarr_dataset_multi.py", line 1800, in _load_precomputed_stats
+    payload = json.load(f)
+              ^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/json/decoder.py", line 353, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 12855 column 46 (char 459664)
+[2026-10-08 08:44:01,984][egomimic.models.denoising_nets][INFO] - PaperConditionalUnet1D parameters: 251594377
+[2026-10-08 08:44:02,321][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Loaded precomputed stats for embodiment=20
+[2026-10-08 08:44:02,342][egomimic.rldb.zarr.zarr_dataset_multi][INFO] - [MultiDataset] Cached stats to /workspace/cotrain/normalization/norm_stats/norm_stats.json
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `prediction_type` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'prediction_type' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.prediction_type'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+/workspace/cotrain/emimic/lib/python3.11/site-packages/diffusers/configuration_utils.py:140: FutureWarning: Accessing config attribute `num_train_timesteps` directly via 'DDPMScheduler' object attribute is deprecated. Please access 'num_train_timesteps' over 'DDPMScheduler's config object instead, e.g. 'scheduler.config.num_train_timesteps'.
+  deprecate("direct config name access", "1.0.0", deprecation_message, standard_warn=False)
+Initializing distributed: GLOBAL_RANK: 2, MEMBER: 3/4
+[2026-10-08 08:44:03,832][egomimic.models.denoising_nets][INFO] - PaperConditionalUnet1D parameters: 251594377
+Initializing distributed: GLOBAL_RANK: 3, MEMBER: 4/4
+[rank: 1] Child process with PID 9478 terminated with code 1. Forcefully terminating all other processes to avoid zombies 🧟

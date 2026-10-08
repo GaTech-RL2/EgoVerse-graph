@@ -28,7 +28,9 @@
   "artifact_prefix": "s3://rldb/experiments/obstacle-streams-20261007/",
   "files": {
     "reset-overlap-source-proof.json": "e0ccd7fc5ee51507c3491b35b9a66c6733d5fcddfbe403869302ee9a14484c21",
+    "v8-normalizer-reuse.json": "7d95fa7afadbab28e91e0e31d9ce6617c5187c14cfdc7c9a51874a478dfadec3",
     "workflow-v2.yaml": "5a6cbc61c2b5fe0ac2dff8670335aac85292fb53424485ee8f93ccf110b8c914",
+    "v7-codec-audit-summary.json": "dbf1a72564a4308d2dd044d3d1fed43574169021da97d343e097609fab864ed5",
     "submission-v7.json": "09157702bc2531121109ef5cbd666783cd658cddffae5a168ec45a4598b5a4bb",
     "loader-cycle-tests.xml": "98e591d4f678640f95ab266e3be86a69335fb7c60af159bf683915a3ab03cd13",
     "final-data-gate-audit.json": "82aadb32c318cc74271a1e44c1e3304da06e2865a4f6d894cb00d959e55a0c6c",
@@ -46,18 +48,22 @@
     "workflow-v4.yaml": "63d3e2af8017eb832944e8df0ef1fa0d682d72b3b84770ce3d34249643b4fa5f",
     "cpu-tests-v6.log": "e180373667329aa3b3e7b13823a041cfb10468ee881a7bb857105602975bbdb1",
     "cpu-tests-v2.log": "d0efb9a79c1eca1e39ef67b9f3fc2a90163f6b2e3b7c4fd7ff116f294669b8a3",
+    "retry-smoke-resolved.yaml": "9c053040242908a451927931a18e6b755ebd6136f15b204f588078a191ce5590",
     "gen-remaining-audit.json": "0e6ef6e78d049c39c9294b49da5dc24aab75a8989a0c0ef2bc5f2fb24382ddb6",
     "denoiser-parameters.json": "6a5ce432296adc1df69a6feb56ad6e00535382a2b64735a4802818fd006925b1",
     "workflow-v5.yaml": "83b6b7e498190e1a41469d522424d184af7bbd201355243799b02a589fb4e29a",
     "cpu-tests.log": "d810405b5a5dc7992e751a72e5bf3ae745aa9a06cd92036e240bb96ce50d2121",
     "cpu-tests-v3.log": "169bdc1dab0c2980b0c012faacdcf9641f4c65f174907761a2818b5cb17f0187",
     "data-submission-v3.json": "fe60b006d0524ddea310004e16356a2958b00ee1506033a90dd85b739f3dd186",
+    "workflow-v8-retry.yaml": "6728ebd9616fe8b9b51a1926e75d26b3ccf0a789e6e065d2f0ddc6c4bcafab46",
     "submission-v3.json": "311f3dd25578ef3f47e56e62701213a364539963ca8bad597daa756a7133e594",
     "gen-remaining-audit-summary.json": "69342b3711d33040480ac0646aecb263e40216ec8f4b5e269c702e546ab369e0",
     "workflow-v3-cancel.json": "875e0c3eddd40e65b5972597a8231c839ffb21df79a1a8fd1c83cab0df05fe25",
+    "submission-v8-retry.json": "a8b5e47172ff2e188d143a36587295c6a5998c240014289ebc3b51edf6021b19",
     "workflow-v6.yaml": "4cab988ba8b2c88ecf90b7c22670cdaafc7d5da8365c10eb18db89ef5e6ef291",
     "data-spec-v2.json": "14566a208a90d854b5db4159e177821ca85dcb639d3e24160460e78fe83fad11",
     "cpu-tests-v6.xml": "23c88ffdada04a7d0054a42fff8e6ff9b16e592c1e8e95ab7f3aa7d7f299d685",
+    "v7-training-arm-status.json": "1807d3114c9c8ca7e29c27a183d3c1d42a0bdfdc93e814fde0606d90f9905ba1",
     "cpu-tests-v2.xml": "f626ad710aa6bd13839f804a19aa5c666711e98ec670f9bc6ba3bc96904276d9",
     "data-spec-v3.json": "061d004b030739384d7d4f64784c3e252344884e794ce01e565a71db73b1d889",
     "cpu-tests.xml": "a0a92351d608e3121e3f934eca6a69ffbb844e14309abcb397b7bd83eea3cd44",
@@ -68,6 +74,7 @@
     "seed-revision-config-v1.json": "7530db3c38b39ac187a081a120349eb4072c47131d27775e8579c162fd061146",
     "data-workflow-v2.yaml": "02d20e3b2e22310392277a3f6c58d8a261a3a0e979c81d9e8da035c0e1e480d8",
     "workflow-v5-cancel.json": "7b620588e3273482bfa041e7cdc8f4965fcaa1df29ed19c4b08a2443b80fa6ce",
+    "v7-multistream-stk-m56-four-gpu-smoke.log": "7009159efe09a407177f1b9835ba46244556270c90de4587e9af76459d9989c6",
     "launch-v1.json": "3a747a7213755a61bafa74b34df1d36475385d312ee28f82c4f25452f7568c71",
     "submission-v5.json": "3b3dd314076d7b965a159f668d1053f2bd57a10745fb69214e382141827d39d9",
     "data-spec.json": "12798af27608366b3013daf3d0cb9f02a9334824b3513dbff1a4c2cceb184ba0",
@@ -76,11 +83,12 @@
     "obs-streams-1007-v6-1-status.json": "d4d578e669324075c74fe12de67456306bf524a5c086bd4309d68cb5699f2a2b",
     "l40s-pool-quota.json": "6f3fa3d5e826350e3595b32f2808e320244beb2daf5b56df9af69fc9c95f506c",
     "data-audit-summary.json": "54df56b6f5211f99aa93eabb0473092085277e67309bab067b0004d1af983593",
+    "v7-multistream-stk-m56-FAILED.json": "a30f13d3c1128246c5f227f4c584f2c9c6b4e934de24a729bad75bba874fc00d",
     "workflow-v1.yaml": "cea0a720289a2890d13f45ff42760f612200b3dc07ccc841a477345dfc26a07d",
     "data-workflow-v3.yaml": "1807ac43572e39a7ede7af0664f6090027e550e2aa3eed247526e872fa4d01ec",
     "seed-revision-READY.json": "dbe8e949399390661e910d85ec664ec5dd4d0d5fe5fc7bb6149899dbec06000a"
   },
-  "verified_status": "Resubmitted on available L40S-01 capacity after shared-pool quota reclamation on L40S-03",
+  "verified_status": "Eight full training runs active; retrying multistream STK M56 after a DDP normalization-file write race",
   "data_attempt_notes": {
     "v1": "Stopped on unlabelled post-step legacy import; no training started",
     "v2": "Stopped on stale array/shard dimensions in newer imports; no training started",
@@ -215,5 +223,32 @@
   "absent_actuator_rule": "U-Socket padded gripper predictions do not contribute replanning clocks",
   "pool": "groot-l40s-01",
   "priority": "NORMAL",
-  "v6_scheduler_cancellation": "groot-idle-job-shutdown: reclaims lower-priority P2 shared capacity for a higher-priority job in groot-l40s-03; no optimizer updates observed"
+  "v6_scheduler_cancellation": "groot-idle-job-shutdown: reclaims lower-priority P2 shared capacity for a higher-priority job in groot-l40s-03; no optimizer updates observed",
+  "retry_workflows": [
+    {
+      "arms": [
+        "multistream-stk-m56"
+      ],
+      "source_commit": "b5c625328d08008be179a745509960f05d16e7da",
+      "workflow": {
+        "name": "obs-streams-1007-v8-1",
+        "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obs-streams-1007-v8-1",
+        "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obs-streams-1007-v8-1/logs",
+        "spec": null,
+        "dashboard_url": "https://ovx-l40s-01.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=86265d253f774616"
+      }
+    }
+  ],
+  "source_commits_by_arm": {
+    "dp": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "hybrid-stk-m16": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "hybrid-stk-m56": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "hybrid-dur-m16": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "hybrid-dur-m56": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "multistream-stk-m16": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "multistream-stk-m56": "b5c625328d08008be179a745509960f05d16e7da",
+    "multistream-dur-m16": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+    "multistream-dur-m56": "bfdc50afb01a4b7005571d041bc3b03f02344725"
+  },
+  "retry_code_difference": "Only disables normalizer cache writes during the smoke test. Model, tokenizer, data, optimizer and full-training configurations remain byte-identical."
 }

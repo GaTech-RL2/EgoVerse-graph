@@ -1,0 +1,47 @@
+[
+  {
+    "arm": "dp",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "hybrid-stk-m16",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "hybrid-stk-m56",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "hybrid-dur-m16",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "hybrid-dur-m56",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "multistream-stk-m16",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "multistream-stk-m56",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "multistream-dur-m16",
+    "audited_windows": 96,
+    "finite": true
+  },
+  {
+    "arm": "multistream-dur-m56",
+    "audited_windows": 96,
+    "finite": true
+  }
+]

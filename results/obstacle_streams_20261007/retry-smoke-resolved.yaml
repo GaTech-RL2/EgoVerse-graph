@@ -1,0 +1,436 @@
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  train_log_on_step: true
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder:
+        _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+        obs_specs:
+          state_agent_obj:
+            input_dim: 3
+            input_slice:
+            - 0
+            - 3
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 84
+            crop_width: 84
+            crop_eval_mode: center
+            crop_sample_mode: v02
+            crop_scope: frame
+            norm_layer: group
+            pool_type: spatial_softmax
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: 56
+      action_dim: 9
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: 56
+      action_dim: 9
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: 56
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: 9
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims:
+          - 512
+          - 1024
+          - 2048
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+          num_train_timesteps: 100
+          beta_schedule: squaredcos_cap_v2
+          variance_type: fixed_small
+          clip_sample: true
+          prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    homogeneous_training: true
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.95
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 240000
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+  output_dir: null
+  work_dir: /Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/obstacle-streams-20261007
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: null
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: 4
+  precision: bf16-mixed
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  check_val_every_n_epoch: null
+  deterministic: false
+  strategy: ddp
+  num_nodes: 1
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+  max_steps: 4
+  val_check_interval: 10000
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  enable_checkpointing: false
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: /workspace/cotrain/data
+        manifest_sha256: unset
+        embodiment: pushshapes_sim_u_socket
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: 80
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+          raw_action_horizon: 80
+          action_horizon: 56
+          action_target_offset: 1
+          min_distance_unit: 80.0
+          resampled_vector_length: 56
+          dt: 0.0333333333333333
+          rotation_distance_unit: 0.4537856055185257
+          timing_mode: velocity
+          translation_groups: x_y
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: /workspace/cotrain/data
+        manifest_sha256: unset
+        embodiment: pushshapes_sim_chain_gripper
+        split: train
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: 80
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+          raw_action_horizon: 80
+          action_horizon: 56
+          action_target_offset: 1
+          min_distance_unit: 80.0
+          resampled_vector_length: 56
+          dt: 0.0333333333333333
+          rotation_distance_unit: 0.4537856055185257
+          timing_mode: velocity
+          translation_groups: x_y
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 16
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: 16
+      drop_last: true
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: /workspace/cotrain/data
+        manifest_sha256: unset
+        embodiment: pushshapes_sim_u_socket
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: 80
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+          raw_action_horizon: 80
+          action_horizon: 56
+          action_target_offset: 1
+          min_distance_unit: 80.0
+          resampled_vector_length: 56
+          dt: 0.0333333333333333
+          rotation_distance_unit: 0.4537856055185257
+          timing_mode: velocity
+          translation_groups: x_y
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+        folder_path: /workspace/cotrain/data
+        manifest_sha256: unset
+        embodiment: pushshapes_sim_chain_gripper
+        split: valid
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+          action_horizon: 80
+          observation_horizon: 2
+          action_target_offset: 1
+        transform_list:
+          _target_: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+          raw_action_horizon: 80
+          action_horizon: 56
+          action_target_offset: 1
+          min_distance_unit: 80.0
+          resampled_vector_length: 56
+          dt: 0.0333333333333333
+          rotation_distance_unit: 0.4537856055185257
+          timing_mode: velocity
+          translation_groups: x_y
+          waypoint_sampling: uniform
+      mode: total
+      valid_ratio: 0.0
+      bounds_check: false
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 16
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+    pushshapes_sim_chain_gripper:
+      batch_size: 16
+      num_workers: 1
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.utils.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true
+  run_progress:
+    _target_: egomimic.utils.run_progress.RunProgressCallback
+    path: None/training-progress.json
+    every_n_steps: 100
+    require_homogeneous: true
+evaluator:
+  _target_: egomimic.eval.planar_action_eval.PlanarActionEval
+  limit_val_batches: 1.0
+  action_key: actions
+  native_decoder: null
+  energy_score_enabled: true
+  deterministic_seed: 420042
+  seed_bank_path: /Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/obstacle-streams-20261007/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+  seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+  artifact_root: None/validation_predictions/energy_score
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+  unite_diagnostics:
+    enabled: false
+    noise_seed_bank_path: /Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/obstacle-streams-20261007/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
+    cknna_k: 10
+    max_batches_per_rank: 1
+    artifact_root: None/validation_predictions/unite_training_diagnostics
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: null
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      validation_weights: ema
+      action_representation: x_y_cos_theta_sin_theta
+      prediction_horizon: 16
+      sampler: dopri5
+      sampler_output_points: 50
+      sampler_atol: 1.0e-06
+      sampler_rtol: 0.001
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: 0.0333333333333333
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: 0.0333333333333333
+name: planar_streams_x_y_stk_m56
+description: Pinned four-source Planar DP and independently timed ARC comparison
+ckpt_path: null
+mode: train
+norm_stats_only: false
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+runtime:
+  slurm_requeue_owner: lightning
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: None/checkpoints
+seed: 42
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  num_workers: 4
+  save_cache_dir: null
+  precomputed_norm_path: /workspace/cotrain/normalization/norm_stats
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+planar:
+  action_dim: 9
+  action_dims:
+    pushshapes_sim_u_socket: 9
+    pushshapes_sim_chain_gripper: 9
+  eval_native_decoder: null
+  raw_action_horizon: 80
+  action_horizon: 56
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_dt: 0.0333333333333333
+  arc_rotation_radius: 30.0
+  hybrid_rotation_unit: null
+  arc_velocity_mode: duration
+  arc_waypoint_sampling: uniform
+  arc_curvature_dense_samples: 257
+  arc_curvature_floor: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj:
+        input_dim: 3
+        input_slice:
+        - 0
+        - 3
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
+  arc_rotation_distance: 0.4537856055185257
+  arc_timing_mode: velocity
+  cotrain_data_root: /workspace/cotrain/data
+  data_manifest_sha256: unset
+  translation_groups: x_y
+eval_checkpoint:
+  use_ema: true
+run_provenance:
+  campaign: obstacle-streams-20261007
+  data_manifest_sha256: unset
+  source_alignment: 'manifest-specific offset: pre-step=1, post-step=2 with obs2'
+  training_seed: 42
+  effective_batch_size: 128
+  optimizer_updates: 240000
+  source_weighting: equal embodiment batches; frame-uniform mixture of ChainGripper
+    sources
+  decoded_image_cache: true
+  split: families grouped by action identity, initial state, and known generation
+    parent
+  timing_layout: shape_then_timing
+  action_contract:
+    prediction_horizon: 56
+    raw_action_horizon: 80
+    rollout_action_chunk_start_index: 0
+    execution_rule: DP first 8 controls; ARC earliest active stream half-support clock
+  evaluation_protocol: custom frozen 31-layout 50-seed benchmark; not canonical OEC-56
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper

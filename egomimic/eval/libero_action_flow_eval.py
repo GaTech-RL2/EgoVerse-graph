@@ -38,6 +38,7 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
         self.artifact_root = artifact_root
         self.artifact_identity = artifact_identity
         self.artifact_batches = []
+        self._completed_validation_step = None
         if artifact_root is not None:
             from egomimic.benchmarks.libero.action_flow_artifacts import validate_identity
             validate_identity(dict(artifact_identity))
@@ -86,6 +87,8 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
     @torch.inference_mode()
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
         del dataloader_idx
+        if self.group == "valid" and batch_idx == 0:
+            self._completed_validation_step = None
         first = self._predict(batch, self.seeds[0])
         prefix = "Valid" if self.group == "valid" else f"Valid_{self.group}"
         for source, values in batch.items():
@@ -200,6 +203,14 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
                     "metrics": {key: float(value.detach().cpu()) for key, value in metrics.items()},
                 })
 
+    def on_validation_start(self):
+        self._completed_validation_step = None
+        return super().on_validation_start()
+
+    def has_completed_validation(self, global_step):
+        """True only after a non-sanity valid pass published its artifacts."""
+        return getattr(self, "_completed_validation_step", None) == int(global_step)
+
     def on_validation_end(self):
         if self.artifact_root is None:
             return super().on_validation_end()
@@ -212,4 +223,10 @@ class LiberoActionFlowEvaluator(LiberoActionEvaluator):
             "group": self.group, "batches": self.artifact_batches,
             "checkpoint_binding": "global_step_only_requires_scheduled_smoke_checkpoint_SHA_binding",
         })
+        if (
+            self.group == "valid"
+            and self.artifact_batches
+            and not getattr(self.trainer, "sanity_checking", False)
+        ):
+            self._completed_validation_step = int(self.model.global_step)
         self.artifact_batches = []

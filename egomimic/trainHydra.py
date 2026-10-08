@@ -169,6 +169,12 @@ def _validate_run_config(cfg: DictConfig) -> str:
     return mode
 
 
+def _needs_final_validation(evaluator, global_step):
+    """Optional evaluator capability proves validation already completed here."""
+    completed = getattr(evaluator, "has_completed_validation", None)
+    return not (callable(completed) and completed(global_step) is True)
+
+
 def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     """Strictly restore a configured Pipeline for standalone evaluation."""
     algo = getattr(model, "model", None)
@@ -703,7 +709,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ckpt_path=cfg.get("ckpt_path"),
             weights_only=False,
         )
-        if cfg.get("val_at_end", False) and trainer.global_step >= cfg.trainer.max_steps:
+        if (
+            cfg.get("val_at_end", False)
+            and trainer.global_step >= cfg.trainer.max_steps
+            and _needs_final_validation(model.evaluator, trainer.global_step)
+        ):
             trainer.validate(model=model, datamodule=datamodule)
     elif mode == "eval":
         eval_obj.trainer = trainer

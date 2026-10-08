@@ -272,7 +272,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(sha256(initial) == os.environ["AF_INITIAL_CHECKPOINT_SHA256"], "initial checkpoint hash mismatch")
     speed_diagnostic = args.experiment == "pusht/action_flow_cotrain_uc_speed_interpolation"
     if speed_diagnostic:
-        from validate_speed_config import COUNTS, SOURCE, validate_speed_contract
+        from av0_validate_speed_config import COUNTS, SOURCE, validate_speed_contract
         encoding = os.environ["AF_SPEED_ENCODING"]
         require(args.expected_head == SOURCE, "unapproved speed source")
         contract_config = OmegaConf.create(OmegaConf.to_container(config, resolve=False))
@@ -468,7 +468,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     )
     stages = tuple(restored.model.pipeline.stages)
     if speed_diagnostic:
-        from validate_speed_config import validate_speed_pipeline
+        from av0_validate_speed_config import validate_speed_pipeline
         validate_speed_pipeline(config, restored.model)
     encoder_index, decoder_index = (5, 8) if speed_diagnostic else (4, 7)
     if routed:

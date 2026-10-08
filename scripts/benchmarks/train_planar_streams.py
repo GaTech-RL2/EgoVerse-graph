@@ -250,7 +250,8 @@ def main(args):
             write("normalizer-receipt.json", {"artifact": norm_receipt, "data_manifest_sha256": manifest_hash, "train_only": True})
         norm_receipt = upload(norm, destination + "normalizer.json")
         execute(entry + common(ROOT / "smoke") + ["trainer.max_steps=4", "~logger", "~callbacks.model_checkpoint",
-            "++trainer.enable_checkpointing=false", f"norm_stats.precomputed_norm_path={NORMALIZERS}/norm_stats",
+            "++trainer.enable_checkpointing=false", "norm_stats.save_cache_dir=null",
+            f"norm_stats.precomputed_norm_path={NORMALIZERS}/norm_stats",
             f"callbacks.run_progress.path={OUT}/smoke-progress.json"], "four-gpu-smoke.log")
         smoke = json.loads((OUT / "smoke-progress.json").read_text())
         assert smoke["global_step"] == 4 and smoke["batch_layout"]["fused"] and np.isfinite(smoke["loss"])

@@ -14,6 +14,10 @@ done
 ATTEMPT=$AF_OUTPUT_DIR/provenance/restart-0
 mkdir -p "$ATTEMPT"
 cd "$AF_REPO"
+BASE_OVERRIDES+=("++run_provenance.preflight_result_sha256=$AF_RESUME_CACHED_PREFLIGHT_SHA256")
+if test "$AF_RUN_KIND" = full && test -n "${AF_EXPECTED_SMOKE_SHA256:-}"; then
+  BASE_OVERRIDES+=("++run_provenance.smoke_result_sha256=$AF_EXPECTED_SMOKE_SHA256")
+fi
 "$AF_PYTHON" -m egomimic.trainHydra "${BASE_OVERRIDES[@]}" --cfg job --resolve > "$ATTEMPT/resolved_config.yaml"
 "$AF_PYTHON" "$AF_RESUME_DRIVER_REPO/scripts/train/validate_action_flow_checkpoint_resume.py" "$ATTEMPT/resolved_config.yaml" "$ATTEMPT/RESUME_PREFLIGHT.json"
 if test "$AF_RESUME_PHASE" = preflight; then exit 0; fi
@@ -33,6 +37,11 @@ assert s['identities']['repo_head']==os.environ['AF_EXPECTED_HEAD']
 PY
 fi
 cp "$AF_RESUME_CACHED_PREFLIGHT" "$ATTEMPT/PREFLIGHT_RESULT.json"
+cp "$LAUNCHER" "$ATTEMPT/launch_action_flow_usocket.sbatch"
+if test "$AF_RUN_KIND" = full; then cp "$AF_SMOKE_RESULT" "$ATTEMPT/SMOKE_RESULT.json"; fi
+scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
+"$AF_PYTHON" "$AF_SLURM_CONTRACT_VALIDATOR" --record "$ATTEMPT/slurm_job.txt" --expected-job-id "$SLURM_JOB_ID" --expected-account "$AF_EXPECTED_ACCOUNT" --expected-partition "$SLURM_JOB_PARTITION" --expected-qos "$AF_EXPECTED_QOS" --expected-cpus 8 --expected-memory "$AF_EXPECTED_MEMORY" --expected-time-limit "$AF_EXPECTED_TIME_LIMIT" --expected-constraint "$AF_EXPECTED_GPU_CONSTRAINT" --output "$ATTEMPT/SLURM_JOB_CONTRACT.json"
+"$AF_PYTHON" "$AF_RUNTIME_LOCK_CAPTURE" --repo "$AF_REPO" --expected-head "$AF_EXPECTED_HEAD" --lock-input "$AF_REPO/pyproject.toml" --lock-input "$AF_REPO/uv.lock" --output "$ATTEMPT/runtime-lock.json"
 # The scientific preflight receipt remains the verified dataset/runtime cache;
 # the exact changed argument vector is independently audited above.
 "$AF_PYTHON" "$AF_GPU_PROBE" --expected-world-size 1 --allowed-gpu-name 'NVIDIA H100 80GB HBM3' --allowed-gpu-name 'NVIDIA H200' --output "$ATTEMPT/gpu_probe.json"

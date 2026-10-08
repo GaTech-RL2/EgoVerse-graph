@@ -31,6 +31,8 @@ def main():
  from libero_maintained_dispatch_v1 import flatten,validate_resolved,EXPECTED_PARAMETER_COUNT,PROFILE
  from libero_operational_guard import validate_native,OPS
  from typed_libero_profile_v3 import COMMON,phase_bindings
+ from egomimic.benchmarks.libero.native_launch_profiles import profile_for_argv
+ PROFILE=profile_for_argv(argv).experiment
  native_args=['--config-name=train_zarr_cartesian','hydra/launcher=basic','+experiment='+PROFILE]
  native=subprocess.check_output([sys.executable,'-m','egomimic.trainHydra',*native_args,'--cfg','job','--resolve'],cwd=a.repo,text=True)
  (a.output/'native-before-overrides.yaml').write_text(native)

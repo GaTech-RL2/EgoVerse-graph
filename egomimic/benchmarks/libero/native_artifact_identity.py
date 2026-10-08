@@ -68,7 +68,11 @@ def _identity_from_resolved(cfg, snapshot_sha, source_head, normalizer_module_sh
         raise ValueError('native saved state cannot use generic precomputed normalization')
     if Path(bench['dataset']).resolve()!=Path(binding['data_root']).resolve() or Path(receipt['replay_path']).resolve()!=Path(binding['data_root']).resolve():
         raise ValueError('native cached receipt/benchmark physical dataset path mismatch')
-    if cfg.get('seed')!=42 or bench.get('suite')!='libero10' or bench.get('batch_size')!=32 or bench.get('horizon')!=16:
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+    profile=profile_for_config(cfg)
+    if receipt['suite']!=profile.suite:
+        raise ValueError('native cached receipt suite mismatch')
+    if type(cfg.get('seed')) is not int or cfg['seed'] not in ({42,43} if profile.suite in {'libero_goal','libero_object'} else {42}) or bench.get('suite')!=profile.suite or bench.get('batch_size')!=32 or bench.get('horizon')!=16:
         raise ValueError('native seed/suite/batch/horizon mismatch')
     if cfg['trainer'].get('precision') not in ('bf16','bf16-mixed'):
         raise ValueError('actual native BF16 precision required')
@@ -125,7 +129,7 @@ def _identity_from_resolved(cfg, snapshot_sha, source_head, normalizer_module_sh
         or split['train_episode_indices']!=receipt['train_episode_indices']
         or split['valid_episode_indices']!=receipt['valid_episode_indices']):
         raise ValueError('native bound receipt split mismatch')
-    identity={'suite':'libero10','source':'libero_panda','action_dim':7,'action_horizon':16,
+    identity={'suite':profile.suite,'source':'libero_panda','action_dim':7,'action_horizon':16,
         'seed':cfg['seed'],'sample_count':evalcfg['energy_sample_count'],
         'energy_seed_bank_sha256':evalcfg['energy_seed_bank_sha256'],
         'inference_method':field['inference_method'],'inference_steps':field['num_inference_steps'],

@@ -16,8 +16,13 @@ def canonical_sha(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",",":"),allow_nan=False).encode()).hexdigest()
 
 def validate_identity(identity):
-    expected = {"suite":"libero10", "source":"libero_panda", "action_dim":7,
-        "action_horizon":16, "seed":42, "sample_count":32,
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_suite
+    profile=profile_for_suite(identity.get("suite"))
+    suite=profile.suite
+    if type(identity.get('seed')) is not int or identity['seed'] not in ({42,43} if profile.suite in {'libero_goal','libero_object'} else {42}):
+        raise ValueError('native metric training seed mismatch')
+    expected = {"suite":suite, "source":"libero_panda", "action_dim":7,
+        "action_horizon":16, "sample_count":32,
         "energy_seed_bank_sha256":SEED_SHA, "inference_method":"euler",
         "inference_steps":50, "normalization_scope":"training_episodes_only",
         "effective_batch_size":32, "homogeneous":"not_applicable_single_source"}

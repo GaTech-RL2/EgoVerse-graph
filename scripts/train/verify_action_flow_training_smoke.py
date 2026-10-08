@@ -2224,14 +2224,14 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
-    if experiment == "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42":
+    if experiment in ("libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42"):
         from scripts.train.verify_libero_native_action_flow_smoke import verify_native_smoke
         return verify_native_smoke(run_dir=run_dir, expected_head=expected_head,
             expected_config_sha256=expected_config_sha256,
             expected_split_sha256=expected_split_sha256,
             expected_normalization_sha256=expected_normalization_sha256,
             expected_preflight_sha256=expected_preflight_sha256,
-            shared=sys.modules[__name__])
+            shared=sys.modules[__name__], expected_profile=experiment)
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
     _require(run_dir.is_dir(), f"run directory is not a directory: {run_dir}")
     expected_head = str(expected_head).lower()
@@ -2373,7 +2373,7 @@ def _parser() -> argparse.ArgumentParser:
         "--experiment",
         "--expected-experiment",
         dest="experiment",
-        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"),
+        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42"),
         required=True,
     )
     parser.add_argument("--expected-head", required=True)

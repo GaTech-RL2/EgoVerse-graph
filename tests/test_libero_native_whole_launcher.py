@@ -26,7 +26,8 @@ class WholeLauncher(unittest.TestCase):
    'scripts/ice/validate_lightning_checkpoint.py','scripts/ice/capture_runtime_lock.py',
    'tools/libero_maintained_dispatch_v1.py','tools/validate_action_flow_config.py',
    'scripts/ice/validate_planar_dataset.py',
-   'egomimic/hydra_configs/experiment/'+PROFILE+'.yaml']
+   'egomimic/hydra_configs/experiment/'+PROFILE+'.yaml',
+   'egomimic/hydra_configs/experiment/libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42.yaml']
   for rel in files:
    p=self.repo/rel;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(R/rel,p)
   self.launcher=self.repo/files[0]
@@ -48,6 +49,7 @@ case "$1" in
  */libero_native_launch_contract.py)
   printf 'NATIVE_DISPATCH_PREPARE_STOP\\n'
   printf '%s\\n' "$*" > "$SAFE_HANDOFF_LOG"
+  printf '%s\\n' "${LIBERO_SPATIAL_REPLAY_ROOT:-}" > "$SAFE_HANDOFF_LOG.replay"
   exit 91 ;;
  *) printf 'UNEXPECTED_EXTERNAL_TOOL\\n' >&2; exit 92 ;;
 esac
@@ -95,6 +97,14 @@ esac
   argv=(self.root/'output-parent/run/provenance/restart-0/exact-phase.argv0').read_bytes()
   self.assertIn(b'trainer.max_steps=2\0',argv);self.assertIn(b'trainer.precision=bf16-mixed\0',argv)
   self.assertIn(b'++run_provenance.preflight_result_sha256=',argv)
+ def test_spatial_ice_actual_whole_path_constrained_dispatch(self):
+  result=self.invoke(AF_EXPERIMENT='libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42',AF_EXPECTED_GPU_CONSTRAINT='H100|H200',AF_CLUSTER_LABEL='ice')
+  self.assertEqual(result.returncode,91,result.stdout+result.stderr)
+  argv=(self.root/'output-parent/run/provenance/restart-0/exact-phase.argv0').read_bytes()
+  self.assertIn(b'+experiment=libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42\0',argv)
+  self.assertEqual((self.root/'handoff.log.replay').read_text().strip(),str(self.root/'data'))
+ def test_spatial_ice_actual_whole_path_null_rejected(self):
+  self.assertRejected(self.invoke(AF_EXPERIMENT='libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42'),'AF_EXPECTED_GPU_CONSTRAINT must be H100')
  def test_native_full_positive_restart_cap_and_null_constraint_reach_dispatch(self):
   result=self.invoke(AF_RUN_KIND='full',AF_MAX_RESTARTS='4',
    AF_SMOKE_RESULT=str(self.preflight),AF_EXPECTED_SMOKE_SHA256=sha(self.preflight))

@@ -131,12 +131,12 @@ AF_PAIRED_CHAIN_MANUAL4919=false
 AF_SPEED_DIAGNOSTIC=false
 AF_NATIVE_LIBERO=false
 case "$AF_EXPERIMENT" in
-  libero/action_flow_libero10_h240_euler50_dithalf_80k_s42)
+  libero/action_flow_libero10_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
     AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_libero10_h240_euler50_dithalf_80k_s42
+    AF_EXPECTED_CONFIG_NAME=${AF_EXPERIMENT#libero/}
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     AF_FULL_MAX_STEPS=80000
     AF_FULL_VALIDATE_EVERY=15000
@@ -159,7 +159,10 @@ case "$AF_EXPERIMENT" in
       required "$variable"
     done
     case "$AF_NATIVE_PHASE" in preflight|smoke|full) ;; *) die "invalid native phase" ;; esac
-    test "$AF_SEED" = 42 || die "LIBERO seed42 required"
+    case "$AF_EXPERIMENT:$AF_SEED" in
+      libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:43|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42:43|libero/action_flow_libero10_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42:42) ;;
+      *) die "unsupported native suite/training seed" ;;
+    esac
     AF_DATASET_VALIDATOR=$AF_NATIVE_DATASET_VALIDATOR
     AF_CONFIG_VALIDATOR=$AF_NATIVE_CONFIG_VALIDATOR
     test "$AF_NATIVE_SMOKE_VERIFIER" = "$AF_REPO/scripts/train/verify_action_flow_training_smoke.py" || die "native smoke requires the maintained shared CLI typed dispatcher"
@@ -622,7 +625,7 @@ if test "$AF_NATIVE_LIBERO" = true; then
 else
   test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
 fi
-if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run; then
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run && test "$AF_EXPERIMENT" != libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42; then
   # Native Lambda GPU identity is established by actual allocation + H100 BF16
   # probe in the maintained phase adapter; this cluster has no Features value.
   test "$AF_EXPECTED_GPU_CONSTRAINT" = '(null)' || die "native GPU allocation requires AF_EXPECTED_GPU_CONSTRAINT=(null)"
@@ -743,7 +746,13 @@ export ICE_EXPECTED_SOURCE_COMMIT=$AF_EXPECTED_HEAD
 export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
 export ICE_EXPECTED_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
 if test "$AF_NATIVE_LIBERO" = true; then
-  export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR
+  case "$AF_EXPERIMENT" in
+    libero/action_flow_libero10_h240_euler50_dithalf_80k_s42) export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42) export LIBERO_SPATIAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42) export LIBERO_GOAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42) export LIBERO_OBJECT_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    *) die "unsupported native replay environment" ;;
+  esac
 elif test "$AF_SOURCE" = pushshapes_sim_u_socket; then
   export PUSHSHAPES_USOCKET_ROOT=$AF_DATASET_DIR
 else

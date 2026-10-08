@@ -29,7 +29,10 @@ def validate_scientific_contract(config,phase,contract_path,expected_contract_sh
     trainer=config['trainer'];historical=reference['historical_trainer']
     for name in ['devices','precision','accumulate_grad_batches','gradient_clip_val','gradient_clip_algorithm','deterministic']:
         if trainer.get(name)!=historical[name]:raise ValueError(('native trainer scientific contract',name,historical[name],trainer.get(name)))
-    if config.get('seed')!=reference['historical_seed']:raise ValueError('native seed mismatch')
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+    profile=profile_for_config(config)
+    allowed_seeds={42,43} if profile.suite in {'libero_goal','libero_object'} else {reference['historical_seed']}
+    if type(config.get('seed')) is not int or config['seed'] not in allowed_seeds:raise ValueError('native training seed mismatch')
     for mode,field in [('train','historical_train_batch'),('valid','historical_valid_batch')]:
         params=config['data'][mode+'_dataloader_params']
         if set(params)!={'libero_panda'} or params['libero_panda']['batch_size']!=reference[field]:raise ValueError('native logical source/batch mismatch')

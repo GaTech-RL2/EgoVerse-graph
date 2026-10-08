@@ -675,6 +675,11 @@ class PlanarActionEval(Eval):
         )[self.action_key]
         if decoder is None:
             return unnormalized
+        # EnergyScore artifacts retain (sample, batch, horizon, action).
+        # Native decoders consume one batch axis; preserve both outer axes.
+        if unnormalized.ndim == 4:
+            decoded = decoder.decode(unnormalized.flatten(0, 1))
+            return decoded.reshape(*unnormalized.shape[:2], *decoded.shape[1:])
         return decoder.decode(unnormalized)
 
     @staticmethod

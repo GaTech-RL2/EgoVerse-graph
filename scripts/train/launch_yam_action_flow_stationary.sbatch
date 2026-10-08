@@ -19,9 +19,21 @@ for name in AF_YAM_MODE AF_YAM_PHASE AF_YAM_REPO AF_YAM_SOURCE_COMMIT \
   test -n "${!name:-}" || fail "missing $name"
 done
 case "$AF_YAM_MODE" in preflight|run) ;; *) fail 'mode must be preflight or run';; esac
-case "$AF_YAM_PHASE" in smoke|full) ;; *) fail 'phase must be smoke or full';; esac
+case "$AF_YAM_PHASE" in norm|smoke|full) ;; *) fail 'phase must be norm, smoke or full';; esac
 AF_YAM_RECIPE=${AF_YAM_RECIPE:-yam_only}
+if test "$AF_YAM_PHASE" = norm; then
+  test "$AF_YAM_RECIPE" = yam_human_keypoints || fail 'normalization phase requires maintained co-train recipe'
+  test -n "${AF_YAM_NORM_CACHE_DIR:-}" || fail 'normalization cache directory missing'
+  [[ "$AF_YAM_NORM_CACHE_DIR" = /* && "$AF_YAM_NORM_CACHE_DIR" != / ]] || fail 'normalization cache must be absolute'
+fi
 case "$AF_YAM_RECIPE" in yam_only|yam_human_keypoints) ;; *) fail 'unknown YAM Action Flow recipe';; esac
+AF_YAM_CHECKPOINT_POLICY=${AF_YAM_CHECKPOINT_POLICY:-all}
+AF_YAM_INFERENCE_METHOD=${AF_YAM_INFERENCE_METHOD:-dopri5}
+case "$AF_YAM_CHECKPOINT_POLICY" in all|dit_half) ;; *) fail 'unknown native checkpoint policy';; esac
+case "$AF_YAM_INFERENCE_METHOD" in euler|dopri5) ;; *) fail 'unknown native inference method';; esac
+if test "$AF_YAM_RECIPE" != yam_human_keypoints; then
+  test "$AF_YAM_CHECKPOINT_POLICY" = all && test "$AF_YAM_INFERENCE_METHOD" = dopri5 || fail 'execution extension requires maintained YAM+human recipe'
+fi
 AF_YAM_ACCUMULATION=${AF_YAM_ACCUMULATION:-16}
 case "$AF_YAM_ACCUMULATION" in 1|16) ;; *) fail 'accumulation must be 1 or 16';; esac
 if test "$AF_YAM_RECIPE" = yam_human_keypoints; then
@@ -51,10 +63,14 @@ test -x "$AF_YAM_PYTHON" || fail 'pinned Python runtime absent'
 test -d "$AF_YAM_DATA_ROOT" || fail 'frozen YAM corpus absent'
 test -f "$AF_YAM_SPLIT_MANIFEST" || fail 'split manifest absent'
 test -f "$AF_YAM_CONTENT_SUMMARY" || fail 'content receipt absent'
-test -f "$AF_YAM_NORM_JSON" || fail 'train-only normalizer absent'
+if test "$AF_YAM_PHASE" != norm; then
+  test -f "$AF_YAM_NORM_JSON" || fail 'train-only normalizer absent'
+fi
 test "$(sha256sum "$AF_YAM_SPLIT_MANIFEST" | cut -d' ' -f1)" = "$AF_YAM_SPLIT_SHA" || fail 'split SHA mismatch'
 test "$(sha256sum "$AF_YAM_CONTENT_SUMMARY" | cut -d' ' -f1)" = "$AF_YAM_CONTENT_SUMMARY_SHA" || fail 'content receipt SHA mismatch'
-test "$(sha256sum "$AF_YAM_NORM_JSON" | cut -d' ' -f1)" = "$AF_YAM_NORM_SHA" || fail 'normalizer SHA mismatch'
+if test "$AF_YAM_PHASE" != norm; then
+  test "$(sha256sum "$AF_YAM_NORM_JSON" | cut -d' ' -f1)" = "$AF_YAM_NORM_SHA" || fail 'normalizer SHA mismatch'
+fi
 test "$(git -C "$AF_YAM_REPO" rev-parse HEAD)" = "$AF_YAM_SOURCE_COMMIT" || fail 'source commit mismatch'
 test -z "$(git -C "$AF_YAM_REPO" status --porcelain)" || fail 'source checkout is dirty'
 
@@ -79,7 +95,17 @@ if test "$AF_YAM_RECIPE" = yam_human_keypoints; then
     --yam-content-summary "$AF_YAM_CONTENT_SUMMARY" --yam-content-sha "$AF_YAM_CONTENT_SUMMARY_SHA"
     --human-content-manifest "$AF_HUMAN_CONTENT_MANIFEST" --human-content-sha "$AF_HUMAN_CONTENT_SHA"
   )
+  if test -n "${AF_YAM_CORPUS_CONTRACT:-}${AF_YAM_CORPUS_CONTRACT_SHA:-}"; then
+    test -n "${AF_YAM_CORPUS_CONTRACT:-}" && test -n "${AF_YAM_CORPUS_CONTRACT_SHA:-}" || fail 'complete corpus contract path/SHA pair required'
+    [[ "$AF_YAM_CORPUS_CONTRACT" = /* && "$AF_YAM_CORPUS_CONTRACT" != / ]] || fail 'corpus contract must be absolute'
+    [[ "$AF_YAM_CORPUS_CONTRACT_SHA" =~ ^[0-9a-f]{64}$ ]] || fail 'corpus contract SHA invalid'
+    test "$(sha256sum "$AF_YAM_CORPUS_CONTRACT" | cut -d' ' -f1)" = "$AF_YAM_CORPUS_CONTRACT_SHA" || fail 'corpus contract SHA changed'
+    validator_args+=(--corpus-contract "$AF_YAM_CORPUS_CONTRACT" --corpus-contract-sha "$AF_YAM_CORPUS_CONTRACT_SHA")
+  fi
   identities=$(srun --overlap --ntasks=1 "${container[@]}" "$AF_YAM_PYTHON" "$validator" "${validator_args[@]}")
+  corpus_counts=$(srun --overlap --ntasks=1 "${container[@]}" "$AF_YAM_PYTHON" "$validator" "${validator_args[@]}" --emit-corpus-counts)
+  [[ "$corpus_counts" =~ ^[0-9]+\ [0-9]+\ [0-9]+\ [0-9]+\ [0-9]+\ [0-9]+\ [0-9]+\ [0-9]+$ ]] || fail 'invalid derived corpus counts'
+  read -r yam_train_count yam_valid_count yam_train_windows yam_valid_windows human_train_count human_valid_count human_train_windows human_valid_windows <<< "$corpus_counts"
   read -r train_sha valid_sha human_train_sha human_valid_sha content_sha <<< "$identities"
   export HUMAN_TRAIN_IDS_SHA256=$human_train_sha
   export HUMAN_VALID_IDS_SHA256=$human_valid_sha
@@ -97,50 +123,8 @@ done
 export YAM_TRAIN_IDS_SHA256=$train_sha
 export YAM_VALID_IDS_SHA256=$valid_sha
 
-overrides=(
-  "trainer.accumulate_grad_batches=$AF_YAM_ACCUMULATION"
-  "++run_provenance.grad_accumulation=$AF_YAM_ACCUMULATION"
-  "e1.data_root=$AF_YAM_DATA_ROOT"
-  "norm_stats.precomputed_norm_path=$AF_YAM_NORM_JSON"
-  "hydra.run.dir=$AF_YAM_RUN_DIR"
-  "paths.output_dir=$AF_YAM_RUN_DIR"
-  "run_provenance.source_commit=$AF_YAM_SOURCE_COMMIT"
-  "run_provenance.normalization_sha256=$AF_YAM_NORM_SHA"
-  "run_provenance.dataset_content_aggregate_sha256=$content_sha"
-  "++logger.wandb.entity=$AF_YAM_WANDB_ENTITY"
-  "++logger.wandb.project=$AF_YAM_WANDB_PROJECT"
-  "++logger.wandb.id=$AF_YAM_WANDB_ID"
-  "++logger.wandb.name=$AF_YAM_WANDB_ID"
-  '++logger.wandb.resume=allow'
-  'trainer.devices=1'
-  'trainer.num_nodes=1'
-)
-if test "$AF_YAM_RECIPE" = yam_human_keypoints; then
-  overrides=(
-    '+experiment=e1/yam_human_keypoints_action_flow_h816_private512_s42'
-    '++run_provenance.launch_recipe=yam_human_keypoints'
-    "${overrides[@]}"
-  )
-else
-  overrides=(
-    '+experiment=e1/yam_stationary_action_flow_h816_s42'
-    "${overrides[@]}"
-  )
-fi
-if test "$AF_YAM_PHASE" = smoke; then
-  smoke_checkpoint_interval=1
-  if test "$AF_YAM_RECIPE" = yam_human_keypoints; then
-    smoke_checkpoint_interval=4
-  fi
-  overrides+=(
-    'trainer.max_steps=4'
-    "trainer.val_check_interval=$((4 * AF_YAM_ACCUMULATION))"
-    '+trainer.log_every_n_steps=1'
-    'trainer.limit_val_batches=1'
-    "callbacks.model_checkpoint.every_n_train_steps=$smoke_checkpoint_interval"
-    'model.gradient_telemetry_cadence=3'
-  )
-fi
+source "$AF_YAM_REPO/scripts/train/yam_action_flow_arguments.sh"
+yam_action_flow_arguments
 
 resolved=$AF_YAM_PREFLIGHT_DIR/resolved-$AF_YAM_PHASE.yaml
 receipt=$AF_YAM_PREFLIGHT_DIR/receipt-$AF_YAM_PHASE.json
@@ -164,7 +148,9 @@ if test "$AF_YAM_MODE" = preflight; then
       --norm-sha "$AF_YAM_NORM_SHA" --wandb-entity "$AF_YAM_WANDB_ENTITY"
       --wandb-project "$AF_YAM_WANDB_PROJECT" --wandb-id "$AF_YAM_WANDB_ID"
       --run-dir "$AF_YAM_RUN_DIR"
+      --inference-method "$AF_YAM_INFERENCE_METHOD" --checkpoint-policy "$AF_YAM_CHECKPOINT_POLICY"
     )
+    if test "$AF_YAM_PHASE" = norm; then config_verify_args+=(--norm-cache-dir "$AF_YAM_NORM_CACHE_DIR"); fi
   else
     config_verify_args+=(--accumulation "$AF_YAM_ACCUMULATION")
   fi
@@ -186,10 +172,17 @@ if test "${SLURM_RESTART_COUNT:-0}" = 0; then
 else
   test -f "$AF_YAM_RUN_DIR/checkpoints/last.ckpt" || fail 'restart checkpoint absent'
 fi
+if test "$AF_YAM_PHASE" = norm; then
+  test ! -e "$AF_YAM_NORM_CACHE_DIR" || fail 'normalization output exists'
+  srun --overlap --ntasks=1 "${container[@]}" "$AF_YAM_PYTHON" -m egomimic.trainHydra "${overrides[@]}"
+  exit 0
+fi
 # Pyxis can expose all physical devices to nvidia-smi even when Slurm assigns
 # one GPU. Check the CUDA view actually used by the model, and bind both child
 # steps to the single assigned GPU explicitly.
 srun --overlap --ntasks=1 --gpus-per-task=1 "${container[@]}" \
-  "$AF_YAM_PYTHON" -c 'import torch; assert torch.cuda.device_count() == 1, f"expected one CUDA GPU, got {torch.cuda.device_count()}"; name = torch.cuda.get_device_name(0); assert name.startswith("NVIDIA H100"), f"expected H100, got {name}"; print("YAM_ACTION_FLOW_GPU_PASS", name, flush=True)'
+  "$AF_YAM_PYTHON" "$AF_YAM_REPO/scripts/ice/ice_gpu_probe.py" \
+    --allowed-gpu-name H100 --allowed-gpu-name H200 \
+    --output "$AF_YAM_PREFLIGHT_DIR/gpu-health-$AF_YAM_PHASE-${SLURM_JOB_ID:?}-${SLURM_RESTART_COUNT:-0}.json"
 export HYDRA_FULL_ERROR=1
 srun --overlap --ntasks=1 --gpus-per-task=1 "${container[@]}" "$AF_YAM_PYTHON" -m egomimic.trainHydra "${overrides[@]}"

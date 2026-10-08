@@ -36,6 +36,46 @@ def json_bytes(value):
     return (json.dumps(value, sort_keys=True, allow_nan=False) + "\n").encode()
 
 
+def infer_observation_alignment(actions, state, attrs, *, speed, fps):
+    """Disambiguate legacy imports using informative free-motion transitions.
+
+    Contact frames need not fit the ideal kinematic update and are ignored.
+    A pre-step row predicts s[t+1] with a[t]; a post-step row uses a[t+1].
+    Equal-command predictions carry no timing information and are excluded.
+    """
+    init = attrs["episode_init"]
+    init = json.loads(init) if isinstance(init, str) else init
+    maximum_step = speed / fps
+
+    def predict(start, target):
+        delta = target - start
+        length = np.linalg.norm(delta, axis=-1, keepdims=True)
+        return start + delta * np.minimum(1.0, maximum_step / np.maximum(length, 1e-12))
+
+    pre = predict(state[:-1, :2], actions[:-1, :2])
+    post = predict(state[:-1, :2], actions[1:, :2])
+    informative = np.max(np.abs(pre - post), axis=-1) > 1e-3
+    pre_fits = int(np.sum(informative & (np.max(np.abs(pre - state[1:, :2]), axis=-1) < 1e-5)))
+    post_fits = int(np.sum(informative & (np.max(np.abs(post - state[1:, :2]), axis=-1) < 1e-5)))
+    reset_error = float(np.max(np.abs(state[0, :2] - np.asarray(init["agent_pos"]))))
+    declared = attrs.get("observation_alignment")
+    evidence = {"declared": declared, "informative_transitions": int(informative.sum()),
+        "pre_step_exact_matches": pre_fits, "post_step_exact_matches": post_fits,
+        "reset_xy_error": reset_error, "speed": speed, "fps": fps}
+    pre_supported = pre_fits >= 3 and pre_fits >= 10 * post_fits
+    post_supported = post_fits >= 3 and post_fits >= 10 * pre_fits
+    if declared == "pre_step" and (pre_supported or (reset_error < 1e-5 and post_fits < 3)):
+        return "pre_step", evidence
+    if declared == "post_step" and post_supported:
+        return "post_step", evidence
+    if declared is None:
+        if pre_supported:
+            return "pre_step", evidence
+        if post_supported:
+            return "post_step", evidence
+    raise ValueError("Ambiguous or contradictory observation alignment: " + json.dumps(evidence))
+
+
 def main(spec):
     root = Path(spec["work_dir"])
     root.mkdir(parents=True, exist_ok=True)
@@ -142,14 +182,20 @@ def main(spec):
             assert actions.shape == (frames, 3 if row["source"] == "usocket" else 4)
             assert state.shape == (frames, 6)
             assert np.isfinite(actions).all() and np.isfinite(state).all()
-            alignment = attrs.get("observation_alignment", row["observation_alignment"])
-            assert alignment == row["observation_alignment"], (row["source_prefix"], alignment)
             init = attrs["episode_init"]
             init = json.loads(init) if isinstance(init, str) else init
-            if alignment == "pre_step":
+            inferred = row["observation_alignment"] == "infer"
+            if inferred:
+                alignment, alignment_evidence = infer_observation_alignment(actions, state, attrs,
+                    speed=spec["kinematic_pusher_speed"], fps=spec["fps"])
+            else:
+                alignment = attrs.get("observation_alignment", row["observation_alignment"])
+                assert alignment == row["observation_alignment"], (row["source_prefix"], alignment)
+                alignment_evidence = {"source": "previously audited collection", "declared": attrs.get("observation_alignment")}
+            if alignment == "pre_step" and not inferred:
                 error = float(np.max(np.abs(state[0, :2] - np.asarray(init["agent_pos"]))))
                 assert error < 1e-5, (row["source_prefix"], "pre-step reset mismatch", error)
-            else:
+            if alignment == "post_step":
                 cmd = np.asarray(group["observations.pusher_cmd_pose"][:frames])
                 assert np.max(np.abs(cmd - actions[:, :3])) < 1e-8
             eid = row["source"] + "-" + hashlib.sha256(row["source_prefix"].encode()).hexdigest()[:20]
@@ -165,6 +211,7 @@ def main(spec):
             metadata = {"source": row["source"], "source_prefix": row["source_prefix"], "episode_id": eid,
                 "total_frames": frames, "fps": spec["fps"], "observation_alignment": alignment,
                 "action_target_offset_obs2": 1 if alignment == "pre_step" else 2,
+                "alignment_evidence": alignment_evidence,
                 "embodiment": "pushshapes_sim_u_socket" if row["source"] == "usocket" else "pushshapes_sim_chain_gripper",
                 "obstacle_level": int(init.get("obstacle_level", 0)), "episode_init": init,
                 "generation_source": init.get("generation", {}).get("source_episode"),
@@ -176,8 +223,49 @@ def main(spec):
             (output / "metadata.json").write_bytes(json_bytes(metadata))
             return metadata
 
+        recovered = {}
+        if spec.get("resume_cache"):
+            resume = spec["resume_cache"]
+            previous = json.loads(client.get_object(Bucket=bucket, Key=resume["prefix"] + "STARTED.json")["Body"].read())
+            assert previous["script_sha256"] == resume["script_sha256"]
+            assert previous["spec"]["original_archive"] == spec["original_archive"]
+            objects = [o for page in client.get_paginator("list_objects_v2").paginate(
+                Bucket=bucket, Prefix=resume["prefix"] + "shards/") for o in page.get("Contents", [])]
+
+            def recover(obj):
+                index = int(Path(obj["Key"]).name.removeprefix("cache-").removesuffix(".tar.gz"))
+                expected = rows[index*128:(index+1)*128]
+                # Re-audit every newer gen episode; only the previously proven
+                # clean/original-obstacle sources can reuse cached alignment.
+                if not expected or any(e["source"] == "chain_gen" for e in expected):
+                    return None
+                path = root / ("recover-" + Path(obj["Key"]).name)
+                client.download_file(bucket, obj["Key"], str(path))
+                sha = Path(obj["Key"]).parent.name
+                assert digest(path) == sha
+                block = []
+                with tarfile.open(path, "r|gz") as tar:
+                    for member in tar:
+                        if member.name.endswith("/metadata.json"):
+                            block.append(json.load(tar.extractfile(member)))
+                path.unlink()
+                assert {e["source_prefix"] for e in block} == {e["source_prefix"] for e in expected}
+                shard = {"key": obj["Key"], "sha256": sha, "bytes": obj["Size"],
+                         "episodes": [e["episode_id"] for e in block]}
+                return index, block, shard
+
+            with cf.ThreadPoolExecutor(max_workers=8) as pool:
+                for result in pool.map(recover, objects):
+                    if result is not None:
+                        index, block, shard = result
+                        recovered[index] = (block, shard)
+            print("RECOVERED_VERIFIED_CACHE_SHARDS", len(recovered), flush=True)
         episodes, shards = [], []
         for start in range(0, len(rows), 128):
+            if start // 128 in recovered:
+                block, shard = recovered[start // 128]
+                episodes.extend(block); shards.append(shard)
+                continue
             with cf.ThreadPoolExecutor(max_workers=8) as pool:
                 block = list(pool.map(decode, rows[start:start + 128]))
             path = root / f"cache-{start // 128:04d}.tar.gz"
@@ -187,8 +275,10 @@ def main(spec):
             sha = digest(path)
             key = prefix + "shards/" + sha + "/" + path.name
             client.upload_file(str(path), bucket, key, ExtraArgs={"Metadata": {"sha256": sha}})
-            shards.append({"key": key, "sha256": sha, "bytes": path.stat().st_size,
-                           "episodes": [e["episode_id"] for e in block]})
+            shard = {"key": key, "sha256": sha, "bytes": path.stat().st_size,
+                     "episodes": [e["episode_id"] for e in block]}
+            shards.append(shard)
+            save(f"CACHE_SHARD_{start // 128:04d}.json", {"episodes": block, "archive": shard})
             episodes.extend(block)
             path.unlink()
             for e in block:

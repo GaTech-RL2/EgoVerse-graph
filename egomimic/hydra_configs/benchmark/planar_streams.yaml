@@ -1,8 +1,8 @@
 version: 1
 name: obstacle-streams-20261007
 artifact_prefix: experiments/obstacle-streams-20261007/
-data_ready_key: experiments/obstacle-streams-20261007/data-v1/READY.json
-data_preparation_sha256: e9a7186df23578dd19335675866476eb1b8ec4708d4783ba51c306bdcc0b1fde
+data_ready_key: experiments/obstacle-streams-20261007/data-v2/READY.json
+data_preparation_sha256: 9f5ca9116397528067df48f902aba0cac8d7a1de092d2c887b2e6da56f3432d4
 expected_counts:
   usocket: 2999
   chain_clean: 3000

@@ -40,7 +40,7 @@ a,b=flat(baseline),flat(cfg);changes=[]
 allowed=['paths.','logger.','run_provenance.','callbacks.model_checkpoint.dirpath','callbacks.homogeneous_dithalf.task','ckpt_path','name','hydra.']
 if smoke: allowed+=['trainer.max_steps','trainer.val_check_interval','trainer.limit_val_batches','trainer.log_every_n_steps','callbacks.model_checkpoint.every_n_train_steps','callbacks.resume_batch_probe.','model.gradient_telemetry_cadence','evaluator.energy_score_max_batches_per_rank']
 # Artifact paths follow the unique output root; contracts and budgets remain checked.
-allowed+=['evaluator.artifact_root','evaluator.action_flow_diagnostics.artifact_root','evaluator.energy_score_validation_view.episode_order_sha256']
+allowed+=['evaluator.artifact_root','evaluator.action_flow_diagnostics.artifact_root']
 for key in sorted(set(a)|set(b)):
  if a.get(key)!=b.get(key):
   assert any(key==p or key.startswith(p) for p in allowed),(key,a.get(key),b.get(key))
@@ -49,7 +49,7 @@ cache=json.load(open(os.environ['AF_RESUME_CACHED_PREFLIGHT']));assert cache['st
 assert cache['normalization_sha256']==os.environ['AF_EXPECTED_NORM_SHA256']
 for path in [os.environ['AF_SPLIT_MANIFEST'],os.environ['AF_SECOND_SPLIT_MANIFEST'],os.environ['AF_CONTENT_MANIFEST'],os.environ['AF_SECOND_CONTENT_MANIFEST']]: assert Path(path).is_file()
 # Preserve the checkpoint-bound source and all inherited model/config files.
-driver=os.environ['AF_RESUME_DRIVER_REPO'];subprocess.run(['git','-C',driver,'diff','--exit-code',os.environ['AF_EXPECTED_HEAD'],'HEAD','--','egomimic'],check=True,stdout=subprocess.DEVNULL)
+driver=os.environ['AF_RESUME_DRIVER_REPO'];assert subprocess.check_output(['git','-C',driver,'rev-parse','HEAD'],text=True).strip()==os.environ['AF_EXPECTED_RESUME_DRIVER_HEAD'];subprocess.run(['git','-C',driver,'diff','--exit-code',os.environ['AF_EXPECTED_HEAD'],'HEAD','--','egomimic'],check=True,stdout=subprocess.DEVNULL)
 assert not subprocess.check_output(['git','-C',driver,'status','--porcelain','--untracked-files=all']).strip()
 result={'status':'PASS','model_source_commit':proof['model_source'],'driver_source_commit':subprocess.check_output(['git','-C',driver,'rev-parse','HEAD'],text=True).strip(),'resume_start_step':start,'target_global_step':cfg['trainer']['max_steps'],'checkpoint_sha256':proof['checkpoint_sha256'],'phase':os.environ['AF_RUN_KIND'],'config_sha256':hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest(),'changed_fields':changes,'cached_data_and_normalization_preflight_sha256':os.environ['AF_RESUME_CACHED_PREFLIGHT_SHA256'],'batch_shape_cpu_proof_sha256':os.environ['AF_RESUME_CPU_PROOF_SHA256']}
 Path(sys.argv[2]).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))

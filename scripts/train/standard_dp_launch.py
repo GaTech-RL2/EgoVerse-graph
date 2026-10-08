@@ -144,7 +144,7 @@ def main():
         assert [float(x['retiming_rate'][0]) for x in samples]==[1.,1.25,1.5,1.75,2.]
         assert all(torch.equal(samples[0]['state_agent_obj'],x['state_agent_obj']) for x in samples)
         assert leaf.frame_index_at(4)==0 and leaf.frame_index_at(5)==1
-        records.update(status='PASS',source_head=head,real_native_sample_contract='PASS')
+        records.update(status='PASS',source_head=head,driver_head=os.environ.get('DP_DRIVER_HEAD',head),real_native_sample_contract='PASS')
         (task/'PREFLIGHT_RESULT_V1.json').write_text(json.dumps(records,indent=2)+'\n');return
     out=task/({'normalize':'normalization','smoke':'smoke-v1','full':'full-v1','resume-smoke':'resume-smoke-v1','resume':'resume-v1'}[args.mode]);assert not out.exists(),out
     if args.mode!='normalize':assert pathlib.Path(norm,'norm_stats.json').is_file()
@@ -159,7 +159,7 @@ def main():
     run([sys.executable,'-m','egomimic.trainHydra',*arguments(args.mode,str(out),norm)])
     if args.mode in {'smoke', 'resume-smoke'}:
         records=json.loads((task/'PREFLIGHT_RESULT_V1.json').read_text())
-        run([sys.executable,'scripts/train/verify_planar_training_smoke.py',str(out),
+        run([sys.executable,str(pathlib.Path(__file__).with_name('verify_planar_training_smoke.py')),str(out),
              '--expected-head',head,'--world-size','1','--parameter-count',str(records['parameters']),
              '--expected-name','planar_chain_manual4919_standard_dp_retimed_h16',
              '--single-domain','pushshapes_sim_chain_gripper',

@@ -1,0 +1,36 @@
+{
+  "recorded_authority_sha256": "559b6b3884eed7e39bdbdef12af67f4b033030af355a408db7c62354de23c31f",
+  "schema": "libero-native-suite-corpus-authority/v1",
+  "suites": {
+    "libero10": {
+      "dataset_logical_sha256": "3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d",
+      "historical_split_sha256": "c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236",
+      "training_seeds": [
+        42
+      ]
+    },
+    "libero_goal": {
+      "dataset_logical_sha256": "c190385dfc8a7d05b966a4b5f94651826b8a906b1e63d8b348edc70df52c1f60",
+      "historical_split_sha256": "207c24115104bf0545e7f165abb91cf052eb99f6568446f11e835f9a3e4c6af8",
+      "training_seeds": [
+        42,
+        43
+      ]
+    },
+    "libero_object": {
+      "dataset_logical_sha256": "40b5e3ccf4febcbae470690755adc8aa6a39471a4fcb7fa585a9bdb8e59c325d",
+      "historical_split_sha256": "5ade2a86fad7552457e093944fd60efec8b51fbe9dfd20831f627d1c56e9b5d7",
+      "training_seeds": [
+        42,
+        43
+      ]
+    },
+    "libero_spatial": {
+      "dataset_logical_sha256": "ee28d02e8c6cd28fb0a235fab2ccc649b662e6f3e10eb096d89be082d2871860",
+      "historical_split_sha256": "15640eada8102c7071dcfcd153ef438cb98c61835474a2fb2c3c9415cf6d714e",
+      "training_seeds": [
+        42
+      ]
+    }
+  }
+}

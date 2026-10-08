@@ -559,8 +559,25 @@ fi
 [[ "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_NATIVE_LIBERO" = true; then
-  test "$AF_NATIVE_DATASET_SHA256" = 3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d || die "native dataset identity mismatch"
-  test "$AF_NATIVE_HISTORICAL_SPLIT_SHA256" = c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236 || die "historical split identity mismatch"
+  # Suite corpus identities are immutable; destination receipt paths may differ.
+  case "$AF_EXPERIMENT" in
+    libero/action_flow_libero10_h240_euler50_dithalf_80k_s42)
+      native_logical_sha=3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d
+      native_historical_split_sha=c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236 ;;
+    libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42)
+      native_logical_sha=ee28d02e8c6cd28fb0a235fab2ccc649b662e6f3e10eb096d89be082d2871860
+      native_historical_split_sha=15640eada8102c7071dcfcd153ef438cb98c61835474a2fb2c3c9415cf6d714e ;;
+    libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42)
+      native_logical_sha=c190385dfc8a7d05b966a4b5f94651826b8a906b1e63d8b348edc70df52c1f60
+      native_historical_split_sha=207c24115104bf0545e7f165abb91cf052eb99f6568446f11e835f9a3e4c6af8 ;;
+    libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
+      native_logical_sha=40b5e3ccf4febcbae470690755adc8aa6a39471a4fcb7fa585a9bdb8e59c325d
+      native_historical_split_sha=5ade2a86fad7552457e093944fd60efec8b51fbe9dfd20831f627d1c56e9b5d7 ;;
+    *) die "unsupported native corpus identity profile" ;;
+  esac
+  test "$AF_NATIVE_DATASET_SHA256" = "$native_logical_sha" || die "native dataset identity mismatch"
+  test "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" = "$native_logical_sha" || die "native dataset aggregate identity mismatch"
+  test "$AF_NATIVE_HISTORICAL_SPLIT_SHA256" = "$native_historical_split_sha" || die "historical split identity mismatch"
 elif test "$AF_PAIRED_CHAIN_MANUAL4919" = true; then
   test "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
     die "content manifest is not the paired manual4919 ChainGripper manifest"

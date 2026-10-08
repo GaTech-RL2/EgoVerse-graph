@@ -37,8 +37,8 @@ def arguments(phase, output, norm):
        '++callbacks.model_checkpoint.train_time_interval=null','++callbacks.model_checkpoint.save_on_train_epoch_end=false',
        "++callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'",
        '++logger.wandb.entity=rl2-group','++logger.wandb.project=pushshapes-planar-v2',
-       f'++logger.wandb.id={os.environ["DP_WANDB_ID"]+ ("-smoke" if smoke else "")}',
-       f'++logger.wandb.name={os.environ["DP_WANDB_ID"]+ ("-smoke" if smoke else "")}',
+       f'++logger.wandb.id={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
+       f'++logger.wandb.name={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
        '++logger.wandb.resume=never','++logger.wandb.group=standard-dp-chain-manual4919-five-rate-20261007',
        '++logger.wandb.tags=[standard-dp,chain-only,manual4919,uniform-five-rate,interpolation-only,bf16,world1]',
        'evaluator.energy_score_max_batches_per_rank=1']

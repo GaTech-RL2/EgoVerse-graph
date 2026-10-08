@@ -63,35 +63,7 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
-def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
-    """
-    Split a list of dataset names into train/valid sets.
-    Args:
-        dataset_names (Iterable[str])
-        valid_ratio (float): fraction of datasets to put in valid.
-        seed (int): for deterministic shuffling.
-
-
-    Returns:
-        train_set (set[str]), valid_set (set[str])
-    """
-    names = sorted(dataset_names)
-    if not names:
-        return set(), set()
-
-    rng = random.Random(seed)
-    rng.shuffle(names)
-
-    if not (0.0 <= valid_ratio <= 1.0):
-        raise ValueError(f"valid_ratio must be in [0,1], got {valid_ratio}")
-
-    n_valid = int(len(names) * valid_ratio)
-    if valid_ratio > 0.0:
-        n_valid = max(1, n_valid)
-
-    valid = set(names[:n_valid])
-    train = set(names[n_valid:])
-    return train, valid
+from egomimic.rldb.zarr.episode_split import split_dataset_names
 
 
 def episode_names_sha256(dataset_names: Iterable[str]) -> str:

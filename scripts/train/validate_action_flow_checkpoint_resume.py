@@ -40,11 +40,18 @@ a,b=flat(baseline),flat(cfg);changes=[]
 allowed=['paths.','logger.','run_provenance.','callbacks.model_checkpoint.dirpath','callbacks.homogeneous_dithalf.task','ckpt_path','name','hydra.']
 if smoke: allowed+=['trainer.max_steps','trainer.val_check_interval','trainer.limit_val_batches','trainer.log_every_n_steps','callbacks.model_checkpoint.every_n_train_steps','callbacks.resume_batch_probe.','model.gradient_telemetry_cadence','evaluator.energy_score_max_batches_per_rank']
 # Artifact paths follow the unique output root; contracts and budgets remain checked.
-allowed+=['evaluator.artifact_root','evaluator.action_flow_diagnostics.artifact_root']
+allowed+=['evaluator.artifact_root','evaluator.action_flow_diagnostics.artifact_root','evaluator.unite_diagnostics.artifact_root','evaluator.energy_score_provenance.resolved_config_path','evaluator.energy_score_provenance.wandb.run_id','runtime.slurm_signal_checkpoint_dir','trainer.default_root_dir']
+unexpected=[]
 for key in sorted(set(a)|set(b)):
  if a.get(key)!=b.get(key):
-  assert any(key==p or key.startswith(p) for p in allowed),(key,a.get(key),b.get(key))
+  if not any(key==p or key.startswith(p) for p in allowed): unexpected.append((key,a.get(key),b.get(key)))
   changes.append({'field':key,'before':a.get(key),'after':b.get(key)})
+assert not unexpected, unexpected
+output=Path(os.environ['AF_OUTPUT_DIR'])
+assert Path(cfg['trainer']['default_root_dir'])==output
+assert Path(cfg['runtime']['slurm_signal_checkpoint_dir'])==output/'checkpoints'
+assert Path(cfg['evaluator']['energy_score_provenance']['resolved_config_path'])==output/'.hydra/config.yaml'
+assert cfg['evaluator']['energy_score_provenance']['wandb']['run_id']==os.environ['AF_WANDB_RUN_ID']
 cache=json.load(open(os.environ['AF_RESUME_CACHED_PREFLIGHT']));assert cache['status']=='PASS' and cache['source']['head']==os.environ['AF_EXPECTED_HEAD']
 assert cache['normalization_sha256']==os.environ['AF_EXPECTED_NORM_SHA256']
 for path in [os.environ['AF_SPLIT_MANIFEST'],os.environ['AF_SECOND_SPLIT_MANIFEST'],os.environ['AF_CONTENT_MANIFEST'],os.environ['AF_SECOND_CONTENT_MANIFEST']]: assert Path(path).is_file()

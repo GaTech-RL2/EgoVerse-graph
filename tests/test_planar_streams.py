@@ -13,7 +13,7 @@ from egomimic.pipeline.planar_grouped import PlanarArcGroupedNativeDecoder
 from egomimic.eval.planar_rollout import PlanarTimedArcExecutionSelector
 from egomimic.pipeline.algo import PipelineAlgo
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).parent.parent / "obstacle-streams-20261007"
 
 
 def codec(group, mode, m=16, horizon=80, dim=4):
@@ -100,6 +100,7 @@ def test_nine_recipes_match_budget_backbone_and_native_decoder():
         assert cfg.trainer.max_steps == cfg.model.scheduler.max_steps == 240000
         assert cfg.launch_params.gpus_per_node * cfg.planar.batch_size * 2 == 128
         assert cfg.planar.observation_horizon == 2
+        assert all(params.drop_last for params in cfg.data.train_dataloader_params.values())
         assert cfg.model.pipeline.homogeneous_training is True
         assert cfg.ckpt_path is None
         net = cfg.model.pipeline.stages[3].policy.model
@@ -163,3 +164,47 @@ def test_homogeneous_mean_and_gradient_match_equal_source_loss():
     torch.testing.assert_close(grad_loop, grad_fused)
     assert merged["episode_hash"] == ["a"]*4 + ["b"]*4
     assert PipelineAlgo._fuse_equal_batches([a, {"x": y[:2], "episode_hash": ["b"]*2}]) is None
+
+
+def test_unlabeled_gen_alignment_is_inferred_from_transitions():
+    from scripts.data.prepare_planar_cotrain import infer_observation_alignment
+    rng = np.random.default_rng(42)
+    actions = np.zeros((40, 4)); actions[:, :2] = rng.uniform(0, 10, (40, 2))
+    states = [np.zeros(2)]
+    for command in actions:
+        delta = command[:2] - states[-1]
+        states.append(states[-1] + delta * min(1, (200/30)/max(np.linalg.norm(delta), 1e-12)))
+    states = np.asarray(states)
+    attrs = {"episode_init": {"agent_pos": [0, 0]}}
+    for expected, observed in [("pre_step", states[:-1]), ("post_step", states[1:])]:
+        inferred, proof = infer_observation_alignment(actions, observed, attrs, speed=200, fps=30)
+        assert inferred == expected
+        assert proof[expected + "_exact_matches"] == 39
+    with pytest.raises(ValueError, match="contradictory"):
+        infer_observation_alignment(actions, states[1:], dict(attrs, observation_alignment="pre_step"), speed=200, fps=30)
+    with pytest.raises(ValueError, match="Ambiguous"):
+        infer_observation_alignment(np.zeros((40, 4)), np.zeros((40, 2)), attrs, speed=200, fps=30)
+
+
+def test_stale_shard_metadata_recovery_retains_payload_checksums(tmp_path):
+    import zarr
+    from scripts.data.prepare_planar_cotrain import recover_imported_shard_metadata
+    values = np.arange(500*4, dtype=np.float64).reshape(500, 4)
+    zarr.create_array(tmp_path / "actions", data=values, chunks=(100, 4), shards=(500, 4))
+    meta = tmp_path / "actions/zarr.json"
+    chunk = tmp_path / "actions/c/0/0"
+    raw = chunk.read_bytes()
+    header = json.loads(meta.read_text())
+    header["shape"][0] = 400
+    header["chunk_grid"]["configuration"]["chunk_shape"][0] = 400
+    meta.write_text(json.dumps(header))
+    with pytest.raises(ValueError, match="checksum"):
+        zarr.open_array(tmp_path / "actions", mode="r")[:]
+    repairs = recover_imported_shard_metadata(tmp_path, 419)
+    assert len(repairs) == 1 and repairs[0]["index_crc32c_verified"]
+    assert chunk.read_bytes() == raw
+    np.testing.assert_array_equal(zarr.open_array(tmp_path / "actions", mode="r")[:419], values[:419])
+    assert recover_imported_shard_metadata(tmp_path, 419) == []
+    chunk.write_bytes(raw[:-1] + bytes([raw[-1] ^ 1]))
+    with pytest.raises(ValueError, match="Unrecoverable"):
+        recover_imported_shard_metadata(tmp_path, 419)

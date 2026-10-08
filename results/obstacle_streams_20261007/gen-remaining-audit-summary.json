@@ -1,0 +1,10 @@
+{
+  "audited": 1966,
+  "errors": [],
+  "alignment_counts": {
+    "post_step": 1119,
+    "pre_step": 847
+  },
+  "recovered_episodes": 17,
+  "recovered_headers": 102
+}

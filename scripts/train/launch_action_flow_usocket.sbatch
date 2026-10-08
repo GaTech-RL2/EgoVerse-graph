@@ -1002,6 +1002,37 @@ else
 fi
 
 if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
+  # Task-local typed extension of canonical launcher; user accepts the known
+  # grouped BF16 numerical delta, but never a silent sampling/augmentation delta.
+  test "${AF_HOMOGENEOUS_NUMERICAL_DELTA_ACCEPTED:-}" = true || die "explicit numerical authorization required"
+  required AF_HOMOGENEOUS_TASK
+  required AF_HOMOGENEOUS_CALLBACK_SHA256
+  test "$(sha256 "$AF_HOMOGENEOUS_TASK/homogeneous_dithalf_training.py")" = "$AF_HOMOGENEOUS_CALLBACK_SHA256" || die "callback SHA mismatch"
+  # Full-corpus retimed normalization retains shared-memory batch buffers.
+  # The gateway's inherited 1024 descriptor limit failed before completion.
+  ulimit -Sn 131072 || die "speed diagnostic requires RLIMIT_NOFILE >=131072"
+  test "$(ulimit -Sn)" -ge 131072 || die "open-file limit guard failed"
+  printf '[speed-contract] open_file_soft_limit=%s\n' "$(ulimit -Sn)"
+  BASE_OVERRIDES+=(
+    "+callbacks.homogeneous_dithalf._target_=homogeneous_dithalf_training.HomogeneousDiTHalf"
+    "+callbacks.homogeneous_dithalf.task=$AF_HOMOGENEOUS_TASK"
+    "model.pipeline.stages.6.inference_method=euler"
+    "model.pipeline.stages.6.num_inference_steps=50"
+    "++run_provenance.validation_inference_sampler=euler"
+    "++run_provenance.validation_inference_steps=50"
+    "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
+    "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE"
+    "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
+    "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.decoder=two_private_UniteActionDecoder_h696_d12_h12"
+    "run_provenance.validation.interval_optimizer_steps=$VALIDATE_EVERY"
+    "run_provenance.validation.limit_batches=$LIMIT_VAL_BATCHES"
+  )
+fi
+
+
+if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
   BASE_OVERRIDES+=("ckpt_path='$AF_INITIAL_CHECKPOINT'")
   if test "$AF_RUN_KIND" = full; then BASE_OVERRIDES+=("++logger.wandb.resume=must");
   else BASE_OVERRIDES+=("++logger.wandb.resume=never" "+callbacks.resume_batch_probe._target_=homogeneous_dithalf_training.ResumeBatchProbe"); fi

@@ -66,7 +66,8 @@ assert not subprocess.check_output(['git','-C',driver,'status','--porcelain','--
 for helper in (Path(driver)/'scripts/train/homogeneous_pipeline_runtime').glob('*.py'):
  assert hashlib.sha256(helper.read_bytes()).hexdigest()==hashlib.sha256((Path(os.environ.get('AF_RESUME_HELPER_DIR',os.environ['AF_HOMOGENEOUS_TASK']))/helper.name).read_bytes()).hexdigest(), helper.name
 component=json.load(open(os.environ['AF_RESUME_BATCH_POLICY_PROOF']));assert component['status']=='PASS' and component['variable_batch_policy']=='native'
-assert component['driver_source_commit']==os.environ['AF_EXPECTED_RESUME_DRIVER_HEAD']
+# A launcher-only repair may reuse exact callback/runtime proof bytes.
+subprocess.run(['git','-C',driver,'diff','--exit-code',component['driver_source_commit'],'HEAD','--','scripts/train/homogeneous_pipeline_runtime'],check=True,stdout=subprocess.DEVNULL)
 callback_name='homogeneous_typed_native_training.py' if typed else 'homogeneous_dithalf_training.py'
 assert component['callback_sha256']==hashlib.sha256((Path(os.environ.get('AF_RESUME_HELPER_DIR',os.environ['AF_HOMOGENEOUS_TASK']))/callback_name).read_bytes()).hexdigest()
 result={'status':'PASS','model_source_commit':proof['model_source'],'driver_source_commit':subprocess.check_output(['git','-C',driver,'rev-parse','HEAD'],text=True).strip(),'resume_start_step':start,'target_global_step':cfg['trainer']['max_steps'],'checkpoint_sha256':proof['checkpoint_sha256'],'phase':os.environ['AF_RUN_KIND'],'config_sha256':hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest(),'changed_fields':changes,'cached_data_and_normalization_preflight_sha256':os.environ['AF_RESUME_CACHED_PREFLIGHT_SHA256'],'batch_shape_cpu_proof_sha256':os.environ['AF_RESUME_CPU_PROOF_SHA256']}

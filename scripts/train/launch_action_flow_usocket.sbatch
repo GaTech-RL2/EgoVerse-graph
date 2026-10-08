@@ -607,7 +607,11 @@ if test "$AF_COTRAIN" = true; then
 fi
 [[ "$AF_WANDB_RUN_ID" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe W&B run ID"
 [[ "$AF_CLUSTER_LABEL" =~ ^[A-Za-z0-9_.-]+$ ]] || die "unsafe cluster label"
-[[ "$AF_MAX_RESTARTS" =~ ^[1-9][0-9]*$ ]] || die "invalid AF_MAX_RESTARTS"
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run && test "$AF_RUN_KIND" = smoke; then
+  test "$AF_MAX_RESTARTS" = 0 || die "native smoke requires AF_MAX_RESTARTS=0 (no requeue)"
+else
+  [[ "$AF_MAX_RESTARTS" =~ ^[1-9][0-9]*$ ]] || die "invalid AF_MAX_RESTARTS"
+fi
 [[ "$AF_SEED" =~ ^[0-9]+$ ]] || die "invalid AF_SEED"
 [[ "$AF_STORAGE_SAFETY_RESERVE_BYTES" =~ ^[1-9][0-9]*$ ]] || \
   die "invalid AF_STORAGE_SAFETY_RESERVE_BYTES"
@@ -618,10 +622,16 @@ if test "$AF_NATIVE_LIBERO" = true; then
 else
   test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
 fi
-case "$AF_EXPECTED_GPU_CONSTRAINT" in
-  H100|H200|'H100|H200') ;;
-  *) die "AF_EXPECTED_GPU_CONSTRAINT must be H100, H200, or H100|H200" ;;
-esac
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run; then
+  # Native Lambda GPU identity is established by actual allocation + H100 BF16
+  # probe in the maintained phase adapter; this cluster has no Features value.
+  test "$AF_EXPECTED_GPU_CONSTRAINT" = '(null)' || die "native GPU allocation requires AF_EXPECTED_GPU_CONSTRAINT=(null)"
+else
+  case "$AF_EXPECTED_GPU_CONSTRAINT" in
+    H100|H200|'H100|H200') ;;
+    *) die "AF_EXPECTED_GPU_CONSTRAINT must be H100, H200, or H100|H200" ;;
+  esac
+fi
 if test "$AF_LAUNCH_MODE" = run && test "$AF_RUN_KIND" = smoke \
   && test "$RESTART_COUNT" -ne 0; then
   die "a preempted two-step smoke must be relaunched with a fresh immutable identity"

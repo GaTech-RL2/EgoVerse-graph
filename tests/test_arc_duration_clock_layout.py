@@ -35,7 +35,7 @@ def chunk(frames=200, right_still=False):
     raw[:, 3], raw[:, 6] = 0.3 * time, np.clip(time - 2, 0, 1)
     if not right_still:
         raw[:, 7] = 0.05 * np.minimum(time, 1.5)
-    raw[:, 10], raw[:, 13] = 0.05 * np.sin(3 * time), np.clip(4 - time, 0, 1)
+        raw[:, 10], raw[:, 13] = 0.05 * np.sin(3 * time), np.clip(4 - time, 0, 1)
     return raw
 
 
@@ -84,19 +84,25 @@ def test_clock_columns_are_per_interval_seconds_and_restack_losslessly():
     assert (100, 18) not in bimanual_arc_token_shapes(100, "per_waypoint")
 
 
-def test_held_arm_parks_xyz_but_times_its_gripper_on_the_translation_clock():
-    raw = chunk(right_still=True)
+def test_held_arm_has_constant_waypoints_and_a_full_window_duration():
+    raw = chunk(frames=400, right_still=True)
     clock = codec("multistream").transform({"actions": raw})["actions"]
-    np.testing.assert_array_equal(clock[:, 7:10], np.repeat(raw[:1, 7:10], 100, 0))
+    np.testing.assert_array_equal(clock[:, 7:14], np.repeat(raw[:1, 7:14], 100, 0))
     right_translation_seconds = clock[:-1, 14 + CLOCK_COLUMNS.index(7)]
-    assert right_translation_seconds.sum() > 0
-    decoded = codec("multistream").detokenize(clock, 200)
-    np.testing.assert_allclose(decoded[:, 7:10], raw[:1, 7:10].repeat(200, 0))
-    # The hold walks the gripper to its state at the end of the covered span
-    # over that span's duration, instead of jumping at frame 0.
-    assert decoded[0, 13] == pytest.approx(1.0)
-    assert np.all(np.diff(decoded[:, 13]) <= 1e-12)
-    assert decoded[-1, 13] == pytest.approx(raw[-1, 13])
+    assert right_translation_seconds.sum() == pytest.approx(400 * DT)
+    right_rotation_seconds = clock[:-1, 14 + CLOCK_COLUMNS.index(10)]
+    assert right_rotation_seconds.sum() == pytest.approx(400 * DT)
+    decoded = codec("multistream").detokenize(clock, 400)
+    np.testing.assert_allclose(decoded[:, 7:14], np.repeat(raw[:1, 7:14], 400, 0))
+
+
+def test_zero_rate_hold_decodes_for_the_complete_source_window():
+    raw = chunk(frames=400, right_still=True)
+    rates_codec = codec("multistream", "per_waypoint", "wide")
+    rates = rates_codec.transform({"actions": raw.copy()})["actions"]
+    np.testing.assert_array_equal(rates[:, 21:28], 0.0)
+    decoded = rates_codec.detokenize(rates, 400)
+    np.testing.assert_allclose(decoded[:, 7:14], np.repeat(raw[:1, 7:14], 400, 0))
 
 
 def test_log_clock_stores_log_seconds_and_decodes_like_clock():
@@ -113,8 +119,12 @@ def test_log_clock_stores_log_seconds_and_decodes_like_clock():
     # A zero (hold) interval encodes to a finite log and decodes back to zero.
     held = np.zeros((2, 18))
     held[:, 14:] = np.log(1e-3)
-    np.testing.assert_allclose(clock_token_seconds(held, "log_clock")[:, 14:], 0.0, atol=1e-15)
-    np.testing.assert_allclose(clock_token_seconds(logged, "log_clock"), clock, atol=1e-12)
+    np.testing.assert_allclose(
+        clock_token_seconds(held, "log_clock")[:, 14:], 0.0, atol=1e-15
+    )
+    np.testing.assert_allclose(
+        clock_token_seconds(logged, "log_clock"), clock, atol=1e-12
+    )
     np.testing.assert_array_equal(clock_token_seconds(logged, "clock"), logged)
     np.testing.assert_allclose(
         codec("multistream", velocity_layout="log_clock").detokenize(logged, 200),
@@ -262,9 +272,9 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
     train = cfg.data.train_datasets
     assert set(train) == {"yam_bimanual", "human_bimanual"}
     human = train.human_bimanual.resolver.key_map
-    assert (human.action_horizon, human.source_buffer_frames) == (100, 200)
+    assert (human.action_horizon, human.source_buffer_frames) == (100, 400)
     robot_keymap = train.yam_bimanual.resolver.key_map
-    assert robot_keymap.source_buffer_frames == 200
+    assert robot_keymap.source_buffer_frames == 400
     assert train.human_bimanual.resolver.transform_list.stride == 1
     row = dict(
         lab="rl2",
@@ -284,7 +294,10 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert cfg.evaluator.velocity_mode == "per_waypoint"
         for dataset in train.values():
             transforms = dataset.resolver.transform_list
-            assert (transforms.velocity_mode, transforms.velocity_layout) == ("per_waypoint", "wide")
+            assert (transforms.velocity_mode, transforms.velocity_layout) == (
+                "per_waypoint",
+                "wide",
+            )
     if dim == 18:
         assert cfg.evaluator.velocity_mode == "duration"
         assert cfg.evaluator.arc_chunking_mode == "multistream"
@@ -308,7 +321,10 @@ def test_towel_logclock_recipe_tokenizes_and_evaluates_as_log_clock(monkeypatch)
         )
     robot = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     assert (robot.velocity_mode, robot.velocity_layout) == ("duration", "log_clock")
-    assert (cfg.evaluator.velocity_mode, cfg.evaluator.velocity_layout) == ("duration", "log_clock")
+    assert (cfg.evaluator.velocity_mode, cfg.evaluator.velocity_layout) == (
+        "duration",
+        "log_clock",
+    )
     assert cfg.abc_dit.token_dim == 18
 
 

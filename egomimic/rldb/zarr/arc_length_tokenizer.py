@@ -1179,6 +1179,8 @@ def clock_token_seconds(token, velocity_layout: str | None) -> np.ndarray:
     timing = value[..., ARC_TOK_BIMANUAL_DIM:]
     value[..., ARC_TOK_BIMANUAL_DIM:] = np.maximum(np.exp(timing) - LOG_CLOCK_EPS, 0.0)
     return value
+
+
 ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
 
 
@@ -1347,6 +1349,7 @@ class TokenizeBimanualArcLengthCartesian:
         resampled_vector_length: int = 20,
         dt: float = 1.0 / 30.0,
         zero_dist_epsilon: float = 1e-6,
+        hold_window_frames: int = 400,
         preserve_action_key: str | None = None,
         preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
@@ -1355,6 +1358,9 @@ class TokenizeBimanualArcLengthCartesian:
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
+        self.hold_window_frames = int(hold_window_frames)
+        if self.hold_window_frames <= 0:
+            raise ValueError("hold_window_frames must be positive")
         # Tokenizing overwrites ``output_action_key`` in place, which destroys
         # the time-indexed chunk it was built from. Validation needs that chunk
         # back: every cross-run metric is anchored on "the ground truth under
@@ -1623,19 +1629,18 @@ class TokenizeBimanualArcLengthCartesian:
         zero-length distance coordinate freezes the whole arm, gripper
         included. Restating the rule here keeps the hold token faithful.
 
-        Deliberately does not restate ``max_steps_per_chunk``: with a source
-        window fixed at the same 200 frames that rule can never fire upstream
-        either, and an arm that moves but cannot reach D inside the window is
-        specified to resample its available motion, not to hold
+        A hold is for a stream that has no translation throughout the source
+        window. It keeps the initial position/gripper constant and spans
+        ``hold_window_frames`` in the duration/rate decoder; partial motion is
+        resampled normally, even when it does not reach D.
         (test_multistream_short_arm_resamples_all_100_waypoints_then_holds_on_decode).
 
-        Returns the source index a hold carries its gripper to, or None when the
-        arm resamples normally.
+        Returns the final source index for a hold, or None when the stream
+        resamples normally.
         """
-        if end >= self.tokenizer.config.zero_dist_epsilon:
+        if cumulative[-1] >= self.tokenizer.config.zero_dist_epsilon:
             return None
-        _, end_idx = _dist_interval_indices(cumulative, 0.0, end)
-        return end_idx
+        return len(cumulative) - 1
 
     def _race_frame(self, translation_cumulative, rotation_cumulative, num_frames):
         """Fractional source frame at which the race ends.
@@ -1750,7 +1755,6 @@ class TokenizeBimanualArcLengthCartesian:
         """Resample both streams against their own source coordinates."""
         translation, rotation = self._hybrid_source_coordinates(raw)
 
-        hold_alphas = np.linspace(0.0, 1.0, self.M)[:, None]
         arms = []
         for offset, (translation_cumulative, translation_targets, hold), (
             rotation_cumulative,
@@ -1771,13 +1775,10 @@ class TokenizeBimanualArcLengthCartesian:
                     translation_targets,
                 )
             else:
-                # Hold token, matching tokenize_at's kind="zero" payload: repeat
-                # the arm's current position and walk its gripper to the end of
-                # the span the arm does cover.
+                # A held translation/gripper stream remains constant for the
+                # full source window. Rotation is sampled on its separate clock.
                 xyz = np.repeat(raw[0:1, offset : offset + 3], self.M, axis=0)
-                grip = (1.0 - hold_alphas) * raw[0, offset + 6 : offset + 7] + (
-                    hold_alphas * raw[hold, offset + 6 : offset + 7]
-                )
+                grip = np.repeat(raw[0:1, offset + 6 : offset + 7], self.M, axis=0)
             # Rotation always keeps its own clock: a translation hold must not
             # cut the independent rotation stream short.
             ypr = _slerp_segments_ypr(
@@ -1801,9 +1802,12 @@ class TokenizeBimanualArcLengthCartesian:
             rotation_cumulative,
             rotation_targets,
         ) in zip((0, 7), translation, rotation):
-            rotation_times = _source_times_at_targets(
-                rotation_cumulative, rotation_targets, dt
-            )
+            if rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon:
+                rotation_times = np.linspace(0.0, self.hold_window_frames * dt, self.M)
+            else:
+                rotation_times = _source_times_at_targets(
+                    rotation_cumulative, rotation_targets, dt
+                )
             rotation_dt = np.diff(rotation_times)
             rotation_safe = np.where(
                 rotation_dt > self.zero_dist_epsilon,
@@ -1828,17 +1832,6 @@ class TokenizeBimanualArcLengthCartesian:
                     rate = np.diff(block, axis=0) / translation_safe[:, None]
                     rows[:-1, block_offset : block_offset + width] = rate
                     rows[-1, block_offset : block_offset + width] = rate[-1]
-            else:
-                # Position is a hold, but the gripper may move throughout the
-                # source window. Preserve that temporal signal independently.
-                grip = waypoints[:, offset + 6]
-                hold_times = np.linspace(0.0, float(hold), self.M) * dt
-                hold_dt = np.diff(hold_times)
-                hold_safe = np.where(hold_dt > self.zero_dist_epsilon, hold_dt, np.inf)
-                grip_rate = np.diff(grip) / hold_safe
-                rows[:-1, offset + 6] = grip_rate
-                rows[-1, offset + 6] = grip_rate[-1]
-
             ypr = waypoints[:, offset + 3 : offset + 6]
             rotations = _ypr_to_rotation(ypr)
             relative = rotations[:-1].inv() * rotations[1:]
@@ -1851,9 +1844,9 @@ class TokenizeBimanualArcLengthCartesian:
         """Per-interval seconds on each of the four clocks, at CLOCK_COLUMNS.
 
         Same source timestamps as :meth:`_hybrid_per_waypoint_velocity`, stored
-        as elapsed time instead of rate. A held arm's translation clock carries
-        its gripper's timeline across the span the arm covers, so a grip with no
-        arm motion is still timed. The final row repeats the last interval.
+        as elapsed time instead of rate. A fully stationary translation or
+        rotation stream gets the complete configured hold window even though
+        its waypoint deltas are zero. The final row repeats the last interval.
         """
         rows = np.zeros((self.M, ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
         dt = self.tokenizer.config.dt
@@ -1867,10 +1860,13 @@ class TokenizeBimanualArcLengthCartesian:
                     translation_cumulative, translation_targets, dt
                 )
             else:
-                times = np.linspace(0.0, float(hold), self.M) * dt
-            rotation_times = _source_times_at_targets(
-                rotation_cumulative, rotation_targets, dt
-            )
+                times = np.linspace(0.0, self.hold_window_frames * dt, self.M)
+            if rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon:
+                rotation_times = np.linspace(0.0, self.hold_window_frames * dt, self.M)
+            else:
+                rotation_times = _source_times_at_targets(
+                    rotation_cumulative, rotation_targets, dt
+                )
             for column, values in ((offset, times), (offset + 3, rotation_times)):
                 interval = np.diff(values)
                 rows[:-1, column] = interval
@@ -1968,6 +1964,13 @@ class TokenizeBimanualArcLengthCartesian:
             steps = np.diff(cumulative_rotation_length(block))
             rates = np.linalg.norm(velocity_rows[:-1, offset + 3 : offset + 6], axis=-1)
             moving, usable = steps > 1e-12, rates > 1e-8
+            if not np.any(moving):
+                interval = (
+                    self.hold_window_frames
+                    * self.tokenizer.config.dt
+                    / max(len(steps), 1)
+                )
+                return np.full_like(steps, interval)
             duration = np.zeros_like(steps)
             np.divide(steps, rates, out=duration, where=moving & usable)
             missing_rate = moving & ~usable
@@ -1998,6 +2001,16 @@ class TokenizeBimanualArcLengthCartesian:
             np.divide(steps, rates, out=duration, where=moving & usable)
             duration[moving & ~usable] = fallback
             return duration
+
+        # Zero rates with constant waypoints denote a full-window hold; they
+        # must not collapse the decoded stream clock to zero seconds.
+        if not np.any(position_steps > 1e-12) and not np.any(grip_steps > 1e-12):
+            interval = (
+                self.hold_window_frames
+                * self.tokenizer.config.dt
+                / max(len(position_steps), 1)
+            )
+            return np.full_like(position_steps, interval)
 
         # A stationary arm can still operate its gripper. Its hold-token
         # velocity rows carry that source-time clock, so a hold interval takes
@@ -2040,7 +2053,9 @@ class TokenizeBimanualArcLengthCartesian:
             timing_rows[:-1, offset + 3 if rotation else offset], 0.0, None
         )
         moving, usable = steps > 1e-12, stored > 1e-8
-        duration = np.where(moving & usable, stored, 0.0)
+        # Positive stored time is meaningful for a hold even when the
+        # waypoint delta is zero.
+        duration = np.where(usable, stored, 0.0)
         fallback = self.tokenizer.config.dt * (action_horizon + 1)
         missing = moving & ~usable
         if rotation:

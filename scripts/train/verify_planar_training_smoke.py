@@ -67,6 +67,8 @@ def main() -> None:
     parser.add_argument("--expected-head", required=True)
     parser.add_argument("--world-size", required=True, type=int)
     parser.add_argument("--parameter-count", required=True, type=int)
+    parser.add_argument("--expected-name", default="planar_v2_cotrain_clean_dp_standard_h16")
+    parser.add_argument("--single-domain", default=None)
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
@@ -74,8 +76,9 @@ def main() -> None:
     checkpoint_path = run_dir / "checkpoints/last.ckpt"
     assert config_path.is_file() and checkpoint_path.is_file()
     cfg = OmegaConf.load(config_path)
-    assert cfg.name == "planar_v2_cotrain_clean_dp_standard_h16"
-    assert cfg.run_provenance.obstacle_data is False
+    assert cfg.name == args.expected_name
+    if args.single_domain is None:
+        assert cfg.run_provenance.obstacle_data is False
     assert int(cfg.trainer.max_steps) == 2
     assert int(cfg.trainer.val_check_interval) == 1
     assert int(cfg.trainer.limit_val_batches) == 1
@@ -104,7 +107,8 @@ def main() -> None:
     ]
     assert len(streams) == 1, streams
     history, exit_code = _wandb_history(streams[0])
-    labels = ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper")
+    labels = ((args.single_domain,) if args.single_domain else
+              ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"))
     train_required = {"Train/MSE", *(f"Train/MSE/{label}" for label in labels)}
     valid_required = {
         "Valid/MSE",

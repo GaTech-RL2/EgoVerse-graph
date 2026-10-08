@@ -1,0 +1,17 @@
+[
+  {
+    "arm": "dp",
+    "denoiser_parameters": 251580037,
+    "action_dim": 5
+  },
+  {
+    "arm": "xy_stk_m16",
+    "denoiser_parameters": 251590792,
+    "action_dim": 8
+  },
+  {
+    "arm": "x_y_dur_m56",
+    "denoiser_parameters": 251594377,
+    "action_dim": 9
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "source_commit": "6fe312726bd4efb4e805a863b85fa8c029c418b4",
+  "runtime_branch": "codex/obstacle-streams-20261007",
+  "validation_branch": "codex/obstacle-stream-validation-20261007",
+  "cpu_tests": 54,
+  "training_arms": 9,
+  "training_gpus_per_arm": 4,
+  "training_gpu_type": "L40S",
+  "optimizer_updates": 240000,
+  "global_batch_size": 128,
+  "evaluation_rollouts": 27900,
+  "expected_data_episodes": 12718,
+  "fresh_from_step_zero": true,
+  "stage_workflow": {
+    "name": "obstacle-stream-data-20261007-v1-2",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obstacle-stream-data-20261007-v1-2",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obstacle-stream-data-20261007-v1-2/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c8cd1d7f74e24d70"
+  },
+  "training_workflow": {
+    "name": "obs-streams-1007-v1-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obs-streams-1007-v1-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obs-streams-1007-v1-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=4155b6f05aa84a9e"
+  },
+  "artifact_prefix": "s3://rldb/experiments/obstacle-streams-20261007/",
+  "files": {
+    "data-workflow-v1.yaml": "899d39da5e204620560b922877a7a55c21c019aaef17c2ed890640d39a9bd371",
+    "submission-v1.json": "f28c5b6460eafeee3066a6de9da633b4fca8a0b3028ba1f087dd47246cd3d5cf",
+    "denoiser-parameters.json": "6a5ce432296adc1df69a6feb56ad6e00535382a2b64735a4802818fd006925b1",
+    "cpu-tests.log": "d810405b5a5dc7992e751a72e5bf3ae745aa9a06cd92036e240bb96ce50d2121",
+    "cpu-tests.xml": "a0a92351d608e3121e3f934eca6a69ffbb844e14309abcb397b7bd83eea3cd44",
+    "data-submission-v1b.json": "ffc6281f41e6633eeb2f4ad8991badb0d824917a13eb61b3a0abdc41ec725c6f",
+    "data-spec.json": "12798af27608366b3013daf3d0cb9f02a9334824b3513dbff1a4c2cceb184ba0",
+    "workflow-v1.yaml": "cea0a720289a2890d13f45ff42760f612200b3dc07ccc841a477345dfc26a07d"
+  }
+}

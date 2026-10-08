@@ -21,7 +21,13 @@ import json
 import sys
 from pathlib import Path
 
-from recipe_builders import ROTATION_DISTANCE_UNIT, require_compute_node, robot_data
+from recipe_builders import (
+    ROTATION_DISTANCE_UNIT,
+    codec_overrides,
+    require_compute_node,
+    robot_data,
+    robot_data_config,
+)
 
 CONS = Path(__file__).resolve().parents[2]
 H = CONS / "egomimic/hydra_configs"
@@ -162,21 +168,39 @@ def build(args):
         }
     from omegaconf import OmegaConf
 
-    for v in args.variants:
-        cfg = robot_base(v)
-        cfg.train_datasets.human_bimanual = human_leaf(v, hashes, embodiments)
-        cfg.train_dataloader_params.human_bimanual = {
-            "batch_size": args.human_batch,
-            "num_workers": 6,
-            "persistent_workers": True,
-        }
+    # TIME is the shared data base: keep the robot pool inherited and declare the
+    # new human domain once. Codec leaves inherit both frozen episode selections.
+    # A subset rebuild must still refresh this base (manifest and human batch).
+    for v in dict.fromkeys(("time", *args.variants)):
+        if v == "time":
+            cfg = {
+                **robot_data_config("slowpace", "time"),
+                "train_datasets": {
+                    "human_bimanual": human_leaf("time", hashes, embodiments),
+                },
+                "train_dataloader_params": {
+                    "human_bimanual": {
+                        "batch_size": args.human_batch,
+                        "num_workers": 6,
+                        "persistent_workers": True,
+                    }
+                },
+            }
+        else:
+            cfg = {
+                "defaults": [
+                    "/data/abc_arc/stationery_slowpace_aria_cotrain_time@_here_",
+                    "_self_",
+                ],
+                **codec_overrides(v, human=True),
+            }
         head = (
             f"# GENERATED {datetime.datetime.now():%Y-%m-%d %H:%M} by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.\n"
-            f"# Robot: data/abc_arc/stationery_tempo_slowpace_{'time' if v == 'time' else 'arcdur'}.yaml, variant {v} (slow-pace pool, 217 train, shared 24-ep val).\n"
+            f"# Inherited slow-pace robot pool: 217 train / 24 validation; codec {v}.\n"
             f"# Human: {len(hashes)} RL2 Aria eps / {hours:.2f} h, tasks {args.tasks}, since {args.since}, operators {who}.\n"
             f"# Per step: robot batch 32 + human batch {args.human_batch}; validation is robot-only.\n"
         )
-        OUT[v].write_text(head + OmegaConf.to_yaml(cfg))
+        OUT[v].write_text(head + OmegaConf.to_yaml(OmegaConf.create(cfg)))
     MANIFEST.write_text(
         json.dumps(
             {
@@ -194,7 +218,7 @@ def build(args):
     )
     print(f"human: {len(hashes)} eps, {hours:.2f} h, operators {who}, rigs {rigs}")
     print("robot: slow-pace pool, 217 train eps (~2.2 h), shared 24-ep val")
-    for v in args.variants:
+    for v in dict.fromkeys(("time", *args.variants)):
         print("wrote", OUT[v].relative_to(CONS))
 
 

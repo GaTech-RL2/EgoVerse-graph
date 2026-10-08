@@ -38,6 +38,21 @@ def validate_preflight(preflight,identities):
     require(cpu["native_saved_state_binding_validated"] is True and cpu["physical_proof_sha256"]==preflight["physical_proof"]["sha256"],"CPU native normalization/physical proof mismatch")
     return cpu
 
+def validate_native_checkpoint_context(payload, cfg, binding):
+    """Native ModelWrapper checkpoints record model/provenance, not norm state."""
+    tree=payload.get("hyper_parameters",{}).get("config_tree")
+    require(isinstance(tree,dict),"native checkpoint config_tree mapping missing")
+    require(tree.get("model")==cfg["model"],"native checkpoint model config differs")
+    provenance=tree.get("run_provenance",{})
+    expected={"source_commit":binding["source_commit"],
+              "normalization_sha256":binding["file_sha256"],
+              "split_manifest_sha256":binding["split_receipt_sha256"],
+              "dataset_sha256":cfg["run_provenance"]["dataset_sha256"]}
+    for key,value in expected.items():
+        require(provenance.get(key)==value and cfg["run_provenance"].get(key)==value,
+                "native checkpoint provenance differs: "+key)
+    return expected
+
 def validate_dit_counts(rows,shared):
     names=tuple("Train/Execution/DiTHalf/"+owner+"/"+mode for owner in ("encoder","velocity") for mode in ("direct","checkpoint"))
     step,row=shared._complete_row(rows,names,minimum_step=1,label="native actual DiT-half activation")
@@ -49,7 +64,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     from omegaconf import OmegaConf
     from egomimic.pl_utils.pl_model import ModelWrapper
     from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowNormalizer
-    from egomimic.rldb.zarr.libero_saved_state import load_saved_native_state
+    from egomimic.rldb.zarr.libero_saved_state import bind_saved_native_state
     from egomimic.benchmarks.libero.action_flow_artifacts import REQUIRED,validate_identity,validate_payload,verify_tensor_payload
     run_dir=Path(run_dir).resolve(strict=True);configpath=run_dir/".hydra/config.yaml";config=OmegaConf.load(configpath)
     require(all(v is not None for v in (expected_config_sha256,expected_split_sha256,expected_normalization_sha256,expected_preflight_sha256)),"native smoke needs every explicit expected hash")
@@ -95,11 +110,34 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
         if hasattr(value,"tolist"):return value.tolist()
         return value
     saved=json.loads(Path(binding["path"]).read_text())["normalizer_state"]
-    require(plain(payload.get("normalizer_state"))==saved,"native checkpoint cached normalizer state mismatch")
+    checkpoint_tree=payload.get("hyper_parameters",{}).get("config_tree")
+    if OmegaConf.is_config(checkpoint_tree):
+        checkpoint_tree=OmegaConf.to_container(checkpoint_tree,resolve=True)
+    checkpoint_context=validate_native_checkpoint_context(
+        {"hyper_parameters":{"config_tree":checkpoint_tree}},
+        OmegaConf.to_container(config,resolve=True),binding)
+    # The native checkpoint preserves an external cached-state identity. Use
+    # the same actual dataset metadata/physical binding as trainHydra; never fit.
+    from libero_native_metadata_probe import instantiate_metadata_dataset
+    dataset=instantiate_metadata_dataset(config.data.train_datasets.libero_panda,
+        omega_conf=OmegaConf,instantiate=hydra.utils.instantiate)
+    normalizer=hydra.utils.instantiate(config.normalizer,state={},norm_mode=config.norm_stats.norm_mode)
+    normalizer.populate_from_datasets({SOURCE:dataset})
+    normalizer.infer_shapes_from_batch(dataset[0])
+    normalizer=bind_saved_native_state(norm_stats=normalizer,dataset=dataset,
+        dataset_name=SOURCE,binding=binding,
+        run_provenance=OmegaConf.to_container(config.run_provenance,resolve=True))
+    require(type(normalizer) is LiberoActionFlowNormalizer,"native reload normalizer class differs")
+    require(plain(normalizer.to_state())==saved,"native reloaded external cached normalizer state differs")
+    dataset.set_norm_stats_from(normalizer)
+    require(dataset.norm_stats is normalizer.norm_stats and dataset.key_types is normalizer.key_types
+            and dataset.zarr_keys is normalizer.zarr_keys and dataset.shapes is normalizer.shapes,
+            "native dataset cached normalization binding differs")
     require(payload.get("action_flow_loss_schedule") is not None,"native joint checkpoint loss schedule missing")
     ema=payload.get("ema_state_dict");require(isinstance(ema,dict) and ema,"native EMA state missing")
     shared._finite_tree(ema,"native EMA");shared._finite_tree(payload["loops"],"native loops")
     restored=ModelWrapper.load_from_checkpoint(checkpoint["immutable_checkpoint_path"],map_location="cpu",strict=True,weights_only=False)
+    restored.model.bind_data_context(normalizer=normalizer)
     parameters=dict(restored.named_parameters());require(set(ema)==set(parameters),"native EMA parameter inventory differs")
     state=restored.state_dict();online=restored.nets.state_dict();restored.nets.load_state_dict(online,strict=True)
     canonical_by_id={id(value):key for key,value in parameters.items()}
@@ -109,7 +147,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     for alias,parameter in restored.named_parameters(remove_duplicate=False):
         state[alias]=ema[canonical_by_id[id(parameter)]]
     restored.load_state_dict(state,strict=True)
-    for key,parameter in restored.named_parameters():torch.testing.assert_close(parameter,ema[key],rtol=0,atol=0)
+    for key,parameter in restored.named_parameters():torch.testing.assert_close(parameter.detach().cpu(),ema[key].detach().cpu(),rtol=0,atol=0)
     restored.nets.load_state_dict(restored.nets.state_dict(),strict=True)
     del restored,payload
     runid=str(select("logger.wandb.id"));require(runid and select("logger.wandb.mode")!="offline","native smoke needs actual online W&B")
@@ -158,7 +196,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     tensors,numbers=shared._finite_tree(diagnostic["sources"][SOURCE]["computed"],"shared computed native diagnostic")
     require(tensors+numbers>0,"shared computed diagnostic empty")
     tensorproof=dict(native_metrics_sha256=evidence["native_metrics_artifact"]["sha256"],batch_count=len(native["batches"]),tensor_sha256=first["sha256"],shared_diagnostic_sha256=reference["sha256"],same_pass_verified=True)
-    result=dict(schema="libero-native-action-flow-smoke/v1",status="PASS",run_dir=str(run_dir),profile=PROFILE,identities=identities,model_contract_sha256=fingerprint,preflight={"path":str(preflightpath),"sha256":expected_preflight_sha256},checkpoint=checkpoint,gpu_probes=gpu,cpu_constructor=cpu,history=history,native_artifacts=tensorproof,wandb=dict(run_id=runid,stream_sha256=sha(streams[0]),exit_code=exitcode),strict_online_and_ema_reload=True)
+    result=dict(schema="libero-native-action-flow-smoke/v1",status="PASS",run_dir=str(run_dir),profile=PROFILE,identities=identities,model_contract_sha256=fingerprint,preflight={"path":str(preflightpath),"sha256":expected_preflight_sha256},checkpoint=checkpoint,gpu_probes=gpu,cpu_constructor=cpu,history=history,native_artifacts=tensorproof,wandb=dict(run_id=runid,stream_sha256=sha(streams[0]),exit_code=exitcode),strict_online_and_ema_reload=True,normalization=dict(storage="external_cached_native_state",embedded_in_checkpoint=False,checkpoint_context=checkpoint_context,actual_native_class_and_state_verified=True,metadata_resolver_decoded_cache=False))
     destination=run_dir/"SMOKE_RESULT.json";rendered=json.dumps(result,sort_keys=True,indent=2,allow_nan=False)+"\n"
     if destination.exists():require(destination.read_text()==rendered,"native smoke result overwrite prohibited")
     else:

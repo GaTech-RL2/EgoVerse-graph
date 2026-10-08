@@ -1,0 +1,21 @@
+# @package _global_
+# Fold-towels twin of bc_rl2_stattempo_slowpace_arcvel_lambda (Aidan 2026-10-08): same model, recipe and open-loop validation as the stationery BC run;
+# only the episodes differ: 'all' towels set, 581 train eps, shared 24-episode towels val (scripts/e1/build_towels_bc.py).
+defaults:
+- /experiment/yam_arc_grid/bc_rl2_stattempo_slowpace_arcvel_lambda
+- _self_
+- override /data: abc_arc/towels_all_bc_arcvel_lambda
+name: bc_rl2_towels_all_arcvel_lambda
+description: h640t8_d384x10_cos10k_240k_s42_bc_rl2_towels_all_arcvel_lambda
+paths:
+  dataset_dir: /workspace/users/agao81/towels/data/egoverseS3ZarrDatasets
+logger:
+  wandb:
+    id: towels_all581_bc_arcvel_lambda_20261008_s42
+    tags:
+    - rl2
+    - towels
+    - towels_all
+    - bc
+    - arcvel
+    - openloop_val

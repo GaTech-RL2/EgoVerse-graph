@@ -17,7 +17,7 @@
 #                                         in node-local /tmp, instead of pyxis. Added when a storage migration removed the
 #                                         /ephemeral/loaner-enroot paths the cluster's enroot.conf points at (pyxis then fails
 #                                         every container with "mkdir: cannot create directory '/ephemeral/loaner-enroot'").
-#   STAGE_TAR=<dataset .tar> DATA_DIR=<path the configs read>   (2026-10-07, Aidan's Lambda rule, vault PACE.md)
+#   STAGE_TAR="<dataset .tar> [more .tar]" DATA_DIR=<path the configs read>   (2026-10-07, Aidan's Lambda rule, vault PACE.md)
 #                                         extract the dataset tar to node-local /tmp in ONE tar operation before training,
 #                                         and mount that copy over DATA_DIR in the container, so training never reads
 #                                         thousands of small files off /workspace NFS (which took nodes down 10-06).
@@ -58,11 +58,11 @@ STAGED=""
 if [ -n "${STAGE_TAR:-}" ]; then
   DATA_DIR=${DATA_DIR:?set DATA_DIR to the dataset path the configs read}
   L=/tmp/$USER-data-$SLURM_JOB_ID
-  need_kb=$(( $(stat -c %s "$STAGE_TAR") / 1024 + 10 * 1024 * 1024 ))  # the tar's size + 10 GB headroom
+  need_kb=$(stat -c %s $STAGE_TAR | awk '{s += $1} END {printf "%d", s / 1024 + 10 * 1024 * 1024}')  # the tars' sizes + 10 GB headroom
   avail_kb=$(df -Pk /tmp | awk 'NR == 2 {print $4}')
   (( avail_kb > need_kb )) || { echo "not enough node-local disk for $STAGE_TAR: ${avail_kb} KB free, need ${need_kb}" >&2; exit 3; }
   mkdir -p "$L"; t0=$(date +%s)
-  tar -xf "$STAGE_TAR" -C "$L"
+  for t in $STAGE_TAR; do tar -xf "$t" -C "$L"; done  # space-separated list: each one large tar op into the same dir
   STAGED=$L/$(basename "$DATA_DIR"); test -d "$STAGED"
   echo "staged $STAGE_TAR -> $STAGED ($(du -sh "$L" | cut -f1), $(ls "$STAGED" | wc -l) entries) in $(( $(date +%s) - t0 )) s; mounted over $DATA_DIR"
   export EXTRA_MOUNT="$STAGED:$DATA_DIR"

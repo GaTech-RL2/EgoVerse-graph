@@ -588,6 +588,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             precomputed_norm_path=OmegaConf.select(
                 cfg, "norm_stats.precomputed_norm_path", default=None
             ),
+            widen_degenerate_quantiles=bool(
+                OmegaConf.select(cfg, "norm_stats.widen_degenerate_quantiles", default=False)
+            ),
         )
         # Cache norm stats if save_cache_dir is set
         save_cache_dir = OmegaConf.select(

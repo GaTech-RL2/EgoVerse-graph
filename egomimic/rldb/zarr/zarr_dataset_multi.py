@@ -1424,6 +1424,7 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        widen_degenerate_quantiles: bool = False,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
@@ -1491,6 +1492,10 @@ class MultiDataset(torch.utils.data.Dataset):
         for k in norm_keys:
             collected[k] = np.concatenate(collected[k], axis=0)
             stats_np = self._compute_stats_for_array(collected[k])
+            if widen_degenerate_quantiles:
+                stats_np, n_wide = self._widen_degenerate_quantiles(stats_np)
+                if n_wide:
+                    logger.info(f"[MultiDataset] key={k}: widened {n_wide} degenerate quantile element(s) to min/max")
             self.norm_stats[embodiment][k] = {
                 name: np.asarray(arr, dtype=np.float32)
                 for name, arr in stats_np.items()
@@ -1543,6 +1548,27 @@ class MultiDataset(torch.utils.data.Dataset):
                 cur += take
                 pbar.update(take)
         return collected
+
+    @staticmethod
+    def _widen_degenerate_quantiles(stats, eps: float = 1e-6):
+        """Opt-in (norm_stats.widen_degenerate_quantiles): where an element's 1st and 99th percentiles coincide
+        (it takes one value in >= 98 % of samples) but its sampled min / max differ, use min / max as its quantile
+        range. Quantile normalization 2 (x - q1) / (q99 - q1 + 1e-6) - 1 otherwise maps the rare other values to
+        ~1e6: e.g. an E1 hybrid / tri token's start-delay row, 0 on almost every towel window (arcdurtri towels runs
+        diverged 2026-10-08, |z| 1.7e6). Written into the saved stats, so every normalizer that reads them (training,
+        open-loop eval, the robot) agrees. Returns (stats, number of widened elements)."""
+        q1, q99 = np.asarray(stats["quantile_1"], dtype=np.float64), np.asarray(stats["quantile_99"], dtype=np.float64)
+        lo, hi = np.asarray(stats["min"], dtype=np.float64), np.asarray(stats["max"], dtype=np.float64)
+        mask = ((q99 - q1) < eps) & ((hi - lo) > eps)
+        if not mask.any():
+            return stats, 0
+        out = dict(stats)
+        for name, src in (("quantile_1", lo), ("quantile_99", hi), ("quantile_0_01", lo), ("quantile_99_99", hi)):
+            if name in out:
+                arr = np.array(out[name], dtype=np.float64)
+                arr[mask] = src[mask]
+                out[name] = arr
+        return out, int(mask.sum())
 
     @staticmethod
     def _compute_stats_for_array(X):

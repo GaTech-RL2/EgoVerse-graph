@@ -20,7 +20,7 @@ assert cfg['model']['pipeline']['stages'][6]['num_inference_steps']==50
 assert cfg['speed_diagnostic']['encoding']=='scalar'
 smoke=os.environ['AF_RUN_KIND']=='smoke'
 assert cfg['trainer']['max_steps']==(start+4 if smoke else 80000)
-assert cfg['trainer']['val_check_interval']==(start+4 if smoke else 15000)
+assert cfg['trainer']['val_check_interval']==(4 if smoke else 15000)
 assert cfg['trainer']['limit_train_batches']==1.0
 assert cfg['trainer']['limit_val_batches']==(1 if smoke else 8)
 assert cfg['callbacks']['model_checkpoint']['every_n_train_steps']==(1 if smoke else 5000)

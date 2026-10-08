@@ -301,7 +301,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.name == row["config_name"], "config name mismatch")
     require(config.run_provenance.source_commit == args.expected_head, "source mismatch")
     require(config.trainer.max_steps == SMOKE_TARGET_STEP, "smoke must use two optimizer steps")
-    require(config.trainer.val_check_interval == SMOKE_TARGET_STEP, "validation must follow step two")
+    require(config.trainer.val_check_interval == (4 if SMOKE_TARGET_STEP > 2 else 2), "validation must follow step two")
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")

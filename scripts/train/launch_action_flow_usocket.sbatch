@@ -797,7 +797,7 @@ if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
   test "$(sha256 "$AF_INITIAL_CHECKPOINT")" = "$AF_INITIAL_CHECKPOINT_SHA256" || die "initial checkpoint SHA mismatch"
   if test "$AF_RUN_KIND" = smoke; then
     MAX_STEPS=$((AF_RESUME_START_STEP + 4))
-    VALIDATE_EVERY=$MAX_STEPS
+    VALIDATE_EVERY=4
     LIMIT_TRAIN_BATCHES=1.0
   fi
 fi

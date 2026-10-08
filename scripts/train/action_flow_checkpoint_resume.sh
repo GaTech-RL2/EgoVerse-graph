@@ -24,6 +24,12 @@ if test "$AF_RESUME_PHASE" = preflight; then exit 0; fi
 required AF_PREFLIGHT_RESULT
 required AF_EXPECTED_PREFLIGHT_SHA256
 test "$(sha256 "$AF_PREFLIGHT_RESULT")" = "$AF_EXPECTED_PREFLIGHT_SHA256" || die 'resume preflight gate mismatch'
+"$AF_PYTHON" - "$AF_PREFLIGHT_RESULT" "$ATTEMPT/RESUME_PREFLIGHT.json" <<'PY'
+import json,sys
+expected,actual=[json.load(open(p)) for p in sys.argv[1:]]
+for key in ['status','model_source_commit','driver_source_commit','resume_start_step','target_global_step','checkpoint_sha256','phase','config_sha256','cached_data_and_normalization_preflight_sha256','batch_shape_cpu_proof_sha256']:
+ assert expected[key]==actual[key],(key,expected[key],actual[key])
+PY
 if test "$AF_RESUME_PHASE" = full; then
   required AF_SMOKE_RESULT
   required AF_EXPECTED_SMOKE_SHA256
@@ -47,6 +53,7 @@ scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
 "$AF_PYTHON" "$AF_GPU_PROBE" --expected-world-size 1 --allowed-gpu-name 'NVIDIA H100 80GB HBM3' --allowed-gpu-name 'NVIDIA H200' --output "$ATTEMPT/gpu_probe.json"
 export AF_CHECKPOINT_VALIDATOR=$AF_RESUME_INITIAL_VALIDATOR
 SRUN=$(command -v srun)
+export SRUN
 source "$AF_RESUME_DRIVER_REPO/scripts/train/action_flow_run_child_resume.sh"
 if test "$AF_RESUME_PHASE" = smoke; then
   export AF_RESUME_SMOKE_TARGET_STEP=$MAX_STEPS

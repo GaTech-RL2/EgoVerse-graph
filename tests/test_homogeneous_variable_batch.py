@@ -31,7 +31,7 @@ def test_native_crop_rng_and_shape_cache():
         for key in batch: torch.testing.assert_close(candidate[key]['result'],baseline[key]['result'],rtol=1e-6,atol=1e-6)
         loss=sum(o['result'].square().mean() for o in candidate.values());loss.backward();assert all(torch.isfinite(p.grad).all() for p in algo.nets.parameters() if p.grad is not None);algo.nets.zero_grad()
         observations.append({'rows':[na,nb],'captures':cb.capture_updates,'grouped_updates':cb.grouped_updates,'rng_exact':True,'finite_gradients':True})
-    assert cb.capture_updates==3 and cb.grouped_updates==5 and cb.updates==8
+    assert cb.capture_updates==1 and cb.grouped_updates==3 and cb.native_variable_updates==4 and cb.updates==8
     assert batch_shape_signature({'a':{'x':torch.zeros(2,4),'id':['x','y']}})==batch_shape_signature({'a':{'x':torch.ones(2,4),'id':['z','w']}})
     cb.restore();assert '_execute' not in vars(algo)
     del algo,mod,cb,baseline,candidate,loss,stages,v;gc.collect()

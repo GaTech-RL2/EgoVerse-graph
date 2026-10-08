@@ -2,8 +2,8 @@
 
 Maintained PR198 prefix + native crop/RNG replay; DiT-half alone. No source
 sampling, weighting, objective or augmentation change. First update captures
-the native draw recipe, without another model forward; subsequent updates
-must activate grouping. Validation retains native execution.
+the native draw recipe, without another model forward; matching regular updates
+activate grouping. Variable batches retain native execution for continuations. Validation retains native execution.
 """
 from pathlib import Path
 from lightning import Callback
@@ -24,6 +24,8 @@ class HomogeneousDiTHalf(Callback):
         self.plans = {}
         self.signature = None
         self.last_update_grouped = False
+        self.regular_signature = None
+        self.native_variable_updates = 0
 
     def on_fit_start(self, trainer, module):
         from egomimic.pipeline.algo import PipelineAlgo
@@ -45,6 +47,20 @@ class HomogeneousDiTHalf(Callback):
                 return self.native_execute(batch, mode=mode)
             assert len(batch) == 2
             signature = batch_shape_signature(batch)
+            if self.regular_signature is None:
+                self.regular_signature = signature
+            if signature != self.regular_signature:
+                # Preserve the checkpoint-bound numerical contract: alternate
+                # layouts use the native path, not a new grouped BF16 recipe.
+                self.plan.restore()
+                algo._execute = execute
+                self.signature = None
+                self.active = False
+                self.last_update_grouped = False
+                result = self.native_execute(batch, mode=mode)
+                self.native_variable_updates += 1
+                self.updates += 1
+                return result
             if signature != self.signature:
                 self.plan.restore()
                 algo._execute = self.native_execute
@@ -89,19 +105,21 @@ class HomogeneousDiTHalf(Callback):
         assert torch.isfinite(loss).all()
         assert self.updates == self.before[0] + 1
         assert self.capture_updates == len(self.plans)
-        assert self.capture_updates + self.grouped_updates == self.updates
+        assert self.capture_updates + self.grouped_updates + self.native_variable_updates == self.updates
         if self.last_update_grouped:
             assert self.grouped_updates == self.before[1] + 1
         assert self.counts.get("dit/direct", 0) > self.before[2]
         assert self.counts.get("dit/checkpoint", 0) > self.before[3]
         module.log("Train/Execution/HomogeneousGroupedUpdates", float(self.grouped_updates), on_step=True, on_epoch=False)
+        module.log("Train/Execution/NativeVariableBatchUpdates", float(self.native_variable_updates), on_step=True, on_epoch=False)
         module.log("Train/Execution/HomogeneousShapeCaptures", float(self.capture_updates), on_step=True, on_epoch=False)
         module.log("Train/Execution/DiTHalfDirectCalls", float(self.counts["dit/direct"]), on_step=True, on_epoch=False)
 
     def state_dict(self):
         return {"updates": self.updates, "capture_updates": self.capture_updates,
                 "grouped_updates": self.grouped_updates, "policy_counts": dict(self.counts),
-                "batch_shape_cache_version": 1,
+                "batch_shape_cache_version": 2, "variable_batch_policy": "native",
+                "native_variable_updates": self.native_variable_updates,
                 "exact_equivalence": False, "user_accepted_numerical_delta": True}
 
     def load_state_dict(self, state):

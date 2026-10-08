@@ -58,5 +58,10 @@ for path in [os.environ['AF_SPLIT_MANIFEST'],os.environ['AF_SECOND_SPLIT_MANIFES
 # Preserve the checkpoint-bound source and all inherited model/config files.
 driver=os.environ['AF_RESUME_DRIVER_REPO'];assert subprocess.check_output(['git','-C',driver,'rev-parse','HEAD'],text=True).strip()==os.environ['AF_EXPECTED_RESUME_DRIVER_HEAD'];subprocess.run(['git','-C',driver,'diff','--exit-code',os.environ['AF_EXPECTED_HEAD'],'HEAD','--','egomimic'],check=True,stdout=subprocess.DEVNULL)
 assert not subprocess.check_output(['git','-C',driver,'status','--porcelain','--untracked-files=all']).strip()
+for helper in (Path(driver)/'scripts/train/homogeneous_pipeline_runtime').glob('*.py'):
+ assert hashlib.sha256(helper.read_bytes()).hexdigest()==hashlib.sha256((Path(os.environ['AF_HOMOGENEOUS_TASK'])/helper.name).read_bytes()).hexdigest(), helper.name
+component=json.load(open(os.environ['AF_RESUME_BATCH_POLICY_PROOF']));assert component['status']=='PASS' and component['variable_batch_policy']=='native'
+assert component['driver_source_commit']==os.environ['AF_EXPECTED_RESUME_DRIVER_HEAD']
+assert component['callback_sha256']==hashlib.sha256((Path(os.environ['AF_HOMOGENEOUS_TASK'])/'homogeneous_dithalf_training.py').read_bytes()).hexdigest()
 result={'status':'PASS','model_source_commit':proof['model_source'],'driver_source_commit':subprocess.check_output(['git','-C',driver,'rev-parse','HEAD'],text=True).strip(),'resume_start_step':start,'target_global_step':cfg['trainer']['max_steps'],'checkpoint_sha256':proof['checkpoint_sha256'],'phase':os.environ['AF_RUN_KIND'],'config_sha256':hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest(),'changed_fields':changes,'cached_data_and_normalization_preflight_sha256':os.environ['AF_RESUME_CACHED_PREFLIGHT_SHA256'],'batch_shape_cpu_proof_sha256':os.environ['AF_RESUME_CPU_PROOF_SHA256']}
 Path(sys.argv[2]).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))

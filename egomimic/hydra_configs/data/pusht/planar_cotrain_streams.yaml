@@ -59,12 +59,14 @@ train_datasets:
 train_dataloader_params:
   pushshapes_sim_u_socket:
     batch_size: ${planar.batch_size}
+    drop_last: true
     num_workers: 4
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 2
   pushshapes_sim_chain_gripper:
     batch_size: ${planar.batch_size}
+    drop_last: true
     num_workers: 4
     pin_memory: true
     persistent_workers: true

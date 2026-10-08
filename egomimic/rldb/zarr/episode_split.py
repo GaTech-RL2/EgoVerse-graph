@@ -31,3 +31,9 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=42):
     train = set(names[n_valid:])
     return train, valid
 
+
+
+def complete_window_count(total_frames, raw_horizon, sample_views=1):
+    if any(type(x) is not int or x <= 0 for x in (total_frames, raw_horizon, sample_views)):
+        raise ValueError("frame/horizon/view counts must be positive integers")
+    return max(0, total_frames - raw_horizon + 1) * sample_views

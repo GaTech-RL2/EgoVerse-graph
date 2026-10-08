@@ -22,7 +22,7 @@ yam_action_flow_arguments() {
   )
   if test "$AF_YAM_RECIPE" = yam_human_keypoints; then
     overrides=(
-      '+experiment=e1/yam_human_keypoints_action_flow_h816_private512_s42'
+      "+experiment=e1/${AF_YAM_EXPERIMENT:-yam_human_keypoints_action_flow_h816_private512_s42}"
       '++run_provenance.launch_recipe=yam_human_keypoints'
       "${overrides[@]}"
     )

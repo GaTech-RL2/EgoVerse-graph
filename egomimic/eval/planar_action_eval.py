@@ -851,6 +851,10 @@ class PlanarActionEval(Eval):
             "frame_index",
             "frame_idx",
             "sample_index",
+            "retiming_view",
+            "retiming_rate",
+            "requested_speed_value",
+            "physical_window_duration_s",
         ):
             if key in source_batch:
                 values = cls._batch_identity_values(source_batch[key], batch_size)

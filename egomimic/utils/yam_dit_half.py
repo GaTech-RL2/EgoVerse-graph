@@ -5,16 +5,21 @@ operation. The historical proportional sampler and all decoder layers remain
 unchanged. Inactive private encoders must remain inactive in an update.
 """
 from lightning import Callback
+from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
 
 class YamHumanDiTHalf(Callback):
     def on_fit_start(self, trainer, module):
         stages = tuple(module.model.pipeline.stages)
-        if len(stages) != 9 or type(stages[4]).__name__ != "ContentEncoderStage" or type(stages[6]).__name__ != "ConditionalVelocityStage":
-            raise ValueError("native YAM+human stage topology required")
-        if set(stages[4].encoders) != {"yam_bimanual", "human_bimanual"}:
+        encoder, field, decoder = resolve_action_flow_topology(module.model)
+        extra = [stage for stage in stages if type(stage).__name__ == "SharedSpeedCondition"]
+        if len(stages) != 9 + len(extra) or len(extra) > 1:
+            raise ValueError("native YAM/human graph with optional shared scalar speed required")
+        if extra and (extra[0].encoding != "scalar" or extra[0].output_key != field.inference_condition_key):
+            raise ValueError("actual scalar speed condition must reach shared inference field")
+        if set(encoder.encoders) != {"yam_bimanual", "human_bimanual"}:
             raise ValueError("native two-source private encoder mapping required")
-        self.backbones = {name: encoder.backbone for name, encoder in stages[4].encoders.items()}
-        self.backbones["velocity"] = stages[6].field.backbone
+        self.backbones = {name: item.backbone for name, item in encoder.encoders.items()}
+        self.backbones["velocity"] = field.field.backbone
         for name, backbone in self.backbones.items():
             if backbone.depth != (12 if name == "velocity" else 6) or backbone.checkpoint_policy != "dit_half" or not backbone.gradient_checkpointing:
                 raise ValueError("native DiT-half inventory/policy mismatch")

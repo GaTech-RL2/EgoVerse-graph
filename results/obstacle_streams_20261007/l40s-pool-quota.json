@@ -1,0 +1,143 @@
+{
+    "node_sets": [
+        {
+            "pools": [
+                {
+                    "name": "groot-l40s-01",
+                    "description": "Join DL: Access-osmo-groot",
+                    "status": "ONLINE",
+                    "download_type": null,
+                    "enable_maintenance": false,
+                    "backend": "ovx-l40s-01",
+                    "default_platform": "ovx-l40s",
+                    "default_exec_timeout": "60d",
+                    "default_queue_timeout": "60d",
+                    "max_exec_timeout": "60d",
+                    "max_queue_timeout": "60d",
+                    "default_exit_actions": {
+                        "RESCHEDULE": "1001,3006"
+                    },
+                    "resources": {
+                        "gpu": {
+                            "guarantee": 496,
+                            "maximum": -1,
+                            "weight": 1
+                        }
+                    },
+                    "topology_keys": [],
+                    "platforms": {
+                        "cpu": {
+                            "description": "CPU(x86) Nodes",
+                            "host_network_allowed": false,
+                            "privileged_allowed": false,
+                            "allowed_mounts": [],
+                            "default_mounts": [
+                                "/dev/shm",
+                                "/mnt/lfs/home/{{WF_SUBMITTED_BY}}",
+                                "/mnt/lfs/shared"
+                            ]
+                        },
+                        "ovx-l40s": {
+                            "description": "OVX L40s nodes",
+                            "host_network_allowed": false,
+                            "privileged_allowed": false,
+                            "allowed_mounts": [],
+                            "default_mounts": [
+                                "/dev/shm",
+                                "/mnt/lfs/home/{{WF_SUBMITTED_BY}}",
+                                "/mnt/lfs/shared"
+                            ]
+                        },
+                        "ovx-l40s-profile": {
+                            "description": "OVX L40s nodes with extra capabilties to enable profiling",
+                            "host_network_allowed": false,
+                            "privileged_allowed": false,
+                            "allowed_mounts": [],
+                            "default_mounts": [
+                                "/dev/shm",
+                                "/mnt/lfs/home/{{WF_SUBMITTED_BY}}",
+                                "/mnt/lfs/shared"
+                            ]
+                        }
+                    },
+                    "resource_usage": {
+                        "quota_used": "310",
+                        "quota_free": "186",
+                        "quota_limit": "496",
+                        "total_usage": "310",
+                        "total_capacity": "1520",
+                        "total_free": "192"
+                    }
+                }
+            ]
+        },
+        {
+            "pools": [
+                {
+                    "name": "groot-l40s-03",
+                    "description": "Join DL: Access-osmo-groot",
+                    "status": "ONLINE",
+                    "download_type": null,
+                    "enable_maintenance": false,
+                    "backend": "ovx-l40s-03",
+                    "default_platform": "ovx-l40s",
+                    "default_exec_timeout": "60d",
+                    "default_queue_timeout": "60d",
+                    "max_exec_timeout": "60d",
+                    "max_queue_timeout": "60d",
+                    "default_exit_actions": {
+                        "RESCHEDULE": "1001,3006"
+                    },
+                    "resources": {
+                        "gpu": {
+                            "guarantee": 1100,
+                            "maximum": -1,
+                            "weight": 1
+                        }
+                    },
+                    "topology_keys": [],
+                    "platforms": {
+                        "cpu": {
+                            "description": "CPU(x86) Nodes",
+                            "host_network_allowed": false,
+                            "privileged_allowed": false,
+                            "allowed_mounts": [],
+                            "default_mounts": [
+                                "/dev/shm",
+                                "/mnt/amlfs-05/home/{{WF_SUBMITTED_BY}}",
+                                "/mnt/amlfs-05/shared"
+                            ]
+                        },
+                        "ovx-l40s": {
+                            "description": "OVX L40s nodes",
+                            "host_network_allowed": false,
+                            "privileged_allowed": false,
+                            "allowed_mounts": [],
+                            "default_mounts": [
+                                "/dev/shm",
+                                "/mnt/amlfs-05/home/{{WF_SUBMITTED_BY}}",
+                                "/mnt/amlfs-05/shared"
+                            ]
+                        }
+                    },
+                    "resource_usage": {
+                        "quota_used": "822",
+                        "quota_free": "278",
+                        "quota_limit": "1100",
+                        "total_usage": "822",
+                        "total_capacity": "1776",
+                        "total_free": "251"
+                    }
+                }
+            ]
+        }
+    ],
+    "resource_sum": {
+        "quota_used": "1132",
+        "quota_free": "464",
+        "quota_limit": "1596",
+        "total_usage": "1132",
+        "total_capacity": "3296",
+        "total_free": "443"
+    }
+}

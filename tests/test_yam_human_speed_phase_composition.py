@@ -55,7 +55,18 @@ def test_real_shared_argv_composes_and_verifies(tmp_path,monkeypatch,phase):
  resolved=tmp_path/(phase+".yaml");OmegaConf.save(cfg,resolved)
  args=argparse.Namespace(phase=phase,yam_root=tmp_path/"yam",human_root=tmp_path/"human",norm_json=norm,norm_sha=module.sha(norm),norm_cache_dir=tmp_path/"norm-cache",source_commit="0"*40,split_sha=module.sha(sp),wandb_entity="schema_fixture",wandb_project="schema_fixture",wandb_id="schema_fixture_"+phase,run_dir=tmp_path/phase,inference_method="euler",checkpoint_policy="dit_half",corpus_contract=cp,corpus_contract_sha=module.sha(cp))
  args.augmentation="human_speed_v1";args.speed_reference=.07;args.speed_reference_receipt=reference;args.speed_reference_receipt_sha=module.sha(reference)
+ assert isinstance(cfg.stationary_speed.reference,float)
+ assert cfg.stationary_speed.reference==.07
  verify_config(resolved,args,ids,aggregate)
+ # The profile name is strict and selected by the typed augmentation mode.
+ # Reject accidentally pairing the speed graph with the noaug identity.
+ speed_name=cfg.name
+ assert speed_name=="yam_human_keypoints_speed_h816_private512_s42"
+ cfg.name="yam_human_keypoints_action_flow_h816_private512_s42"
+ OmegaConf.save(cfg,resolved)
+ with pytest.raises(ValueError,match="resolved name mismatch"):
+  verify_config(resolved,args,ids,aggregate)
+ cfg.name=speed_name;OmegaConf.save(cfg,resolved)
  assert cfg.model.pipeline.stages[6].num_inference_steps==50
  assert list(cfg.stationary_speed.human_rates)==[.2,.4,.6,.8,1.]
  assert cfg.data.train_datasets.human_bimanual.resolver.key_map.extra_key_map._physical_timestamps_ns.horizon==30

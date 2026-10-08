@@ -180,7 +180,13 @@ def verify_config(cfg_path: Path, args: argparse.Namespace, ids: dict[str, str],
         if actual != expected:
             raise ValueError(f"resolved {path} mismatch: {actual!r} != {expected!r}")
 
-    require("name", "yam_human_keypoints_action_flow_h816_private512_s42")
+    experiment_names = {
+        "none": "yam_human_keypoints_action_flow_h816_private512_s42",
+        "human_speed_v1": "yam_human_keypoints_speed_h816_private512_s42",
+    }
+    if augmentation not in experiment_names:
+        raise ValueError("unknown augmentation")
+    require("name", experiment_names[augmentation])
     require("mode", "train")
     require("seed", 42)
     require("e1.data_root", str(args.yam_root))

@@ -12,7 +12,7 @@ stationary_speed:
   human_rates: [0.2, 0.4, 0.6, 0.8, 1.0]
   probabilities: [0.2, 0.2, 0.2, 0.2, 0.2]
   sample_views_per_source: 5
-  reference: ${oc.env:AF_STATIONARY_SPEED_REFERENCE}
+  reference: ${oc.decode:${oc.env:AF_STATIONARY_SPEED_REFERENCE}}
   reference_contract: refreshed_train_robot_command_both_arm_native_window_median_v1
   units: native_position_units_per_second_uncalibrated
   timestamp_contract: human_recorded_rgb_nanoseconds_robot_metadata_fps

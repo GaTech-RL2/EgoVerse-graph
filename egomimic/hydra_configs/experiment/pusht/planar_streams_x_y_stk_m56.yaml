@@ -1,0 +1,43 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_streams_base
+- _self_
+name: planar_streams_x_y_stk_m56
+planar:
+  action_dim: 9
+  action_horizon: 56
+  raw_action_horizon: 80
+  arc_waypoints: 56
+  arc_timing_mode: velocity
+  translation_groups: x_y
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+evaluator:
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 4
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: x_y
+      dt: ${planar.arc_dt}
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 9
+run_provenance:
+  gripper: independent uncapped continuous aperture total-variation stream
+  support_groups: x_y/rotation/gripper

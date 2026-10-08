@@ -1,0 +1,5 @@
+# @package _global_
+defaults:
+- /experiment/pusht/planar_streams_base
+- _self_
+name: planar_streams_dp

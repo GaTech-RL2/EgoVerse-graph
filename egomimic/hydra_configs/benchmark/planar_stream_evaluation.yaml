@@ -1,0 +1,170 @@
+contract:
+  name: obstacle-streams-20261007
+  label: NONCANONICAL_OSMO_FOUR_SOURCE_STREAM_COMPARISON
+  canonical_oec56: false
+  levels: &id001
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25
+  - 26
+  - 27
+  - 28
+  - 29
+  - 30
+  rollouts_per_model_embodiment_level: 50
+  seed_start: 10000
+  seed_stop_exclusive: 1000000
+  obstacle_candidate_pool: 200
+  initial_pose_tolerance: 0.0001
+  reset_replay_tolerance: 1.0e-08
+  goal_arena_clearance: 56.0
+  goal_obstacle_clearance: 56.0
+  gate_goal_depth: 90.0
+  geometry_tolerance: 1.0e-08
+  simulator_commit: 7e75d4236baee59c88984f9f6a458790db2dce46
+  obstacles_sha256: 12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8
+  fixed_physics: &id002
+  - SOLID_PUSHER
+  - SOLID_CONTACT_GUARD
+  - SOCKET_INSIDE_FRICTION_ONLY
+  simulator_dependencies: &id003
+    numpy: 2.4.4
+    gymnasium: 1.1.1
+    pygame: 2.6.1
+    pymunk: 7.1.0
+    shapely: 2.1.1
+    opencv-python: 4.13.0.92
+  source_commit: RUNTIME_COMMIT
+  checkpoint_step: 240000
+  use_ema: true
+  sampler_steps: 100
+  matmul_precision: highest
+  decoded_action_start: 0
+  dp_execution_steps: 8
+  arc_execution: independent_clocks_waypoint_fraction
+  arc_support_fraction: 0.5
+  action_space: cursor
+  budget_statistic: p99
+  budget_percentile_method: linear
+  budget_multiplier: 1.1
+  coverage_threshold: 1.01
+  run_full_budget: true
+  ignore_success_termination: true
+  episode_watchdog_seconds: 1800
+  video_fps: 30
+  metrics: &id004
+  - mean_peak_coverage
+  - median_peak_coverage
+  - SR80
+  - SR95
+  report_levels_separately: true
+  pool_levels: false
+  known_seed_overlap_allowed: false
+  known_initial_pose_overlap_allowed: false
+simulator:
+  uri: s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/assets/52be6ec848df55fe9d4963c0c5fb74f10e1fb80f03250d461e969e1dab507488/simulator-7e75d423.tar
+  sha256: 52be6ec848df55fe9d4963c0c5fb74f10e1fb80f03250d461e969e1dab507488
+  commit: 7e75d4236baee59c88984f9f6a458790db2dce46
+  obstacles_path: Tsimulation/sim_v2/pushshapes/obstacles.py
+  obstacles_sha256: 12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8
+seed_bank:
+  uri: s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/all-levels-50-20260920/assets/1f40685afa43ba27aeb1a6bb05ee163d67ef3a3637ebafc91568796e8bd86e2d/seed-bank.json
+  sha256: 1f40685afa43ba27aeb1a6bb05ee163d67ef3a3637ebafc91568796e8bd86e2d
+  bytes: 7533235
+data_content_manifest_sha256: e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3
+seed_bank_contract:
+  name: pushshapes_alllevels_50_20260920_v1
+  label: NONCANONICAL_OSMO_ALLLEVELS_50_COMPARISON
+  canonical_oec56: false
+  levels: *id001
+  rollouts_per_model_embodiment_level: 50
+  seed_start: 10000
+  seed_stop_exclusive: 1000000
+  obstacle_candidate_pool: 200
+  initial_pose_tolerance: 0.0001
+  reset_replay_tolerance: 1.0e-08
+  goal_arena_clearance: 56.0
+  goal_obstacle_clearance: 56.0
+  gate_goal_depth: 90.0
+  geometry_tolerance: 1.0e-08
+  simulator_commit: 7e75d4236baee59c88984f9f6a458790db2dce46
+  obstacles_sha256: 12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8
+  fixed_physics: *id002
+  simulator_dependencies: *id003
+  source_commit: 02db41a01cfdd018785b59c06a1485c2717ad683
+  checkpoint_step: 240000
+  use_ema: true
+  sampler_steps: 100
+  matmul_precision: highest
+  decoded_action_start: 0
+  dp_execution_steps: 8
+  arc_execution: independent_clocks_waypoint_fraction
+  arc_support_fraction: 0.5
+  action_space: cursor
+  budget_statistic: p99
+  budget_percentile_method: linear
+  budget_multiplier: 1.1
+  coverage_threshold: 1.01
+  run_full_budget: true
+  ignore_success_termination: true
+  episode_watchdog_seconds: 1800
+  video_fps: 30
+  metrics: *id004
+  report_levels_separately: true
+  pool_levels: false
+  known_seed_overlap_allowed: false
+  known_initial_pose_overlap_allowed: false
+domains:
+  usocket:
+    domain:
+      label: usocket
+      embodiment: pushshapes_sim_u_socket
+      environment:
+        object_shape: T
+        pusher_shape: u_socket
+        obstacle_level: 0
+        render_mode: rgb_array
+        image_size: 96
+    budgets:
+      uri: s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/stride5-50-20260919/assets/573461859b2f68df75ea798a4e56607bb75ebfc2bfa9e6b4db8cbd6e03187609/usocket-budgets.json
+      sha256: 573461859b2f68df75ea798a4e56607bb75ebfc2bfa9e6b4db8cbd6e03187609
+      bytes: 11934
+  chaingripper:
+    domain:
+      label: chaingripper
+      embodiment: pushshapes_sim_chain_gripper
+      environment:
+        object_shape: T
+        pusher_shape: chain_gripper
+        obstacle_level: 0
+        render_mode: rgb_array
+        image_size: 96
+    budgets:
+      uri: s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/stride5-50-20260919/assets/b87a90be64a7e92e59f8fcbf3a76a0e79004bf9cc501058a25c29e675a5c7f5a/chaingripper-budgets.json
+      sha256: b87a90be64a7e92e59f8fcbf3a76a0e79004bf9cc501058a25c29e675a5c7f5a
+      bytes: 6454
+parent_sweep: s3://rldb/experiments/obstacle-cotrain-20260917/evaluation/all-levels-50-20260920/
+video_previews_per_level: 3

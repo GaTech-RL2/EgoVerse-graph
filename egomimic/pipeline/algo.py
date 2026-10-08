@@ -19,7 +19,8 @@ class PipelineAlgo:
     pipeline batch whose keys are interpreted exclusively by configured stages.
     """
 
-    def __init__(self, stages: Iterable[Stage], device=None):
+    def __init__(self, stages: Iterable[Stage], device=None, homogeneous_training=False):
+        self.homogeneous_training = bool(homogeneous_training)
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -65,9 +66,45 @@ class PipelineAlgo:
     def process_batch_for_training(self, batch: Mapping) -> OrderedDict:
         """Move a loader-produced mapping to the configured device unchanged."""
         self._validate_groups(batch)
-        return OrderedDict(
+        moved = OrderedDict(
             (source, self._move_value(value)) for source, value in batch.items()
         )
+        if self.homogeneous_training and self.pipeline.training and len(moved) > 1:
+            fused = self._fuse_equal_batches(list(moved.values()))
+            self.last_training_batch_layout = {"sources": list(moved), "fused": fused is not None}
+            if fused is not None:
+                return OrderedDict(homogeneous=fused)
+        return moved
+
+    @staticmethod
+    def _fuse_equal_batches(batches):
+        """Equal source sizes preserve mean-of-source loss under concatenation.
+
+        This is opt-in for source-agnostic stages. Incompatible layouts retain
+        the ordinary source loop; inference always keeps its source mapping.
+        """
+        keys = list(batches[0])
+        if any(set(b) != set(keys) for b in batches):
+            return None
+        sizes = {v.shape[0] for b in batches for v in b.values()
+                 if torch.is_tensor(v) and v.ndim}
+        if len(sizes) != 1:
+            return None
+        size = next(iter(sizes), 0)
+        result = {}
+        for key in keys:
+            values = [b[key] for b in batches]
+            first = values[0]
+            if torch.is_tensor(first):
+                if first.ndim == 0 or any(not torch.is_tensor(v) or v.shape != first.shape
+                    or v.dtype != first.dtype or v.device != first.device for v in values):
+                    return None
+                result[key] = torch.cat(values, dim=0)
+            elif isinstance(first, (list, tuple)) and all(isinstance(v, type(first)) and len(v) == size for v in values):
+                result[key] = [item for value in values for item in value]
+            else:
+                return None
+        return result
 
     def _execute(self, batch: Mapping, *, mode: str) -> OrderedDict:
         self._validate_groups(batch)

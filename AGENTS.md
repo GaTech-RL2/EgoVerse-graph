@@ -1,5 +1,27 @@
 # Repo Agent Rules
 
+## Four-source Planar stream campaign
+
+This isolated experiment branch preserves the previous obstacle comparison's
+PaperConditionalUnet1D backbone, 240k updates, effective batch 128, and frozen
+31-layout / 50-reset evaluation. Its nine arms are configured in
+`egomimic/hydra_configs/benchmark/planar_streams.yaml`. The launcher is
+`scripts/benchmarks/launch_planar_streams.py`; it uses only L40S GPUs and gates
+training on the checksummed data release and a four-GPU smoke test.
+
+The grouped layout is XY / SO(2) / continuous gripper aperture. The scalar
+layout is X / Y / SO(2) / gripper. Shape columns precede the per-stream timing
+columns. Gripper total variation is uncapped; duration retains zero-motion
+waits, while STK has no hidden time channel. This is a planar adaptation of
+the LIBERO stream findings, not a three-axis rotation ablation.
+
+Keep new tests and launch receipts on `codex/obstacle-stream-validation-20261007`.
+Do not edit or cancel other agents' worktrees or workflows. The training data
+and evaluation artifacts are under `s3://rldb/experiments/obstacle-streams-20261007/`.
+The new loader uses decoded NumPy caches, pinned family splits, source-specific
+pre/post-step offsets, and one fused forward pass for equal-size embodiment
+batches. Normalization is fit only on the pinned training episodes.
+
 ## Shell / Command Execution
 To run commands in the interactive shell, source `emimic/bin/activate` when it
 exists. In worktrees where `emimic` is absent and the checked project

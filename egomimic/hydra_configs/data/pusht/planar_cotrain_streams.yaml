@@ -1,0 +1,141 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+      folder_path: ${planar.cotrain_data_root}
+      manifest_sha256: ${planar.data_manifest_sha256}
+      embodiment: pushshapes_sim_u_socket
+      split: train
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: 2
+        action_target_offset: 1
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: 1
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+        translation_groups: ${planar.translation_groups}
+        waypoint_sampling: uniform
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+      folder_path: ${planar.cotrain_data_root}
+      manifest_sha256: ${planar.data_manifest_sha256}
+      embodiment: pushshapes_sim_chain_gripper
+      split: train
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: 2
+        action_target_offset: 1
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: 1
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+        translation_groups: ${planar.translation_groups}
+        waypoint_sampling: uniform
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+train_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+      folder_path: ${planar.cotrain_data_root}
+      manifest_sha256: ${planar.data_manifest_sha256}
+      embodiment: pushshapes_sim_u_socket
+      split: valid
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: 2
+        action_target_offset: 1
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: 1
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+        translation_groups: ${planar.translation_groups}
+        waypoint_sampling: uniform
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.numpy_episode.NumpyEpisodeResolver
+      folder_path: ${planar.cotrain_data_root}
+      manifest_sha256: ${planar.data_manifest_sha256}
+      embodiment: pushshapes_sim_chain_gripper
+      split: valid
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap
+        action_horizon: ${planar.raw_action_horizon}
+        observation_horizon: 2
+        action_target_offset: 1
+      transform_list:
+        _target_: ${planar.transform_target}
+        raw_action_horizon: ${planar.raw_action_horizon}
+        action_horizon: ${planar.action_horizon}
+        action_target_offset: 1
+        min_distance_unit: ${planar.arc_distance}
+        resampled_vector_length: ${planar.arc_waypoints}
+        dt: ${planar.arc_dt}
+        rotation_distance_unit: ${planar.arc_rotation_distance}
+        timing_mode: ${planar.arc_timing_mode}
+        translation_groups: ${planar.translation_groups}
+        waypoint_sampling: uniform
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+valid_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: ${planar.batch_size}
+    num_workers: 1
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  pushshapes_sim_chain_gripper:
+    batch_size: ${planar.batch_size}
+    num_workers: 1
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

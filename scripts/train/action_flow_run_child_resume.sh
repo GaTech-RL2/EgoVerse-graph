@@ -55,6 +55,13 @@ RUNNER_ARGS=(
   --completion-sentinel "$AF_OUTPUT_DIR/COMPLETE.json"
 )
 RUNNER_ARGS+=(--initial-checkpoint "$AF_INITIAL_CHECKPOINT" --require-initial-checkpoint)
+if test "$AF_PARENT_WANDB_RUN_ID" != "$AF_WANDB_RUN_ID"; then
+  test "$AF_RESUME_PHASE" = smoke
+  # A diagnostic smoke has its own run ID; retain the raw parent identity and
+  # permit only the typed transition after exact initial-checkpoint validation.
+  AF_REQUEUE_RUNNER=$AF_RESUME_DRIVER_REPO/scripts/ice/ice_requeue_runner.py
+  RUNNER_ARGS+=(--initial-parent-run-id "$AF_PARENT_WANDB_RUN_ID" --checkpoint-run-id "$AF_WANDB_RUN_ID")
+fi
 # Slurm B:USR1 reaches this batch shell only. Preserve the post-run verifier
 # while relaying boundary/cancellation signals to the runner's installed handlers.
 source "$AF_SIGNAL_RELAY"

@@ -608,6 +608,9 @@ def parse_signal(value: str) -> signal.Signals:
         raise argparse.ArgumentTypeError(f"unknown signal: {value}") from exc
 
 
+INITIAL_RUN_TRANSITION: tuple[CheckpointInfo, str, str] | None = None
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--state-dir", type=Path, required=True)
@@ -628,6 +631,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--checkpoint-validator", type=Path)
     result.add_argument("--allow-unvalidated-checkpoints", action="store_true")
     result.add_argument("--require-initial-checkpoint", action="store_true")
+    result.add_argument("--initial-parent-run-id")
+    result.add_argument("--checkpoint-run-id")
     result.add_argument(
         "--checkpoint-signal",
         type=parse_signal,
@@ -735,6 +740,25 @@ def enforce_high_water(info: CheckpointInfo | None, high_water: dict[str, Any] |
             "checkpoint identity fork refused: same-step checkpoint differs from SHA-recorded high-water"
         )
     mismatches = identity_mismatches(high_water, info.as_dict())
+    if mismatches == ["run_id"] and INITIAL_RUN_TRANSITION is not None:
+        initial, parent_run_id, child_run_id = INITIAL_RUN_TRANSITION
+        old_metadata = high_water.get("metadata", {})
+        new_metadata = info.metadata
+        # Only the authenticated initial parent can transition to the declared
+        # child. Keep both raw identities; never relabel the initial checkpoint.
+        scientific_keys = ("source_commit", "split_sha256", "normalization_sha256")
+        if (
+            high_water["path"] == str(initial.path)
+            and high_water["sha256"] == initial.sha256
+            and prior_step == initial.global_step
+            and info.global_step > initial.global_step
+            and old_metadata.get("run_id") == parent_run_id
+            and initial.metadata.get("run_id") == parent_run_id
+            and new_metadata.get("run_id") == child_run_id
+            and all(key in old_metadata and old_metadata[key] == new_metadata.get(key)
+                    for key in scientific_keys)
+        ):
+            mismatches = []
     if mismatches:
         raise SystemExit(f"checkpoint identity mismatch for high-water keys: {', '.join(mismatches)}")
 
@@ -855,6 +879,8 @@ def validated_completion_sentinel(path: Path) -> dict[str, Any]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    global INITIAL_RUN_TRANSITION
+    INITIAL_RUN_TRANSITION = None
     args = parser().parse_args(argv)
     if args.command and args.command[0] == "--":
         args.command = args.command[1:]
@@ -921,6 +947,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("slurm-step checkpoint forwarding requires --checkpoint-signal USR2")
     if args.require_initial_checkpoint and args.initial_checkpoint is None:
         raise SystemExit("--require-initial-checkpoint requires an exact --initial-checkpoint")
+
+    if bool(args.initial_parent_run_id) != bool(args.checkpoint_run_id):
+        raise SystemExit("initial parent and checkpoint run IDs must be supplied together")
+    if args.initial_parent_run_id and (
+        not args.require_initial_checkpoint or args.checkpoint_validator is None
+        or args.allow_unvalidated_checkpoints
+        or args.initial_parent_run_id == args.checkpoint_run_id
+    ):
+        raise SystemExit("parent transition requires distinct IDs and validated exact initial checkpoint")
 
     state_dir = absolute_specific(args.state_dir, "state-dir")
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -1020,6 +1055,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         elif initial_checkpoint_path is not None and high_water is None:
             raise SystemExit(f"initial checkpoint is unavailable: {initial_checkpoint_path}")
+
+        if args.initial_parent_run_id:
+            if (initial_checkpoint is None
+                or initial_checkpoint.metadata.get("run_id") != args.initial_parent_run_id):
+                raise SystemExit("initial checkpoint does not match the declared parent run")
+            INITIAL_RUN_TRANSITION = (
+                initial_checkpoint, args.initial_parent_run_id, args.checkpoint_run_id
+            )
 
         # On a new migration state, pin startup to the exact staged checkpoint.
         # Live checkpoint discovery is enabled only after that seed has been

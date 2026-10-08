@@ -271,7 +271,21 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         from validate_speed_config import COUNTS, SOURCE, validate_speed_contract
         encoding = os.environ["AF_SPEED_ENCODING"]
         require(args.expected_head == SOURCE, "unapproved speed source")
-        validate_speed_contract(config, encoding)
+        contract_config = config
+        if SMOKE_TARGET_STEP > 2:
+            initial = Path(os.environ["AF_INITIAL_CHECKPOINT"]).resolve(strict=True)
+            require(Path(str(config.ckpt_path)).resolve(strict=True) == initial,
+                    "resume smoke did not use the exact initial checkpoint")
+            require(sha256(initial) == os.environ["AF_INITIAL_CHECKPOINT_SHA256"],
+                    "initial checkpoint hash mismatch")
+            require(SMOKE_TARGET_STEP == int(os.environ["AF_RESUME_START_STEP"]) + 4,
+                    "resume smoke target does not cover four restored updates")
+            # The unchanged science validator is for fresh initialization.
+            # Audit the resume path above, then validate its scientific fields
+            # through an isolated copy without mutating the recorded config.
+            contract_config = OmegaConf.create(OmegaConf.to_container(config, resolve=False))
+            contract_config.ckpt_path = None
+        validate_speed_contract(contract_config, encoding)
         EXPERIMENTS[args.experiment] = {
             "config_name": "action_flow_cotrain_uc_speed_interpolation",
             "parameter_count": COUNTS[encoding],

@@ -13,7 +13,9 @@ from egomimic.pipeline.planar_grouped import PlanarArcGroupedNativeDecoder
 from egomimic.eval.planar_rollout import PlanarTimedArcExecutionSelector
 from egomimic.pipeline.algo import PipelineAlgo
 
-ROOT = Path(__file__).parent.parent / "obstacle-streams-20261007"
+ROOT = Path(__file__).resolve().parents[1]
+if not (ROOT / "egomimic").is_dir():
+    ROOT = ROOT / "obstacle-streams-20261007"
 
 
 def codec(group, mode, m=16, horizon=80, dim=4):
@@ -75,7 +77,7 @@ def test_rotation_wrap_and_missing_gripper(mode):
     error = np.arctan2(np.sin(result[:, 2] - a[:, 2]), np.cos(result[:, 2] - a[:, 2]))
     np.testing.assert_allclose(error, 0, atol=1e-10)
     assert np.all(token[:, 4] == 0)
-    assert not dec.waypoint_clocks(token)["gripper"]["active"]
+    assert "gripper" not in dec.waypoint_clocks(token)
 
 
 @pytest.mark.parametrize("mode", ["duration", "velocity"])
@@ -208,3 +210,20 @@ def test_stale_shard_metadata_recovery_retains_payload_checksums(tmp_path):
     chunk.write_bytes(raw[:-1] + bytes([raw[-1] ^ 1]))
     with pytest.raises(ValueError, match="Unrecoverable"):
         recover_imported_shard_metadata(tmp_path, 419)
+
+
+@pytest.mark.parametrize("translation_groups,width", [("xy", 8), ("x_y", 9)])
+def test_absent_gripper_cannot_control_usocket_replanning(translation_groups, width):
+    from egomimic.pipeline.planar_grouped import PlanarArcGroupedNativeDecoder
+    tokens = np.zeros((16, width), dtype=np.float32)
+    tokens[:, 2] = 1
+    tokens[:, 4] = np.arange(16)  # arbitrary predictions in the padded actuator
+    tokens[:, 5:] = 0.01
+    for native_dim in (3, 4):
+        decoder = PlanarArcGroupedNativeDecoder(translation_groups=translation_groups,
+            resampled_vector_length=16, native_action_dim=native_dim, action_horizon=80,
+            timing_mode="duration", dt=1/30)
+        clocks = decoder.waypoint_clocks(tokens)
+        assert ("gripper" in clocks) == (native_dim == 4)
+        if native_dim == 4:
+            assert clocks["gripper"]["active"]

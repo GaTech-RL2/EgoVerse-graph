@@ -1,0 +1,8 @@
+{
+  "source_commit": "6fe56d3fdb9131b9a2f4e2971d42a94fa0796bf4",
+  "data_manifest_sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470",
+  "seed_bank_sha256": "d82f7a35cd9acddbfadd2698cefab8e46ab96451f35bc5c5b1a62c9c14c32bad",
+  "initial_pose_overlaps": [],
+  "known_seed_overlaps": [],
+  "missing_training_seed_metadata_is_not_evidence_of_disjoint_seeds": true
+}

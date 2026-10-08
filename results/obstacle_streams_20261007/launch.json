@@ -1,8 +1,8 @@
 {
-  "source_commit": "6fe312726bd4efb4e805a863b85fa8c029c418b4",
+  "source_commit": "0d510359a86d1c0670b1237e1759b293975c1481",
   "runtime_branch": "codex/obstacle-streams-20261007",
   "validation_branch": "codex/obstacle-stream-validation-20261007",
-  "cpu_tests": 54,
+  "cpu_tests": 56,
   "training_arms": 9,
   "training_gpus_per_arm": 4,
   "training_gpu_type": "L40S",
@@ -12,28 +12,50 @@
   "expected_data_episodes": 12718,
   "fresh_from_step_zero": true,
   "stage_workflow": {
-    "name": "obstacle-stream-data-20261007-v1-2",
-    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obstacle-stream-data-20261007-v1-2",
-    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obstacle-stream-data-20261007-v1-2/logs",
+    "name": "obstacle-stream-data-20261007-v3-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obstacle-stream-data-20261007-v3-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obstacle-stream-data-20261007-v3-1/logs",
     "spec": null,
-    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=c8cd1d7f74e24d70"
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8d96c9e20b394098"
   },
   "training_workflow": {
-    "name": "obs-streams-1007-v1-1",
-    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obs-streams-1007-v1-1",
-    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obs-streams-1007-v1-1/logs",
+    "name": "obs-streams-1007-v3-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obs-streams-1007-v3-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obs-streams-1007-v3-1/logs",
     "spec": null,
-    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=4155b6f05aa84a9e"
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8386205434b740c6"
   },
   "artifact_prefix": "s3://rldb/experiments/obstacle-streams-20261007/",
   "files": {
+    "workflow-v2.yaml": "5a6cbc61c2b5fe0ac2dff8670335aac85292fb53424485ee8f93ccf110b8c914",
     "data-workflow-v1.yaml": "899d39da5e204620560b922877a7a55c21c019aaef17c2ed890640d39a9bd371",
+    "workflow-v3.yaml": "869570ae50efb8ff7bc3eac54290eb0a45488a8aff8eee339fe38a4d4ac9bd07",
     "submission-v1.json": "f28c5b6460eafeee3066a6de9da633b4fca8a0b3028ba1f087dd47246cd3d5cf",
+    "data-submission-v2.json": "b63e2e5957fec4d164abe1034c16de2b8d5c6493ac27a82d05c4827e6bdf11f0",
+    "metadata-recovery-proof.json": "0de7cbf08561552e79dee8f387c97c53767baa02975a96641ab85fcebb386d51",
+    "cpu-tests-v2.log": "d0efb9a79c1eca1e39ef67b9f3fc2a90163f6b2e3b7c4fd7ff116f294669b8a3",
     "denoiser-parameters.json": "6a5ce432296adc1df69a6feb56ad6e00535382a2b64735a4802818fd006925b1",
     "cpu-tests.log": "d810405b5a5dc7992e751a72e5bf3ae745aa9a06cd92036e240bb96ce50d2121",
+    "cpu-tests-v3.log": "169bdc1dab0c2980b0c012faacdcf9641f4c65f174907761a2818b5cb17f0187",
+    "data-submission-v3.json": "fe60b006d0524ddea310004e16356a2958b00ee1506033a90dd85b739f3dd186",
+    "submission-v3.json": "311f3dd25578ef3f47e56e62701213a364539963ca8bad597daa756a7133e594",
+    "data-spec-v2.json": "14566a208a90d854b5db4159e177821ca85dcb639d3e24160460e78fe83fad11",
+    "cpu-tests-v2.xml": "f626ad710aa6bd13839f804a19aa5c666711e98ec670f9bc6ba3bc96904276d9",
+    "data-spec-v3.json": "061d004b030739384d7d4f64784c3e252344884e794ce01e565a71db73b1d889",
     "cpu-tests.xml": "a0a92351d608e3121e3f934eca6a69ffbb844e14309abcb397b7bd83eea3cd44",
+    "cpu-tests-v3.xml": "62165585ec65221f738f18dc1e3b648b1064d17686ebffdd40b8935f911c4a62",
+    "submission-v2.json": "40965042ab91190f13830248cf037ea9af26f826e466bf81bada8c23aa4704c4",
     "data-submission-v1b.json": "ffc6281f41e6633eeb2f4ad8991badb0d824917a13eb61b3a0abdc41ec725c6f",
+    "data-workflow-v2.yaml": "02d20e3b2e22310392277a3f6c58d8a261a3a0e979c81d9e8da035c0e1e480d8",
+    "launch-v1.json": "3a747a7213755a61bafa74b34df1d36475385d312ee28f82c4f25452f7568c71",
     "data-spec.json": "12798af27608366b3013daf3d0cb9f02a9334824b3513dbff1a4c2cceb184ba0",
-    "workflow-v1.yaml": "cea0a720289a2890d13f45ff42760f612200b3dc07ccc841a477345dfc26a07d"
+    "workflow-v1.yaml": "cea0a720289a2890d13f45ff42760f612200b3dc07ccc841a477345dfc26a07d",
+    "data-workflow-v3.yaml": "1807ac43572e39a7ede7af0664f6090027e550e2aa3eed247526e872fa4d01ec"
+  },
+  "verified_status": "Data preparation running; GPU training waiting on audited manifest",
+  "data_attempt_notes": {
+    "v1": "Stopped on unlabelled post-step legacy import; no training started",
+    "v2": "Stopped on stale array/shard dimensions in newer imports; no training started",
+    "v3": "Per-episode alignment inference plus CRC-verified local metadata recovery; source payloads unchanged"
   }
 }

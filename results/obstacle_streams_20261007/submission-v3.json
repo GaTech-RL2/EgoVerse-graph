@@ -1,0 +1,7 @@
+{
+    "name": "obs-streams-1007-v3-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obs-streams-1007-v3-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obs-streams-1007-v3-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=8386205434b740c6"
+}

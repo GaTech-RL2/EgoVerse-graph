@@ -1,0 +1,7 @@
+{
+    "name": "obstacle-stream-data-20261007-v2-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/obstacle-stream-data-20261007-v2-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/obstacle-stream-data-20261007-v2-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=fc0ff9c01ba24fab"
+}

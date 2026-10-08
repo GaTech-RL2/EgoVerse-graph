@@ -1,0 +1,303 @@
+workflow:
+  name: obstacle-stream-data-20261007-v2
+  tasks:
+  - name: prepare-data
+    image: docker.io/library/python:3.11-slim
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+    command:
+    - bash
+    args:
+    - /tmp/entry.sh
+    files:
+    - path: /tmp/entry.sh
+      contents: 'set -Eeuo pipefail
+
+        set +x
+
+        export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONUNBUFFERED=1
+
+        python -m venv /workspace/emimic
+
+        source /workspace/emimic/bin/activate
+
+        pip install --disable-pip-version-check boto3==1.43.98 zarr==3.1.5 numpy==2.3.5
+        simplejpeg==1.9.0
+
+        python /tmp/prepare_data.py /tmp/data-spec.json
+
+        '
+    - path: /tmp/prepare_data.py
+      contents: "\"\"\"Freeze mixed-alignment Planar corpora and decode images once,\
+        \ on CPU.\n\nThe input specification selects source collections. No source\
+        \ object is changed.\nDownloads use inventory ETags; the resulting cache and\
+        \ manifest are checksummed.\n\"\"\"\nfrom __future__ import annotations\n\n\
+        import concurrent.futures as cf\nfrom collections import Counter\nimport hashlib\n\
+        import json\nimport os\nfrom pathlib import Path\nimport shutil\nimport sys\n\
+        import tarfile\nimport time\nimport zipfile\n\nimport boto3\nfrom botocore.config\
+        \ import Config\nimport numpy as np\nimport simplejpeg\nimport zarr\n\n\n\
+        def digest(path):\n    h = hashlib.sha256()\n    with Path(path).open(\"rb\"\
+        ) as stream:\n        for part in iter(lambda: stream.read(8 * 1024 * 1024),\
+        \ b\"\"):\n            h.update(part)\n    return h.hexdigest()\n\n\ndef json_bytes(value):\n\
+        \    return (json.dumps(value, sort_keys=True, allow_nan=False) + \"\\n\"\
+        ).encode()\n\n\ndef infer_observation_alignment(actions, state, attrs, *,\
+        \ speed, fps):\n    \"\"\"Disambiguate legacy imports using informative free-motion\
+        \ transitions.\n\n    Contact frames need not fit the ideal kinematic update\
+        \ and are ignored.\n    A pre-step row predicts s[t+1] with a[t]; a post-step\
+        \ row uses a[t+1].\n    Equal-command predictions carry no timing information\
+        \ and are excluded.\n    \"\"\"\n    init = attrs[\"episode_init\"]\n    init\
+        \ = json.loads(init) if isinstance(init, str) else init\n    maximum_step\
+        \ = speed / fps\n\n    def predict(start, target):\n        delta = target\
+        \ - start\n        length = np.linalg.norm(delta, axis=-1, keepdims=True)\n\
+        \        return start + delta * np.minimum(1.0, maximum_step / np.maximum(length,\
+        \ 1e-12))\n\n    pre = predict(state[:-1, :2], actions[:-1, :2])\n    post\
+        \ = predict(state[:-1, :2], actions[1:, :2])\n    informative = np.max(np.abs(pre\
+        \ - post), axis=-1) > 1e-3\n    pre_fits = int(np.sum(informative & (np.max(np.abs(pre\
+        \ - state[1:, :2]), axis=-1) < 1e-5)))\n    post_fits = int(np.sum(informative\
+        \ & (np.max(np.abs(post - state[1:, :2]), axis=-1) < 1e-5)))\n    reset_error\
+        \ = float(np.max(np.abs(state[0, :2] - np.asarray(init[\"agent_pos\"]))))\n\
+        \    declared = attrs.get(\"observation_alignment\")\n    evidence = {\"declared\"\
+        : declared, \"informative_transitions\": int(informative.sum()),\n       \
+        \ \"pre_step_exact_matches\": pre_fits, \"post_step_exact_matches\": post_fits,\n\
+        \        \"reset_xy_error\": reset_error, \"speed\": speed, \"fps\": fps}\n\
+        \    pre_supported = pre_fits >= 3 and pre_fits >= 10 * post_fits\n    post_supported\
+        \ = post_fits >= 3 and post_fits >= 10 * pre_fits\n    if declared == \"pre_step\"\
+        \ and (pre_supported or (reset_error < 1e-5 and post_fits < 3)):\n       \
+        \ return \"pre_step\", evidence\n    if declared == \"post_step\" and post_supported:\n\
+        \        return \"post_step\", evidence\n    if declared is None:\n      \
+        \  if pre_supported:\n            return \"pre_step\", evidence\n        if\
+        \ post_supported:\n            return \"post_step\", evidence\n    raise ValueError(\"\
+        Ambiguous or contradictory observation alignment: \" + json.dumps(evidence))\n\
+        \n\ndef main(spec):\n    root = Path(spec[\"work_dir\"])\n    root.mkdir(parents=True,\
+        \ exist_ok=True)\n    cache = root / \"cache\"\n    cache.mkdir(exist_ok=True)\n\
+        \    bucket, prefix = spec[\"bucket\"], spec[\"output_prefix\"]\n    client\
+        \ = boto3.client(\"s3\", endpoint_url=os.environ[\"R2_ENDPOINT_URL\"],\n \
+        \       aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"],\n        aws_secret_access_key=os.environ[\"\
+        R2_SECRET_ACCESS_KEY\"], region_name=\"auto\",\n        config=Config(max_pool_connections=128,\
+        \ retries={\"max_attempts\": 8}))\n\n    def save(name, value):\n        raw\
+        \ = json_bytes(value)\n        (root / name).write_bytes(raw)\n        sha\
+        \ = hashlib.sha256(raw).hexdigest()\n        client.put_object(Bucket=bucket,\
+        \ Key=prefix + name, Body=raw,\n                          Metadata={\"sha256\"\
+        : sha})\n        return {\"key\": prefix + name, \"sha256\": sha, \"bytes\"\
+        : len(raw)}\n\n    if client.list_objects_v2(Bucket=bucket, Prefix=prefix,\
+        \ MaxKeys=1).get(\"KeyCount\"):\n        raise FileExistsError(\"Output prefix\
+        \ already exists; select a fresh attempt\")\n    save(\"STARTED.json\", {\"\
+        time\": time.time(), \"spec\": spec,\n                           \"script_sha256\"\
+        : digest(__file__)})\n    try:\n        original = spec[\"original_archive\"\
+        ]\n        archive = root / \"original.zip\"\n        client.download_file(bucket,\
+        \ original[\"key\"], str(archive))\n        assert digest(archive) == original[\"\
+        sha256\"], \"Original archive changed\"\n        with zipfile.ZipFile(archive)\
+        \ as stream:\n            for name in stream.namelist():\n               \
+        \ assert not Path(name).is_absolute() and \"..\" not in Path(name).parts\n\
+        \            stream.extractall(root / \"original\")\n        raw = client.get_object(Bucket=bucket,\
+        \ Key=spec[\"original_manifest\"][\"key\"])[\"Body\"].read()\n        assert\
+        \ hashlib.sha256(raw).hexdigest() == spec[\"original_manifest\"][\"sha256\"\
+        ]\n        old = json.loads(raw)[\"episodes\"]\n        rows = []\n      \
+        \  present = set()\n        for e in old:\n            source = (\"usocket\"\
+        \ if e[\"folder\"] == \"usocket\" else\n                      \"chain_obstacle\"\
+        \ if e[\"obstacle_level\"] else \"chain_clean\")\n            rows.append({\"\
+        source\": source, \"source_prefix\": e[\"source_prefix\"],\n             \
+        \            \"path\": str(root / \"original\" / e[\"folder\"] / (e[\"episode_id\"\
+        ] + \".zarr\")),\n                         \"observation_alignment\": e[\"\
+        observation_alignment\"],\n                         \"original_content_sha256\"\
+        : e[\"sha256\"]})\n            present.add(e[\"source_prefix\"])\n       \
+        \ assert Counter(r[\"source\"] for r in rows) == {\"usocket\": 2999, \"chain_clean\"\
+        : 3000, \"chain_obstacle\": 1920}\n        inventory = []\n        for source,\
+        \ collection in spec[\"additional_sources\"].items():\n            episodes\
+        \ = {}\n            for page in client.get_paginator(\"list_objects_v2\").paginate(Bucket=bucket,\
+        \ Prefix=collection[\"prefix\"]):\n                for obj in page.get(\"\
+        Contents\", []):\n                    key = obj[\"Key\"]\n               \
+        \     if \".zarr/\" not in key:\n                        continue\n      \
+        \              ep = key.split(\".zarr/\", 1)[0] + \".zarr/\"\n           \
+        \         episodes.setdefault(ep, [])\n                    if ep not in present:\n\
+        \                        row = {\"key\": key, \"etag\": obj[\"ETag\"], \"\
+        bytes\": obj[\"Size\"],\n                               \"episode_prefix\"\
+        : ep, \"source\": source}\n                        episodes[ep].append(row)\n\
+        \            assert len(episodes) == collection[\"expected_episodes\"], (source,\
+        \ len(episodes))\n            for ep, objects in sorted(episodes.items()):\n\
+        \                if ep in present:\n                    continue\n       \
+        \         local_id = source + \"-\" + hashlib.sha256(ep.encode()).hexdigest()[:20]\n\
+        \                dest = root / \"additional\" / (local_id + \".zarr\")\n \
+        \               rows.append({\"source\": source, \"source_prefix\": ep, \"\
+        path\": str(dest),\n                             \"observation_alignment\"\
+        : collection[\"observation_alignment\"]})\n                for obj in objects:\n\
+        \                    obj[\"local\"] = str(dest / obj[\"key\"][len(ep):])\n\
+        \                    inventory.append(obj)\n        assert Counter(r[\"source\"\
+        ] for r in rows) == spec[\"expected_counts\"]\n        save(\"inventory.json\"\
+        , inventory)\n        print(\"INVENTORY_PINNED\", len(rows), len(inventory),\
+        \ flush=True)\n\n        def download(obj):\n            path = Path(obj[\"\
+        local\"])\n            path.parent.mkdir(parents=True, exist_ok=True)\n  \
+        \          body = client.get_object(Bucket=bucket, Key=obj[\"key\"], IfMatch=obj[\"\
+        etag\"])[\"Body\"]\n            h = hashlib.sha256()\n            with path.open(\"\
+        wb\") as f:\n                for part in iter(lambda: body.read(1024 * 1024),\
+        \ b\"\"):\n                    f.write(part); h.update(part)\n           \
+        \ body.close()\n            assert path.stat().st_size == obj[\"bytes\"]\n\
+        \            return {**obj, \"sha256\": h.hexdigest()}\n\n        downloads\
+        \ = []\n        with cf.ThreadPoolExecutor(max_workers=64) as pool:\n    \
+        \        for n, result in enumerate(pool.map(download, inventory), 1):\n \
+        \               downloads.append(result)\n                if n % 5000 == 0:\n\
+        \                    print(\"DOWNLOADED\", n, len(inventory), flush=True)\n\
+        \                    save(\"PROGRESS.json\", {\"phase\": \"download\", \"\
+        done\": n, \"total\": len(inventory)})\n        receipt = save(\"download-receipts.json\"\
+        , downloads)\n\n        def decode(row):\n            group = zarr.open_group(row[\"\
+        path\"], mode=\"r\")\n            attrs = dict(group.attrs)\n            frames\
+        \ = int(attrs[\"total_frames\"])\n            assert frames > 1 and int(attrs[\"\
+        fps\"]) == spec[\"fps\"]\n            actions = np.asarray(group[\"actions\"\
+        ][:frames])\n            state = np.asarray(group[\"observations.state\"][:frames])\n\
+        \            assert actions.shape == (frames, 3 if row[\"source\"] == \"usocket\"\
+        \ else 4)\n            assert state.shape == (frames, 6)\n            assert\
+        \ np.isfinite(actions).all() and np.isfinite(state).all()\n            init\
+        \ = attrs[\"episode_init\"]\n            init = json.loads(init) if isinstance(init,\
+        \ str) else init\n            inferred = row[\"observation_alignment\"] ==\
+        \ \"infer\"\n            if inferred:\n                alignment, alignment_evidence\
+        \ = infer_observation_alignment(actions, state, attrs,\n                 \
+        \   speed=spec[\"kinematic_pusher_speed\"], fps=spec[\"fps\"])\n         \
+        \   else:\n                alignment = attrs.get(\"observation_alignment\"\
+        , row[\"observation_alignment\"])\n                assert alignment == row[\"\
+        observation_alignment\"], (row[\"source_prefix\"], alignment)\n          \
+        \      alignment_evidence = {\"source\": \"previously audited collection\"\
+        , \"declared\": attrs.get(\"observation_alignment\")}\n            if alignment\
+        \ == \"pre_step\" and not inferred:\n                error = float(np.max(np.abs(state[0,\
+        \ :2] - np.asarray(init[\"agent_pos\"]))))\n                assert error <\
+        \ 1e-5, (row[\"source_prefix\"], \"pre-step reset mismatch\", error)\n   \
+        \         if alignment == \"post_step\":\n                cmd = np.asarray(group[\"\
+        observations.pusher_cmd_pose\"][:frames])\n                assert np.max(np.abs(cmd\
+        \ - actions[:, :3])) < 1e-8\n            eid = row[\"source\"] + \"-\" + hashlib.sha256(row[\"\
+        source_prefix\"].encode()).hexdigest()[:20]\n            output = cache /\
+        \ eid\n            output.mkdir(exist_ok=True)\n            arrays = {\"actions\"\
+        : actions, \"observations.state\": state}\n            for name, array in\
+        \ arrays.items():\n                np.save(output / (name + \".npy\"), array,\
+        \ allow_pickle=False)\n            jpeg = group[\"observations.images.front_img_1\"\
+        ][:frames]\n            images = np.stack([simplejpeg.decode_jpeg(bytes(v),\
+        \ colorspace=\"RGB\") for v in jpeg])\n            assert images.shape ==\
+        \ (frames, 96, 96, 3)\n            np.save(output / \"observations.images.front_img_1.npy\"\
+        , images, allow_pickle=False)\n            metadata = {\"source\": row[\"\
+        source\"], \"source_prefix\": row[\"source_prefix\"], \"episode_id\": eid,\n\
+        \                \"total_frames\": frames, \"fps\": spec[\"fps\"], \"observation_alignment\"\
+        : alignment,\n                \"action_target_offset_obs2\": 1 if alignment\
+        \ == \"pre_step\" else 2,\n                \"alignment_evidence\": alignment_evidence,\n\
+        \                \"embodiment\": \"pushshapes_sim_u_socket\" if row[\"source\"\
+        ] == \"usocket\" else \"pushshapes_sim_chain_gripper\",\n                \"\
+        obstacle_level\": int(init.get(\"obstacle_level\", 0)), \"episode_init\":\
+        \ init,\n                \"generation_source\": init.get(\"generation\", {}).get(\"\
+        source_episode\"),\n                \"actions_sha256\": hashlib.sha256(actions.astype(\"\
+        <f8\").tobytes()).hexdigest(),\n                \"original_content_sha256\"\
+        : row.get(\"original_content_sha256\"),\n                \"arrays\": {p.stem:\
+        \ {\"sha256\": digest(p), \"bytes\": p.stat().st_size} for p in output.glob(\"\
+        *.npy\")}}\n            initial = {k: init.get(k) for k in (\"agent_pos\"\
+        , \"agent_angle\", \"object_pose\", \"goal_pose\", \"obstacles\")}\n     \
+        \       metadata[\"initial_state_sha256\"] = hashlib.sha256(json_bytes(initial)).hexdigest()\n\
+        \            (output / \"metadata.json\").write_bytes(json_bytes(metadata))\n\
+        \            return metadata\n\n        recovered = {}\n        if spec.get(\"\
+        resume_cache\"):\n            resume = spec[\"resume_cache\"]\n          \
+        \  previous = json.loads(client.get_object(Bucket=bucket, Key=resume[\"prefix\"\
+        ] + \"STARTED.json\")[\"Body\"].read())\n            assert previous[\"script_sha256\"\
+        ] == resume[\"script_sha256\"]\n            assert previous[\"spec\"][\"original_archive\"\
+        ] == spec[\"original_archive\"]\n            objects = [o for page in client.get_paginator(\"\
+        list_objects_v2\").paginate(\n                Bucket=bucket, Prefix=resume[\"\
+        prefix\"] + \"shards/\") for o in page.get(\"Contents\", [])]\n\n        \
+        \    def recover(obj):\n                index = int(Path(obj[\"Key\"]).name.removeprefix(\"\
+        cache-\").removesuffix(\".tar.gz\"))\n                expected = rows[index*128:(index+1)*128]\n\
+        \                # Re-audit every newer gen episode; only the previously proven\n\
+        \                # clean/original-obstacle sources can reuse cached alignment.\n\
+        \                if not expected or any(e[\"source\"] == \"chain_gen\" for\
+        \ e in expected):\n                    return None\n                path =\
+        \ root / (\"recover-\" + Path(obj[\"Key\"]).name)\n                client.download_file(bucket,\
+        \ obj[\"Key\"], str(path))\n                sha = Path(obj[\"Key\"]).parent.name\n\
+        \                assert digest(path) == sha\n                block = []\n\
+        \                with tarfile.open(path, \"r|gz\") as tar:\n             \
+        \       for member in tar:\n                        if member.name.endswith(\"\
+        /metadata.json\"):\n                            block.append(json.load(tar.extractfile(member)))\n\
+        \                path.unlink()\n                assert {e[\"source_prefix\"\
+        ] for e in block} == {e[\"source_prefix\"] for e in expected}\n          \
+        \      shard = {\"key\": obj[\"Key\"], \"sha256\": sha, \"bytes\": obj[\"\
+        Size\"],\n                         \"episodes\": [e[\"episode_id\"] for e\
+        \ in block]}\n                return index, block, shard\n\n            with\
+        \ cf.ThreadPoolExecutor(max_workers=8) as pool:\n                for result\
+        \ in pool.map(recover, objects):\n                    if result is not None:\n\
+        \                        index, block, shard = result\n                  \
+        \      recovered[index] = (block, shard)\n            print(\"RECOVERED_VERIFIED_CACHE_SHARDS\"\
+        , len(recovered), flush=True)\n        episodes, shards = [], []\n       \
+        \ for start in range(0, len(rows), 128):\n            if start // 128 in recovered:\n\
+        \                block, shard = recovered[start // 128]\n                episodes.extend(block);\
+        \ shards.append(shard)\n                continue\n            with cf.ThreadPoolExecutor(max_workers=8)\
+        \ as pool:\n                block = list(pool.map(decode, rows[start:start\
+        \ + 128]))\n            path = root / f\"cache-{start // 128:04d}.tar.gz\"\
+        \n            with tarfile.open(path, \"w:gz\", compresslevel=1) as tar:\n\
+        \                for e in block:\n                    tar.add(cache / e[\"\
+        episode_id\"], arcname=e[\"episode_id\"])\n            sha = digest(path)\n\
+        \            key = prefix + \"shards/\" + sha + \"/\" + path.name\n      \
+        \      client.upload_file(str(path), bucket, key, ExtraArgs={\"Metadata\"\
+        : {\"sha256\": sha}})\n            shard = {\"key\": key, \"sha256\": sha,\
+        \ \"bytes\": path.stat().st_size,\n                     \"episodes\": [e[\"\
+        episode_id\"] for e in block]}\n            shards.append(shard)\n       \
+        \     save(f\"CACHE_SHARD_{start // 128:04d}.json\", {\"episodes\": block,\
+        \ \"archive\": shard})\n            episodes.extend(block)\n            path.unlink()\n\
+        \            for e in block:\n                shutil.rmtree(cache / e[\"episode_id\"\
+        ])\n            print(\"CACHE_SHARD\", len(episodes), len(rows), flush=True)\n\
+        \            save(\"PROGRESS.json\", {\"phase\": \"decode\", \"done\": len(episodes),\
+        \ \"total\": len(rows)})\n\n        # Keep byte-identical trajectories, shared\
+        \ initial states, and known\n        # generation families in one split, even\
+        \ across collection boundaries.\n        parent = list(range(len(episodes)))\n\
+        \        def find(i):\n            while parent[i] != i:\n               \
+        \ parent[i] = parent[parent[i]]; i = parent[i]\n            return i\n   \
+        \     keys = {}\n        for i, e in enumerate(episodes):\n            for\
+        \ tag in (\"actions_sha256\", \"initial_state_sha256\"):\n               \
+        \ key = (e[\"embodiment\"], tag, e[tag])\n                if key in keys:\n\
+        \                    parent[find(i)] = find(keys[key])\n                else:\n\
+        \                    keys[key] = i\n        by_name = {}\n        for i, e\
+        \ in enumerate(episodes):\n            name = Path(e[\"source_prefix\"].rstrip(\"\
+        /\")).stem\n            by_name.setdefault((e[\"embodiment\"], name), []).append(i)\n\
+        \        for i, e in enumerate(episodes):\n            if e[\"generation_source\"\
+        ]:\n                name = Path(str(e[\"generation_source\"])).stem\n    \
+        \            for j in by_name.get((e[\"embodiment\"], name), []):\n      \
+        \              parent[find(i)] = find(j)\n        families = {}\n        for\
+        \ i, e in enumerate(episodes):\n            families.setdefault(find(i), []).append(e)\n\
+        \        for family in families.values():\n            identity = min(e[\"\
+        source_prefix\"] for e in family)\n            h = hashlib.sha256((str(spec[\"\
+        seed\"]) + \":\" + identity).encode()).hexdigest()\n            split = \"\
+        valid\" if int(h[:8], 16) / 2**32 < spec[\"valid_ratio\"] else \"train\"\n\
+        \            for e in family:\n                e.update(split=split, family_sha256=h)\n\
+        \        counts = dict(Counter(e[\"source\"] for e in episodes))\n       \
+        \ split_counts = dict(Counter(e[\"embodiment\"] + \"/\" + e[\"split\"] for\
+        \ e in episodes))\n        assert all(split_counts.get(d + \"/\" + s, 0) >\
+        \ 0 for d in\n                   (\"pushshapes_sim_u_socket\", \"pushshapes_sim_chain_gripper\"\
+        ) for s in (\"train\", \"valid\"))\n        manifest = save(\"manifest.json\"\
+        , {\"version\": 1, \"episodes\": episodes, \"shards\": shards,\n         \
+        \   \"spec\": spec, \"source_downloads\": receipt, \"counts\": counts, \"\
+        split_counts\": split_counts,\n            \"split_rule\": \"hash families\
+        \ connected by actions, initial states or known generation parent; seed 42\"\
+        })\n        save(\"READY.json\", {\"status\": \"PASS\", \"manifest\": manifest,\
+        \ \"counts\": counts,\n                            \"split_counts\": split_counts,\
+        \ \"episodes\": len(episodes), \"shards\": len(shards)})\n        print(\"\
+        DATA_READY\", len(episodes), flush=True)\n    except BaseException as e:\n\
+        \        save(\"FAILED.json\", {\"error_type\": type(e).__name__, \"error\"\
+        : str(e), \"time\": time.time()})\n        raise\n\n\nif __name__ == \"__main__\"\
+        :\n    main(json.loads(Path(sys.argv[1]).read_text()))\n"
+    - path: /tmp/data-spec.json
+      contents: '{"work_dir": "/workspace/data-stage", "bucket": "rldb", "output_prefix":
+        "experiments/obstacle-streams-20261007/data-v2/", "fps": 30, "seed": 42, "valid_ratio":
+        0.01, "original_archive": {"key": "experiments/obstacle-cotrain-20260917/data-v2/bundles/4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40/cotrain-data.zip",
+        "sha256": "4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40"},
+        "original_manifest": {"key": "experiments/obstacle-cotrain-20260917/data-v5/content-manifest.json",
+        "sha256": "e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3"},
+        "additional_sources": {"chain_obstacle": {"prefix": "datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_obstacle_mimicgen_128_20260826_output_128/",
+        "expected_episodes": 3840, "observation_alignment": "post_step"}, "chain_gen":
+        {"prefix": "datasets/pushshapes/chain_gripper_gen-20261002/", "expected_episodes":
+        2879, "observation_alignment": "infer"}}, "expected_counts": {"usocket": 2999,
+        "chain_clean": 3000, "chain_obstacle": 3840, "chain_gen": 2879}, "kinematic_pusher_speed":
+        200.0, "resume_cache": {"prefix": "experiments/obstacle-streams-20261007/data-v1/",
+        "script_sha256": "e9a7186df23578dd19335675866476eb1b8ec4708d4783ba51c306bdcc0b1fde"}}'
+  resources:
+    default:
+      cpu: 16
+      gpu: 0
+      memory: 64Gi
+      storage: 120Gi
+      platform: ovx-l40s
+  timeout:
+    queue_timeout: 24h
+    exec_timeout: 12h

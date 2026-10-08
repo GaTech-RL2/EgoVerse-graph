@@ -1,0 +1,39 @@
+{
+  "work_dir": "/workspace/data-stage",
+  "bucket": "rldb",
+  "output_prefix": "experiments/obstacle-streams-20261007/data-v2/",
+  "fps": 30,
+  "seed": 42,
+  "valid_ratio": 0.01,
+  "original_archive": {
+    "key": "experiments/obstacle-cotrain-20260917/data-v2/bundles/4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40/cotrain-data.zip",
+    "sha256": "4cfd2c8af7e9b636fe92b3ed022560c8e127bb26621c383ebaea15cd0ac4fd40"
+  },
+  "original_manifest": {
+    "key": "experiments/obstacle-cotrain-20260917/data-v5/content-manifest.json",
+    "sha256": "e3a3b1b12a97112bee95687b6154cfa9c1fe7f888944461264ba1c7f366c1eb3"
+  },
+  "additional_sources": {
+    "chain_obstacle": {
+      "prefix": "datasets/pushshapes/arc-duration-handoff-20260916/chain_gripper_obstacle_mimicgen_128_20260826_output_128/",
+      "expected_episodes": 3840,
+      "observation_alignment": "post_step"
+    },
+    "chain_gen": {
+      "prefix": "datasets/pushshapes/chain_gripper_gen-20261002/",
+      "expected_episodes": 2879,
+      "observation_alignment": "infer"
+    }
+  },
+  "expected_counts": {
+    "usocket": 2999,
+    "chain_clean": 3000,
+    "chain_obstacle": 3840,
+    "chain_gen": 2879
+  },
+  "kinematic_pusher_speed": 200.0,
+  "resume_cache": {
+    "prefix": "experiments/obstacle-streams-20261007/data-v1/",
+    "script_sha256": "e9a7186df23578dd19335675866476eb1b8ec4708d4783ba51c306bdcc0b1fde"
+  }
+}

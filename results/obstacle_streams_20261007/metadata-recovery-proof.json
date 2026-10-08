@@ -1,0 +1,872 @@
+[
+  {
+    "episode": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs1_000001.zarr/",
+    "repairs": [
+      {
+        "array": "actions",
+        "before": {
+          "shape": [
+            400,
+            4
+          ],
+          "shard_shape": [
+            400,
+            4
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            4
+          ],
+          "shard_shape": [
+            500,
+            4
+          ]
+        },
+        "original_metadata_sha256": "18726700d618e14607a52ad400f534265334ca59abf2f441568cc886e3ece503",
+        "recovered_metadata_sha256": "2732708cef95ef9e6b59fb4ba5ec0d42241fe9caa1b1fba29c18bc1f47457638",
+        "unchanged_shard_sha256": "e36b0e925dbc6fe6749f689ebadd86579b072f460dd4475e90fa33edbb66b923",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "goal_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "c01cbd164e900cb07688960aa633e439a84c9e169f5dfddf0dd8d26ad89e9cad",
+        "unchanged_shard_sha256": "927615fee3493eda3288574033c2b7bfd0cb3e441a12146a9c26360e1629f930",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.images.front_img_1",
+        "before": {
+          "shape": [
+            400
+          ],
+          "shard_shape": [
+            400
+          ]
+        },
+        "after": {
+          "shape": [
+            500
+          ],
+          "shard_shape": [
+            500
+          ]
+        },
+        "original_metadata_sha256": "d772d121aedff67919a41ee901ab5f5de72f8ebcc5cb5c724abcde0c4db6210b",
+        "recovered_metadata_sha256": "d32c03afdb6375b578805a33f40b0700bf14499bd56bee229f0e52638eabce7a",
+        "unchanged_shard_sha256": "b37a66df9699e3bade7c8fd0a09e87dc53a16559ad4da381aa2595b0a83727df",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.pusher_cmd_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "c01cbd164e900cb07688960aa633e439a84c9e169f5dfddf0dd8d26ad89e9cad",
+        "unchanged_shard_sha256": "07641d12a5d62adca9d64c70c15e96a5f2f25f609d6f5d79524a664a269e34d2",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.state",
+        "before": {
+          "shape": [
+            400,
+            6
+          ],
+          "shard_shape": [
+            400,
+            6
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            6
+          ],
+          "shard_shape": [
+            500,
+            6
+          ]
+        },
+        "original_metadata_sha256": "17632d71c770e208e27592ffefe4e02f71f26ec39600368f8fe6b7cd551b3b6d",
+        "recovered_metadata_sha256": "8e8d8810ae9f9f8a3fd592168cb52207fb5d8645dbd21219c9559d9ff5ffb68d",
+        "unchanged_shard_sha256": "b9cb476f5dd0dad52e374987699157b8327746b5db66a3088b2d4fd13a4f03d8",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "reward",
+        "before": {
+          "shape": [
+            400,
+            1
+          ],
+          "shard_shape": [
+            400,
+            1
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            1
+          ],
+          "shard_shape": [
+            500,
+            1
+          ]
+        },
+        "original_metadata_sha256": "1add374a58cf3700d52d7bbf3affed7cbb8eab91db602e27fe2d637d6df9c9d9",
+        "recovered_metadata_sha256": "34784784d16286beba959ac63b1e793c383b5fb9e82b93015b40e1ed7f361d9c",
+        "unchanged_shard_sha256": "270b06e9632769c230d05492328262c4eefba4fa96cc0e592a713bc03b65148a",
+        "index_crc32c_verified": true
+      }
+    ],
+    "frames_verified": 419,
+    "alignment": "pre_step",
+    "evidence": {
+      "declared": "pre_step",
+      "informative_transitions": 252,
+      "pre_step_exact_matches": 195,
+      "post_step_exact_matches": 0,
+      "reset_xy_error": 0.0,
+      "speed": 200,
+      "fps": 30
+    }
+  },
+  {
+    "episode": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs1_000002.zarr/",
+    "repairs": [
+      {
+        "array": "actions",
+        "before": {
+          "shape": [
+            400,
+            4
+          ],
+          "shard_shape": [
+            400,
+            4
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            4
+          ],
+          "shard_shape": [
+            500,
+            4
+          ]
+        },
+        "original_metadata_sha256": "18726700d618e14607a52ad400f534265334ca59abf2f441568cc886e3ece503",
+        "recovered_metadata_sha256": "2732708cef95ef9e6b59fb4ba5ec0d42241fe9caa1b1fba29c18bc1f47457638",
+        "unchanged_shard_sha256": "2a1fbbb0fdb2775f748964eef8aa622aef247ad843fafa2d7df6ec502a0000e9",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "goal_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "c01cbd164e900cb07688960aa633e439a84c9e169f5dfddf0dd8d26ad89e9cad",
+        "unchanged_shard_sha256": "16f288418aa94d40d2a7bdbac8653705e363249b83943514326b42c2d561f4f9",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.images.front_img_1",
+        "before": {
+          "shape": [
+            400
+          ],
+          "shard_shape": [
+            400
+          ]
+        },
+        "after": {
+          "shape": [
+            500
+          ],
+          "shard_shape": [
+            500
+          ]
+        },
+        "original_metadata_sha256": "d772d121aedff67919a41ee901ab5f5de72f8ebcc5cb5c724abcde0c4db6210b",
+        "recovered_metadata_sha256": "d32c03afdb6375b578805a33f40b0700bf14499bd56bee229f0e52638eabce7a",
+        "unchanged_shard_sha256": "0c08d6ef5d890af88d984b4e10e544a4c8276be1458bc4b9ce787fd6a080ecb5",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.pusher_cmd_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "c01cbd164e900cb07688960aa633e439a84c9e169f5dfddf0dd8d26ad89e9cad",
+        "unchanged_shard_sha256": "d248fd09dd62973645d83d579c6f9ff4376065c30da5ec8bd56fa2fedccb46b2",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.state",
+        "before": {
+          "shape": [
+            400,
+            6
+          ],
+          "shard_shape": [
+            400,
+            6
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            6
+          ],
+          "shard_shape": [
+            500,
+            6
+          ]
+        },
+        "original_metadata_sha256": "17632d71c770e208e27592ffefe4e02f71f26ec39600368f8fe6b7cd551b3b6d",
+        "recovered_metadata_sha256": "8e8d8810ae9f9f8a3fd592168cb52207fb5d8645dbd21219c9559d9ff5ffb68d",
+        "unchanged_shard_sha256": "0aa881287dda506fb5ebc6acaf180d75c4315b164b532baa352ae82990c6fba7",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "reward",
+        "before": {
+          "shape": [
+            400,
+            1
+          ],
+          "shard_shape": [
+            400,
+            1
+          ]
+        },
+        "after": {
+          "shape": [
+            500,
+            1
+          ],
+          "shard_shape": [
+            500,
+            1
+          ]
+        },
+        "original_metadata_sha256": "1add374a58cf3700d52d7bbf3affed7cbb8eab91db602e27fe2d637d6df9c9d9",
+        "recovered_metadata_sha256": "34784784d16286beba959ac63b1e793c383b5fb9e82b93015b40e1ed7f361d9c",
+        "unchanged_shard_sha256": "a94abf0a2e51214dffe9e78c3c2f5364c248a39f147abf645cafeb1eeb88d478",
+        "index_crc32c_verified": true
+      }
+    ],
+    "frames_verified": 436,
+    "alignment": "pre_step",
+    "evidence": {
+      "declared": "pre_step",
+      "informative_transitions": 335,
+      "pre_step_exact_matches": 326,
+      "post_step_exact_matches": 0,
+      "reset_xy_error": 0.0,
+      "speed": 200,
+      "fps": 30
+    }
+  },
+  {
+    "episode": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs1_000003.zarr/",
+    "repairs": [
+      {
+        "array": "actions",
+        "before": {
+          "shape": [
+            400,
+            4
+          ],
+          "shard_shape": [
+            400,
+            4
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            4
+          ],
+          "shard_shape": [
+            300,
+            4
+          ]
+        },
+        "original_metadata_sha256": "18726700d618e14607a52ad400f534265334ca59abf2f441568cc886e3ece503",
+        "recovered_metadata_sha256": "ee6be4b23305385e7385edfac2ffd43baaef62385b99f67505d21f00fe2a4aa8",
+        "unchanged_shard_sha256": "8d1188ebc9f701f79fba711d1edc12ab1fc7a47344603eefb18d52ad0f187dd9",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "goal_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            3
+          ],
+          "shard_shape": [
+            300,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "1d32e59f02bba2bfbadd7a55a06ab7cfd29e6957678d39dac9b34334f6407331",
+        "unchanged_shard_sha256": "fee3f3b9c7423947a5892fa6ca2f91f9b7961fa6d50c74a1cd23d05f3034fc83",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.images.front_img_1",
+        "before": {
+          "shape": [
+            400
+          ],
+          "shard_shape": [
+            400
+          ]
+        },
+        "after": {
+          "shape": [
+            300
+          ],
+          "shard_shape": [
+            300
+          ]
+        },
+        "original_metadata_sha256": "d772d121aedff67919a41ee901ab5f5de72f8ebcc5cb5c724abcde0c4db6210b",
+        "recovered_metadata_sha256": "9850ad9f91c2834842deecdae671a11cd1f53a78dcf4540dfc459b1baec66d3e",
+        "unchanged_shard_sha256": "bc16265de521bf0a810e1a30e332c34cf099a8e40fa792fccd3f3c08ebdeaaf8",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.pusher_cmd_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            3
+          ],
+          "shard_shape": [
+            300,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "1d32e59f02bba2bfbadd7a55a06ab7cfd29e6957678d39dac9b34334f6407331",
+        "unchanged_shard_sha256": "26f806ad895a7eeb419de3f62ba3b60f37f500fefbf00c49390f0cd69d7b8e2b",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.state",
+        "before": {
+          "shape": [
+            400,
+            6
+          ],
+          "shard_shape": [
+            400,
+            6
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            6
+          ],
+          "shard_shape": [
+            300,
+            6
+          ]
+        },
+        "original_metadata_sha256": "17632d71c770e208e27592ffefe4e02f71f26ec39600368f8fe6b7cd551b3b6d",
+        "recovered_metadata_sha256": "d7c5e6cbbb20a77571731579fb382e93decfd03737e69e1fede120e3b510a5c8",
+        "unchanged_shard_sha256": "e676f9ad91f185efc1997c990083bd8d43b62469a4de5fa19b3b8761d27cb288",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "reward",
+        "before": {
+          "shape": [
+            400,
+            1
+          ],
+          "shard_shape": [
+            400,
+            1
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            1
+          ],
+          "shard_shape": [
+            300,
+            1
+          ]
+        },
+        "original_metadata_sha256": "1add374a58cf3700d52d7bbf3affed7cbb8eab91db602e27fe2d637d6df9c9d9",
+        "recovered_metadata_sha256": "07146cbdef390bcbea7f82ccfc72426cf896e772fff536dab30e4065fc5e4b07",
+        "unchanged_shard_sha256": "96bcb981e9965a0282ef0e349ff1fbd6f815c8592ee8e1bc3f7e18eb530fc8b9",
+        "index_crc32c_verified": true
+      }
+    ],
+    "frames_verified": 270,
+    "alignment": "pre_step",
+    "evidence": {
+      "declared": "pre_step",
+      "informative_transitions": 184,
+      "pre_step_exact_matches": 166,
+      "post_step_exact_matches": 0,
+      "reset_xy_error": 0.0,
+      "speed": 200,
+      "fps": 30
+    }
+  },
+  {
+    "episode": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs1_000004.zarr/",
+    "repairs": [
+      {
+        "array": "actions",
+        "before": {
+          "shape": [
+            500,
+            4
+          ],
+          "shard_shape": [
+            500,
+            4
+          ]
+        },
+        "after": {
+          "shape": [
+            400,
+            4
+          ],
+          "shard_shape": [
+            400,
+            4
+          ]
+        },
+        "original_metadata_sha256": "835f15d5e90896024a9af01ca44ba9f489803944d50cef94d211292dd5be6081",
+        "recovered_metadata_sha256": "65e853d50f11c29d2fb8ea8b32ca100b1bb91ffebef0e1ad267334950fffd343",
+        "unchanged_shard_sha256": "15d56678259811977120d141bb5140288dd907a26f12f4445228cd15399ffe95",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "goal_pose",
+        "before": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "original_metadata_sha256": "6522db54cdec2fd5a2df0d9bb71c673febc53d1a102e04c86bbea15a2d37e1d0",
+        "recovered_metadata_sha256": "d488c8c863809ab9518fe19e599071e50eca19b48d03d455a50c414c1515fc22",
+        "unchanged_shard_sha256": "5fcde64c1826427a1acf5f04e5cb9fd0a2de7bc8c9b52f6d1432503395865b0c",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.images.front_img_1",
+        "before": {
+          "shape": [
+            500
+          ],
+          "shard_shape": [
+            500
+          ]
+        },
+        "after": {
+          "shape": [
+            400
+          ],
+          "shard_shape": [
+            400
+          ]
+        },
+        "original_metadata_sha256": "9027ad727e2923c40c01ed219527c463c02e32238c23d01a81516a62ab0e11f0",
+        "recovered_metadata_sha256": "08bd5c94aa1b4ff63570de32e4e2057d8ac1f4b3d58cd5f1f8ca8cea998dece2",
+        "unchanged_shard_sha256": "4a18c89da8fdfe19e518cf1b1b250165de5bd36a691b4b63b4feb0070b507a16",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.pusher_cmd_pose",
+        "before": {
+          "shape": [
+            500,
+            3
+          ],
+          "shard_shape": [
+            500,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "original_metadata_sha256": "6522db54cdec2fd5a2df0d9bb71c673febc53d1a102e04c86bbea15a2d37e1d0",
+        "recovered_metadata_sha256": "d488c8c863809ab9518fe19e599071e50eca19b48d03d455a50c414c1515fc22",
+        "unchanged_shard_sha256": "8142571e8ed1d900cfdf67216f5babee46c27988ca2f370182161d313da2257e",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.state",
+        "before": {
+          "shape": [
+            500,
+            6
+          ],
+          "shard_shape": [
+            500,
+            6
+          ]
+        },
+        "after": {
+          "shape": [
+            400,
+            6
+          ],
+          "shard_shape": [
+            400,
+            6
+          ]
+        },
+        "original_metadata_sha256": "9e7c3aad67b2fab80f9a5cea631f6c002ef95ca3a59f9bddd761298ece744f56",
+        "recovered_metadata_sha256": "f4d63a41215dd332552b778dce9d5f8506cd85bc685b62ef38e95aded1d652cb",
+        "unchanged_shard_sha256": "8482292dbb73d52d026b95b920097269bfe623dc8fd718b981fdfd0fb52442f0",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "reward",
+        "before": {
+          "shape": [
+            500,
+            1
+          ],
+          "shard_shape": [
+            500,
+            1
+          ]
+        },
+        "after": {
+          "shape": [
+            400,
+            1
+          ],
+          "shard_shape": [
+            400,
+            1
+          ]
+        },
+        "original_metadata_sha256": "68836e764b149ed596dad20e1a0bfd9b9e1c83546b86976be4612088c9b344b1",
+        "recovered_metadata_sha256": "348ef79e0f6e7c9cf4bd59d82586a8a4b269a027ac38d4dd57a50c4f16268ef9",
+        "unchanged_shard_sha256": "994e52347d833787dd330705b1df8bd1f7816d30cdaf34e682de14ac08194015",
+        "index_crc32c_verified": true
+      }
+    ],
+    "frames_verified": 338,
+    "alignment": "pre_step",
+    "evidence": {
+      "declared": "pre_step",
+      "informative_transitions": 217,
+      "pre_step_exact_matches": 212,
+      "post_step_exact_matches": 0,
+      "reset_xy_error": 0.0,
+      "speed": 200,
+      "fps": 30
+    }
+  },
+  {
+    "episode": "datasets/pushshapes/chain_gripper_gen-20261002/episode_T_chain_gripper_obs1_000007.zarr/",
+    "repairs": [
+      {
+        "array": "actions",
+        "before": {
+          "shape": [
+            400,
+            4
+          ],
+          "shard_shape": [
+            400,
+            4
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            4
+          ],
+          "shard_shape": [
+            300,
+            4
+          ]
+        },
+        "original_metadata_sha256": "18726700d618e14607a52ad400f534265334ca59abf2f441568cc886e3ece503",
+        "recovered_metadata_sha256": "ee6be4b23305385e7385edfac2ffd43baaef62385b99f67505d21f00fe2a4aa8",
+        "unchanged_shard_sha256": "40a44ff19dc38e4facacad8b20f8c872f17523104580f6138c32375a564fa586",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "goal_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            3
+          ],
+          "shard_shape": [
+            300,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "1d32e59f02bba2bfbadd7a55a06ab7cfd29e6957678d39dac9b34334f6407331",
+        "unchanged_shard_sha256": "adfd317b9b597570da7735a7838eed9a844f3d6cb321d0f261410e0a7fc148a6",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.images.front_img_1",
+        "before": {
+          "shape": [
+            400
+          ],
+          "shard_shape": [
+            400
+          ]
+        },
+        "after": {
+          "shape": [
+            300
+          ],
+          "shard_shape": [
+            300
+          ]
+        },
+        "original_metadata_sha256": "d772d121aedff67919a41ee901ab5f5de72f8ebcc5cb5c724abcde0c4db6210b",
+        "recovered_metadata_sha256": "9850ad9f91c2834842deecdae671a11cd1f53a78dcf4540dfc459b1baec66d3e",
+        "unchanged_shard_sha256": "378b8a8946539ca42eb132d7c12e68ee1625dd48731f0e65848b4c73a4f70700",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.pusher_cmd_pose",
+        "before": {
+          "shape": [
+            400,
+            3
+          ],
+          "shard_shape": [
+            400,
+            3
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            3
+          ],
+          "shard_shape": [
+            300,
+            3
+          ]
+        },
+        "original_metadata_sha256": "831911a40a875e511b9ef35c7e1b74bff496685f780df805269f34dacd066627",
+        "recovered_metadata_sha256": "1d32e59f02bba2bfbadd7a55a06ab7cfd29e6957678d39dac9b34334f6407331",
+        "unchanged_shard_sha256": "06c51c23f79e7e692ce3d559781bd0294581d943b8f4d4d80ea1dd317fe93159",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "observations.state",
+        "before": {
+          "shape": [
+            400,
+            6
+          ],
+          "shard_shape": [
+            400,
+            6
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            6
+          ],
+          "shard_shape": [
+            300,
+            6
+          ]
+        },
+        "original_metadata_sha256": "17632d71c770e208e27592ffefe4e02f71f26ec39600368f8fe6b7cd551b3b6d",
+        "recovered_metadata_sha256": "d7c5e6cbbb20a77571731579fb382e93decfd03737e69e1fede120e3b510a5c8",
+        "unchanged_shard_sha256": "a8904f2467a1c4a3f94653cfd71077700c368146dc507b1e19b96a7923522ec6",
+        "index_crc32c_verified": true
+      },
+      {
+        "array": "reward",
+        "before": {
+          "shape": [
+            400,
+            1
+          ],
+          "shard_shape": [
+            400,
+            1
+          ]
+        },
+        "after": {
+          "shape": [
+            300,
+            1
+          ],
+          "shard_shape": [
+            300,
+            1
+          ]
+        },
+        "original_metadata_sha256": "1add374a58cf3700d52d7bbf3affed7cbb8eab91db602e27fe2d637d6df9c9d9",
+        "recovered_metadata_sha256": "07146cbdef390bcbea7f82ccfc72426cf896e772fff536dab30e4065fc5e4b07",
+        "unchanged_shard_sha256": "8c3d3e127bd412fa9aac233d050de465e17ee58db44046584977a03c9ffdba2d",
+        "index_crc32c_verified": true
+      }
+    ],
+    "frames_verified": 263,
+    "alignment": "pre_step",
+    "evidence": {
+      "declared": "pre_step",
+      "informative_transitions": 205,
+      "pre_step_exact_matches": 202,
+      "post_step_exact_matches": 0,
+      "reset_xy_error": 0.0,
+      "speed": 200,
+      "fps": 30
+    }
+  }
+]

@@ -1,0 +1,1 @@
+{"global_step": 4, "start_step": 0, "elapsed_training_seconds": 1.6916284007020295, "seconds_per_update": 0.42290710017550737, "trainable_parameters": 262777125, "batch_layout": {"sources": ["pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"], "fused": true}, "time": 1791448668.3627164, "loss": 1.1668628454208374}

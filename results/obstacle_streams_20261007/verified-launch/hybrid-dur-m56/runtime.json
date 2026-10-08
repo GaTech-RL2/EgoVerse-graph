@@ -1,0 +1,95 @@
+{
+  "source_commit": "bfdc50afb01a4b7005571d041bc3b03f02344725",
+  "arm": "hybrid-dur-m56",
+  "data_manifest_sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470",
+  "gpus": [
+    "NVIDIA L40S",
+    "NVIDIA L40S",
+    "NVIDIA L40S",
+    "NVIDIA L40S"
+  ],
+  "python": "3.11.14 (main, Feb 12 2026, 00:42:50) [Clang 21.1.4 ]",
+  "torch": "2.7.1+cu126",
+  "uv_lock_sha256": "e2dfeefa4199707ffd47ee26381aa8bbf81cbcfc58bda656fb2f6b0ae442e789",
+  "protocol": {
+    "version": 1,
+    "name": "obstacle-streams-20261007",
+    "artifact_prefix": "experiments/obstacle-streams-20261007/",
+    "data_ready_key": "experiments/obstacle-streams-20261007/data-v3/READY.json",
+    "data_preparation_sha256": "bae8aeb9c039e67c2862ba94525e10a4b088a6fe3f6c0e4f9205ceb2ac428461",
+    "expected_counts": {
+      "usocket": 2999,
+      "chain_clean": 3000,
+      "chain_obstacle": 3840,
+      "chain_gen": 2879
+    },
+    "updates": 240000,
+    "global_batch_size": 128,
+    "gpus": 4,
+    "gpu_type": "L40S",
+    "seed": 42,
+    "geometry": {
+      "translation_budget": 80.0,
+      "rotation_budget_degrees": 26.0,
+      "waypoints": [
+        16,
+        56
+      ],
+      "native_horizon": 80,
+      "dt": 0.03333333333333333
+    },
+    "arms": {
+      "dp": {
+        "experiment": "planar_streams_dp"
+      },
+      "hybrid-stk-m16": {
+        "experiment": "planar_streams_xy_stk_m16",
+        "translation_groups": "xy",
+        "mode": "stk",
+        "waypoints": 16
+      },
+      "hybrid-stk-m56": {
+        "experiment": "planar_streams_xy_stk_m56",
+        "translation_groups": "xy",
+        "mode": "stk",
+        "waypoints": 56
+      },
+      "hybrid-dur-m16": {
+        "experiment": "planar_streams_xy_dur_m16",
+        "translation_groups": "xy",
+        "mode": "dur",
+        "waypoints": 16
+      },
+      "hybrid-dur-m56": {
+        "experiment": "planar_streams_xy_dur_m56",
+        "translation_groups": "xy",
+        "mode": "dur",
+        "waypoints": 56
+      },
+      "multistream-stk-m16": {
+        "experiment": "planar_streams_x_y_stk_m16",
+        "translation_groups": "x_y",
+        "mode": "stk",
+        "waypoints": 16
+      },
+      "multistream-stk-m56": {
+        "experiment": "planar_streams_x_y_stk_m56",
+        "translation_groups": "x_y",
+        "mode": "stk",
+        "waypoints": 56
+      },
+      "multistream-dur-m16": {
+        "experiment": "planar_streams_x_y_dur_m16",
+        "translation_groups": "x_y",
+        "mode": "dur",
+        "waypoints": 16
+      },
+      "multistream-dur-m56": {
+        "experiment": "planar_streams_x_y_dur_m56",
+        "translation_groups": "x_y",
+        "mode": "dur",
+        "waypoints": 56
+      }
+    }
+  }
+}

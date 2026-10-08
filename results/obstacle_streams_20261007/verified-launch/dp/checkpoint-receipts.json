@@ -1,0 +1,10 @@
+[
+  {
+    "uri": "s3://rldb/experiments/obstacle-streams-20261007/runs/obs-streams-1007-v7-dp/checkpoints/567caa465633cc5106cca68a349d326633ccae7e39ecf48d64356b3d6e557bde/step_step=000010000.ckpt",
+    "sha256": "567caa465633cc5106cca68a349d326633ccae7e39ecf48d64356b3d6e557bde",
+    "bytes": 4204821551,
+    "global_step": 10000,
+    "ema_num_updates": 10000,
+    "source_commit": "bfdc50afb01a4b7005571d041bc3b03f02344725"
+  }
+]

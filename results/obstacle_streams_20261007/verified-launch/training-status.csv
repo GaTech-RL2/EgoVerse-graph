@@ -1,0 +1,10 @@
+arm,global_step,seconds_per_update,trainable_parameters,run_id,workflow
+dp,10400,0.16616839845020037,262777125,obs-streams-1007-v7-dp,obs-streams-1007-v7-1
+hybrid-stk-m16,8600,0.16049648978593026,262787880,obs-streams-1007-v7-hybrid-stk-m16,obs-streams-1007-v7-1
+hybrid-stk-m56,8400,0.16085574860762183,262787880,obs-streams-1007-v7-hybrid-stk-m56,obs-streams-1007-v7-1
+hybrid-dur-m16,8400,0.16124979678657836,262787880,obs-streams-1007-v7-hybrid-dur-m16,obs-streams-1007-v7-1
+hybrid-dur-m56,8600,0.16142422301651432,262787880,obs-streams-1007-v7-hybrid-dur-m56,obs-streams-1007-v7-1
+multistream-stk-m16,8600,0.16064976408243786,262791465,obs-streams-1007-v7-multistream-stk-m16,obs-streams-1007-v7-1
+multistream-stk-m56,900,0.1620097735674224,262791465,obs-streams-1007-v8-multistream-stk-m56,obs-streams-1007-v8-1
+multistream-dur-m16,8300,0.16059950305827814,262791465,obs-streams-1007-v7-multistream-dur-m16,obs-streams-1007-v7-1
+multistream-dur-m56,8100,0.16113050204580276,262791465,obs-streams-1007-v7-multistream-dur-m56,obs-streams-1007-v7-1

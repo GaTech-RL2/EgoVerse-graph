@@ -1,0 +1,7 @@
+{
+  "steps": 4,
+  "gpus": 4,
+  "fresh_full_run": true,
+  "source_commit": "b5c625328d08008be179a745509960f05d16e7da",
+  "trainable_parameters": 262791465
+}

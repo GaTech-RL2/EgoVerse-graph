@@ -1,0 +1,9 @@
+{
+  "artifact": {
+    "uri": "s3://rldb/experiments/obstacle-streams-20261007/runs/obs-streams-1007-v7-dp/normalizer.json",
+    "sha256": "2f9d298be427386b709c694e94f6a613d077ddc69468794b33c6569ae965aacf",
+    "bytes": 167344
+  },
+  "data_manifest_sha256": "995250d4a4d05ae66dfe1d7f42c86da6fabf7ee7452aab66f6f51c1f63bd0470",
+  "train_only": true
+}

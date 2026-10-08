@@ -8,7 +8,12 @@ from __future__ import annotations
 import argparse, hashlib, json, os, pathlib, subprocess, sys
 
 def run(argv, **kwargs):
-    return subprocess.run(argv, check=True, **kwargs)
+    try:
+        return subprocess.run(argv, check=True, **kwargs)
+    except subprocess.CalledProcessError as error:
+        if error.stdout: print(error.stdout, file=sys.stderr)
+        if error.stderr: print(error.stderr, file=sys.stderr)
+        raise
 
 def digest(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
@@ -25,12 +30,12 @@ def arguments(phase, output, norm):
        f'trainer.limit_train_batches={2 if smoke else 1.0}',
        'trainer.limit_val_batches=1','trainer.num_sanity_val_steps=0','trainer.log_every_n_steps=1',
        'norm_stats.sample_frac=0.05','norm_stats.save_cache_dir=null',f'norm_stats.precomputed_norm_path={norm}',
-       'callbacks.model_checkpoint.monitor=null','callbacks.model_checkpoint.save_top_k=-1',
-       f'callbacks.model_checkpoint.save_last={str(smoke).lower()}',
-       'callbacks.model_checkpoint.every_n_epochs=null',
-       f'callbacks.model_checkpoint.every_n_train_steps={1 if smoke else 5000}',
-       'callbacks.model_checkpoint.train_time_interval=null','callbacks.model_checkpoint.save_on_train_epoch_end=false',
-       "callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'",
+       '++callbacks.model_checkpoint.monitor=null','++callbacks.model_checkpoint.save_top_k=-1',
+       f'++callbacks.model_checkpoint.save_last={str(smoke).lower()}',
+       '++callbacks.model_checkpoint.every_n_epochs=null',
+       f'++callbacks.model_checkpoint.every_n_train_steps={1 if smoke else 5000}',
+       '++callbacks.model_checkpoint.train_time_interval=null','++callbacks.model_checkpoint.save_on_train_epoch_end=false',
+       "++callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'",
        '++logger.wandb.entity=rl2-group','++logger.wandb.project=pushshapes-planar-v2',
        f'++logger.wandb.id={os.environ["DP_WANDB_ID"]+ ("-smoke" if smoke else "")}',
        f'++logger.wandb.name={os.environ["DP_WANDB_ID"]+ ("-smoke" if smoke else "")}',
@@ -40,7 +45,8 @@ def arguments(phase, output, norm):
     # This optional evaluator field is present in the native constructor, not YAML.
     a[-1] = '++'+a[-1]
     if phase == 'normalize':
-        a += ['norm_stats_only=true','trainer.accelerator=cpu','trainer.devices=1','logger=null',
+        a = [x for x in a if not x.startswith('++logger.') ]
+        a += ['norm_stats_only=true','trainer.accelerator=cpu','trainer.devices=1','~logger',
               f'norm_stats.save_cache_dir={output}','norm_stats.precomputed_norm_path=null']
     return a
 

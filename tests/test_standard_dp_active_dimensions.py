@@ -20,7 +20,7 @@ BLOCKS = {U: [[0, 2], [2, 4]], CHAIN: [[0, 2], [2, 4], [4, 5]]}
 def batch_for(name, prediction, noise):
     return {'diffusion/predicted_noise': prediction, 'diffusion/noise_target': noise,
             'target': torch.zeros_like(prediction),
-            'embodiment': torch.full((prediction.shape[0], 1), get_embodiment_id(name))}
+            'embodiment': torch.full((prediction.shape[0],), get_embodiment_id(name))}
 
 
 def test_u_gripper_loss_and_output_gradient_are_zero():
@@ -98,7 +98,7 @@ def test_validation_normalized_and_native_u_metrics_ignore_padding():
     target = torch.zeros(2, 16, 5); target[..., 2] = 1
     prediction = target.clone(); prediction[..., 0] = 2; prediction[..., 4] = 1e9
     ev.model = SimpleNamespace(forward_eval=lambda batch: {'u': {'pred_action': prediction}})
-    batch = {'u': {'actions': target, 'embodiment': torch.full((2, 1), get_embodiment_id(U))}}
+    batch = {'u': {'actions': target, 'embodiment': torch.full((2,), get_embodiment_id(U))}}
     ev.on_validation_step(batch, 0)
     assert torch.equal(collected['Valid/MSE/'+U], torch.tensor(1.))
     assert torch.allclose(collected['Valid/Native_MSE/'+U], torch.tensor(4./3))

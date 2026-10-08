@@ -44,6 +44,23 @@ def arguments(phase, output, norm):
        'evaluator.energy_score_max_batches_per_rank=1']
     # This optional evaluator field is present in the native constructor, not YAML.
     a[-1] = '++'+a[-1]
+    if smoke:
+        a += ['evaluator.limit_val_batches=1']
+    if phase != 'normalize':
+        run_id = os.environ.get('DP_SMOKE_WANDB_ID', os.environ['DP_WANDB_ID']+'-smoke') if smoke else os.environ['DP_WANDB_ID']
+        provenance = {
+            'source_commit': os.environ['DP_EXPECTED_HEAD'],
+            'normalization_sha256': os.environ['DP_NORM_SHA256'],
+            'split_manifest_sha256': os.environ['DP_SPLIT_SHA256'],
+            'resolved_config_path': str(pathlib.Path(output)/'.hydra/config.yaml'),
+            'wandb.entity': 'rl2-group', 'wandb.project': 'pushshapes-planar-v2', 'wandb.run_id': run_id,
+            'dataset_content.manifest_path': os.environ['DP_CONTENT_MANIFEST'],
+            'dataset_content.manifest_sha256': os.environ['DP_CONTENT_SHA256'],
+            'dataset_content.aggregate_sha256': os.environ['DP_CONTENT_AGGREGATE_SHA256'],
+        }
+        a += [f'++evaluator.energy_score_provenance.{key}={value}' for key,value in provenance.items()]
+        a += [f'++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ["DP_SPLIT_SHA256"]}']
+
     if phase == 'normalize':
         a = [x for x in a if not x.startswith('++logger.') ]
         a += ['norm_stats_only=true','trainer.accelerator=cpu','trainer.devices=1','~logger',

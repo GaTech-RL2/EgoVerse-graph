@@ -169,7 +169,9 @@ class Yam(Embodiment):
         # action_mode="arc_tokenizer_cartesian".
         min_distance_unit: float = 0.40,
         rotation_distance_unit: float | None = None,
+        gripper_distance_unit: float | None = None,
         resampled_vector_length: int = 100,
+        preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
@@ -259,6 +261,7 @@ class Yam(Embodiment):
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
+                gripper_distance_unit=gripper_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
@@ -269,7 +272,11 @@ class Yam(Embodiment):
                 # the control horizon is always 100 steps; repeat-last at an
                 # episode tail follows the loader's normal convention.
                 preserve_action_key=UNTOKENIZED_ACTION_KEY,
-                preserve_action_rows=Yam.ACTION_HORIZON,
+                preserve_action_rows=(
+                    Yam.ACTION_HORIZON
+                    if preserve_action_rows is None
+                    else int(preserve_action_rows)
+                ),
             )
         return transform_list
 

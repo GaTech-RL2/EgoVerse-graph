@@ -29,6 +29,8 @@ train_datasets:
         rotation_mode: euler
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
+        gripper_distance_unit: ${abc.arc_gripper_distance}
+        preserve_action_rows: ${abc.arc_source_buffer_frames}
         arc_chunking_mode: ${abc.arc_chunking_mode}
         resampled_vector_length: ${abc.arc_waypoints}
         velocity_mode: ${abc.arc_velocity_mode}
@@ -67,6 +69,8 @@ train_datasets:
         stride: 1
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
+        gripper_distance_unit: ${abc.arc_gripper_distance}
+        preserve_action_rows: ${abc.arc_source_buffer_frames}
         arc_chunking_mode: ${abc.arc_chunking_mode}
         resampled_vector_length: ${abc.arc_waypoints}
         velocity_mode: ${abc.arc_velocity_mode}

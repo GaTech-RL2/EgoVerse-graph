@@ -458,7 +458,9 @@ class Human(Embodiment):
         # Arc-tokenizer args, consulted only by the arc_tokenizer_* modes.
         min_distance_unit: float = 0.60,
         rotation_distance_unit: float | None = None,
+        gripper_distance_unit: float | None = None,
         resampled_vector_length: int = 20,
+        preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
         # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
@@ -560,13 +562,18 @@ class Human(Embodiment):
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
+                gripper_distance_unit=gripper_distance_unit,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,
                 velocity_mode=velocity_mode,
                 arc_chunking_mode=arc_chunking_mode,
                 velocity_layout=velocity_layout,
-                preserve_action_rows=100 if native_arc else None,
+                preserve_action_rows=(
+                    (100 if preserve_action_rows is None else int(preserve_action_rows))
+                    if native_arc
+                    else None
+                ),
             )
         prefix = []
         suffix = []

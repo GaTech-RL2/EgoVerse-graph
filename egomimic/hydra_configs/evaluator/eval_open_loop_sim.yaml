@@ -37,7 +37,7 @@ arc_execution_cap_mode: waypoints
 # ARC video overlays independently redraw every validation frame. Cap both the
 # predicted and GT paths using the selected mode's fD and independent fR.
 # joint_distance remains an alias for this mode-aware cap in older overrides.
-arc_video_trajectory_cap_mode: distance
+arc_video_trajectory_cap_mode: ${oc.select:abc.arc_chunking_mode,multistream}
 min_distance_unit: ${oc.select:abc.arc_distance,0.40}
 rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,null}
 resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
@@ -46,6 +46,7 @@ resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
 velocity_mode: ${oc.select:abc.arc_velocity_mode,per_waypoint}
 # log_clock tokens store log(seconds); the evaluator decodes them to seconds.
 velocity_layout: ${oc.select:abc.arc_velocity_layout,null}
+gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}
 
 # Optional post-hoc checkpoint step used for logger x-axis alignment. Training
 # leaves this null and uses trainer.global_step.

@@ -52,6 +52,8 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     ARC_TOK_BIMANUAL_DIM,
     CLOCK_COLUMNS,
     LOG_CLOCK_EPS,
+    SIX_CLOCK_COLUMNS,
+    SIX_CLOCK_LAYOUTS,
     _rotation_to_ypr,
     _ypr_to_rotation,
     bimanual_arc_token_rows,
@@ -67,7 +69,12 @@ YPR_COLS = (3, 4, 5, 10, 11, 12)
 GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
 ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
-ARC_VIDEO_TRAJECTORY_CAP_MODES = ("execution_horizon", "distance", "joint_distance")
+ARC_VIDEO_TRAJECTORY_CAP_MODES = (
+    "execution_horizon",
+    "distance",
+    "joint_distance",
+    "multistream",
+)
 
 
 def gt_chunk_in_anchor_frame(
@@ -197,6 +204,8 @@ def truncate_arc_token(
     *,
     arc_chunking_mode: str = "joint_distance",
     rotation_distance_unit: float | None = None,
+    gripper_distance_unit: float | None = None,
+    velocity_layout: str | None = None,
     control_dt: float = 1.0 / 30.0,
 ) -> np.ndarray:
     """Cap translation at fD using the selected clocks and rotation at fR.
@@ -245,6 +254,24 @@ def truncate_arc_token(
             _distance_boundary(cumulative_rotation, rotation_target)
             for cumulative_rotation in rotation_cumulatives
         ]
+    gripper_cumulatives = (
+        [
+            np.concatenate(
+                ([0.0], np.cumsum(np.abs(np.diff(all_waypoints[:, offset + 6]))))
+            )
+            for offset in (0, 7)
+        ]
+        if gripper_distance_unit is not None
+        else None
+    )
+    gripper_boundaries = (
+        [
+            _distance_boundary(cumulative_gripper, fraction * gripper_distance_unit)
+            for cumulative_gripper in gripper_cumulatives
+        ]
+        if gripper_cumulatives is not None
+        else None
+    )
     if chunking_mode == "joint_distance":
         boundaries = [
             _distance_boundary(
@@ -256,7 +283,7 @@ def truncate_arc_token(
             _distance_boundary(cumulative[:, arm], target) for arm in range(2)
         ]
         if chunking_mode == "race":
-            clocks, rotation_clocks = _arc_clock_durations(
+            clocks, rotation_clocks, gripper_clocks = _arc_clock_durations(
                 all_waypoints,
                 all_timing,
                 mode,
@@ -264,6 +291,8 @@ def truncate_arc_token(
                 distance,
                 chunking_mode,
                 rotation_distance_unit,
+                velocity_layout=velocity_layout,
+                gripper_distance_unit=gripper_distance_unit,
             )
             times = []
             elapsed = [np.concatenate(([0.0], np.cumsum(clock))) for clock in clocks]
@@ -295,6 +324,20 @@ def truncate_arc_token(
                         if rotation_cumulatives[arm][-1] >= rotation_target
                         else math.inf
                     )
+            if gripper_clocks is not None and gripper_boundaries is not None:
+                gripper_elapsed = [
+                    np.concatenate(([0.0], np.cumsum(clock)))
+                    for clock in gripper_clocks
+                ]
+                gripper_target = fraction * float(gripper_distance_unit)
+                for arm, boundary in enumerate(gripper_boundaries):
+                    lower = min(int(math.floor(boundary)), M - 2)
+                    alpha = boundary - lower
+                    times.append(
+                        gripper_elapsed[arm][lower] + alpha * gripper_clocks[arm][lower]
+                        if gripper_cumulatives[arm][-1] >= gripper_target
+                        else math.inf
+                    )
             race_time = min(times)
             if math.isfinite(race_time):
                 boundaries = [_distance_boundary(clock, race_time) for clock in elapsed]
@@ -302,6 +345,11 @@ def truncate_arc_token(
                     rotation_boundaries = [
                         _distance_boundary(clock, race_time)
                         for clock in rotation_elapsed
+                    ]
+                if gripper_clocks is not None and gripper_boundaries is not None:
+                    gripper_boundaries = [
+                        _distance_boundary(clock, race_time)
+                        for clock in gripper_elapsed
                     ]
 
     streams = []
@@ -320,6 +368,9 @@ def truncate_arc_token(
                     rotation_boundaries[arm],
                 )
             )
+    if gripper_boundaries is not None:
+        for arm, offset in enumerate((0, 7)):
+            streams.append(([offset + 6], gripper_boundaries[arm]))
 
     count = max(_boundary_rows(boundary) for _, boundary in streams)
     waypoints = np.empty((count, 14), dtype=np.float64)
@@ -335,7 +386,7 @@ def truncate_arc_token(
             if mode == "duration":
                 # Stored seconds, unlike rates, shrink with a fractional final
                 # interval. Each clock column scales with its own stream.
-                for column in CLOCK_COLUMNS:
+                for column in (*CLOCK_COLUMNS, 6, 13):
                     if column in columns:
                         rates[rows - 2, column] *= boundary - (rows - 2)
             timing[:rows, columns] = rates[:, columns]
@@ -382,6 +433,8 @@ def _arc_clock_durations(
     chunking_mode,
     rotation_distance_unit=None,
     max_steps=None,
+    velocity_layout=None,
+    gripper_distance_unit=None,
 ):
     """Use codec clocks, with unbounded invalid intervals for stride inference.
 
@@ -395,13 +448,31 @@ def _arc_clock_durations(
     codec = TokenizeBimanualArcLengthCartesian(
         min_distance_unit=distance,
         rotation_distance_unit=rotation_distance_unit,
+        gripper_distance_unit=gripper_distance_unit,
         resampled_vector_length=len(waypoints),
         dt=dt,
         velocity_mode=velocity_mode,
         arc_chunking_mode=chunking_mode if rotation_distance_unit is not None else None,
+        velocity_layout=velocity_layout,
     )
     horizon = max_steps if max_steps is not None else 1
-    if rotation_distance_unit is not None and chunking_mode == "joint_distance":
+    gripper_clock = None
+    if velocity_layout in SIX_CLOCK_LAYOUTS:
+        clocks = [
+            codec._six_stream_duration(
+                waypoints, timing, offset, "translation", horizon
+            )
+            for offset in (0, 7)
+        ]
+        rotation_clock = [
+            codec._six_stream_duration(waypoints, timing, offset, "rotation", horizon)
+            for offset in (0, 7)
+        ]
+        gripper_clock = [
+            codec._six_stream_duration(waypoints, timing, offset, "gripper", horizon)
+            for offset in (0, 7)
+        ]
+    elif rotation_distance_unit is not None and chunking_mode == "joint_distance":
         clocks = [
             codec._hybrid_clock_durations(waypoints, timing, action_horizon=horizon)
         ]
@@ -475,7 +546,7 @@ def _arc_clock_durations(
             )
             for offset, mask in zip((0, 7), masks)
         ]
-    return clocks, rotation_clock
+    return clocks, rotation_clock, gripper_clock
 
 
 def truncate_cartesian_trajectory_by_joint_distance(
@@ -616,6 +687,7 @@ def truncate_cartesian_trajectory_by_arc_mode(
     max_translation_distance: float,
     arc_chunking_mode: str,
     max_rotation_distance: float | None = None,
+    max_gripper_distance: float | None = None,
 ) -> np.ndarray:
     """Cap control-frame overlays using the selected D mode and independent R.
 
@@ -628,7 +700,7 @@ def truncate_cartesian_trajectory_by_arc_mode(
             f"cartesian trajectory must have shape (T, 14), got {value.shape}"
         )
     mode = resolve_arc_chunking_mode(arc_chunking_mode, max_rotation_distance)
-    for cap in (max_translation_distance, max_rotation_distance):
+    for cap in (max_translation_distance, max_rotation_distance, max_gripper_distance):
         if cap is not None and (not math.isfinite(float(cap)) or cap <= 0):
             raise ValueError("trajectory distance caps must be positive and finite")
     if len(value) < 2:
@@ -654,7 +726,18 @@ def truncate_cartesian_trajectory_by_arc_mode(
             _distance_boundary(values, max_rotation_distance)
             for values in rotation_cumulatives
         ]
-    if mode == "race":
+    gripper_cumulatives = None
+    gripper_boundaries = None
+    if max_gripper_distance is not None:
+        gripper_cumulatives = [
+            np.concatenate(([0.0], np.cumsum(np.abs(np.diff(value[:, offset + 6])))))
+            for offset in (0, 7)
+        ]
+        gripper_boundaries = [
+            _distance_boundary(values, max_gripper_distance)
+            for values in gripper_cumulatives
+        ]
+    if mode in ("race", "multistream"):
         crossings = [
             boundary
             for values, boundary in zip(translation_cumulatives, boundaries)
@@ -666,10 +749,18 @@ def truncate_cartesian_trajectory_by_arc_mode(
                 for values, boundary in zip(rotation_cumulatives, rotation_boundaries)
                 if values[-1] >= max_rotation_distance
             )
+        if gripper_cumulatives is not None:
+            crossings.extend(
+                boundary
+                for values, boundary in zip(gripper_cumulatives, gripper_boundaries)
+                if values[-1] >= max_gripper_distance
+            )
         race_boundary = min(crossings, default=float(len(value) - 1))
         boundaries = [race_boundary, race_boundary]
         if rotation_boundaries is not None:
             rotation_boundaries = [race_boundary, race_boundary]
+        if gripper_boundaries is not None:
+            gripper_boundaries = [race_boundary, race_boundary]
     streams = []
     for arm, offset in enumerate((0, 7)):
         columns = (
@@ -682,7 +773,13 @@ def truncate_cartesian_trajectory_by_arc_mode(
             streams.append(
                 (list(range(offset + 3, offset + 6)), rotation_boundaries[arm])
             )
-    count = max(_boundary_rows(boundary) for _, boundary in streams)
+        if gripper_boundaries is not None:
+            streams.append(([offset + 6], gripper_boundaries[arm]))
+    count = (
+        min(_boundary_rows(boundary) for _, boundary in streams)
+        if mode == "multistream"
+        else max(_boundary_rows(boundary) for _, boundary in streams)
+    )
     result = value[:count].copy()
     for columns, boundary in streams:
         terminal = _waypoint_at(value, boundary)
@@ -700,6 +797,8 @@ def arc_execution_prefix(
     *,
     arc_chunking_mode: str = "joint_distance",
     rotation_distance_unit: float | None = None,
+    gripper_distance_unit: float | None = None,
+    velocity_layout: str | None = None,
     control_dt: float = 1.0 / 30.0,
 ) -> np.ndarray:
     """Apply either exact M-based or interpolated distance-based capping."""
@@ -713,6 +812,8 @@ def arc_execution_prefix(
         min_distance_unit,
         arc_chunking_mode=arc_chunking_mode,
         rotation_distance_unit=rotation_distance_unit,
+        gripper_distance_unit=gripper_distance_unit,
+        velocity_layout=velocity_layout,
         control_dt=control_dt,
     )
 
@@ -728,6 +829,8 @@ def arc_prefix_control_steps(
     arc_chunking_mode: str = "joint_distance",
     arc_execution_cap_mode: str = "waypoints",
     max_steps: int | None = None,
+    velocity_layout: str | None = None,
+    gripper_distance_unit: float | None = None,
 ) -> int:
     """Recover the control-frame stride for the configured ARC prefix."""
 
@@ -748,6 +851,8 @@ def arc_prefix_control_steps(
         arc_chunking_mode=arc_chunking_mode,
         rotation_distance_unit=rotation_distance_unit,
         control_dt=control_dt,
+        gripper_distance_unit=gripper_distance_unit,
+        velocity_layout=velocity_layout,
     )
     mode = validate_bimanual_velocity_mode(velocity_mode)
     granular = mode in ("per_waypoint", "duration")
@@ -755,7 +860,7 @@ def arc_prefix_control_steps(
     waypoints = partial[:M]
     timing = partial[M:]
     chunking_mode = resolve_arc_chunking_mode(arc_chunking_mode, rotation_distance_unit)
-    clocks, rotation_clock = _arc_clock_durations(
+    clocks, rotation_clock, gripper_clock = _arc_clock_durations(
         waypoints,
         timing,
         mode,
@@ -764,16 +869,21 @@ def arc_prefix_control_steps(
         chunking_mode,
         rotation_distance_unit,
         max_steps,
+        velocity_layout=velocity_layout,
+        gripper_distance_unit=gripper_distance_unit,
     )
     durations = [float(np.sum(clock)) for clock in clocks]
     rotation_durations = [float(np.sum(clock)) for clock in rotation_clock or []]
+    gripper_durations = [float(np.sum(clock)) for clock in gripper_clock or []]
     if chunking_mode == "multistream":
         # Execute until the FIRST stream runs out of its retained waypoints:
         # either arm's translation or either arm's rotation, each on its own
         # clock. A stream that does not move in the prefix takes no time and
         # cannot end the chunk. An unbounded (stalled) stream only decides it
         # when no stream finishes.
-        moving = [d for d in durations + rotation_durations if d > 1e-9]
+        moving = [
+            d for d in durations + rotation_durations + gripper_durations if d > 1e-9
+        ]
         finite = [d for d in moving if math.isfinite(d)]
         duration = min(finite) if finite else (math.inf if moving else 0.0)
     else:
@@ -828,6 +938,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         velocity_mode: str = "per_waypoint",
         velocity_layout: str | None = None,
         log_step: int | None = None,
+        gripper_distance_unit: float | None = None,
         results_path: str | None = None,
         records_dump_path: str | None = None,
         video_overlay_mode: str = "executed_chunk",
@@ -866,6 +977,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             or float(rotation_distance_unit) <= 0
         ):
             raise ValueError("rotation_distance_unit must be positive and finite")
+        if gripper_distance_unit is not None and (
+            not math.isfinite(float(gripper_distance_unit))
+            or float(gripper_distance_unit) <= 0
+        ):
+            raise ValueError("gripper_distance_unit must be positive and finite")
         if arc_chunking_mode is not None and rotation_distance_unit is None:
             raise ValueError(
                 "explicit arc_chunking_mode requires rotation_distance_unit; "
@@ -889,6 +1005,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.min_distance_unit = float(min_distance_unit)
         self.rotation_distance_unit = (
             None if rotation_distance_unit is None else float(rotation_distance_unit)
+        )
+        self.gripper_distance_unit = (
+            None if gripper_distance_unit is None else float(gripper_distance_unit)
         )
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
@@ -1060,11 +1179,24 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 if rotation_distance_unit is None
                 else self.execute_fraction * rotation_distance_unit
             )
+            gripper_cap = (
+                None
+                if self.gripper_distance_unit is None
+                else self.execute_fraction * self.gripper_distance_unit
+            )
             pred = truncate_cartesian_trajectory_by_arc_mode(
-                pred_np[index, :steps], cap, evaluator_chunking_mode(self), rotation_cap
+                pred_np[index, :steps],
+                cap,
+                self.arc_video_trajectory_cap_mode,
+                rotation_cap,
+                gripper_cap,
             )
             gt = truncate_cartesian_trajectory_by_arc_mode(
-                gt_np[index, :steps], cap, evaluator_chunking_mode(self), rotation_cap
+                gt_np[index, :steps],
+                cap,
+                self.arc_video_trajectory_cap_mode,
+                rotation_cap,
+                gripper_cap,
             )
             pred_values.append(pred)
             gt_values.append(gt)
@@ -1268,7 +1400,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self,
             "arc_video_trajectory_cap_mode",
             "execution_horizon",
-        ) in ("distance", "joint_distance"):
+        ) in ("distance", "joint_distance", "multistream"):
             (
                 pred_native,
                 gt_native,
@@ -1644,10 +1776,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         Every reader downstream of unnormalization (prefix, detokenizer, DTW,
         videos) expects seconds, so this is the one place the log is undone.
         """
-        if (
-            getattr(self, "velocity_layout", None) != "log_clock"
-            or value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS)
-        ):
+        layout = getattr(self, "velocity_layout", None)
+        columns = SIX_CLOCK_COLUMNS if layout == "log_clock6" else CLOCK_COLUMNS
+        if layout not in ("log_clock", "log_clock6") or value.shape[
+            -1
+        ] != ARC_TOK_BIMANUAL_DIM + len(columns):
             return value
         out = value.clone()
         timing = out[..., ARC_TOK_BIMANUAL_DIM:]
@@ -1689,6 +1822,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 steps = min(steps, int(max_steps))
             return prediction[:steps].copy(), steps
 
+        input_dim = prediction.shape[-1]
         # The token helpers below index rows, so a wide prediction is
         # restacked once here and the codec is pinned to the stacked layout.
         # Converting at this single boundary keeps the layout out of the
@@ -1711,7 +1845,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 resampled_vector_length=self.resampled_vector_length,
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
-                velocity_layout="stacked",
+                velocity_layout=(
+                    "log_clock6"
+                    if input_dim == 20 and self.velocity_mode == "duration"
+                    else "rate_clock"
+                    if input_dim == 20 and self.velocity_mode == "per_waypoint"
+                    else "stacked"
+                ),
+                gripper_distance_unit=self.gripper_distance_unit,
             )
         partial = arc_execution_prefix(
             prediction,
@@ -1721,6 +1862,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.arc_execution_cap_mode,
             arc_chunking_mode=evaluator_chunking_mode(self),
             rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
+            gripper_distance_unit=self.gripper_distance_unit,
+            velocity_layout=self.velocity_layout,
             control_dt=self.control_dt,
         )
         steps = arc_prefix_control_steps(
@@ -1733,10 +1876,22 @@ class OpenLoopSimEval(BimanualCartesianEval):
             arc_chunking_mode=evaluator_chunking_mode(self),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
+            gripper_distance_unit=self.gripper_distance_unit,
+            velocity_layout=self.velocity_layout,
         )
-        decoded = self._arc_tokenizer.detokenize(partial, action_horizon=steps).astype(
-            np.float64, copy=False
-        )
+        codec_token = partial
+        if self.velocity_layout in SIX_CLOCK_LAYOUTS:
+            partial_m = len(partial) // 2
+            codec_token = np.concatenate(
+                (
+                    partial[:partial_m],
+                    partial[partial_m:, list(SIX_CLOCK_COLUMNS)],
+                ),
+                axis=-1,
+            )
+        decoded = self._arc_tokenizer.detokenize(
+            codec_token, action_horizon=steps
+        ).astype(np.float64, copy=False)
         return decoded, steps
 
     def _decode_prediction(self, prediction: np.ndarray) -> np.ndarray:

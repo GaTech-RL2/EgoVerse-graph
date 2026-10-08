@@ -12,12 +12,12 @@ import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     ARC_CHUNKING_MODES,  # noqa: F401 - public re-export used by validation scripts
-    CLOCK_COLUMNS,
+    SIX_CLOCK_COLUMNS,
     resolve_arc_chunking_mode,
     stack_arc_token,
 )
 
-METRIC_VERSION = "arc_chunking_global_dtw_v5"
+METRIC_VERSION = "arc_chunking_global_dtw_v6"
 METRIC_FRAME_KEY = "evaluation.eef_to_world"
 XYZ_COLS = (0, 1, 2, 7, 8, 9)
 ARC_DISTANCE_SEMANTICS = {
@@ -298,7 +298,7 @@ def fractional_waypoint_prefix(
         return np.concatenate((value[: lower + 1], value[m : m + lower + 1]))
     timing = value[m : m + lower + 1].copy()
     if velocity_mode == "duration":
-        timing[lower, list(CLOCK_COLUMNS)] *= alpha
+        timing[lower, list(SIX_CLOCK_COLUMNS)] *= alpha
     return np.concatenate(
         (
             value[: lower + 1],

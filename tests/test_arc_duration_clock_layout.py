@@ -1,4 +1,4 @@
-"""Four-clock duration ARC token, (M, 18), and the cotraining recipes that use it."""
+"""Six-clock ARC token layout, hold semantics, and cotraining recipes."""
 
 from pathlib import Path
 
@@ -7,9 +7,13 @@ import pytest
 from hydra import compose, initialize_config_dir
 
 from egomimic.eval import distance_budget_dtw as dtw
-from egomimic.eval.open_loop_sim import OpenLoopSimEval
+from egomimic.eval.open_loop_sim import (
+    OpenLoopSimEval,
+    truncate_cartesian_trajectory_by_arc_mode,
+)
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     CLOCK_COLUMNS,
+    SIX_CLOCK_COLUMNS,
     TokenizeBimanualArcLengthCartesian,
     bimanual_arc_token_shapes,
     clock_token_seconds,
@@ -42,10 +46,85 @@ def chunk(frames=200, right_still=False):
 def codec(mode, velocity_mode="duration", velocity_layout="clock"):
     return TokenizeBimanualArcLengthCartesian(
         **OPTIONS,
+        gripper_distance_unit=0.3,
         arc_chunking_mode=mode,
         velocity_mode=velocity_mode,
         velocity_layout=velocity_layout,
     )
+
+
+def six_codec(velocity_mode="duration", velocity_layout="log_clock6"):
+    return codec("multistream", velocity_mode, velocity_layout)
+
+
+def test_six_independent_clocks_use_the_canonical_twenty_dimensional_layout():
+    raw = chunk(frames=400)
+    seconds = six_codec("duration", "log_clock6").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    assert seconds.shape == (100, 20)
+    assert np.isfinite(seconds).all()
+    decoded_seconds = clock_token_seconds(seconds, "log_clock6")
+    stacked = stack_arc_token(decoded_seconds)
+    assert stacked.shape == (200, 14)
+    np.testing.assert_allclose(
+        stacked[100:, list(SIX_CLOCK_COLUMNS)], decoded_seconds[:, 14:], atol=1e-10
+    )
+    rates = six_codec("per_waypoint", "rate_clock").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    assert rates.shape == (100, 20)
+    assert (100, 20) in bimanual_arc_token_shapes(100, "duration")
+    assert (100, 20) in bimanual_arc_token_shapes(100, "per_waypoint")
+
+
+def test_six_clock_hold_waypoints_are_constant_and_rate_clocks_are_zero():
+    raw = np.zeros((400, 14), dtype=np.float64)
+    logged = six_codec("duration", "log_clock6").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    seconds = clock_token_seconds(logged, "log_clock6")
+    np.testing.assert_array_equal(logged[:, :14], np.zeros((100, 14)))
+    np.testing.assert_allclose(seconds[:-1, 14:], (400 * DT) / 99.0, atol=1e-10)
+    rates = six_codec("per_waypoint", "rate_clock").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    np.testing.assert_array_equal(rates[:, 14:], 0.0)
+    np.testing.assert_allclose(
+        six_codec("duration", "log_clock6").detokenize(logged, 400), raw
+    )
+
+
+def test_gripper_stream_can_end_the_executed_chunk_first():
+    raw = np.zeros((400, 14), dtype=np.float64)
+    raw[:6, 6] = np.linspace(0.0, 0.3, 6)
+    raw[6:, 6] = 0.3
+    token = six_codec("duration", "log_clock6").transform({"actions": raw.copy()})[
+        "actions"
+    ]
+    steps = evaluator(
+        "duration", velocity_layout="log_clock6", gripper_distance_unit=0.3
+    )
+    _, predicted_steps = steps._decode_prediction_with_steps(
+        clock_token_seconds(token, "log_clock6"), max_steps=400
+    )
+    assert predicted_steps <= 3
+
+
+def test_multistream_video_prefix_stops_at_first_gripper_distance_cap():
+    trajectory = np.zeros((10, 14), dtype=np.float64)
+    trajectory[:, 6] = np.linspace(0.0, 0.9, 10)
+    trajectory[:, 13] = np.linspace(0.0, 0.6, 10)
+    capped = truncate_cartesian_trajectory_by_arc_mode(
+        trajectory,
+        1.0,
+        "multistream",
+        max_rotation_distance=0.5,
+        max_gripper_distance=0.3,
+    )
+    assert len(capped) == 4
+    assert capped[-1, 6] == pytest.approx(0.3)
+    assert capped[-1, 13] == pytest.approx(0.2)
 
 
 @pytest.mark.parametrize("mode", ["multistream", "race"])
@@ -253,9 +332,9 @@ def _cfg(name, monkeypatch):
     "name,dim,evaluator_mode",
     [
         ("organize_rl2_elmo_hpt300_cotrain_baseline", 14, "baseline"),
-        ("organize_rl2_elmo_hpt300_cotrain_multistream", 18, "arc"),
-        ("organize_rl2_elmo_hpt300_cotrain_multistream_logclock", 18, "arc"),
-        ("organize_rl2_elmo_hpt300_cotrain_multistream_perwaypoint", 28, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream", 20, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream_logclock", 20, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream_perwaypoint", 20, "arc"),
     ],
 )
 def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
@@ -290,23 +369,26 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert not keep({**row, "embodiment": embodiment, "operator": "Aidan"})
         assert not keep({**row, "embodiment": embodiment, "lab": "abc"})
         assert dataset.valid_ratio == 0.05
-    if dim == 28:
+    if name.endswith("_perwaypoint"):
         assert cfg.evaluator.velocity_mode == "per_waypoint"
+        assert cfg.abc.arc_velocity_layout == "rate_clock"
         for dataset in train.values():
             transforms = dataset.resolver.transform_list
             assert (transforms.velocity_mode, transforms.velocity_layout) == (
                 "per_waypoint",
-                "wide",
+                "rate_clock",
             )
-    if dim == 18:
+    if not name.endswith("_perwaypoint") and dim == 20:
         assert cfg.evaluator.velocity_mode == "duration"
         assert cfg.evaluator.arc_chunking_mode == "multistream"
         robot = train.yam_bimanual.resolver.transform_list
-        layout = "log_clock" if name.endswith("_logclock") else "clock"
+        layout = "log_clock6"
         assert (robot.velocity_mode, robot.velocity_layout) == ("duration", layout)
         human = train.human_bimanual.resolver.transform_list
         assert human.velocity_layout == layout
         assert cfg.evaluator.velocity_layout == layout
+        assert robot.preserve_action_rows == 400
+        assert human.preserve_action_rows == 400
 
 
 def test_towel_logclock_recipe_tokenizes_and_evaluates_as_log_clock(monkeypatch):

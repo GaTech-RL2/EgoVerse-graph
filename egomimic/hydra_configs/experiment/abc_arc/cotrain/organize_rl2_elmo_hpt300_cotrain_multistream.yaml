@@ -12,6 +12,9 @@ abc:
   human_keymap_mode: hybrid_arc_tokenizer_cartesian
   human_action_mode: hybrid_arc_tokenizer_cartesian
   arc_source_buffer_frames: 400
+  arc_gripper_distance: 0.3
+  arc_velocity_layout: log_clock6
+  arc_token_dim: 20
 hpt:
   action_horizon: ${abc.arc_token_rows}
   token_dim: ${abc.arc_token_dim}

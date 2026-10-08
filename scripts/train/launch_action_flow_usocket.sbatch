@@ -129,8 +129,34 @@ AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
 AF_PAIRED_CHAIN_MANUAL4919=false
 AF_SPEED_DIAGNOSTIC=false
+AF_H696_EULER=false
 AF_NATIVE_LIBERO=false
 case "$AF_EXPERIMENT" in
+  pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42)
+    test "${AF_RESUME_TYPED_MODEL:-}" = noaug && test -n "${AF_INITIAL_CHECKPOINT:-}" || die "noaug route is checkpoint continuation only"
+    test "$AF_EXPECTED_HEAD" = fb397446056a73ebcc2cf546217a6284d582727a || die "H696 Euler source mismatch"
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual4919_avln_80k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_COTRAIN=true
+    AF_H696_EULER=true
+    required AF_SAMPLER_AUDITOR
+    required AF_SAMPLER_AUDITOR_SHA256
+    test "$(sha256 "$AF_SAMPLER_AUDITOR")" = "$AF_SAMPLER_AUDITOR_SHA256" || die "sampler auditor hash mismatch"
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    AF_EXPECTED_PARAMETER_COUNT=471545114
+    AF_EXPECTED_SMOKE_PARAMETER_COUNT=471545114
+    AF_SMOKE_VERIFIER=${AF_H696_SMOKE_VERIFIER:?}
+    test "$(sha256 "$AF_SMOKE_VERIFIER")" = "${AF_H696_SMOKE_VERIFIER_SHA256:?}" || die "H696 smoke verifier SHA mismatch"
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual4919,cotrain,h696,euler50,bf16,fresh,single-gpu,$AF_RUN_KIND]"
+    ;;
   libero/action_flow_libero10_h240_euler50_dithalf_80k_s42)
     AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
@@ -588,7 +614,7 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true; then
+  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true || test "$AF_H696_EULER" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the paired manual4919 ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -1001,7 +1027,46 @@ else
   die "run mode requires AF_NORM_STATS_PATH and AF_EXPECTED_NORM_SHA256 from a passed preflight"
 fi
 
-if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
+if test -n "${AF_INITIAL_CHECKPOINT:-}" && test -n "${AF_RESUME_TYPED_MODEL:-}"; then
+  case "$AF_RESUME_TYPED_MODEL" in noaug|av0) ;; *) die "unsupported typed continuation";; esac
+  test "${AF_HOMOGENEOUS_NUMERICAL_DELTA_ACCEPTED:-}" = false || die "typed continuation requires source-specific raw proof"
+  required AF_RESUME_HELPER_DIR
+  required AF_RESUME_TYPED_CALLBACK_SHA256
+  test "$(sha256 "$AF_RESUME_HELPER_DIR/homogeneous_typed_native_training.py")" = "$AF_RESUME_TYPED_CALLBACK_SHA256" || die "typed callback hash mismatch"
+  BASE_OVERRIDES+=("trainer.deterministic=true" "++trainer.benchmark=false")
+  if test "$AF_RESUME_TYPED_MODEL" = noaug; then
+    test "$AF_H696_EULER" = true || die "noaug model mismatch"
+    BASE_OVERRIDES+=(
+      "+callbacks.homogeneous_dithalf._target_=homogeneous_dithalf_training_typed_native_rows_proposal_v6.HomogeneousDiTHalf"
+      "+callbacks.homogeneous_dithalf.task=$AF_NOAUG_TASK"
+      "+callbacks.homogeneous_dithalf.reference_task=$AF_NOAUG_REFERENCE_TASK"
+      "+callbacks.homogeneous_dithalf.contract_path=$AF_NOAUG_TASK/NOAUG_EXECUTION_CONTRACT_VERIFIED_V2.json"
+      model.hidden_dim=696
+      model.pipeline.stages.6.inference_method=euler
+      model.num_inference_steps=50
+      ++run_provenance.scaled_from_hidden_dim=384
+      ++run_provenance.inference_parameter_count=257829594
+      ++run_provenance.validation_inference_sampler=euler
+      ++run_provenance.validation_inference_updates=50
+    )
+  else
+    test "$AF_SPEED_DIAGNOSTIC" = true && test "$AF_ACTION_VELOCITY_WEIGHT" = 0 || die "AV0 model mismatch"
+    BASE_OVERRIDES+=(
+      "+callbacks.homogeneous_dithalf._target_=av0_native_rows_callback_v5.HomogeneousDiTHalf"
+      "+callbacks.homogeneous_dithalf.task=$AF_AV_ZERO_TASK"
+      "+callbacks.homogeneous_dithalf.reference_task=$AF_HOMOGENEOUS_TASK"
+      "+callbacks.homogeneous_dithalf.contract_path=$AF_EXECUTION_CONTRACT_PATH"
+      "++run_provenance.execution_numerical_contract=raw-required"
+      "++run_provenance.execution_contract_sha256=$AF_EXECUTION_CONTRACT_SHA256"
+      "model.pipeline.stages.8.action_velocity_weight=0"
+      "++run_provenance.objective.action_velocity_weight=0"
+      model.pipeline.stages.6.inference_method=euler
+      model.pipeline.stages.6.num_inference_steps=50
+      ++run_provenance.validation_inference_sampler=euler
+      ++run_provenance.validation_inference_steps=50
+    )
+  fi
+elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
   # Task-local typed extension of canonical launcher; user accepts the known
   # grouped BF16 numerical delta, but never a silent sampling/augmentation delta.
   test "${AF_HOMOGENEOUS_NUMERICAL_DELTA_ACCEPTED:-}" = true || die "explicit numerical authorization required"

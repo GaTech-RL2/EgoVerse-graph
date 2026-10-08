@@ -57,7 +57,15 @@ export SRUN
 source "$AF_RESUME_DRIVER_REPO/scripts/train/action_flow_run_child_resume.sh"
 if test "$AF_RESUME_PHASE" = smoke; then
   export AF_RESUME_SMOKE_TARGET_STEP=$MAX_STEPS
-  "$AF_PYTHON" "$AF_RESUME_DRIVER_REPO/scripts/train/verify_speed_smoke_resume.py" "$AF_OUTPUT_DIR" \
+  resume_smoke_verifier=$AF_RESUME_DRIVER_REPO/scripts/train/verify_speed_smoke_resume.py
+  resume_weight_args=()
+  case "${AF_RESUME_TYPED_MODEL:-}" in
+    noaug) resume_smoke_verifier=$AF_RESUME_DRIVER_REPO/scripts/train/verify_noaug_smoke_resume.py ;;
+    av0) resume_smoke_verifier=$AF_RESUME_DRIVER_REPO/scripts/train/verify_av0_smoke_resume.py; resume_weight_args+=(--expected-action-velocity-weight 0) ;;
+    "") ;;
+    *) die "unknown resume verifier family" ;;
+  esac
+  "$AF_PYTHON" "$resume_smoke_verifier" "$AF_OUTPUT_DIR" \
    --expected-experiment "$AF_EXPERIMENT" --expected-head "$AF_EXPECTED_HEAD" \
    --expected-config-sha256 "$(sha256 "$AF_OUTPUT_DIR/.hydra/config.yaml")" \
    --expected-split-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" \
@@ -69,5 +77,5 @@ if test "$AF_RESUME_PHASE" = smoke; then
    --expected-second-dataset-content-aggregate-sha256 "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" \
    --expected-parameter-count "$AF_EXPECTED_PARAMETER_COUNT" \
    --expected-preflight-sha256 "$AF_RESUME_CACHED_PREFLIGHT_SHA256" \
-   --expected-reconstruction-weight 1 --expected-flow-weight 1
+   --expected-reconstruction-weight 1 --expected-flow-weight 1 "${resume_weight_args[@]}"
 fi

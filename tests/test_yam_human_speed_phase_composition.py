@@ -83,6 +83,15 @@ def test_real_shared_argv_composes_and_verifies(tmp_path,monkeypatch,phase):
  OmegaConf.save(cfg,resolved)
  assert not any("cuda" in value for value in argv)
  if phase=="norm":
+  # Exercise the real trainHydra injected kwarg before expensive corpus traversal.
+  from hydra.utils import instantiate
+  key_cfg=OmegaConf.to_container(cfg.data.train_datasets.human_bimanual.resolver.key_map, resolve=True)
+  regular=instantiate(key_cfg)
+  key_cfg["norm_mode"]=True
+  normalized=instantiate(key_cfg)
+  assert "_physical_timestamps_ns" in normalized
+  assert normalized == {k:v for k,v in regular.items() if v.get("key_type") not in ("camera_keys","annotation_keys")}
+  assert not any(v.get("key_type") in ("camera_keys","annotation_keys") for v in normalized.values())
   cfg.norm_stats.precomputed_norm_path=str(norm)
   OmegaConf.save(cfg,resolved)
   with pytest.raises(ValueError):verify_config(resolved,args,ids,aggregate)

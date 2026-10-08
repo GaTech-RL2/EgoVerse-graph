@@ -1395,6 +1395,7 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        resume_partial_norm_path: str | None = None,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
@@ -1409,6 +1410,17 @@ class MultiDataset(torch.utils.data.Dataset):
             return
 
         self.norm_stats.setdefault(embodiment, {})
+
+        if resume_partial_norm_path is not None:
+            if precomputed_norm_path is not None:
+                raise ValueError("partial normalization recovery conflicts with precomputed stats")
+            with open(resume_partial_norm_path) as stream:
+                partial = json.load(stream)
+            if partial["stats"].get(str(embodiment)):
+                # Native loader still checks normalization mode and exact key set.
+                self._load_precomputed_stats(resume_partial_norm_path, embodiment, norm_keys)
+                logger.info(f"[MultiDataset] Reused completed partial stats for embodiment={embodiment}")
+                return
 
         if precomputed_norm_path is not None:
             if os.path.isdir(precomputed_norm_path):

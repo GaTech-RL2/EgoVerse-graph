@@ -153,7 +153,13 @@ def prepend_window_transform(window_transform, native_transforms):
     return [window_transform, *native_transforms]
 
 
-def extend_window_key_map(base_key_map, extra_key_map):
+def extend_window_key_map(base_key_map, extra_key_map, norm_mode=False):
     if set(base_key_map) & set(extra_key_map):
         raise ValueError("extra clock key must not replace a native key")
-    return {**base_key_map, **extra_key_map}
+    key_map = {**base_key_map, **extra_key_map}
+    if norm_mode:
+        # Match native keymap normalization semantics, retaining clock metadata
+        # required by physical retiming before native transforms.
+        key_map = {k: v for k, v in key_map.items()
+                   if v.get("key_type") not in ("camera_keys", "annotation_keys")}
+    return key_map

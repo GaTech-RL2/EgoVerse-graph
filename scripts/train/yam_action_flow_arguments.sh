@@ -78,6 +78,11 @@ yam_action_flow_arguments() {
   fi
   
   if test "$AF_YAM_PHASE" = norm; then
+    if test -n "${AF_YAM_NORM_RECOVERY_JSON:-}${AF_YAM_NORM_RECOVERY_SHA:-}"; then
+      test -n "${AF_YAM_NORM_RECOVERY_JSON:-}" && test -n "${AF_YAM_NORM_RECOVERY_SHA:-}" || return 64
+      test "$(sha256sum "$AF_YAM_NORM_RECOVERY_JSON" | cut -d' ' -f1)" = "$AF_YAM_NORM_RECOVERY_SHA" || return 64
+      overrides+=("++norm_stats.resume_partial_norm_path=$AF_YAM_NORM_RECOVERY_JSON")
+    fi
     overrides+=(
       'norm_stats_only=true'
       'norm_stats.precomputed_norm_path=null'

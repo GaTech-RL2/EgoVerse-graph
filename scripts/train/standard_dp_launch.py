@@ -24,7 +24,7 @@ def arguments(phase, output, norm):
     start = int(os.environ['DP_RESUME_STEP']) if resume else 0
     checkpoint = os.environ['DP_RESUME_CHECKPOINT'] if resume else 'null'
     a=['--config-name=train_zarr_cartesian','+experiment=pusht/planar_chain_manual4919_standard_dp_retimed',
-       'mode=train',f'ckpt_path={checkpoint}','++model.train_log_on_step=true',f'hydra.run.dir={output}',f'++paths.root_dir={output}',
+       'mode=train',(f"ckpt_path='{checkpoint}'" if resume else 'ckpt_path=null'),'++model.train_log_on_step=true',f'hydra.run.dir={output}',f'++paths.root_dir={output}',
        f'paths.output_dir={output}',f'paths.work_dir={os.environ["DP_REPO"]}',
        'launch_params.gpus_per_node=1','launch_params.nodes=1','trainer.devices=1',
        'trainer.num_nodes=1','trainer.strategy=auto','trainer.precision=bf16',

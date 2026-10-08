@@ -19,6 +19,7 @@ import zipfile
 
 import boto3
 from botocore.config import Config
+import google_crc32c
 import numpy as np
 import simplejpeg
 import zarr
@@ -34,6 +35,70 @@ def digest(path):
 
 def json_bytes(value):
     return (json.dumps(value, sort_keys=True, allow_nan=False) + "\n").encode()
+
+
+def recover_imported_shard_metadata(path, frames):
+    """Recover stale import headers only when the original index proves its size.
+
+    Some manual gen imports copied another episode's array metadata. Payloads
+    retain the collector's 100-frame padding and checksummed shard index. Only
+    the downloaded working copy's headers change; source objects and payloads
+    remain byte-for-byte intact. A checksum failure is never ignored.
+    """
+    repairs = []
+    for meta in sorted(Path(path).glob("*/zarr.json")):
+        original = meta.read_bytes()
+        header = json.loads(original)
+        chunks = [p for p in (meta.parent / "c").rglob("*") if p.is_file()]
+        if not chunks:
+            continue
+        codecs = header["codecs"]
+        assert len(codecs) == 1 and codecs[0]["name"] == "sharding_indexed"
+        config = codecs[0]["configuration"]
+        assert config["index_location"] == "end"
+        assert config["index_codecs"] == [{"name": "bytes", "configuration": {"endian": "little"}}, {"name": "crc32c"}]
+        inner = config["chunk_shape"]
+        outer = header["chunk_grid"]["configuration"]["chunk_shape"]
+        assert len(chunks) == 1 and all(p == "0" for p in chunks[0].relative_to(meta.parent / "c").parts)
+        assert outer[1:] == inner[1:] == header["shape"][1:]
+        raw = chunks[0].read_bytes()
+
+        def verified_index(length):
+            if length % inner[0]:
+                return False
+            n = length // inner[0]
+            if len(raw) < 16 * n + 4:
+                return False
+            index = raw[-16 * n - 4:-4]
+            if google_crc32c.value(index) != int.from_bytes(raw[-4:], "little"):
+                return False
+            pairs = np.frombuffer(index, dtype="<u8").reshape(n, 2)
+            missing = np.iinfo(np.uint64).max
+            payload_end = len(raw) - 16 * n - 4
+            for offset, size in pairs:
+                if int(offset) == missing and int(size) == missing:
+                    continue
+                if int(offset) + int(size) > payload_end:
+                    return False
+            return True
+
+        if verified_index(outer[0]) and frames <= header["shape"][0] <= outer[0]:
+            continue
+        padded = ((frames + 99) // 100) * 100
+        if not verified_index(padded):
+            raise ValueError(f"Unrecoverable shard index: {meta}")
+        before = {"shape": list(header["shape"]), "shard_shape": list(outer)}
+        header["shape"][0] = padded
+        outer[0] = padded
+        revised = json_bytes(header)
+        meta.write_bytes(revised)
+        repairs.append({"array": meta.parent.name, "before": before,
+            "after": {"shape": header["shape"], "shard_shape": outer},
+            "original_metadata_sha256": hashlib.sha256(original).hexdigest(),
+            "recovered_metadata_sha256": hashlib.sha256(revised).hexdigest(),
+            "unchanged_shard_sha256": hashlib.sha256(raw).hexdigest(),
+            "index_crc32c_verified": True})
+    return repairs
 
 
 def infer_observation_alignment(actions, state, attrs, *, speed, fps):
@@ -177,6 +242,9 @@ def main(spec):
             attrs = dict(group.attrs)
             frames = int(attrs["total_frames"])
             assert frames > 1 and int(attrs["fps"]) == spec["fps"]
+            repairs = recover_imported_shard_metadata(row["path"], frames) if row["source"] == "chain_gen" else []
+            if repairs:
+                group = zarr.open_group(row["path"], mode="r")
             actions = np.asarray(group["actions"][:frames])
             state = np.asarray(group["observations.state"][:frames])
             assert actions.shape == (frames, 3 if row["source"] == "usocket" else 4)
@@ -212,6 +280,7 @@ def main(spec):
                 "total_frames": frames, "fps": spec["fps"], "observation_alignment": alignment,
                 "action_target_offset_obs2": 1 if alignment == "pre_step" else 2,
                 "alignment_evidence": alignment_evidence,
+                "local_metadata_recovery": repairs,
                 "embodiment": "pushshapes_sim_u_socket" if row["source"] == "usocket" else "pushshapes_sim_chain_gripper",
                 "obstacle_level": int(init.get("obstacle_level", 0)), "episode_init": init,
                 "generation_source": init.get("generation", {}).get("source_episode"),
@@ -260,14 +329,43 @@ def main(spec):
                         index, block, shard = result
                         recovered[index] = (block, shard)
             print("RECOVERED_VERIFIED_CACHE_SHARDS", len(recovered), flush=True)
+        # Newer attempts publish small per-shard receipts. Reuse these only
+        # after proving the source inventory and decoder version are identical.
+        if spec.get("resume_receipts"):
+            resume = spec["resume_receipts"]
+            previous = json.loads(client.get_object(Bucket=bucket, Key=resume["prefix"] + "STARTED.json")["Body"].read())
+            assert previous["script_sha256"] == resume["script_sha256"]
+            assert previous["spec"]["original_archive"] == spec["original_archive"]
+            prior_inventory = json.loads(client.get_object(Bucket=bucket, Key=resume["prefix"] + "inventory.json")["Body"].read())
+            identity = lambda objects: {o["key"]: (o["etag"], o["bytes"]) for o in objects}
+            assert identity(prior_inventory) == identity(inventory), "Source inventory changed since cached attempt"
+            objects = [o for page in client.get_paginator("list_objects_v2").paginate(
+                Bucket=bucket, Prefix=resume["prefix"] + "CACHE_SHARD_") for o in page.get("Contents", [])]
+            for obj in objects:
+                index = int(Path(obj["Key"]).stem.removeprefix("CACHE_SHARD_"))
+                response = client.get_object(Bucket=bucket, Key=obj["Key"])
+                raw = response["Body"].read()
+                assert hashlib.sha256(raw).hexdigest() == response["Metadata"]["sha256"]
+                item = json.loads(raw)
+                block, shard = item["episodes"], item["archive"]
+                assert {e["source_prefix"] for e in block} == {e["source_prefix"] for e in rows[index*128:(index+1)*128]}
+                head = client.head_object(Bucket=bucket, Key=shard["key"])
+                assert head["Metadata"]["sha256"] == shard["sha256"] and head["ContentLength"] == shard["bytes"]
+                recovered[index] = (block, shard)
+            print("RECOVERED_VERIFIED_CACHE_RECEIPTS", len(objects), flush=True)
         episodes, shards = [], []
         for start in range(0, len(rows), 128):
             if start // 128 in recovered:
                 block, shard = recovered[start // 128]
                 episodes.extend(block); shards.append(shard)
                 continue
+            def decode_with_context(row):
+                try:
+                    return decode(row)
+                except Exception as error:
+                    raise RuntimeError(f"{row['source_prefix']}: {error}") from error
             with cf.ThreadPoolExecutor(max_workers=8) as pool:
-                block = list(pool.map(decode, rows[start:start + 128]))
+                block = list(pool.map(decode_with_context, rows[start:start + 128]))
             path = root / f"cache-{start // 128:04d}.tar.gz"
             with tarfile.open(path, "w:gz", compresslevel=1) as tar:
                 for e in block:

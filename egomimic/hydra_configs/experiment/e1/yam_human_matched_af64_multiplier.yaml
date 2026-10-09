@@ -1,0 +1,53 @@
+# @package _global_
+defaults:
+  - /experiment/e1/yam_human_keypoints_multiplier_h816_private512_s42
+  - /experiment/e1/yam_human_matched_common
+  - _self_
+name: yam_human_matched_af64_multiplier
+model:
+  num_latent_tokens: 64
+  latent_dim: 16
+  action_horizon: 100
+  num_inference_steps: 50
+  pipeline:
+    flow_inference_method: euler
+run_provenance:
+  split_manifest_sha256: ${oc.env:MATCHED_AF_SPLIT_SHA256}
+  speed_augmentation:
+    sample_views_per_source: null
+    sample_views_by_source: ${stationary_speed.sample_views_by_source}
+    source_sampling_contract: proportional_to_actual_windows_robot1_human5
+  architecture:
+    latent_shape: [64,16]
+    parameter_count_candidate: 270467328
+  inference:
+    sampler: euler
+    steps: 50
+  comparison: task_success_native_af_aug_vs_dp_noaug_v1
+evaluator:
+  action_flow_diagnostics:
+    provenance:
+      latent_shape: [64,16]
+      sampler: euler
+  energy_score_provenance:
+    sampler: euler
+    sampler_steps: 50
+
+# User-selected exposure: one native robot view, five augmented human views.
+stationary_speed:
+  sample_views_per_source: null
+  sample_views_by_source: {yam_bimanual: 1, human_bimanual: 5}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          window_transform:
+            sample_views: 1
+  valid_datasets:
+    yam:
+      yam_bimanual:
+        resolver:
+          transform_list:
+            window_transform:
+              sample_views: 1

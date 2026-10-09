@@ -61,7 +61,6 @@ robot:
       fps: 30
 frequency: 30
 max_joint_velocity: 4.5
-execute_steps: 10
 max_steps: 3000
 preview:
   enabled: true

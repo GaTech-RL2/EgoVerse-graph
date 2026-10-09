@@ -315,14 +315,19 @@ def test_training_objective_preserves_all_joint_gradient_routes():
     assert float(condition.grad.abs().sum()) > 0.0
 
 
-def test_decoder_jvp_matches_explicit_linear_jacobian_and_is_differentiable():
+@pytest.mark.parametrize("jvp_checkpointing", [False, True])
+def test_decoder_jvp_matches_explicit_linear_jacobian_and_is_differentiable(
+    jvp_checkpointing,
+):
     decoder = _LastDimLinear(2, 3)
     with torch.no_grad():
         decoder.linear.weight.copy_(
             torch.tensor([[1.0, 2.0], [-3.0, 4.0], [0.5, -0.25]])
         )
         decoder.linear.bias.copy_(torch.tensor([7.0, 8.0, 9.0]))
-    stage = ContentDecoderStage(decoder)
+    stage = ContentDecoderStage(
+        decoder, jvp_activation_checkpointing=jvp_checkpointing
+    )
     clean = torch.randn(2, 4, 2)
     state = torch.randn(6, 4, 2, requires_grad=True)
     residual = torch.randn(6, 4, 2, requires_grad=True)
@@ -343,6 +348,48 @@ def test_decoder_jvp_matches_explicit_linear_jacobian_and_is_differentiable():
     assert residual.grad is not None
     assert decoder.linear.weight.grad is not None
     assert float(decoder.linear.weight.grad.abs().sum()) > 0.0
+
+
+def test_checkpointed_nonlinear_decoder_jvp_matches_value_and_gradients():
+    torch.manual_seed(23)
+    decoder = nn.Sequential(nn.Linear(3, 8), nn.Tanh(), nn.Linear(8, 4))
+    stage = ContentDecoderStage(decoder)
+    clean = torch.randn(2, 5, 3)
+    initial_state = torch.randn(6, 5, 3)
+    initial_residual = torch.randn(6, 5, 3)
+
+    def run(checkpointed):
+        stage.jvp_activation_checkpointing = checkpointed
+        decoder.zero_grad(set_to_none=True)
+        state = initial_state.clone().requires_grad_()
+        residual = initial_residual.clone().requires_grad_()
+        result = stage(
+            {
+                "action_flow/clean_latent": clean,
+                "action_flow/state": state,
+                "action_flow/velocity_residual": residual,
+            }
+        )["action_flow/decoded_velocity_residual"]
+        result.square().mean().backward()
+        return (
+            result.detach().clone(),
+            state.grad.detach().clone(),
+            residual.grad.detach().clone(),
+            tuple(
+                None if p.grad is None else p.grad.detach().clone()
+                for p in decoder.parameters()
+            ),
+        )
+
+    direct = run(False)
+    recomputed = run(True)
+    for expected, actual in zip(direct[:3], recomputed[:3]):
+        torch.testing.assert_close(actual, expected)
+    for expected, actual in zip(direct[3], recomputed[3]):
+        if expected is None or actual is None:
+            assert expected is None and actual is None
+        else:
+            torch.testing.assert_close(actual, expected)
 
 
 def test_objective_averages_k_samples_and_applies_only_declared_weights():
@@ -454,8 +501,10 @@ def test_stage_source_keeps_the_pipeline_boundary_generic():
         .lower()
     )
     for forbidden in (
-        "embodiment",
-        "domain",
+        "yam_bimanual",
+        "human_bimanual",
+        "pushshapes_sim",
+        "libero",
         "ac_key",
         "action_key",
         "egomimic.models",

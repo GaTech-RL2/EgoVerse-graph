@@ -10,3 +10,7 @@ exclude = [
 [lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Keep the pinned yam-pipeline reference solver byte-for-byte identical.
+"egomimic/robot/yam/streaming_ik.py" = ["I001"]

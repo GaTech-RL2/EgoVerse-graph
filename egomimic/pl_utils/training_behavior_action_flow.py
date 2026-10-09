@@ -104,6 +104,14 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         if isinstance(cadence, bool) or not isinstance(cadence, int) or cadence < 0:
             raise ValueError("gradient_telemetry_cadence must be a nonnegative integer")
         self.gradient_telemetry_cadence = cadence
+        self._checkpointed_jvp_telemetry = bool(
+            self.context._as_config(config_tree).model.get(
+                "jvp_activation_checkpointing", False
+            )
+            if config_tree is not None
+            else False
+        )
+        self._last_gradient_telemetry_step: int | None = None
         self._validation_metrics = MetricAccumulator()
         self._gradient_route_manifest: dict[str, Any] | None = None
 
@@ -238,7 +246,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def encoder_e(self) -> nn.Module:
         """The exact encoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[0].encoder
+        stage = self._action_flow_topology()[0]
+        return stage.encoder if stage.encoders is None else stage.encoders
 
     @property
     def field_v(self) -> nn.Module:
@@ -250,7 +259,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def decoder_g(self) -> nn.Module:
         """The exact decoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[2].decoder
+        stage = self._action_flow_topology()[2]
+        return stage.decoder if stage.decoders is None else stage.decoders
 
     @classmethod
     def _source_values(
@@ -413,12 +423,27 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             raise RuntimeError(
                 f"Action Flow {label} must retain its autograd graph for telemetry"
             )
-        _, gradients = component_gradients(
-            loss,
-            named,
-            allow_unused=True,
-            label=f"Action Flow {label}",
-        )
+        if self._checkpointed_jvp_telemetry:
+            # YAM's reentrant JVP checkpoint cannot be traversed by grad().
+            # Use backward without explicit inputs, keeping the diagnostic
+            # isolated from Lightning's accumulated optimizer gradients.
+            parameters = tuple(parameter for _, parameter in named)
+            accumulated = tuple(parameter.grad for parameter in parameters)
+            try:
+                for parameter in parameters:
+                    parameter.grad = None
+                torch.autograd.backward(loss, retain_graph=True)
+                gradients = tuple(parameter.grad for parameter in parameters)
+            finally:
+                for parameter, previous in zip(parameters, accumulated):
+                    parameter.grad = previous
+        else:
+            _, gradients = component_gradients(
+                loss,
+                named,
+                allow_unused=True,
+                label=f"Action Flow {label}",
+            )
         active = OrderedDict(
             (index, self._distributed_gradient(gradient))
             for index, gradient in enumerate(gradients)
@@ -618,8 +643,17 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
                 sync_dist=False,
             )
 
+    def _should_log_gradient_telemetry(self, next_step: int) -> bool:
+        if not self.gradient_telemetry_cadence:
+            return False
+        if next_step % self.gradient_telemetry_cadence:
+            return False
+        return (
+            not self._checkpointed_jvp_telemetry
+            or next_step != self._last_gradient_telemetry_step
+        )
+
     def training_step(self, batch, batch_idx):
-        del batch_idx
         self.context.train()
         if self.context.device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(self.context.device)
@@ -665,11 +699,12 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             else self._objective_weight("action_velocity_weight", default=1.0),
         )
         next_step = int(self.context.global_step) + 1
-        if (
-            self.gradient_telemetry_cadence
-            and next_step % self.gradient_telemetry_cadence == 0
-        ):
+        # Lightning's optimizer-step transition need not align with batch_idx
+        # modulo accumulation. Deduplicate on the optimizer step itself.
+        if self._should_log_gradient_telemetry(next_step):
             self._log_gradient_telemetry(components)
+            if self._checkpointed_jvp_telemetry:
+                self._last_gradient_telemetry_step = next_step
         return optimizer_loss
 
     def on_after_backward(self) -> None:

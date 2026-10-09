@@ -1,0 +1,105 @@
+# @package _global_
+# Historical/non-canonical YAM 14D + human head-frame 138D co-train candidate.
+# Launcher binds exact data, source, normalization, output and W&B identities.
+defaults:
+  - /experiment/e1/abc_base
+  - override /data: e1/yam_human_keypoints_proportional_val01
+  - override /model: e1/yam_human_keypoints_action_flow_h816_private512_d6
+  - override /evaluator: e1/yam_human_keypoints_action_flow
+  - _self_
+
+name: yam_human_keypoints_action_flow_h816_private512_s42
+description: yam_human_keypoints_action_flow_h816_private512_s42
+seed: 42
+e1:
+  variant: time
+  spread: stationary
+  data_root: ???
+  train_root: null
+  valid_root: null
+  chunk_length: 100
+  action_dim: 14
+  action_horizon: 100
+
+launch_params: {gpus_per_node: 1, nodes: 1}
+trainer:
+  max_steps: 80000
+  max_epochs: -1
+  limit_train_batches: 1.0
+  val_check_interval: 5000
+  limit_val_batches: 256
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  strategy: auto
+  precision: bf16-mixed
+  gradient_clip_val: 3.0
+  gradient_clip_algorithm: norm
+
+norm_stats:
+  norm_mode: minmax
+  sample_frac: 1.0
+  num_workers: 8
+  precomputed_norm_path: ${oc.env:AF_COTRAIN_NORM}
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    save_last: link
+    save_top_k: -1
+    every_n_train_steps: 5000
+    every_n_epochs: null
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9978
+    validate_with_ema: true
+
+eval_checkpoint:
+  use_ema: true
+
+logger:
+  wandb:
+    project: pushshapes-action-flow
+
+run_provenance:
+  source_commit: null
+  normalization_sha256: c0029c32099f8fd89a5457e63172d19724227002d8bebec09761efcdb8b11871
+  split_manifest_sha256: d68e8903f910da0db614c590706c76c2b8f4a5ee960deedc09e6a31497bb6296
+  dataset_content_aggregate_sha256: null
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: {yam_bimanual: 227, human_bimanual: 36}
+  valid_episode_count_per_domain: {yam_bimanual: 2, human_bimanual: 1}
+  union_episode_count_per_domain: {yam_bimanual: 229, human_bimanual: 37}
+  train_windows_per_domain: {yam_bimanual: 249565, human_bimanual: 126699}
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  action_contract:
+    yam_bimanual: yam_cartesian_xyz_ypr_gripper_14d_horizon100
+    human_bimanual: human_headframe_bimanual_wrist_ypr_keypoints_138d_horizon100
+    native_decoder: none
+  architecture:
+    family: action_flow_shared_conditional_latent_field_private_action_codecs
+    private_codec: UniteDiTBackbone_h512_d6_h8
+    denoiser: UniteDiTBackbone_h816_d12_h12
+    parameter_count_candidate: 270355776
+    latent_shape: [8, 16]
+    observation_condition_dim: 256
+  objective:
+    method: latent_fm_stopgrad_unite
+    flow_clean_gradient_mode: all_stopgrad
+    reconstruction_is_optimizer_objective: true
+    flow_weight: 1.0
+    reconstruction_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+    flow_mini_batch: 14
+  inference:
+    sampler: dopri5
+    steps: 50
+    timestep_shift_alpha: 0.5
+    classifier_free_guidance: false
+  energy_score_contract:
+    sample_count: 32
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    distance_type: yam14_human138_per_embodiment_fixed_v1

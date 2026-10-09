@@ -175,6 +175,9 @@ class ActionFlowDiagnostics:
             raise ValueError("Action Flow diagnostic jacobian_samples must be positive")
         if self.max_samples is not None and self.jacobian_samples > self.max_samples:
             raise ValueError("jacobian_samples cannot exceed max_samples")
+        self.jacobian_method = str(config.get("jacobian_method", "reverse_chunked"))
+        if self.jacobian_method not in {"reverse_chunked", "forward_math_chunk4"}:
+            raise ValueError("Unsupported Action Flow diagnostic Jacobian method")
 
         self.capture_activations = bool(config.get("capture_activations", False))
         raw_layer_map = config.get("activation_layer_map", {})

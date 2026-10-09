@@ -54,6 +54,7 @@ class ActionFlowDiagnosticProvider(DiagnosticProvider):
         max_samples: int | None = None,
         jacobian_samples: int = 2,
         capture_activations: bool = True,
+        jacobian_method: str = "reverse_chunked",
     ) -> OrderedDict[str, OrderedDict[str, Any]]:
         if isinstance(noise_seed, bool) or not isinstance(noise_seed, int):
             raise TypeError("noise_seed must be an integer")
@@ -69,6 +70,8 @@ class ActionFlowDiagnosticProvider(DiagnosticProvider):
             or jacobian_samples <= 0
         ):
             raise ValueError("jacobian_samples must be a positive integer")
+        if jacobian_method not in {"reverse_chunked", "forward_math_chunk4"}:
+            raise ValueError("Unsupported Action Flow diagnostic Jacobian method")
         if isinstance(raw_noise_levels, (str, bytes)):
             raise TypeError("raw_noise_levels must be a numeric sequence")
         try:
@@ -85,6 +88,7 @@ class ActionFlowDiagnosticProvider(DiagnosticProvider):
             jacobian_samples=jacobian_samples,
             capture_activations=bool(capture_activations),
             already_processed=already_processed,
+            jacobian_method=jacobian_method,
         )
 
 

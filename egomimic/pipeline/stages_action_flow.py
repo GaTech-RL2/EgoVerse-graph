@@ -9,6 +9,7 @@ from contextlib import nullcontext
 import torch
 import torch.nn as nn
 from torch.func import jvp
+from torch.utils.checkpoint import checkpoint
 
 from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
@@ -46,6 +47,45 @@ def _routed_modules(
     return nn.ModuleDict(configured)
 
 
+def _routed_module(batch: dict, modules: nn.ModuleDict, selector_key: str, selector_aliases: dict[str, str], label: str) -> nn.Module:
+    raw = resolve_homogeneous_scalar(batch[selector_key], label=selector_key)
+    name = selector_aliases.get(str(raw), str(raw))
+    if name not in modules:
+        raise KeyError(f'{label} has no module for embodiment {name!r}; configured={tuple(modules)}')
+    return modules[name]
+
+
+class _SplitFieldPrediction(torch.autograd.Function):
+    """Share one field value while isolating the FM gradient from its state.
+
+    Both cotangents reach field parameters and conditioning; remove only the
+    FM contribution from the bridge state, matching state.detach() reference.
+    """
+
+    @staticmethod
+    def forward(ctx, prediction, state):
+        ctx.save_for_backward(prediction, state)
+        return prediction, prediction
+
+    @staticmethod
+    def backward(ctx, action_gradient, flow_gradient):
+        prediction, state = ctx.saved_tensors
+        if action_gradient is None and flow_gradient is None:
+            return None, None
+        if flow_gradient is None:
+            return action_gradient, None
+        combined = flow_gradient if action_gradient is None else flow_gradient + action_gradient
+        if not state.requires_grad:
+            return combined, None
+        create_graph = torch.is_grad_enabled()
+        with torch.enable_grad():
+            correction = torch.autograd.grad(
+                prediction, state, flow_gradient, create_graph=create_graph,
+                retain_graph=True, allow_unused=False,
+            )[0]
+        return combined, -correction
+
+
 def _route_from_batch(
     batch: Mapping,
     *,
@@ -74,16 +114,31 @@ class ContentEncoderStage(Stage):
 
     def __init__(
         self,
-        encoder: nn.Module,
+        encoder: nn.Module | None = None,
         input_key: str = "target",
         output_key: str = "action_flow/clean_latent",
+        encoders: dict[str, nn.Module] | None = None,
+        selector_key: str = 'embodiment',
+        selector_aliases: dict | None = None,
     ):
         super().__init__()
-        self.encoder = _module(encoder, label="encoder")
+        if (encoder is None) == (encoders is None):
+            raise ValueError('Provide exactly one encoder or embodiment encoder mapping')
+        self.encoder = _module(encoder, label="encoder") if encoder is not None else None
+        self.encoders = nn.ModuleDict({str(k): _module(v, label=f'encoder[{k}]') for k, v in encoders.items()}) if encoders is not None else None
+        if self.encoders is not None and len(self.encoders) < 2:
+            raise ValueError('Embodiment encoder mapping needs at least two domains')
+        self.selector_key = _key(selector_key, label='selector_key')
+        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
         self.input_key = _key(input_key, label="input_key")
         self.output_key = _key(output_key, label="output_key")
-        self.reads = (self.input_key,)
+        self.reads = (self.input_key,) + ((self.selector_key,) if self.encoders is not None else ())
         self.writes = (self.output_key,)
+
+    def encoder_for(self, batch: dict) -> nn.Module:
+        return self.encoder if self.encoders is None else _routed_module(
+            batch, self.encoders, self.selector_key, self.selector_aliases, 'ContentEncoderStage'
+        )
 
     def forward(self, batch: dict) -> dict:
         content = _tensor(batch, self.input_key)
@@ -91,7 +146,8 @@ class ContentEncoderStage(Stage):
             raise ValueError(
                 f"{self.input_key} must have shape (B, ...), got {tuple(content.shape)}"
             )
-        clean = self.encoder(content)
+        encoder = self.encoder_for(batch)
+        clean = encoder(content)
         if not torch.is_tensor(clean) or clean.ndim < 2:
             shape = tuple(clean.shape) if torch.is_tensor(clean) else None
             raise ValueError(f"encoder output must have shape (B, ...), got {shape}")
@@ -344,6 +400,7 @@ class ConditionalVelocityStage(Stage):
         inference_steps_log_key: str = "log/action_flow_inference_steps",
         flow_clean_gradient_mode: str = "full",
         flow_residual_key: str = "action_flow/fm_velocity_residual",
+        fm_field_execution: str = "separate",
     ):
         super().__init__()
         self.field = _module(field, label="field")
@@ -372,6 +429,9 @@ class ConditionalVelocityStage(Stage):
         if flow_clean_gradient_mode not in {"full", "all_stopgrad"}:
             raise ValueError("flow_clean_gradient_mode must be full|all_stopgrad")
         self.flow_clean_gradient_mode = flow_clean_gradient_mode
+        if fm_field_execution not in {"separate", "shared"}:
+            raise ValueError("fm_field_execution must be separate|shared")
+        self.fm_field_execution = fm_field_execution
 
         self.state_key = _key(state_key, label="state_key")
         self.time_key = _key(time_key, label="time_key")
@@ -482,9 +542,13 @@ class ConditionalVelocityStage(Stage):
             # The bridge consists only of the learned clean endpoint and
             # action-independent Gaussian noise. Detaching its state and
             # target removes both clean routes from FM, not from Action Flow.
-            flow_prediction = self._predict(
-                state.detach(), time, condition, drop_mask
-            )
+            if self.fm_field_execution == "shared":
+                prediction, flow_prediction = _SplitFieldPrediction.apply(prediction, state)
+                batch[self.predicted_velocity_key] = prediction
+            else:
+                flow_prediction = self._predict(
+                    state.detach(), time, condition, drop_mask
+                )
             batch[self.flow_residual_key] = flow_prediction - target_velocity.detach()
         else:
             batch[self.flow_residual_key] = batch[self.residual_key]
@@ -599,7 +663,7 @@ class ContentDecoderStage(Stage):
 
     def __init__(
         self,
-        decoder: nn.Module,
+        decoder: nn.Module | None = None,
         reconstruction_noising_start: float = 1.0,
         reconstruction_noising_probability: float = 0.0,
         clean_key: str = "action_flow/clean_latent",
@@ -607,11 +671,26 @@ class ContentDecoderStage(Stage):
         residual_key: str = "action_flow/velocity_residual",
         reconstruction_key: str = "action_flow/reconstruction",
         decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        decode_noise: bool = False,
+        noise_key: str = "sampler/noise",
+        decoded_noise_key: str = "action_flow/decoded_noise",
         inference_latent_key: str = "action_flow/generated_latent",
         prediction_key: str = "pred_action",
+        jvp_activation_checkpointing: bool = False,
+        decoders: dict[str, nn.Module] | None = None,
+        selector_key: str = 'embodiment',
+        selector_aliases: dict | None = None,
     ):
         super().__init__()
-        self.decoder = _module(decoder, label="decoder")
+        if (decoder is None) == (decoders is None):
+            raise ValueError('Provide exactly one decoder or embodiment decoder mapping')
+        self.decoder = _module(decoder, label="decoder") if decoder is not None else None
+        self.decoders = nn.ModuleDict({str(k): _module(v, label=f'decoder[{k}]') for k, v in decoders.items()}) if decoders is not None else None
+        if self.decoders is not None and len(self.decoders) < 2:
+            raise ValueError('Embodiment decoder mapping needs at least two domains')
+        self.selector_key = _key(selector_key, label='selector_key')
+        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
+        self.jvp_activation_checkpointing = bool(jvp_activation_checkpointing)
         self.reconstruction_noising_start = float(reconstruction_noising_start)
         self.reconstruction_noising_probability = float(
             reconstruction_noising_probability
@@ -627,27 +706,36 @@ class ContentDecoderStage(Stage):
         self.decoded_residual_key = _key(
             decoded_residual_key, label="decoded_residual_key"
         )
+        self.decode_noise = bool(decode_noise)
+        self.noise_key = _key(noise_key, label="noise_key")
+        self.decoded_noise_key = _key(decoded_noise_key, label="decoded_noise_key")
         self.inference_latent_key = _key(
             inference_latent_key, label="inference_latent_key"
         )
         self.prediction_key = _key(prediction_key, label="prediction_key")
-        self.reads = (self.clean_key, self.state_key, self.residual_key)
-        self.writes = (self.reconstruction_key, self.decoded_residual_key)
-        self.reads_by_mode = {"inference": (self.inference_latent_key,)}
+        self.reads = (
+            self.clean_key,
+            self.state_key,
+            self.residual_key,
+        ) + ((self.noise_key,) if self.decode_noise else ()) + ((self.selector_key,) if self.decoders is not None else ())
+        self.writes = (
+            self.reconstruction_key,
+            self.decoded_residual_key,
+        ) + ((self.decoded_noise_key,) if self.decode_noise else ())
+        self.reads_by_mode = {"inference": (self.inference_latent_key,) + ((self.selector_key,) if self.decoders is not None else ())}
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
-    def _decoder_for(self, batch: Mapping) -> nn.Module:
-        del batch
-        return self.decoder
+    def decoder_for(self, batch: dict) -> nn.Module:
+        return self._decoder_for(batch)
 
-    def _decode(
-        self,
-        value: torch.Tensor,
-        *,
-        label: str,
-        decoder: nn.Module | None = None,
-    ) -> torch.Tensor:
-        decoded = (self.decoder if decoder is None else decoder)(value)
+    def _decoder_for(self, batch: Mapping) -> nn.Module:
+        return self.decoder if self.decoders is None else _routed_module(batch, self.decoders, self.selector_key, self.selector_aliases, 'ContentDecoderStage')
+
+    def _selected_decoder(self, batch: dict) -> nn.Module:
+        return self.decoder_for(batch)
+
+    def _decode(self, value: torch.Tensor, *, label: str, decoder: nn.Module) -> torch.Tensor:
+        decoded = decoder(value)
         if not torch.is_tensor(decoded) or decoded.ndim < 2:
             shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
             raise ValueError(f"decoder {label} must have shape (B, ...), got {shape}")
@@ -656,9 +744,11 @@ class ContentDecoderStage(Stage):
         return decoded
 
     def _forward_train(self, batch: dict) -> dict:
+        decoder = self._selected_decoder(batch)
         clean = _tensor(batch, self.clean_key)
         state = _tensor(batch, self.state_key)
         residual = _tensor(batch, self.residual_key)
+        noise = _tensor(batch, self.noise_key) if self.decode_noise else None
         if state.shape != residual.shape:
             raise ValueError(
                 "latent state and velocity residual must have matching shapes"
@@ -679,49 +769,59 @@ class ContentDecoderStage(Stage):
                 < self.reconstruction_noising_probability
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
-        reconstruction = self._decode(
-            reconstruction_input, label="reconstruction", decoder=decoder
+        reconstruction = self._decode(reconstruction_input, label="reconstruction", decoder=decoder)
+        decoded_noise = (
+            self._decode(noise, label="noise", decoder=decoder) if noise is not None else None
         )
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
         # computing this required forward-mode JVP.
-        checkpointing = getattr(decoder, "gradient_checkpointing", None)
-        if isinstance(checkpointing, bool):
-            decoder.gradient_checkpointing = False
-        # CUDA FlashAttention does not implement forward-mode AD. Restrict the
-        # decoder JVP to the mathematically equivalent SDPA math kernel; normal
-        # reconstruction, training, and inference forwards keep their default
-        # optimized attention selection.
-        attention_context = (
-            torch.backends.cuda.sdp_kernel(
-                enable_flash=False,
-                enable_math=True,
-                enable_mem_efficient=False,
-            )
-            if state.is_cuda
-            else nullcontext()
-        )
-        # Higher-order backward through the math kernel also requires matching
-        # primal/tangent dtypes, so keep this isolated derivative in FP32 when
-        # the surrounding trainer uses CUDA mixed precision.
-        precision_context = (
-            torch.autocast(device_type="cuda", enabled=False)
-            if state.is_cuda
-            else nullcontext()
-        )
-        jvp_state = state.float() if state.is_cuda else state
-        jvp_residual = residual.float() if residual.is_cuda else residual
-        try:
-            with precision_context, attention_context:
-                decoded_residual = jvp(
-                    decoder,
-                    (jvp_state,),
-                    (jvp_residual,),
-                )[1]
-        finally:
+        def decode_jvp(primal: torch.Tensor, tangent: torch.Tensor) -> torch.Tensor:
+            checkpointing = getattr(decoder, "gradient_checkpointing", None)
             if isinstance(checkpointing, bool):
-                decoder.gradient_checkpointing = checkpointing
+                decoder.gradient_checkpointing = False
+            # Forward AD requires math SDPA and matching FP32 primal/tangent
+            # dtypes. Keep both contexts inside the function so checkpoint
+            # replay uses the same numerical path as its forward pass.
+            attention_context = (
+                torch.backends.cuda.sdp_kernel(
+                    enable_flash=False,
+                    enable_math=True,
+                    enable_mem_efficient=False,
+                )
+                if primal.is_cuda
+                else nullcontext()
+            )
+            precision_context = (
+                torch.autocast(device_type="cuda", enabled=False)
+                if primal.is_cuda
+                else nullcontext()
+            )
+            try:
+                with precision_context, attention_context:
+                    return jvp(
+                        decoder,
+                        (primal.float() if primal.is_cuda else primal,),
+                        (tangent.float() if tangent.is_cuda else tangent,),
+                    )[1]
+            finally:
+                if isinstance(checkpointing, bool):
+                    decoder.gradient_checkpointing = checkpointing
+
+        if (
+            self.jvp_activation_checkpointing
+            and self.training
+            and torch.is_grad_enabled()
+            and (state.requires_grad or residual.requires_grad)
+        ):
+            # Reentrant checkpointing is outside torch.func.jvp. The decoder's
+            # non-reentrant per-layer checkpointing remains disabled inside it.
+            decoded_residual = checkpoint(
+                decode_jvp, state, residual, use_reentrant=True
+            )
+        else:
+            decoded_residual = decode_jvp(state, residual)
         if not torch.is_tensor(decoded_residual) or decoded_residual.ndim < 2:
             shape = (
                 tuple(decoded_residual.shape)
@@ -733,6 +833,8 @@ class ContentDecoderStage(Stage):
             raise ValueError("decoder JVP batch does not match the bridge state")
         batch[self.reconstruction_key] = reconstruction
         batch[self.decoded_residual_key] = decoded_residual
+        if decoded_noise is not None:
+            batch[self.decoded_noise_key] = decoded_noise
         return batch
 
     def _forward_inference(self, batch: dict) -> dict:
@@ -797,12 +899,14 @@ class ActionFlowObjectiveStage(Stage):
         flow_weight: float = 1.0,
         reconstruction_weight: float = 1.0,
         action_velocity_weight: float = 1.0,
+        moment_weight: float = 0.0,
         flow_aggregation: str = "mean",
         flow_samples_per_content: int = 1,
         target_key: str = "target",
         residual_key: str = "action_flow/velocity_residual",
         reconstruction_key: str = "action_flow/reconstruction",
         decoded_residual_key: str = "action_flow/decoded_velocity_residual",
+        decoded_noise_key: str = "action_flow/decoded_noise",
         loss_key: str = "loss/action_flow",
         log_prefix: str = "log/action_flow",
     ):
@@ -810,6 +914,7 @@ class ActionFlowObjectiveStage(Stage):
         self.flow_weight = float(flow_weight)
         self.reconstruction_weight = float(reconstruction_weight)
         self.action_velocity_weight = float(action_velocity_weight)
+        self.moment_weight = float(moment_weight)
         if flow_aggregation not in {"mean", "sum_samples"}:
             raise ValueError("flow_aggregation must be mean|sum_samples")
         self.flow_aggregation = str(flow_aggregation)
@@ -820,6 +925,7 @@ class ActionFlowObjectiveStage(Stage):
             self.flow_weight,
             self.reconstruction_weight,
             self.action_velocity_weight,
+            self.moment_weight,
         )
         if any(not math.isfinite(weight) or weight < 0.0 for weight in weights):
             raise ValueError("objective weights must be finite and non-negative")
@@ -833,18 +939,22 @@ class ActionFlowObjectiveStage(Stage):
             decoded_residual_key, label="decoded_residual_key"
         )
         self.loss_key = _key(loss_key, label="loss_key")
+        self.decoded_noise_key = _key(decoded_noise_key, label="decoded_noise_key")
         self.log_prefix = _key(log_prefix, label="log_prefix").rstrip("/")
         self.total_log_key = f"{self.log_prefix}_total"
         self.flow_log_key = f"{self.log_prefix}_fm"
         self.reconstruction_log_key = f"{self.log_prefix}_reconstruction"
         self.reconstruction_l1_log_key = f"{self.log_prefix}_reconstruction_l1"
         self.action_velocity_log_key = f"{self.log_prefix}_action_velocity"
+        self.moment_log_key = f"{self.log_prefix}_decoded_noise_moments"
+        self.moment_mean_log_key = f"{self.log_prefix}_decoded_noise_mean_penalty"
+        self.moment_covariance_log_key = f"{self.log_prefix}_decoded_noise_covariance_penalty"
         self.reads = (
             self.target_key,
             self.residual_key,
             self.reconstruction_key,
             self.decoded_residual_key,
-        )
+        ) + ((self.decoded_noise_key,) if self.moment_weight > 0.0 else ())
         self.writes = (
             self.loss_key,
             self.total_log_key,
@@ -852,6 +962,9 @@ class ActionFlowObjectiveStage(Stage):
             self.reconstruction_log_key,
             self.reconstruction_l1_log_key,
             self.action_velocity_log_key,
+            self.moment_log_key,
+            self.moment_mean_log_key,
+            self.moment_covariance_log_key,
         )
 
     def forward(self, batch: dict) -> dict:
@@ -859,6 +972,23 @@ class ActionFlowObjectiveStage(Stage):
         residual = _tensor(batch, self.residual_key)
         reconstruction = _tensor(batch, self.reconstruction_key)
         decoded_residual = _tensor(batch, self.decoded_residual_key)
+        moment_mean = residual.new_zeros(())
+        moment_covariance = residual.new_zeros(())
+        if self.moment_weight > 0.0:
+            decoded_noise = _tensor(batch, self.decoded_noise_key)
+            if decoded_noise.ndim < 2 or int(decoded_noise.shape[-1]) <= 0:
+                raise ValueError(f"{self.decoded_noise_key} must have shape (..., F)")
+            samples = decoded_noise.float().reshape(-1, int(decoded_noise.shape[-1]))
+            if int(samples.shape[0]) <= 1:
+                raise ValueError("moment matching requires at least two samples")
+            feature_dim = int(samples.shape[-1])
+            mean = samples.mean(dim=0)
+            centered = samples - mean
+            covariance = centered.T @ centered / (int(samples.shape[0]) - 1)
+            identity = torch.eye(feature_dim, device=samples.device, dtype=samples.dtype)
+            moment_mean = mean.square().sum() / feature_dim
+            moment_covariance = (covariance - identity).square().sum() / feature_dim
+        moment_penalty = moment_mean + moment_covariance
         if reconstruction.shape != target.shape:
             raise ValueError(
                 "decoded clean content must match the target shape: "
@@ -883,6 +1013,7 @@ class ActionFlowObjectiveStage(Stage):
             self.flow_weight * flow
             + self.reconstruction_weight * reconstruction_loss
             + self.action_velocity_weight * action_velocity
+            + self.moment_weight * moment_penalty
         )
         batch[self.loss_key] = total
         batch[self.total_log_key] = total
@@ -890,4 +1021,7 @@ class ActionFlowObjectiveStage(Stage):
         batch[self.reconstruction_log_key] = reconstruction_loss
         batch[self.reconstruction_l1_log_key] = reconstruction_l1
         batch[self.action_velocity_log_key] = action_velocity
+        batch[self.moment_log_key] = moment_penalty
+        batch[self.moment_mean_log_key] = moment_mean
+        batch[self.moment_covariance_log_key] = moment_covariance
         return batch

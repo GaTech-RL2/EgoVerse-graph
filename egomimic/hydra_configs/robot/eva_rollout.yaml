@@ -7,7 +7,6 @@ robot:
   config_path: egomimic/robot/eva/eva_ws/src/config/configs.yaml
 frequency: 30
 max_joint_velocity: 1.0
-execute_steps: 10
 max_steps: 3000
 preview:
   enabled: true
@@ -19,6 +18,9 @@ policy:
   normalizer_path: ???
   device: cuda:0
   use_ema: false
+  # Declare model matching, operator-visible overrides, history, and canonical
+  # output shape here. See yam_rl2_hptflow_rollout.yaml for a complete example.
+  inference_graph: ???
   adapter:
     _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
     embodiment_id: 6

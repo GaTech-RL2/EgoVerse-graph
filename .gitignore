@@ -11,6 +11,7 @@ egomimic/scripts/hand_process/stereo_depth.ipynb
 egomimic/scripts/hand_process/triangulation.py
 egomimic/scripts/figures
 egomimic/**/*.png
+!egomimic/robot/oculus_reader/app_source/res/drawable-xxhdpi/ic_launcher.png
 egomimic/**/*.jpg
 egomimic/**/*.svg
 egomimic/v_3_after.png

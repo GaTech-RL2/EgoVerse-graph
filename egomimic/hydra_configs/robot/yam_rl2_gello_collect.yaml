@@ -103,14 +103,14 @@ gello:
       - 1
       - 1
       joint_offsets_rad:
-      - 3.109379057044195
-      - 3.130854788074594
+      - 3.132388768862479
+      - 3.133922749650365
       - 3.143126634377679
-      - 3.057223710256083
-      - 6.214156171724732
-      - 1.586136134673753
-      gripper_open_rad: 3.380893656499953
-      gripper_closed_rad: 2.5786217044357627
+      - 3.0127382674073995
+      - 6.264777537724958
+      - 1.560058461279697
+      gripper_open_rad: 3.399301425954581
+      gripper_closed_rad: 2.5586799541932495
     right:
       port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTA2W8MH-if00-port0
       joint_ids:
@@ -129,14 +129,14 @@ gello:
       - 1
       - 1
       joint_offsets_rad:
-      - 3.066427594983397
-      - 3.130854788074594
+      - 3.081767402862253
+      - 3.132388768862479
       - 3.160000423044421
-      - 4.753806461657602
-      - 0.04141748127291231
-      - 6.263243556937073
-      gripper_open_rad: 3.4223111377728657
-      gripper_closed_rad: 2.5556119926174783
+      - 4.632621979414636
+      - 0.05522330836388308
+      - 6.24330180669456
+      gripper_open_rad: 3.41003929146978
+      gripper_closed_rad: 2.5571459734053636
   # Calibrated GELLO zeros map onto robot.home. g and b only arm; the
   # open-then-squeeze gate then slews followers to home plus the current
   # GELLO offset. b also starts recording at that gate.

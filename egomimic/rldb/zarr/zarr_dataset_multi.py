@@ -63,35 +63,7 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
-def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
-    """
-    Split a list of dataset names into train/valid sets.
-    Args:
-        dataset_names (Iterable[str])
-        valid_ratio (float): fraction of datasets to put in valid.
-        seed (int): for deterministic shuffling.
-
-
-    Returns:
-        train_set (set[str]), valid_set (set[str])
-    """
-    names = sorted(dataset_names)
-    if not names:
-        return set(), set()
-
-    rng = random.Random(seed)
-    rng.shuffle(names)
-
-    if not (0.0 <= valid_ratio <= 1.0):
-        raise ValueError(f"valid_ratio must be in [0,1], got {valid_ratio}")
-
-    n_valid = int(len(names) * valid_ratio)
-    if valid_ratio > 0.0:
-        n_valid = max(1, n_valid)
-
-    valid = set(names[:n_valid])
-    train = set(names[n_valid:])
-    return train, valid
+from egomimic.rldb.zarr.episode_split import split_dataset_names, complete_window_count
 
 
 def episode_names_sha256(dataset_names: Iterable[str]) -> str:
@@ -1502,6 +1474,7 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        resume_partial_norm_path: str | None = None,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
@@ -1516,6 +1489,17 @@ class MultiDataset(torch.utils.data.Dataset):
             return
 
         self.norm_stats.setdefault(embodiment, {})
+
+        if resume_partial_norm_path is not None:
+            if precomputed_norm_path is not None:
+                raise ValueError("partial normalization recovery conflicts with precomputed stats")
+            with open(resume_partial_norm_path) as stream:
+                partial = json.load(stream)
+            if partial["stats"].get(str(embodiment)):
+                # Native loader still checks normalization mode and exact key set.
+                self._load_precomputed_stats(resume_partial_norm_path, embodiment, norm_keys)
+                logger.info(f"[MultiDataset] Reused completed partial stats for embodiment={embodiment}")
+                return
 
         if precomputed_norm_path is not None:
             if os.path.isdir(precomputed_norm_path):
@@ -2016,11 +2000,16 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._valid_anchors = self.total_frames
         if self._view_transform is not None:
             t = self._view_transform
-            if float(self.metadata.get("fps", -1)) != t.fps:
-                raise ValueError("Episode FPS differs from retiming clock")
-            if self.key_map[t.action_key].get("horizon") != t.required_frames:
-                raise ValueError("Raw keymap horizon must equal retiming required_frames")
-            self._valid_anchors = max(0, self.total_frames - t.required_frames + 1)
+            binder = getattr(t, "bind_episode", None)
+            if callable(binder):
+                binder(self.metadata, self.key_map)
+            else:
+                # Preserve the existing planar command-retiming contract.
+                if float(self.metadata.get("fps", -1)) != t.fps:
+                    raise ValueError("Episode FPS differs from retiming clock")
+                if self.key_map[t.action_key].get("horizon") != t.required_frames:
+                    raise ValueError("Raw keymap horizon must equal retiming required_frames")
+            self._valid_anchors = complete_window_count(self.total_frames, t.required_frames)
         self.image_hw = tuple(image_hw) if image_hw else None
         # (H, W) of this episode's front camera BEFORE any resize, captured at
         # decode time so the intrinsics can be rescaled by the same factors.
@@ -2192,9 +2181,15 @@ class ZarrDataset(torch.utils.data.Dataset):
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
-                if self._view_transform is not None and k == self._view_transform.action_key:
+                required_keys = (
+                    getattr(self._view_transform, "required_keys", None)
+                    if self._view_transform is not None else ()
+                )
+                if required_keys is None:
+                    required_keys = (self._view_transform.action_key,)
+                if self._view_transform is not None and k in required_keys:
                     if len(raw_data[zarr_key]) != self._view_transform.required_frames:
-                        raise ValueError("Retiming refuses padded or truncated command windows")
+                        raise ValueError("Retiming refuses padded or truncated native windows")
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
 

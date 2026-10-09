@@ -564,6 +564,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             precomputed_norm_path=OmegaConf.select(
                 cfg, "norm_stats.precomputed_norm_path", default=None
             ),
+            resume_partial_norm_path=OmegaConf.select(
+                cfg, "norm_stats.resume_partial_norm_path", default=None
+            ) if cfg.get("norm_stats_only", False) else None,
         )
         # Cache norm stats if save_cache_dir is set
         save_cache_dir = OmegaConf.select(

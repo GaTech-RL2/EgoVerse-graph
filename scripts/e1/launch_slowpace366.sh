@@ -23,7 +23,11 @@ run_cpu "$PY" scripts/e1/build_slowpace366.py --check "$@" 2>&1 | grep -v -i war
 [ "$MODE" = dry ] && exit 0
 EXCLUDE=$(cat scripts/e1/phoenix_exclude_nodes.txt)
 mkdir -p "$OUT"
-for EXP in $(run_cpu "$PY" scripts/e1/build_slowpace366.py --names "$@"); do
+# Only the marked line: srun also prints the Slurm prolog (10-09 the unmarked list submitted 22 bogus jobs).
+NAMES=$(run_cpu "$PY" scripts/e1/build_slowpace366.py --names "$@" | sed -n 's/^NAMES //p')
+for EXP in $NAMES; do [[ $EXP =~ ^(bc|cotrain)_rl2_stattempo_slowpace366_[a-z_]+_r[0-9.]+$ ]] || { echo "bad experiment name: $EXP" >&2; exit 1; }; done
+[ -n "$NAMES" ] || { echo "no experiment names" >&2; exit 1; }
+for EXP in $NAMES; do
   ARM=${EXP/_rl2_stattempo_/_}
   if [ "$MODE" = smoke ]; then
     X=(--time=1:00:00 --export=ALL,ARM=smk_$ARM,EXPERIMENT=yam_arc_grid/$EXP,PY=$PY,OUT=$OUT/smoke_slowpace366,WANDB_MODE=offline,"EXTRA=ft.max_steps=300 ft.warmup_steps=50 trainer.check_val_every_n_epoch=2")

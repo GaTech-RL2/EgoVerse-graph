@@ -95,7 +95,8 @@ if __name__ == "__main__":
     )
     a = p.parse_args()
     if a.names:
-        print(" ".join(n for _, _, n in names(a.variants, a.rotation_deg)))
+        # Marked: under srun the Slurm prolog / epilog lines share stdout.
+        print("NAMES " + " ".join(n for _, _, n in names(a.variants, a.rotation_deg)))
     elif a.check:
         require_compute_node()
         check(a.variants, a.rotation_deg)

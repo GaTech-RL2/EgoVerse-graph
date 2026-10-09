@@ -36,7 +36,7 @@ def test_matched_configs():
     with initialize_config_dir(config_dir=str(root),version_base="1.3"):
         a,d=[compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
             "+experiment=e1/yam_human_matched_"+name]) for name in ("af64_multiplier","dp_noaug")]
-    for key in ("trainer","callbacks","hpt","e1","seed","model.optimizer","model.scheduler"):
+    for key in ("trainer","callbacks","hpt","e1","seed","model.scheduler"):
         assert comparable(OmegaConf.select(a,key))==comparable(OmegaConf.select(d,key)),key
     for x,y in zip(a.model.pipeline.stages[:3],d.model.pipeline.stages[:3]):assert comparable(x)==comparable(y)
     assert d.model.num_latent_tokens is None and d.model.latent_dim is None
@@ -52,15 +52,15 @@ def test_matched_configs():
     assert d.run_provenance.speed_augmentation.enabled is False
     for domain in ("yam_bimanual","human_bimanual"):
         aug=a.data.train_datasets[domain];native=d.data.train_datasets[domain]
-        assert comparable(aug.resolver.transform_list.native_transforms)==comparable(native.resolver.transform_list)
-        assert "window_transform" not in native.resolver.transform_list
+        assert comparable(aug.resolver.transform_list.native_transforms)==comparable(native.resolver.transform_list.native_transforms)
+        assert native.resolver.transform_list.window_transform._target_.endswith("CompleteNativeWindow")
         for key in ("mode","valid_ratio","split_seed","expected_train_episode_count","expected_valid_episode_count"):
             assert aug[key]==native[key]
         assert comparable(aug.resolver)["folder_path"]==comparable(native.resolver)["folder_path"]
     assert a.stationary_speed.yam_rates==d.stationary_speed.yam_rates==[1.]
 
 
-def test_identical_optimizer_and_schedule_are_executable():
+def test_native_af_and_dp_optimizers_and_schedule_contracts():
     from hydra.utils import instantiate
     root=Path(__file__).parents[1]/"egomimic/hydra_configs"
     schedules=[]
@@ -68,12 +68,17 @@ def test_identical_optimizer_and_schedule_are_executable():
         for name in ("af64_multiplier","dp_noaug"):
             cfg=compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
                 "+experiment=e1/yam_human_matched_"+name])
+            if name=="af64_multiplier":
+                assert cfg.model.optimizer._target_=="egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
+                assert cfg.model.optimizer_named_parameters is True
+                assert cfg.model.optimizer.muon_momentum==0.95
+                continue
             opt=instantiate(cfg.model.optimizer,params=[torch.nn.Parameter(torch.zeros(1))])()
             assert isinstance(opt,torch.optim.AdamW)
             schedule=instantiate(cfg.model.scheduler,optimizer=opt)
             if callable(schedule):schedule=schedule()
             schedules.append([schedule.lr_lambdas[0](step) for step in (0,7999,8000,12000,20000,80000)])
-    assert schedules[0]==schedules[1]
+    assert len(schedules)==1
 
 
 def test_strict_dp_checkpoint_preserves_shared_core():
@@ -83,3 +88,19 @@ def test_strict_dp_checkpoint_preserves_shared_core():
     a=new.branches["yam_bimanual"].stages[1].policy.model
     b=new.branches["human_bimanual"].stages[1].policy.model
     assert a.mid_modules is b.mid_modules
+
+
+def test_unaugmented_window_guard_preserves_values_and_complete_anchors():
+    import numpy as np
+    from egomimic.rldb.zarr.physical_retiming import CompleteNativeWindow
+    from egomimic.rldb.zarr.episode_split import complete_window_count
+    for horizon in (30,100):
+        guard=CompleteNativeWindow(horizon,["action"])
+        guard.bind_episode({}, {"action":{"horizon":horizon}})
+        action=np.arange(horizon)[:,None]
+        batch={"action":action,"_retiming_view":0}
+        result=guard.transform(batch)
+        assert result["action"] is action
+        assert "retiming_rate" not in result and "requested_speed" not in result
+        assert guard.sample_views==1
+        assert complete_window_count(200,guard.required_frames)==201-horizon

@@ -173,3 +173,27 @@ def extend_window_key_map(base_key_map, extra_key_map, norm_mode=False):
         key_map = {k: v for k, v in key_map.items()
                    if v.get("key_type") not in ("camera_keys", "annotation_keys")}
     return key_map
+
+
+class CompleteNativeWindow:
+    """Use the existing complete-window index guard without augmenting values."""
+    sample_views = 1
+
+    def __init__(self, horizon, required_keys):
+        self.required_frames = int(horizon)
+        self.required_keys = tuple(required_keys)
+        if self.required_frames < 2 or not self.required_keys:
+            raise ValueError("Complete native windows require horizon and action keys")
+
+    def bind_episode(self, metadata, key_map):
+        for key in self.required_keys:
+            if key not in key_map or key_map[key].get("horizon") != self.required_frames:
+                raise ValueError("Native window/action horizon mismatch")
+
+    def transform(self, batch):
+        if int(batch.pop("_retiming_view")) != 0:
+            raise ValueError("Native windows have exactly one unaugmented view")
+        for key in self.required_keys:
+            if len(batch[key]) != self.required_frames:
+                raise ValueError("Native windows refuse padding")
+        return batch

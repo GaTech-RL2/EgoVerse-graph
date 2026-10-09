@@ -1,17 +1,4 @@
 # @package _global_
-model:
-  optimizer_named_parameters: false
-  optimizer:
-    _target_: egomimic.pipeline.stages_matched_dp.matched_adamw
-    _partial_: true
-    lr: 0.0001
-    betas: [0.9, 0.999]
-    eps: 0.000001
-    weight_decay: 0.0
-    adamw_weight_decay: null
-    muon_weight_decay: null
-    muon_momentum: null
-    muon_adjust_lr_fn: null
 data:
   proportional_train_batch_size: 8
   train_datasets:

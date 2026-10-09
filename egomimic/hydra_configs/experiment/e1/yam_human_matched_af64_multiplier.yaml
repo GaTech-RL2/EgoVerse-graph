@@ -18,7 +18,7 @@ run_provenance:
   inference:
     sampler: euler
     steps: 50
-  comparison: matched_observation_data_optimizer_budget_v1
+  comparison: task_success_native_af_aug_vs_dp_noaug_v1
 evaluator:
   action_flow_diagnostics:
     provenance:

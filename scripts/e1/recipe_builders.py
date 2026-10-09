@@ -1,0 +1,164 @@
+"""Shared, checkout-local builders for the committed stationery recipes.
+
+The episode manifests are input authority. Model leaves inherit the maintained
+graphs instead of copying neural network YAML or writing another checkout.
+"""
+
+import json
+import math
+import os
+import re
+import socket
+from pathlib import Path
+
+from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
+
+REPO = Path(__file__).resolve().parents[2]
+CONFIGS = REPO / "egomimic/hydra_configs"
+ROTATION_DISTANCE_UNIT = 2 * math.pi
+
+
+def require_compute_node():
+    """Reject direct Python execution on known PACE login hosts."""
+    host = socket.gethostname().lower()
+    pace = any(x in host for x in ("phoenix", "pace", "ice", "atl1")) or bool(
+        os.environ.get("PACE_CLUSTER")
+    )
+    if pace and "login" in host and not os.environ.get("SLURM_STEP_ID"):
+        raise RuntimeError(
+            "PACE login nodes are orchestration-only; run this builder through srun"
+        )
+
+
+def compose_recipe(name):
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
+        return compose(
+            "train_zarr_cartesian", overrides=[f"+experiment=yam_arc_grid/{name}"]
+        )
+
+
+def robot_data(pool, variant):
+    """Resolve inheritance before changing the codec on the selected robot pool."""
+    base = "time" if variant == "time" else "arcdur"
+    cfg = compose_recipe(f"scratch_rl2_stattempo_{pool}_{base}")
+    data = OmegaConf.to_container(cfg.data, resolve=True)
+    data.update(
+        _target_="egomimic.rldb.zarr.data_module.ZarrDataModule",
+        _recursive_=False,
+        source_fps=30.0,
+    )
+    for group in ("train_datasets", "valid_datasets"):
+        resolver = data[group]["yam_bimanual"]["resolver"]
+        resolver["key_map"].update(drop_wrist_images=False, yam_source_frames=100)
+        transforms = resolver["transform_list"]
+        transforms.update(variant=variant, progress_smooth_hz=None, fixed_spacing=False)
+        if variant in ("arcdurhyb", "arcvelhyb"):
+            transforms["rotation_distance_unit"] = ROTATION_DISTANCE_UNIT
+    return data
+
+
+def codec_overrides(variant, *, human=False):
+    """Only the transform fields that differ from the inherited TIME data."""
+    transforms = {"variant": variant}
+    if variant.endswith("hyb"):
+        transforms["rotation_distance_unit"] = ROTATION_DISTANCE_UNIT
+    result = {
+        group: {"yam_bimanual": {"resolver": {"transform_list": dict(transforms)}}}
+        for group in ("train_datasets", "valid_datasets")
+    }
+    if human:
+        result["train_datasets"]["human_bimanual"] = {
+            "resolver": {"transform_list": dict(transforms)}
+        }
+    return result
+
+
+def robot_data_config(pool, variant):
+    """An inheriting YAML leaf, never a serialized resolved data tree."""
+    return {
+        "defaults": [
+            f"/data/abc_arc/stationery_tempo_{pool}_time@_here_",
+            "_self_",
+        ],
+        **(codec_overrides(variant) if variant != "time" else {}),
+    }
+
+
+def write_config(relative, cfg, header=""):
+    path = CONFIGS / relative
+    if not path.resolve().is_relative_to(CONFIGS.resolve()):
+        raise ValueError(
+            "A recipe builder may only write this checkout's Hydra configs"
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(header + OmegaConf.to_yaml(OmegaConf.create(cfg)))
+    print("wrote", path.relative_to(REPO))
+
+
+def elmoaidan_data(variant):
+    split = json.loads(
+        (REPO / "scripts/e1/stationery_elmoaidan_split.json").read_text()
+    )
+    train, val = split["train"]["episodes"], split["val"]["episodes"]
+    if len(set(train)) != 218 or len(set(val)) != 11 or set(train) & set(val):
+        raise ValueError("Expected the frozen, disjoint 218/11 Elmo + Aidan split")
+    data = robot_data("fast", variant)
+    for group, episodes in (("train_datasets", train), ("valid_datasets", val)):
+        filters = data[group]["yam_bimanual"]["filters"]["filter_lambdas"]
+        members = ",".join(repr(x) for x in sorted(episodes))
+        filters[0], count = re.subn(
+            r"frozenset\(\{[^}]*\}\)", "frozenset({" + members + "})", filters[0]
+        )
+        if count != 1:
+            raise ValueError("Expected one explicit episode set in the robot filter")
+    return data
+
+
+def build_elmoaidan(variants):
+    require_compute_node()
+    # TIME owns the frozen split; every codec leaf inherits that same selection.
+    # Refresh it even for a codec-only rebuild so a changed manifest is not lost.
+    time_data = elmoaidan_data("time")
+    time_config = robot_data_config("fast", "time")
+    for group in ("train_datasets", "valid_datasets"):
+        time_config[group] = {
+            "yam_bimanual": {
+                "filters": {
+                    "filter_lambdas": time_data[group]["yam_bimanual"]["filters"][
+                        "filter_lambdas"
+                    ]
+                }
+            }
+        }
+    for variant in dict.fromkeys(("time", *variants)):
+        config = (
+            time_config
+            if variant == "time"
+            else {
+                "defaults": [
+                    "/data/abc_arc/stationery_tempo_elmoaidan_time@_here_",
+                    "_self_",
+                ],
+                **codec_overrides(variant),
+            }
+        )
+        write_config(
+            f"data/abc_arc/stationery_tempo_elmoaidan_{variant}.yaml",
+            config,
+            f"# GENERATED by scripts/e1/recipe_builders.py from the frozen 218/11 Elmo + Aidan split.\n# Codec {variant}; source window 100 YAM frames; hybrid R = 2 pi.\n",
+        )
+        # The committed experiment is the template, so regeneration preserves
+        # its evaluator, logging identity, and all training controls.
+        recipe = compose_recipe(f"scratch_rl2_stattempo_elmoaidan_{variant}")
+        expected = 14 if variant == "time" else 18 if variant.endswith("hyb") else 16
+        if recipe.model.action_token_dim != expected:
+            raise ValueError(f"Unexpected native action width for {variant}")
+
+
+def model_leaf(name, parent, **overrides):
+    write_config(
+        f"model/e1/{name}.yaml",
+        {"defaults": [f"/model/e1/{parent}@_here_", "_self_"], **overrides},
+        "# Shared graph inheritance preserves the observation encoder and training recipe.\n",
+    )

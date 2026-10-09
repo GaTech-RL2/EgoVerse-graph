@@ -1,0 +1,140 @@
+# E1 co-training: shared front camera and trunk; 14D human state, robot state and wrist cameras.
+defaults:
+- /model/e1/hpt_flow_wrists_ft@_here_
+- _self_
+pipeline:
+  stages:
+  - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+    stems:
+      observations.images.front_img_1:
+        _target_: egomimic.models.stems.e1_image.E1ImageStem
+        output_dim: ${model.embed_dim}
+        weights: DEFAULT
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: ${model.attention_heads}
+            crossattn_dim_head: ${model.attention_head_dim}
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: ${model.embed_dim}
+    domain_stems:
+      yam_bimanual:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: 14
+          output_dim: ${model.embed_dim}
+          widths:
+          - ${model.embed_dim}
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: ${model.attention_heads}
+              crossattn_dim_head: ${model.attention_head_dim}
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: ${model.embed_dim}
+        observations.images.left_wrist_img:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: ${model.embed_dim}
+          weights: DEFAULT
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: ${model.attention_heads}
+              crossattn_dim_head: ${model.attention_head_dim}
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: ${model.embed_dim}
+        observations.images.right_wrist_img:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: ${model.embed_dim}
+          weights: DEFAULT
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: ${model.attention_heads}
+              crossattn_dim_head: ${model.attention_head_dim}
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: ${model.embed_dim}
+      human_bimanual:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: 14
+          output_dim: ${model.embed_dim}
+          widths:
+          - ${model.embed_dim}
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: ${model.attention_heads}
+              crossattn_dim_head: ${model.attention_head_dim}
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: ${model.embed_dim}
+    selector_aliases:
+      '3': human_bimanual
+      '7': yam_bimanual
+  - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+    embed_dim: ${model.embed_dim}
+    token_postprocessing: action_token
+    use_position_embedding: true
+    max_tokens: 512
+    trunk:
+      _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+      embed_dim: ${model.embed_dim}
+      num_blocks: ${model.trunk_blocks}
+      drop_path_rate: 0.1
+      weight_init_style: pytorch
+      attn_target:
+        _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+        _partial_: true
+        embed_dim: ${model.embed_dim}
+        num_heads: ${model.attention_heads}
+        batch_first: true
+    use_domain_embedding: true
+    domains:
+    - yam_bimanual
+    - human_bimanual
+    selector_aliases:
+      '3': human_bimanual
+      '7': yam_bimanual
+  - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    action_key: actions_cartesian
+  - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+    action_horizon: 100
+    action_dim: ${model.action_token_dim}
+    time_dist: beta
+    beta_alpha: 1.5
+    beta_beta: 1.0
+  - _target_: egomimic.pipeline.stages_flow.FlowDenoiserStage
+    action_horizon: 100
+    action_dim: ${model.action_token_dim}
+    condition_input_dim: ${model.embed_dim}
+    num_inference_steps: 50
+    condition_as_tokens: true
+    model:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: ${model.flow_blocks}
+      cond_dim: ${model.embed_dim}
+      hidden_dim: ${model.flow_hidden_dim}
+      act_dim: ${model.action_token_dim}
+      act_seq: 100
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+data_contracts:
+  human:
+    preprocessing:
+      '3':
+        key_map:
+          horizon: 100
+          drop_wrist_images: true
+data_requirements:
+  preprocessing:
+    '3': ${model.data_contracts.human.preprocessing.3}
+    '7': ${model.data_contracts.yam.preprocessing.7}

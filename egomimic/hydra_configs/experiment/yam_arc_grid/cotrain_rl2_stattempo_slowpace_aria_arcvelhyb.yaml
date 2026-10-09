@@ -1,0 +1,29 @@
+# @package _global_
+# Shared slow-pace + Aria recipe; only codec and run identity differ.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_aria
+- override /model: e1/hpt_flow_wrists_ft_arcdurhyb_cotrain
+- override /data: abc_arc/stationery_slowpace_aria_cotrain_arcvelhyb
+- _self_
+name: cotrain_rl2_stattempo_slowpace_aria_arcvelhyb
+description: h640t8_d384x10_cos10k_240k_s42_cotrain_rl2_stattempo_slowpace_aria_arcvelhyb
+logger:
+  wandb:
+    id: cotrain_rl2_stattempo_slowpace_aria_arcvelhyb_20261001_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_slowpace
+    - cotrain
+    - aria
+    - arcvelhyb
+    - openloop_val
+e1:
+  variant: arcvelhyb
+  action_dim: 18
+hpt:
+  action_dim: 18
+evaluator:
+  action_mode: arc
+  token_layout: e1_profhyb

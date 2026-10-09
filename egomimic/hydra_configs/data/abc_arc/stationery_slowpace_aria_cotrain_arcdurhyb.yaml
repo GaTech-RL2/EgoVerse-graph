@@ -1,0 +1,24 @@
+# GENERATED 2026-10-08 18:26 by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.
+# Inherited slow-pace robot pool: 217 train / 24 validation; codec arcdurhyb.
+# Human: 37 RL2 Aria eps / 1.20 h, tasks ['organize stationary', 'organize_stationary'], since 2026-10-01, operators {'Elmo': 37}.
+# Per step: robot batch 32 + human batch 32; validation is robot-only.
+defaults:
+- /data/abc_arc/stationery_slowpace_aria_cotrain_time@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdurhyb
+        rotation_distance_unit: 6.283185307179586
+  human_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdurhyb
+        rotation_distance_unit: 6.283185307179586
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: arcdurhyb
+        rotation_distance_unit: 6.283185307179586

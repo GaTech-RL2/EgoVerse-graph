@@ -74,7 +74,7 @@ pipeline:
     action_key: actions_cartesian
   - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
     action_horizon: 100
-    action_dim: 16
+    action_dim: ${model.action_token_dim}
     noise_scheduler:
       _target_: egomimic.models.ddim_scheduler.DDIMScheduler
       num_train_timesteps: 100
@@ -82,7 +82,7 @@ pipeline:
       prediction_type: epsilon
   - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
     action_horizon: 100
-    action_dim: 16
+    action_dim: ${model.action_token_dim}
     condition_input_dim: 398
     policy:
       _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -90,14 +90,11 @@ pipeline:
       num_inference_steps: 100
       model:
         _target_: egomimic.models.denoising_nets.ConditionalUnet1D
-        input_dim: 16
+        input_dim: ${model.action_token_dim}
         cond_dim: 398
         ac_latent_seq: 1
         diffusion_step_embed_dim: 512
-        down_dims:
-        - 512
-        - 1024
-        - 2048
+        down_dims: ${model.unet_down_dims}
         kernel_size: 3
       noise_scheduler:
         _target_: egomimic.models.ddim_scheduler.DDIMScheduler
@@ -127,3 +124,7 @@ action_horizon: 100
 action_token_dim: 16
 sampling_steps: 100
 sampling_attribute: policy.num_inference_steps
+unet_down_dims:
+- 512
+- 1024
+- 2048

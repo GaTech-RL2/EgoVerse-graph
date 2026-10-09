@@ -34,12 +34,16 @@ def config():
 
 @pytest.mark.parametrize("name,emb,width", [("pushshapes_sim_u_socket", 19, 3),
                                           ("pushshapes_sim_chain_gripper", 20, 4)])
-@pytest.mark.parametrize("speed", [None, 84.11600368466028])
-def test_boundary_routes_rotvec_state_and_decodes_native(name, emb, width, speed):
+@pytest.mark.parametrize("speed,multiplier", [(None, None), (84.11600368466028, None), (None, 1.5)])
+def test_boundary_routes_rotvec_state_and_decodes_native(name, emb, width, speed, multiplier):
     cfg = config()
     if speed is not None:
         cfg.model.pipeline._target_ = "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
         cfg.deployment.requested_speed = speed
+    if multiplier is not None:
+        cfg.model.pipeline._target_ = "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
+        cfg.model.pipeline.conditioning_input = "retiming_multiplier"
+        cfg.deployment.requested_multiplier = multiplier
     decoder = action_flow_contract(cfg, selected_embodiment_name=name,
         selected_embodiment_id=emb, expected_native_action_dim=width, replan_every=8)
     control = np.tile([256., 128., .3, .5], (16, 1))
@@ -74,6 +78,11 @@ def test_boundary_routes_rotvec_state_and_decodes_native(name, emb, width, speed
                 assert requested.item() == pytest.approx(speed)
             else:
                 assert "requested_speed" not in batch[name]
+            if multiplier is not None:
+                assert batch[name]["retiming_rate"].shape == (1, 1)
+                assert batch[name]["retiming_rate"].item() == pytest.approx(multiplier)
+            else:
+                assert "retiming_rate" not in batch[name]
             assert list(batch) == [name]
             assert batch[name]["embodiment"].tolist() == [emb]
             return {name: {"pred_action": torch.tensor(tokens, dtype=torch.float32)[None]}}

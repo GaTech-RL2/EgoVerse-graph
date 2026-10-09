@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_cotrain_uc_speed_interpolation
+  - _self_
+
+name: action_flow_cotrain_uc_multiplier_interpolation
+description: "NON-PROTOCOL interpolation-only co-training conditioned directly on retiming multiplier"
+speed_diagnostic:
+  encoding: scalar
+  speed_reference: null
+model:
+  # Preserve the existing temporally compressed 8-token x 16-feature latent.
+  num_latent_tokens: 8
+  latent_dim: 16
+  pipeline:
+    conditioning_input: retiming_multiplier
+run_provenance:
+  speed_conditioning:
+    input_key: retiming_rate
+    conditioning_input: retiming_multiplier
+    normalization: none_raw_multiplier
+    unit: dimensionless
+    speed_reference: null
+  checkpoint_initialization: fresh_required_not_native_speed_resume

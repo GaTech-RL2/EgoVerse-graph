@@ -1,0 +1,35 @@
+# @package _global_
+# Direct multiplier conditioning; fresh training required.
+defaults:
+  - /experiment/e1/yam_human_keypoints_action_flow_h816_private512_s42
+  - override /data: e1/yam_human_keypoints_speed_proportional_val01
+  - _self_
+
+name: yam_human_keypoints_multiplier_h816_private512_s42
+description: human_multiplier_02_04_06_08_10_robot1x_scalar
+stationary_speed:
+  yam_rates: [1.0]
+  human_rates: [0.2, 0.4, 0.6, 0.8, 1.0]
+  probabilities: [0.2, 0.2, 0.2, 0.2, 0.2]
+  sample_views_per_source: 5
+  units: dimensionless_retiming_multiplier
+  timestamp_contract: human_recorded_rgb_nanoseconds_robot_metadata_fps
+  tail_contract: complete_native_raw_windows_no_padding
+model:
+  pipeline:
+    _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
+    _recursive_: false
+    conditioning_input: multiplier
+    encoding: scalar
+    condition_dim: ${model.condition_dim}
+run_provenance:
+  speed_augmentation:
+    yam_rates: ${stationary_speed.yam_rates}
+    human_rates: ${stationary_speed.human_rates}
+    probabilities: ${stationary_speed.probabilities}
+    sample_views_per_source: ${stationary_speed.sample_views_per_source}
+    physical_clock: ${stationary_speed.timestamp_contract}
+    tail_contract: ${stationary_speed.tail_contract}
+    units: ${stationary_speed.units}
+    inference_contract: external_retiming_multiplier_no_future_action_oracle
+    scientific_label: interpolation_only_recorded_trajectory_diagnostic

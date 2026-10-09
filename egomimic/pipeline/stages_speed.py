@@ -5,9 +5,9 @@ from torch import nn
 from egomimic.pipeline.core import Stage
 
 
-def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
+def build_speed_conditioned_pipeline(stages, speed_reference=None, encoding="scalar",
                                      condition_dim=128, device=None,
-                                     compatibility_mode="current"):
+                                     compatibility_mode="current", conditioning_input="physical_speed"):
     """Typed Action Flow graph adapter; leave the generic runner unchanged.
 
     Configure Hydra with _recursive_: false so the two consumers are wired
@@ -33,8 +33,15 @@ def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
     # Diagnostic preprocessing stops at the content encoder: condition must
     # already exist there, even though the encoder itself does not consume it.
     modules = [instantiate(c) for c in configs]
-    modules.insert(configs.index(encoders[0]),
-                   SharedSpeedCondition(speed_reference, encoding, condition_dim))
+    if conditioning_input == "physical_speed":
+        conditioner = SharedSpeedCondition(speed_reference, encoding, condition_dim)
+    elif conditioning_input == "multiplier":
+        if speed_reference is not None or encoding != "scalar":
+            raise ValueError("Multiplier conditioning requires scalar input and no speed reference")
+        conditioner = SharedMultiplierCondition(condition_dim=condition_dim)
+    else:
+        raise ValueError("Unknown conditioning_input")
+    modules.insert(configs.index(encoders[0]), conditioner)
     if compatibility_mode != "current":
         raise ValueError("Stationary source supports only its native current pipeline")
     return PipelineAlgo(modules, device=device)
@@ -79,5 +86,41 @@ class SharedSpeedCondition(Stage):
             delta = delta.unsqueeze(1)
         elif condition.ndim != 2:
             raise ValueError("condition must be [B,D] or [B,T,D]")
+        batch[self.output_key] = condition + delta.to(condition.dtype)
+        return batch
+
+
+class SharedMultiplierCondition(Stage):
+    """Direct dimensionless multiplier; historical speed checkpoints stay separate."""
+    def __init__(self, condition_dim=256, hidden_dim=32,
+                 condition_key="condition", multiplier_key="retiming_rate",
+                 output_key="speed_condition", initialization_seed=42):
+        super().__init__()
+        self.condition_key, self.multiplier_key = condition_key, multiplier_key
+        self.output_key = output_key
+        self.reads, self.writes = (condition_key, multiplier_key), (output_key,)
+        with torch.random.fork_rng(devices=[]):
+            torch.set_rng_state(torch.Generator(device="cpu").manual_seed(
+                initialization_seed).get_state())
+            self.mlp = nn.Sequential(nn.Linear(1, hidden_dim), nn.SiLU(),
+                                     nn.Linear(hidden_dim, condition_dim))
+            nn.init.zeros_(self.mlp[-1].weight)
+            nn.init.zeros_(self.mlp[-1].bias)
+
+    def forward(self, batch):
+        condition = batch[self.condition_key]
+        rate = batch[self.multiplier_key].to(device=condition.device, dtype=torch.float32)
+        # Dataset scalars collate to [B]; rollout may explicitly supply [B,1].
+        if rate.ndim == 1:
+            rate = rate.unsqueeze(-1)
+        if rate.shape != (condition.shape[0], 1):
+            raise ValueError("retiming_rate must have shape [B] or [B,1]")
+        if not torch.isfinite(rate).all() or (rate <= 0).any():
+            raise ValueError("retiming_rate must be finite and positive")
+        if condition.ndim not in {2, 3} or condition.shape[-1] != self.mlp[-1].out_features:
+            raise ValueError("condition must have shape [B,D] or [B,T,D]")
+        delta = self.mlp(rate.to(dtype=self.mlp[0].weight.dtype))
+        if condition.ndim == 3:
+            delta = delta.unsqueeze(1)
         batch[self.output_key] = condition + delta.to(condition.dtype)
         return batch

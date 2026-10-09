@@ -179,7 +179,9 @@ class CompleteNativeWindow:
     """Use the existing complete-window index guard without augmenting values."""
     sample_views = 1
 
-    def __init__(self, horizon, required_keys):
+    def __init__(self, horizon, required_keys, sample_views=1):
+        if type(sample_views) is not int or sample_views != 1:
+            raise ValueError("Native windows require exactly one unaugmented view")
         self.required_frames = int(horizon)
         self.required_keys = tuple(required_keys)
         if self.required_frames < 2 or not self.required_keys:

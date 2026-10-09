@@ -141,3 +141,21 @@ def test_validation_uses_same_episode_and_native_preprocessing_contract():
         assert aug.resolver.transform_list.window_transform.horizon==native.resolver.transform_list.window_transform.horizon
     assert comparable(d.run_provenance)["split_manifest_sha256"]=="${oc.env:MATCHED_DP_SPLIT_SHA256}"
     assert comparable(d.norm_stats)["precomputed_norm_path"]=="${oc.env:MATCHED_DP_NORM}"
+
+
+def test_composed_dp_window_transforms_instantiate_and_reject_augmentation():
+    import pytest
+    from hydra.utils import instantiate
+    from egomimic.rldb.zarr.physical_retiming import CompleteNativeWindow
+    root=Path(__file__).parents[1]/"egomimic/hydra_configs"
+    with initialize_config_dir(config_dir=str(root),version_base="1.3"):
+        cfg=compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
+            "+experiment=e1/yam_human_matched_dp_noaug"])
+    datasets=list(cfg.data.train_datasets.values())
+    for group in cfg.data.valid_datasets.values():
+        datasets.extend(group.values())
+    for dataset in datasets:
+        window=instantiate(dataset.resolver.transform_list.window_transform)
+        assert isinstance(window,CompleteNativeWindow) and window.sample_views==1
+    with pytest.raises(ValueError,match="exactly one"):
+        CompleteNativeWindow(100,["actions"],sample_views=5)

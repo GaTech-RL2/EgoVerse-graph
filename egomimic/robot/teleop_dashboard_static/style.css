@@ -48,6 +48,14 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .bottom-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 18px; margin-top: 16px; }
 .bottom-bar .demo-launch { grid-column: 2; }
 .bottom-bar .episode-control { grid-column: 3; justify-self: end; }
+.episode-limit-control { grid-column: 1; padding: 10px 12px; border: 1px solid #3a4655; border-radius: 8px; background: #191e25; }
+.limit-toggle { display: flex; align-items: center; gap: 7px; font-weight: 650; margin-bottom: 6px; }
+.limit-toggle input { accent-color: #80c9a0; }
+.limit-fields { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.limit-fields input { width: 105px; padding: 7px 9px; border: 1px solid #4b5a6b; border-radius: 5px; background: #0f141a; color: #edf3fa; }
+.limit-fields input:disabled { opacity: .55; }
+.episode-limit-control small { display: block; margin-top: 5px; color: #8793a4; }
+#episode-length-status { color: #bac7d6; font-variant-numeric: tabular-nums; }
 
 dialog { width: min(1500px, 96vw); height: min(900px, 92vh); padding: 18px; background: #191e25; color: #dce3ed; border: 1px solid #3a4655; border-radius: 10px; }
 dialog::backdrop { background: rgb(0 0 0 / 65%); }
@@ -81,9 +89,20 @@ dialog header { align-items: center; }
   .cameras { grid-template-columns: 1fr; }
   header { flex-direction: column; }
   .bottom-bar { grid-template-columns: 1fr; }
-  .bottom-bar .demo-launch, .bottom-bar .episode-control { grid-column: 1; justify-self: start; }
+  .bottom-bar .episode-limit-control, .bottom-bar .demo-launch, .bottom-bar .episode-control { grid-column: 1; justify-self: start; }
   .command-row, .controls { justify-content: start; }
   .demo-browser { grid-template-columns: 220px minmax(0, 1fr); }
   .review-cameras { grid-template-columns: 1fr; }
   .playback-header { align-items: start; flex-direction: column; }
 }
+.gripper-settings {
+  margin: 1rem 0;
+  padding: .8rem 1rem;
+  border: 1px solid var(--line, #ccd2d8);
+  border-radius: .5rem;
+}
+.gripper-settings small { display: block; margin-top: .35rem; opacity: .7; }
+.gripper-control { display: inline-flex; align-items: center; gap: .6rem; margin: .5rem 1rem 0 0; }
+.gripper-control span { min-width: 4.5rem; text-transform: capitalize; }
+.gripper-control input { width: 12rem; }
+.gripper-control output { min-width: 3.5rem; }

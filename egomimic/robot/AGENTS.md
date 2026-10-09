@@ -17,6 +17,12 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   no device. A normal run must reject incomplete calibration, preflight cameras,
   serial paths, and follower CAN before opening a motor, and start disarmed. Its
   stop key must also disarm; camera-free mode must retain interactive key input.
+  Preserve optional recording limits: `recording.episode_length: null` means
+  manual save, positive integers mean auto-save. The RL2 default is unlimited;
+  expose the enable/disable toggle, editable frame count, and recorded-frame
+  progress in the dashboard. Validate updates before applying them and retain
+  the regression that records beyond 3000 frames. Resolve the active process
+  cwd/config before deploying; do not restart hardware to load a source change.
 - `calibrate_gello.py`: leader-only GELLO calibration. It may open one stable
   USB leader only through the passive torque-off reader; it must never construct
   a Yam robot, touch CAN/cameras, overwrite the station profile, or mark a

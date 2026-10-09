@@ -382,6 +382,26 @@ def test_checkpoint_browser_lists_only_rooted_checkpoint_candidates(tmp_path):
         browser.resolve_bundle("../outside.ckpt")
 
 
+def test_checkpoint_browser_search_matches_anywhere_case_insensitive(tmp_path):
+    root = tmp_path / "models"
+    root.mkdir()
+    checkpoint = root / "hptflow-step-120000-final.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (root / "resolved-config.yaml").write_text("model: {}\n")
+    (root / "norm_stats.json").write_text("{}\n")
+    (root / "unrelated").mkdir()
+    browser = CheckpointBrowser(root)
+
+    assert browser.list_directory(query="STEP-120")["entries"] == [
+        {
+            "type": "checkpoint",
+            "name": checkpoint.name,
+            "path": checkpoint.name,
+        }
+    ]
+    assert browser.list_directory(query="not-present")["entries"] == []
+
+
 def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
     checkpoint = tmp_path / "towels_rl2_time__epoch-1199-step-120000__sha256-abcd.ckpt"
     checkpoint.write_bytes(b"weights")
@@ -647,13 +667,16 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'id="recording-indicator"' in html
     assert 'id="open-videos"' in html
     assert 'id="select-model"' in html
+    assert 'id="model-search"' in html
+    assert "new URLSearchParams({path, query})" in javascript
     assert 'id="current-model"' in html
+    assert html.index('id="current-model"') < html.index('id="status"')
     assert "updateCurrentModel" in javascript
     assert 'class="rollout-control-panel"' in html
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "?v=8" in html
+    assert "?v=9" in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript
     assert "Apply settings" in javascript
@@ -1225,3 +1248,76 @@ def test_a_new_browser_tab_supersedes_the_stale_dashboard_tab(tmp_path):
         assert asyncio.run(two_tabs()) == SUPERSEDED_CLOSE_CODE
     finally:
         dashboard.close()
+
+
+def test_failed_model_selection_locks_rollout_and_never_runs_old_policy(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    checkpoint = tmp_path / "broken.ckpt"
+    checkpoint.write_bytes(b"weights")
+    training_config = tmp_path / "resolved-config.yaml"
+    training_config.write_text("model: {}\n")
+    normalizer = tmp_path / "norm_stats.json"
+    normalizer.write_text("{}\n")
+    bundle = CheckpointBrowser(tmp_path).resolve_bundle("broken.ckpt")
+    robot = FakeRobot()
+    view = ModelSelectionView([None, "c", "q"], bundle)
+
+    def fail_load(_config):
+        raise RuntimeError("checkpoint restore failed")
+
+    monkeypatch.setattr("egomimic.robot.rollout.load_policy", fail_load)
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(
+            action_type="joints",
+            predict=lambda _obs: pytest.fail("previous model must remain disarmed"),
+        ),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False, "wait_for_start": True},
+            "policy": {
+                "kind": "graph",
+                "checkpoint": "/old/model.ckpt",
+                "training_config": "/old/resolved-config.yaml",
+                "normalizer_path": "/old/norm_stats.json",
+                "inference_config": "/old/inference-config.yaml",
+            },
+        },
+        view=view,
+    )
+
+    assert steps == 0
+    assert any("MODEL LOAD FAILED" in status for status in view.statuses)
+    assert any("rollout locked" in status for status in view.statuses)
+
+
+@pytest.mark.parametrize("max_steps", [0, -1, True, 1.5, "3000"])
+def test_rollout_rejects_invalid_session_limits(max_steps):
+    with pytest.raises(ValueError, match="positive integer or null"):
+        run_rollout(
+            FakeRobot(),
+            SimpleNamespace(action_type="joints"),
+            {"frequency": 30, "max_steps": max_steps, "max_joint_velocity": 1.0},
+        )
+
+
+def test_unlimited_rollout_exits_on_operator_quit():
+    view = SimpleNamespace(update=lambda _obs: "q", close=lambda: None)
+    assert (
+        run_rollout(
+            FakeRobot(),
+            SimpleNamespace(action_type="joints"),
+            {
+                "frequency": 30,
+                "max_steps": None,
+                "max_joint_velocity": 1.0,
+                "preview": {"enabled": False, "wait_for_start": True},
+            },
+            view=view,
+        )
+        == 0
+    )

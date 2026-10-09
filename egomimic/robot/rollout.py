@@ -196,11 +196,18 @@ def _reset_policy_state(policy) -> None:
 
 
 def run_rollout(robot, policy, config, view=None):
-    frequency, max_steps = float(config["frequency"]), int(config["max_steps"])
+    frequency = float(config["frequency"])
+    configured_max_steps = config.get("max_steps")
+    if configured_max_steps is None:
+        max_steps = None
+    elif type(configured_max_steps) is int and configured_max_steps > 0:
+        max_steps = configured_max_steps
+    else:
+        raise ValueError("max_steps must be a positive integer or null")
     limit = float(config["max_joint_velocity"]) / frequency
     max_velocity_replans = config.get("max_velocity_replans", 0)
-    if min(frequency, max_steps, limit) <= 0 or not np.isfinite(limit):
-        raise ValueError("Rollout frequency, step counts and velocity must be positive")
+    if min(frequency, limit) <= 0 or not np.isfinite(limit):
+        raise ValueError("Rollout frequency and velocity must be positive")
     if type(max_velocity_replans) is not int or not 0 <= max_velocity_replans <= 32:
         raise ValueError("max_velocity_replans must be an integer in [0, 32]")
     if policy.action_type not in ("joints", "cartesian"):
@@ -230,6 +237,7 @@ def run_rollout(robot, policy, config, view=None):
     reset_home_on_restart = config.get("reset_home_on_restart", False)
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
+    model_ready = True
 
     def reset_to_ready():
         nonlocal last, step, waiting_since, velocity_replans, started, paused
@@ -280,7 +288,7 @@ def run_rollout(robot, policy, config, view=None):
             robot.set_home()
         if wait_for_start:
             _set_view_status(view, "Ready — press c to start")
-        while step < max_steps:
+        while max_steps is None or step < max_steps:
             tick = time.monotonic()
             obs = robot.get_obs()
             control = view.update(obs)
@@ -299,6 +307,7 @@ def run_rollout(robot, policy, config, view=None):
                     offset = ARM_OFFSET[arm]
                     robot.set_joints(last[offset : offset + 7], arm)
                 started, paused = False, False
+                model_ready = False
                 clear_plan = getattr(view, "clear_action_plan", None)
                 if callable(clear_plan):
                     clear_plan()
@@ -323,11 +332,12 @@ def run_rollout(robot, policy, config, view=None):
                 except Exception as error:
                     _set_view_status(
                         view,
-                        "Model load failed; current model remains loaded — press c to retry",
+                        f"MODEL LOAD FAILED — rollout locked: {bundle.checkpoint.name}: {error}",
                     )
                     print(f"Could not load selected model {bundle.checkpoint}: {error}")
                 else:
                     policy, policy_config = candidate, candidate_config
+                    model_ready = True
                     _set_model_checkpoint(view, bundle)
                     _set_inference_controls(view, _policy_inference_controls(candidate))
                     _set_view_status(view, "Selected model loaded — press c to start")
@@ -455,8 +465,15 @@ def run_rollout(robot, policy, config, view=None):
                 continue
             if not started:
                 if control in ("c", "C"):
-                    started = True
-                    _set_view_status(view, "Running")
+                    if model_ready:
+                        started = True
+                        _set_view_status(view, "Running")
+                    else:
+                        _set_view_status(
+                            view,
+                            "MODEL LOAD FAILED — rollout locked; select a valid model",
+                        )
+                        continue
                 else:
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue

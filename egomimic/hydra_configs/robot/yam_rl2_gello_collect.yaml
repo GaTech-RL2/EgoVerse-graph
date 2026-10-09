@@ -156,7 +156,8 @@ recording:
   directory: ./demos/yam_gello
   rate_hz: 30
   episode_start: 0
-  episode_length: 3000
+  # Manual save by default. The dashboard can enable a positive frame limit.
+  episode_length: null
 preview:
   enabled: true
   width: 640

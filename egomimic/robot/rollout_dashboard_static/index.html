@@ -15,11 +15,11 @@
           <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, and <kbd>r</kbd> to return YAM to home and then to the ready state. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
         </div>
         <div class="rollout-control-panel">
+          <p id="current-model" class="current-model">Selected model: connecting…</p>
           <div class="rollout-meta">
             <span id="status" class="starting">Connecting…</span>
             <p id="recording-indicator" class="recording" hidden>● RECORDING VIDEO</p>
           </div>
-          <p id="current-model" class="current-model">Selected model: connecting…</p>
           <div class="rollout-button-grid">
             <button id="start" disabled>Start rollout <kbd>c</kbd></button>
             <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
@@ -93,8 +93,12 @@
         </div>
       </header>
       <p id="model-path" class="model-path"></p>
+      <label class="model-search" for="model-search">
+        <span>Search this folder</span>
+        <input id="model-search" type="search" autocomplete="off" placeholder="Match anywhere in a name">
+      </label>
       <div id="model-list" class="model-list">Loading…</div>
     </dialog>
-    <script type="module" src="/app.js?v=8"></script>
+    <script type="module" src="/app.js?v=9"></script>
   </body>
 </html>

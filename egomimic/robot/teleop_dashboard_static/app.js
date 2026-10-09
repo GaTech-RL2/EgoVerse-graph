@@ -4,6 +4,9 @@ let socket;
 let currentEpisode;
 let pendingEpisode;
 let pendingEpisodeFrames = 0;
+let pendingEpisodeLength;
+let episodeLengthDirty = false;
+let episodeLengthRequestedAt = 0;
 let review;
 let timer;
 const playbackFps = 30;
@@ -16,6 +19,12 @@ const keyLabel = key => key === ' ' ? 'Space' : key;
 
 function send(key) {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({key}));
+}
+
+function sendGripperForce(arm, value) {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({gripper_force: {arm, value: Number(value)}}));
+  }
 }
 
 function reconnectCameras() {
@@ -33,6 +42,24 @@ function configure(message) {
   cameras.clear();
   $('cameras').replaceChildren();
   $('controls').replaceChildren();
+  const gripperRoot = $('gripper-controls');
+  gripperRoot.replaceChildren();
+  const forceLimits = message.gripper_force_limits ?? {};
+  for (const [arm, value] of Object.entries(forceLimits)) {
+    const label = document.createElement('label');
+    label.className = 'gripper-control';
+    const name = document.createElement('span');
+    name.textContent = `${arm} arm`;
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '1'; slider.max = '50'; slider.step = '1'; slider.value = value;
+    const readout = document.createElement('output');
+    readout.textContent = `${value} N`;
+    slider.oninput = () => { readout.textContent = `${slider.value} N`; };
+    slider.onchange = () => sendGripperForce(arm, slider.value);
+    label.append(name, slider, readout);
+    gripperRoot.append(label);
+  }
+  $('gripper-settings').hidden = Object.keys(forceLimits).length === 0;
   for (const name of message.cameras) {
     const card = document.createElement('article');
     card.className = 'camera waiting';
@@ -65,6 +92,7 @@ function configure(message) {
   };
   $('reconnect-cameras').disabled = false;
   $('reconnect-cameras').onclick = reconnectCameras;
+  updateEpisodeLength(message);
   const isEditable = target => target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
@@ -131,6 +159,15 @@ function frame(message) {
     || message.status.startsWith('Reconnecting RGB');
   $('reconnect-cameras').disabled = recovering;
   updateEpisode(message);
+  updateEpisodeLength(message);
+  for (const [arm, value] of Object.entries(message.gripper_force_limits ?? {})) {
+    const slider = [...document.querySelectorAll('.gripper-control')].find(el => el.firstChild?.textContent === `${arm} arm`)
+      ?.querySelector('input');
+    if (slider && document.activeElement !== slider) {
+      slider.value = value;
+      slider.nextElementSibling.textContent = `${value} N`;
+    }
+  }
   for (const [name, tile] of cameras) {
     const image = message.images[name];
     if (image) {
@@ -142,6 +179,63 @@ function frame(message) {
       tile.card.classList.add('waiting');
     }
   }
+}
+
+function updateEpisodeLength(message) {
+  if (!Object.hasOwn(message, 'episode_length')) return;
+  const limit = message.episode_length;
+  const enabled = $('episode-limit-enabled');
+  const input = $('episode-length');
+  if (enabled.disabled) {
+    enabled.disabled = false;
+    $('set-episode-length').disabled = false;
+    $('episode-length-hint').textContent = 'Off means unlimited. Changes apply to the current recording.';
+  }
+  if (pendingEpisodeLength !== undefined) {
+    if (pendingEpisodeLength === limit) {
+      pendingEpisodeLength = undefined;
+      episodeLengthDirty = false;
+      $('episode-length-hint').textContent = limit === null
+        ? 'Limit off. Save the recording manually.'
+        : 'Applied. Lowering the limit below the current count saves the take.';
+    } else if (Date.now() - episodeLengthRequestedAt > 3000) {
+      pendingEpisodeLength = undefined;
+      $('episode-length-hint').textContent = 'Change was not accepted. Press Apply to retry.';
+    }
+  }
+  if (!episodeLengthDirty && document.activeElement !== input) {
+    enabled.checked = limit !== null;
+    if (limit !== null) input.value = limit;
+  }
+  input.disabled = !enabled.checked;
+  const count = message.recorded_frames ?? 0;
+  const rate = message.recording_rate_hz ?? playbackFps;
+  $('episode-length-status').textContent = limit === null
+    ? `Unlimited · ${count.toLocaleString()} frames recorded`
+    : `${count.toLocaleString()} / ${limit.toLocaleString()} frames · auto-save at ${(limit / rate).toFixed(1)} s`;
+}
+
+function submitEpisodeLength(event) {
+  event.preventDefault();
+  if ($('episode-limit-enabled').disabled) return;
+  const enabled = $('episode-limit-enabled').checked;
+  const input = $('episode-length');
+  const hint = $('episode-length-hint');
+  const limit = enabled ? Number(input.value) : null;
+  input.disabled = !enabled;
+  episodeLengthDirty = true;
+  if (enabled && (!/^\d+$/.test(input.value.trim()) || !Number.isSafeInteger(limit) || limit < 1)) {
+    hint.textContent = 'Enter a positive whole number of frames.';
+    return;
+  }
+  if (socket?.readyState !== WebSocket.OPEN) {
+    hint.textContent = 'Dashboard is not connected. Reconnect, then press Apply.';
+    return;
+  }
+  pendingEpisodeLength = limit;
+  episodeLengthRequestedAt = Date.now();
+  hint.textContent = 'Applying episode limit…';
+  socket.send(JSON.stringify({episode_length: limit}));
 }
 
 async function loadDemos() {
@@ -308,6 +402,15 @@ episodeForm.onkeydown = event => event.stopPropagation();
 $('episode-number').oninput = () => {
   pendingEpisode = undefined;
   pendingEpisodeFrames = 0;
+};
+const episodeLengthForm = $('episode-length-form');
+episodeLengthForm.onsubmit = submitEpisodeLength;
+episodeLengthForm.onkeydown = event => event.stopPropagation();
+$('episode-limit-enabled').onchange = submitEpisodeLength;
+$('episode-length').oninput = () => {
+  episodeLengthDirty = true;
+  pendingEpisodeLength = undefined;
+  $('episode-length-hint').textContent = 'Press Apply to use this limit for the current recording.';
 };
 $('seek').oninput = () => {
   pausePlayback();

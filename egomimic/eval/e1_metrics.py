@@ -179,9 +179,11 @@ class E1TempoAccumulator:
             "arcdur",
             "arcdurhyb",
             "arcvelhyb",
+            "arcdurtri",
+            "arcveltri",
         ):
             raise ValueError(
-                "variant must be time | arcmean | arcvel | arclogdur | arcdur | arcdurhyb | arcvelhyb"
+                "variant must be time | arcmean | arcvel | arclogdur | arcdur | arcdurhyb | arcvelhyb | arcdurtri | arcveltri"
             )
         self.prog_horizon_m = float(prog_horizon_m)
         self.progress_smooth_hz = (
@@ -210,6 +212,8 @@ class E1TempoAccumulator:
                     "arcdur": "dur",
                     "arcdurhyb": "durhyb",
                     "arcvelhyb": "profhyb",
+                    "arcdurtri": "durtri",
+                    "arcveltri": "proftri",
                 }[variant],
                 progress_smooth_hz=progress_smooth_hz,
             )

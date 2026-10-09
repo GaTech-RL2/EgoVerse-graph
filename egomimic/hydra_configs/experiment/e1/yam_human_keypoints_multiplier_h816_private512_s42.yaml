@@ -17,6 +17,9 @@ stationary_speed:
   timestamp_contract: human_recorded_rgb_nanoseconds_robot_metadata_fps
   tail_contract: complete_native_raw_windows_no_padding
 model:
+  num_latent_tokens: 64
+  latent_dim: 16
+  action_horizon: 100
   pipeline:
     _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
     _recursive_: false

@@ -14,17 +14,27 @@ def validate(cfg, family, suite):
     stages = cfg['model']['pipeline']['stages']
     if family == 'action_flow':
         assert cfg['model']['action_horizon'] == 32
+        assert cfg['model']['num_latent_tokens'] == 16
+        assert cfg['model']['latent_dim'] == 16
+        assert stages[2]['num_tokens'] == 16
+        for stage in stages:
+            if 'num_latent_tokens' in stage:
+                assert stage['num_latent_tokens'] == 16
     else:
         assert stages[2]['action_horizon'] == stages[3]['policy']['action_horizon'] == 32
     assert cfg['benchmark']['n_obs_steps'] == 2
     assert cfg['benchmark']['n_action_steps'] == 16
-    assert cfg['data']['train_datasets']['libero_panda']['valid_ratio'] == .1
-    assert cfg['data']['valid_datasets']['libero_panda']['valid_ratio'] == .1
+    valid_ratio = .1
+    assert cfg['data']['train_datasets']['libero_panda']['valid_ratio'] == valid_ratio
+    assert cfg['data']['valid_datasets']['libero_panda']['valid_ratio'] == valid_ratio
     assert cfg['callbacks']['model_checkpoint']['save_top_k'] == -1
     batch = cfg['benchmark']['batch_size'] * cfg['trainer']['accumulate_grad_batches']
     assert cfg['callbacks']['batch_budget']['global_batch_size'] == batch
     if family == 'action_flow':
         assert batch == 32 and cfg['trainer']['max_steps'] == 80000
+        assert cfg['trainer']['gradient_clip_val'] == 3.0
+        assert cfg['callbacks']['ema']['decay'] == .9978
+        assert cfg['callbacks']['ema']['use_warmup'] is False
         assert cfg['model']['optimizer_named_parameters'] is True
         assert cfg['model']['optimizer']['_target_'].endswith('ReleasedUniteCompositeOptimizer')
         assert cfg['model']['optimizer']['lr'] == .0001
@@ -33,6 +43,9 @@ def validate(cfg, family, suite):
         assert cfg['model']['pipeline']['stages'][-1]['action_velocity_weight'] == 1.
     else:
         assert batch == 1024 and cfg['trainer']['max_epochs'] == 5001
+        assert cfg['trainer']['gradient_clip_val'] == 1.0
+        assert cfg['callbacks']['ema']['decay'] == .9999
+        assert cfg['callbacks']['ema']['use_warmup'] is True
         assert cfg['model']['training_behavior']['learning_rate'] == 5e-5
         assert cfg['model']['training_behavior']['obs_enc_lr'] == 1e-5
     return batch
@@ -62,11 +75,15 @@ def compose_all(source, output):
             for key in ('normalizer','norm_stats','seed'):
                 assert pair['dp'][key] == pair['action_flow'][key], (suite,key)
             for split in ('train_datasets', 'valid_datasets'):
-                assert pair['dp']['data'][split] == pair['action_flow']['data'][split]
+                dp_dataset = dict(pair['dp']['data'][split]['libero_panda'])
+                af_dataset = dict(pair['action_flow']['data'][split]['libero_panda'])
+                assert dp_dataset.pop('valid_ratio') == .1
+                assert af_dataset.pop('valid_ratio') == .1
+                assert dp_dataset == af_dataset
             assert pair['dp']['model']['pipeline']['stages'][0] == pair['action_flow']['model']['pipeline']['stages'][0]
             for key in ('suite','dataset','horizon','n_obs_steps','n_action_steps'):
                 assert pair['dp']['benchmark'][key] == pair['action_flow']['benchmark'][key]
-    return {'status':'PASS_CONFIG_ONLY', 'fairness':'FAIR WITH CAVEATS: intentionally different family optimizers and training budgets', 'full_training_ready':False, 'rows': results}
+    return {'status':'PASS_CONFIG_ONLY', 'fairness':'FAIR WITH CAVEATS: matched episode split, intentionally different family optimizers and training budgets', 'full_training_ready':False, 'rows': results}
 
 if __name__ == '__main__':
     p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);a=p.parse_args()

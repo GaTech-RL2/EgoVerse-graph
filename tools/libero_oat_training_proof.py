@@ -26,7 +26,7 @@ def main():
     assert actual == a.source_commit
     assert not subprocess.check_output(['git','status','--porcelain'],cwd=source,text=True).strip()
     suite=SUITES[a.index//2];family=('dp','action_flow')[a.index%2]
-    out=a.root/'proof-v2'/f'{family}-{suite}'
+    out=a.root/'proof-v5'/f'{family}-{suite}'
     out.mkdir(parents=True,exist_ok=True)
     assert not (out/'RESULT.json').exists()
     def progress(stage, **values):
@@ -48,6 +48,7 @@ def main():
     # Phase overrides preserve microbatch, accumulation, model, objective, and optimizer.
     with open_dict(cfg):
         cfg.trainer.max_steps=2;cfg.trainer.max_epochs=-1
+        cfg.trainer.log_every_n_steps=1
         cfg.trainer.limit_val_batches=1;cfg.trainer.num_sanity_val_steps=0
         cfg.trainer.check_val_every_n_epoch=10
         cfg.val_at_end=True
@@ -56,7 +57,7 @@ def main():
         cfg.callbacks.model_checkpoint.save_on_train_epoch_end=False
         cfg.callbacks.model_checkpoint.filename='epoch-{epoch:04d}-step-{step:09d}'
         cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-step000000002.ckpt')
-        cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-v2'
+        cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-v5'
         cfg.logger.wandb.name=cfg.logger.wandb.id
         cfg.logger.wandb.entity='rl2-group'
         cfg.logger.wandb.project='pushshapes-action-flow'
@@ -97,12 +98,13 @@ def main():
     train_view=hydra.utils.instantiate(cfg.data.train_datasets.libero_panda)
     valid_view=hydra.utils.instantiate(cfg.data.valid_datasets.libero_panda)
     train_ids=sorted(train_view.datasets);valid_ids=sorted(valid_view.datasets)
-    assert len(train_ids)==450 and len(valid_ids)==50
+    expected_train, expected_valid = 450, 50
+    assert len(train_ids)==expected_train and len(valid_ids)==expected_valid
     assert not set(train_ids)&set(valid_ids)
     assert len(set(train_ids)|set(valid_ids))==500
     train_paths={str(v.episode_path) for v in train_view.datasets.values()}
     valid_paths={str(v.episode_path) for v in valid_view.datasets.values()}
-    assert not train_paths&valid_paths and len(train_paths)==450 and len(valid_paths)==50
+    assert not train_paths&valid_paths and len(train_paths)==expected_train and len(valid_paths)==expected_valid
     split={'train':train_ids,'valid':valid_ids,'train_episode_paths':sorted(train_paths),
            'valid_episode_paths':sorted(valid_paths),'ratio':.1,'seed':42,
            'dataset':str(train_view.resolver.folder_path)}
@@ -110,17 +112,37 @@ def main():
     split_path=out/'SPLIT.json'
     split_path.with_suffix('.sha256').write_text(hashlib.sha256(split_path.read_bytes()).hexdigest()+'\n')
     del train_view,valid_view;gc.collect()
+    seed_path=out/'SEEDS.json'
+    from egomimic.eval.libero_comparison_eval import SEEDS
+    write(seed_path,{'seeds':list(SEEDS)})
+    if family == 'action_flow':
+        diagnostic={'max_batches_per_rank':1,'artifact_root':str(out/'diagnostics'),
+          'noise_seed_bank_path':str(seed_path),'noise_seed_bank_sha256':hashlib.sha256(seed_path.read_bytes()).hexdigest(),
+          'raw_noise_levels':[0.,.25,.5,.75,1.],'max_samples':8,'jacobian_samples':2,
+          'capture_activations':True,'activation_layer_map':{i:i for i in range(12)},'cknna_k':2,
+          'validation_view':{'definition':'same_first_ordered_eight_conditions','split_manifest_sha256':hashlib.sha256(split_path.read_bytes()).hexdigest(),'per_rank_batch_size':8,'world_size':1},
+          'provenance':{'source_commit':actual,'latent_shape':[16,16],'sampler_steps':50,'action_horizon':32,'sampler':'euler','split_sha256':hashlib.sha256(split_path.read_bytes()).hexdigest(),'metric_identity':'libero-h32-latent16-k2-all12-v1'},
+          'native_error':{'enabled':True,'type':'raw_OSC7D_equal_semantic_blocks_mse','normalizer':'released_all_replay_limits'}}
+        with open_dict(cfg): cfg.evaluator.diagnostic_config=OmegaConf.create(diagnostic)
+    OmegaConf.save(OmegaConf.masked_copy(cfg,[k for k in cfg if k!='hydra']),out/'SMOKE_CONFIG.yaml',resolve=True)
     progress('REAL_OPTIMIZER_AND_VALIDATION')
     metrics,objects=train(cfg)
     trainer=objects['trainer'];model=objects['model'];data=objects['datamodule']
     assert trainer.global_step==2
     values={k:float(v.detach().cpu()) if torch.is_tensor(v) else float(v) for k,v in metrics.items() if torch.is_tensor(v) or isinstance(v,(int,float))}
     required=['Valid/normalized_reconst_mse','Valid/reconst_mse','Valid/energy_score32','Valid/energy_accuracy32','Valid/energy_diversity32']
+    if family == 'action_flow':
+        required += ['Train/MSE','Optimizer/LR/Muon','Optimizer/LR/AdamW']
+        assert any(key.startswith('Valid/DenoisingTrajectory/') for key in values)
+        assert any(key.startswith('Valid/Alignment/CKA/') for key in values)
+        assert any(key.startswith('Valid/Alignment/CKNNA/') for key in values)
+        assert any(key.startswith('Valid/Alignment/FinalLatentCosine/') for key in values)
     for key in required: assert key in values and torch.isfinite(torch.tensor(values[key])),(key,values)
     train_ds=data.train_datasets['libero_panda']
     valid_ds=data.valid_datasets['libero_panda']
     train_ids=sorted(train_ds.datasets);valid_ids=sorted(valid_ds.datasets)
-    assert len(train_ids)==450 and len(valid_ids)==50
+    expected_train, expected_valid = 450, 50
+    assert len(train_ids)==expected_train and len(valid_ids)==expected_valid
     assert not set(train_ids)&set(valid_ids)
     assert len(set(train_ids)|set(valid_ids))==500
     assert train_ids == split['train'] and valid_ids == split['valid']

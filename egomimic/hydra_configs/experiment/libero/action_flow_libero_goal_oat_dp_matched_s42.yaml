@@ -15,7 +15,11 @@ trainer:
   max_epochs: -1
   max_steps: 80000
   accumulate_grad_batches: 1
+  gradient_clip_val: 3.0
 callbacks:
+  ema:
+    decay: 0.9978
+    use_warmup: false
   batch_budget:
     global_batch_size: 32
   model_checkpoint:
@@ -26,3 +30,11 @@ callbacks:
     require_routed: false
   dit_half:
     _target_: egomimic.utils.libero_dit_half.LiberoDiTHalf
+
+data:
+  train_datasets:
+    libero_panda:
+      valid_ratio: 0.1
+  valid_datasets:
+    libero_panda:
+      valid_ratio: 0.1

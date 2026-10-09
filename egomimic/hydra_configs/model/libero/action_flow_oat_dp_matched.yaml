@@ -5,7 +5,7 @@ diagnostic_provider:
   _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 action_horizon: 32
 action_dim: 7
-num_latent_tokens: 8
+num_latent_tokens: 16
 latent_dim: 16
 condition_dim: 276
 hidden_dim: 240

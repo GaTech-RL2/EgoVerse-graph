@@ -18,23 +18,26 @@ def write(path, value):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--source-commit',required=True);p.add_argument('--index',type=int,required=True);p.add_argument('--phase',choices=('smoke','full'),default='smoke')
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--source-commit',required=True);p.add_argument('--index',type=int,required=True);p.add_argument('--phase',choices=('smoke','full'),default='smoke');p.add_argument('--attempt',default='v7')
     a=p.parse_args()
+    import re
+    assert re.fullmatch(r'v[0-9]+(?:-retry[0-9]+)?',a.attempt)
     assert os.environ.get('SLURM_STEP_ID'), 'scheduled srun only'
     source=Path(__file__).resolve().parents[1]
     actual=subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()
     assert actual == a.source_commit
     assert not subprocess.check_output(['git','status','--porcelain'],cwd=source,text=True).strip()
     suite=SUITES[a.index//2];family=('dp','action_flow')[a.index%2]
-    out=a.root/('proof-v6' if a.phase=='smoke' else 'full-v6')/f'{family}-{suite}'
+    out=a.root/(('proof-' if a.phase=='smoke' else 'full-')+a.attempt)/f'{family}-{suite}'
     assert not out.exists(), 'Fresh proof/full identity required; never overwrite a previous attempt'
     out.mkdir(parents=True,exist_ok=False)
     assert not (out/'RESULT.json').exists()
     if a.phase == 'full':
-        gate=json.loads((a.root/'FULL_READY_V6.json').read_text())
+        gate=json.loads((a.root/'FULL_READY_V7.json').read_text())
         assert gate['status']=='READY_ALL_EIGHT_REAL_PROOFS_AND_PAIRED_ROLLOUT_PROTOCOL'
         assert gate['source_commit']==actual
-        smoke_path=a.root/'proof-v6'/f'{family}-{suite}'/'RESULT.json'
+        smoke_path=Path(gate['smoke_result_paths'][f'{family}-{suite}'])
+        assert smoke_path.resolve().is_relative_to(a.root.resolve())
         smoke=json.loads(smoke_path.read_text())
         assert smoke['status']=='PASS_REAL_DATA_OPTIMIZER_VALIDATION_EMA_RELOAD'
         assert smoke['source_commit']==actual
@@ -55,6 +58,9 @@ def main():
     validate(full,family,suite)
     write(out/'FULL_CONFIG.json',full)
     assert Path(full['benchmark']['dataset']).is_dir()
+    dependency=json.loads((a.root/'DEPENDENCY_READY_V1.json').read_text())
+    assert dependency['status']=='PASS_PINNED_DEPENDENCIES_AND_RELEASED_ENCODER_CONSTRUCTION'
+    assert dependency['robomimic']=='0.2.0'
     # Phase overrides preserve microbatch, accumulation, model, objective, and optimizer.
     if a.phase == 'smoke':
       with open_dict(cfg):
@@ -68,7 +74,7 @@ def main():
           cfg.callbacks.model_checkpoint.save_on_train_epoch_end=False
           cfg.callbacks.model_checkpoint.filename='epoch-{epoch:04d}-step-{step:09d}'
           cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-step000000002.ckpt')
-          cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-v6'
+          cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-{a.attempt}'
           cfg.logger.wandb.name=cfg.logger.wandb.id
           cfg.logger.wandb.entity='rl2-group'
           cfg.logger.wandb.project='pushshapes-action-flow'
@@ -78,7 +84,7 @@ def main():
         with open_dict(cfg):
             cfg.val_at_end=True
             cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-epoch-{epoch:04d}-step-{step:09d}.ckpt')
-            cfg.logger.wandb.id=f'{family}-{suite}-oat-matched-latent16-s42-20261008-full-v6'
+            cfg.logger.wandb.id=f'{family}-{suite}-oat-matched-latent16-s42-20261008-full-{a.attempt}'
             cfg.logger.wandb.name=cfg.logger.wandb.id
             cfg.logger.wandb.entity='rl2-group';cfg.logger.wandb.project='pushshapes-action-flow'
             cfg.logger.wandb.group='libero-four-suite-oat-dp-matched-20261008';cfg.logger.wandb.resume='never'

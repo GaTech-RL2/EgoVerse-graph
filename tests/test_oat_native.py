@@ -1,9 +1,6 @@
 """Numerical parity with the pinned upstream, plus native graph contracts."""
 
-import importlib
-import json
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -19,6 +16,8 @@ from egomimic.models.oat.tokenizer.oat.encoder.register_encoder import (
 from egomimic.models.oat.tokenizer.oat.quantizer.fsq import FSQ
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
+
+pytest_plugins = ("tests.oat_reference_fixtures",)
 
 SMALL = dict(
     horizon=8,
@@ -54,28 +53,6 @@ def test_cpu_checkpoint_preserves_normalizer_device(component):
         for module in normalizers
         for parameter in module.parameters()
     )
-
-
-@pytest.fixture(scope="module")
-def reference():
-    root = os.environ.get("OAT_REFERENCE_ROOT")
-    if not root:
-        pytest.skip(
-            "Set OAT_REFERENCE_ROOT to the pinned OAT checkout for source parity"
-        )
-    root = Path(root)
-    import hashlib
-
-    manifest = json.loads(
-        (Path(__file__).parents[1] / "egomimic/models/oat/UPSTREAM.json").read_text()
-    )
-    for relative, expected in manifest["files"].items():
-        assert (
-            hashlib.sha256((root / "oat" / relative).read_bytes()).hexdigest()
-            == expected
-        )
-    sys.path.insert(0, str(root))
-    return lambda name: importlib.import_module("oat." + name)
 
 
 def reference_tokenizer(reference, config=None):

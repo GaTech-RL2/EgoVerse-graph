@@ -24,6 +24,7 @@ from omegaconf import OmegaConf
 from egomimic.pipeline.construction import checkpoint_construction
 from egomimic.pipeline.inference_config import build_inference_config
 from egomimic.trainHydra import _instantiate_model_wrapper
+from scripts.audit_constructor_inputs import evaluator_inputs, model_inputs
 from scripts.audit_hydra_configs import CONFIGS, ROOT, compose_for_audit
 
 # This is a shipped, explicitly non-runnable fragment, not ignored migration debt.
@@ -67,9 +68,17 @@ def offline_static_buffer_construction():
     """
     from egomimic.models.oat.tokenizer.oat.model.transformer import Transformer
     from egomimic.models.oat.tokenizer.oat.quantizer.fsq import FSQ
+    from egomimic.pipeline.stages_libero_arc import LiberoArcStage
 
     original = FSQ.__init__
     linspace = torch.linspace
+    representation_context = LiberoArcStage.representation_context
+
+    def codec_metadata(module):
+        # The maintained method derives units from scalar codec attributes;
+        # its temporary ones/new_tensor/tolist is metadata, not model weights.
+        with torch.device("cpu"):
+            return representation_context(module)
 
     def scalar_schedule(*args, **kwargs):
         caller = sys._getframe(1)
@@ -94,6 +103,7 @@ def offline_static_buffer_construction():
     with (
         patch.object(FSQ, "__init__", construct),
         patch.object(torch, "linspace", scalar_schedule),
+        patch.object(LiberoArcStage, "representation_context", codec_metadata),
     ):
         yield
 
@@ -125,15 +135,21 @@ def audit_components(paths=None):
                         if not config or "_target_" not in config:
                             continue
                         cache_key = key, _fingerprint(config)
+                        if key == "model" and cfg.get("benchmark"):
+                            cache_key += (_fingerprint(cfg.benchmark),)
                         if cache_key not in cached:
                             if key == "data":
                                 dm = instantiate(config, _recursive_=False)
                                 cached[cache_key] = dm.preflight_configuration()
                             elif key == "evaluator":
-                                evaluator = instantiate(config)
+                                inputs, evidence = evaluator_inputs(config)
+                                evaluator = instantiate(inputs)
                                 evaluator.data_requirements()
                                 evaluator.trainer_overrides()
-                                cached[cache_key] = {"constructor": "passed"}
+                                cached[cache_key] = {
+                                    "constructor": "passed",
+                                    **evidence,
+                                }
                             else:
                                 artifact = build_inference_config(cfg)
                                 if name in FRAGMENTS:
@@ -152,7 +168,12 @@ def audit_components(paths=None):
                                         "meta",
                                         force_add=True,
                                     )
-                                    with torch.device("meta"):
+                                    with (
+                                        torch.device("meta"),
+                                        model_inputs(
+                                            audit_cfg, CONFIGS
+                                        ) as input_evidence,
+                                    ):
                                         wrapper = _instantiate_model_wrapper(audit_cfg)
                                     graph = wrapper.model
                                     # Honor configured TrainingBehavior parameter binding
@@ -199,6 +220,7 @@ def audit_components(paths=None):
                                         "reason": artifact.get("reason"),
                                         "optimizer_scheduler": "passed",
                                         "late_bound_parameter_placeholder": placeholder,
+                                        **input_evidence,
                                     }
                                     del graph, wrapper
                                     gc.collect()

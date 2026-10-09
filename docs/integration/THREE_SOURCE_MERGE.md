@@ -143,3 +143,47 @@ The affected-family union passes 41 tests, including real ARC-DP optimizer,
 EMA, strict reload and resume in FP32/BF16. Four upstream-reference tests still
 skip without the pinned OAT checkout and are not parity evidence. Native
 constructor external bindings and the remaining OAT suites remain incomplete.
+
+The pinned upstream OAT checkout `1da92695ef12c23b7000a0b1a76cab0aef4750e6`
+now supplies explicit local source-parity evidence: 16 native tests passed and
+four diffusion reference tests passed. A shared-fixture registration collision
+initially prevented those four tests from collecting; the fixture is now an
+independent plugin, with hash verification and scoped path restoration.
+The native OAT training lifecycle passes four cases, including FP32/BF16,
+tokenizer/policy strict reload and resume, final-epoch checkpoints, and
+accumulated global-batch/EMA accounting. All six continuous ARC policy cases
+also pass across joint-DUR, DUR and STK in FP32/BF16, including target-free
+inference and changed-context rejection. The separate ARC tokenized lifecycle
+suite and final full-tree gate are still pending.
+
+Offline constructor inputs are explicitly structural, not external binding
+proofs. Native evaluators use labeled synthetic identity/profile inputs;
+policies use untrained meta tokenizers from the declared shipped template.
+Explicit learned checkpoints cannot be substituted, CPU use is rejected,
+production factories remain fail-closed, and results mark runtime bindings
+`UNVERIFIED`. ARC templates must additionally construct and validate their real
+codec representation; dimensions alone are insufficient. The complete audit
+exposed that missing structural representation, retained as a failed attempt,
+and the targeted repair passes both affected constructor contexts. The real
+codec's deterministic metadata conversion is CPU-scoped only during the offline
+audit; model parameters stay meta. Value/RNG/method-restoration regression and
+storage gates pass 17 tests. None of these fixtures certify
+historical model/profile pairing, dataset identity, learned weights or GPU runs.
+
+The ARC-OAT suite passed 12 cases; its fourth lifecycle case exhausted local
+disk during final checkpoint writing. After preserving the failure and removing
+only that completed suite's identified synthetic fixtures, the one unfinished
+BF16/DUR lifecycle case passes. The local runner now checks headroom before
+every test, not just at suite startup, with four executable guard cases.
+The wheel build and both independently installed-wheel resource tests pass.
+
+The full constructor rerun's 60-second native-arm CPython diagnostic dump hung
+in `dump_frame`, with pytest waiting in `cancel_dump_traceback_later` (retained
+process sample). Only its exact local PID was terminated; that attempt is not a
+terminal passing gate. The intentionally long all-YAML audit now receives a
+separate bounded 600-second diagnostic threshold, checked in two regression
+cases. The final rerun passes the complete 372-YAML constructor coverage in
+79.92 seconds; resolution coverage also passed all 372. These are offline
+structural checks, with unverified external bindings still explicitly labeled.
+CI, Graphite publication and merge remain
+incomplete, and no all-run/runtime parity is claimed.

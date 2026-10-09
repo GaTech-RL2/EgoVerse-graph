@@ -17,6 +17,21 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2)+'\n')
 
 
+def validate_optimizer_coverage(nets, params, family):
+    """Preserve the released DP's zero-size frozen device bookkeeping parameter."""
+    named = {id(p):(name,p) for name,p in nets.named_parameters()}
+    active = {id(p) for p in nets.parameters() if p.requires_grad}
+    selected = {id(p) for p in params}
+    assert active <= selected, 'Optimizer omits trainable parameters'
+    assert selected <= set(named), 'Optimizer includes parameters outside the model'
+    for identity in selected - active:
+        name, parameter = named[identity]
+        assert family == 'dp' and name.endswith('._dummy_variable')
+        assert not parameter.requires_grad and parameter.numel() == 0
+    return {'trainable_parameters_covered':len(active),
+            'released_frozen_bookkeeping':[named[i][0] for i in sorted(selected-active)]}
+
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--source-commit',required=True);p.add_argument('--index',type=int,required=True);p.add_argument('--phase',choices=('smoke','full'),default='smoke');p.add_argument('--attempt',default='v7')
     a=p.parse_args()
@@ -35,7 +50,7 @@ def main():
     if a.phase == 'full':
         gate=json.loads((a.root/'FULL_READY_V7.json').read_text())
         assert gate['status']=='READY_ALL_EIGHT_REAL_PROOFS_AND_PAIRED_ROLLOUT_PROTOCOL'
-        assert gate['source_commit']==actual
+        assert gate.get('source_commits',{}).get(family,gate['source_commit'])==actual
         smoke_path=Path(gate['smoke_result_paths'][f'{family}-{suite}'])
         assert smoke_path.resolve().is_relative_to(a.root.resolve())
         smoke=json.loads(smoke_path.read_text())
@@ -111,7 +126,7 @@ def main():
     optimizer=optimizer.get('optimizer') if isinstance(optimizer,dict) else optimizer
     params=[p for g in optimizer.param_groups for p in g['params']]
     assert len(params)==len({id(p) for p in params})
-    assert {id(p) for p in params}=={id(p) for p in model.nets.parameters() if p.requires_grad}
+    validate_optimizer_coverage(model.nets,params,family)
     counts={'total':sum(p.numel() for p in model.parameters()),'trainable':sum(p.numel() for p in model.parameters() if p.requires_grad)}
     rates=sorted({float(g['lr']) for g in optimizer.param_groups})
     if family=='dp': assert rates == [1e-5,5e-5], rates

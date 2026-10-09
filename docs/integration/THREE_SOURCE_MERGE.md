@@ -129,3 +129,17 @@ v2 artifact metadata, and shared numeric diagnostic union passes 56 tests.
 No production artifact-identity or diagnostic gate was relaxed. These CPU
 tests are not all historical checkpoint, server-runtime, or GPU certification;
 the complete final-head constructor/test/CI and merge gates remain incomplete.
+
+The native-arm broad regression (excluding the recursive constructor audit
+and three separately required OAT suites) finished with 2,376 passes, nine
+failures, ten skips and 28 passing subtests. Its nine failures were classified:
+three stale specialized-wrapper assertions, one formatting-sensitive historical
+half-ResNet hash, and five missing optional OAT dependency failures. The wrapper
+tests now require the common wrapper plus the exact Action Flow behavior, with
+all scientific assertions retained. Independent AST hashes from training7c253e5
+and this integration match exactly; the guard now hashes that semantic syntax
+instead of formatter whitespace. CI now installs the declared locked OAT extra.
+The affected-family union passes 41 tests, including real ARC-DP optimizer,
+EMA, strict reload and resume in FP32/BF16. Four upstream-reference tests still
+skip without the pinned OAT checkout and are not parity evidence. Native
+constructor external bindings and the remaining OAT suites remain incomplete.

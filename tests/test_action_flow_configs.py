@@ -65,7 +65,10 @@ def test_action_flow_pair_composes_to_exact_shared_contract(
         "ContentDecoderStage",
         "ActionFlowObjectiveStage",
     ]
-    assert cfg.model._target_.endswith("ActionFlowModelWrapper")
+    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert cfg.model.training_behavior._target_ == (
+        "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior"
+    )
     assert cfg.model.action_horizon == 16
     assert cfg.model.action_dim == 4
     assert cfg.model.latent_dim == 8

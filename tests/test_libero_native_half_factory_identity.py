@@ -17,6 +17,10 @@ def test_native_half_factory_matches_historical_architecture_and_initialization(
     ]
     assert len(branches) == 1, "native historical half-ResNet factory unavailable"
     assert (
-        hashlib.sha256(ast.get_source_segment(source, branches[0]).encode()).hexdigest()
-        == "8b5b660b258b4bda63444714d5417ad1c7764ab7a3e436b5797651b861e2d0b8"
+        # Pinned from training source7c253e5, including the non-half else arm.
+        # Ignore whitespace only; retain every call, initializer and argument.
+        hashlib.sha256(
+            ast.dump(branches[0], include_attributes=False).encode()
+        ).hexdigest()
+        == "9521e4594c50d2e98b25fc9c07ef2d0c9aac42c83b57e0d0f55c8128056d8a75"
     )

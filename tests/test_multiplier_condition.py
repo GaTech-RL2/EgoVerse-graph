@@ -109,3 +109,28 @@ def test_stationary_recipe_keeps_selected_rates_and_dimensions():
     for source in (data.train_datasets.yam_bimanual,data.train_datasets.human_bimanual,data.valid_datasets.yam.yam_bimanual,data.valid_datasets.human.human_bimanual):
         win=source.resolver.transform_list.window_transform
         assert OmegaConf.to_container(win,resolve=False)["conditioning_input"]=="${stationary_speed.conditioning_input}"
+
+
+def test_multiplier_semantics_preserve_normalization_inputs():
+    import numpy as np
+    from egomimic.rldb.zarr.physical_retiming import PhysicalWindowRetiming
+    for domain,horizon,rates in (("human",30,[.2,.4,.6,.8,1.]),("robot",100,[1.])):
+        fields={"left": "pose_wxyz", "right":"pose_wxyz", "articulation":"linear"}
+        kwargs=dict(rates=rates,fields=fields,pose_keys=["left","right"],horizon=horizon,
+                    embodiment=domain,sample_views=5,timestamp_key="clock" if domain=="human" else None)
+        old=PhysicalWindowRetiming(**kwargs,conditioning_input="native_speed")
+        new=PhysicalWindowRetiming(**kwargs,conditioning_input="retiming_multiplier")
+        km={key:{"horizon":horizon} for key in fields}
+        if domain=="human":km["clock"]={"horizon":horizon}
+        for transform in (old,new):transform.bind_episode({"fps":30},km)
+        pose=np.zeros((horizon,7));pose[:,0]=np.arange(horizon)*.01;pose[:,3]=1
+        for view in range(5):
+            batch={"left":pose.copy(),"right":pose.copy(),
+                   "articulation":np.arange(horizon*126,dtype=float).reshape(horizon,126),
+                   "_retiming_view":view}
+            if domain=="human":batch["clock"]=np.arange(horizon,dtype=np.int64)*33333333
+            a=old.transform({k:v.copy() if hasattr(v,"copy") else v for k,v in batch.items()})
+            b=new.transform({k:v.copy() if hasattr(v,"copy") else v for k,v in batch.items()})
+            for key in fields:np.testing.assert_array_equal(a[key],b[key])
+            assert "requested_speed" in a and "requested_speed" not in b
+            assert b["retiming_rate"].shape==(1,)

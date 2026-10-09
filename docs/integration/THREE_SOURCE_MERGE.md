@@ -118,3 +118,14 @@ local environment. The robot union passes 65 cases; two numeric-interface
 cases cannot execute because MuJoCo rejects x86 Python on Apple Silicon. Do
 not reinterpret that runtime limitation as success or bypass its architecture
 check. Exact Linux/server or native-arm execution remains required.
+
+The isolated native-arm Python 3.11.14 environment now successfully installs
+the exact project lock (Torch 2.7.1, alignment and diagnostics extras). Both
+previously blocked MuJoCo numeric-interface tests execute and pass there.
+The LIBERO evaluator boundary fixtures now supply the explicit native profile,
+test missing/mismatched-profile rejection, and isolate wrapper dispatch from
+the separately tested numeric diagnostic implementation. The boundary,
+v2 artifact metadata, and shared numeric diagnostic union passes 56 tests.
+No production artifact-identity or diagnostic gate was relaxed. These CPU
+tests are not all historical checkpoint, server-runtime, or GPU certification;
+the complete final-head constructor/test/CI and merge gates remain incomplete.

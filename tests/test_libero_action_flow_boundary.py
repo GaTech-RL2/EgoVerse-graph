@@ -4,6 +4,7 @@ import weakref
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import torch
 from hydra import compose, initialize_config_dir
 
@@ -11,6 +12,42 @@ from egomimic.eval.libero_action_flow_eval import LiberoActionFlowEvaluator
 from egomimic.pipeline.libero_action_flow import LiberoActionFlowObservationAdapter
 from egomimic.pl_utils.training_behavior_action_flow import ActionFlowTrainingBehavior
 from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowDataset
+
+
+def _native_profile(seed_file, tmp_path):
+    """Explicit synthetic constructor inputs, not a native run receipt."""
+    from egomimic.benchmarks.libero.native_diagnostic_config import (
+        build_native_diagnostic_config,
+    )
+
+    return build_native_diagnostic_config(
+        {
+            "energy_seed_bank_sha256": hashlib.sha256(
+                seed_file.read_bytes()
+            ).hexdigest(),
+            "split_sha256": "synthetic-boundary-test",
+        },
+        str(tmp_path / "diagnostics"),
+        str(seed_file),
+        {
+            "num_latent_tokens": 8,
+            "latent_dim": 16,
+            "num_inference_steps": 50,
+            "pipeline": {
+                "stages": [
+                    {
+                        "_target_": "fixture.ContentEncoderStage",
+                        "encoder": {"backbone": {"depth": 12}},
+                    },
+                    {
+                        "_target_": "fixture.ConditionalVelocityStage",
+                        "field": {"backbone": {"depth": 12}},
+                        "inference_method": "euler",
+                    },
+                ]
+            },
+        },
+    )
 
 
 def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(
@@ -78,7 +115,9 @@ def test_libero_observation_adapter_shapes_and_integer_task_identity():
         raise AssertionError("fractional task IDs must fail closed")
 
 
-def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
+def test_libero_validation_dispatches_generic_action_flow_diagnostic(
+    tmp_path, monkeypatch
+):
     seed_file = tmp_path / "seeds.json"
     seed_file.write_text(json.dumps({"seeds": list(range(32))}))
 
@@ -88,6 +127,9 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
             return values
 
     class GenericModel:
+        global_rank = current_epoch = global_step = 0
+        trainer = SimpleNamespace(precision="32-true")
+
         def __init__(self):
             self.logged = []
             self.diagnostic_calls = []
@@ -115,13 +157,33 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
     evaluator = LiberoActionFlowEvaluator(
         energy_seed_bank_path=seed_file,
         energy_seed_bank_sha256=hashlib.sha256(seed_file.read_bytes()).hexdigest(),
+        native_diagnostic_config=_native_profile(seed_file, tmp_path),
     )
+    # This test isolates wrapper/evaluator dispatch; it does not certify the
+    # native model's owner topology. Numeric analyzer tests are separate.
+    owner_calls = []
+    monkeypatch.setattr(
+        "egomimic.benchmarks.libero.native_diagnostic_config.assert_native_diagnostic_owners",
+        owner_calls.append,
+    )
+    analyses = []
+
+    def analyze(**kwargs):
+        analyses.append(kwargs)
+        return {"metrics": {}, "artifact": {}}
+
+    monkeypatch.setattr(evaluator.shared_diagnostics, "analyze_precomputed", analyze)
     model = GenericModel()
     evaluator.model = model
     evaluator.bind_data_context(normalizer=IdentityNormalizer())
     evaluator.on_validation_step({"libero": {"actions": torch.zeros(2, 16, 7)}}, 0)
     assert len(model.diagnostic_calls) == 1
     assert model.diagnostic_calls[0][0] == "action_flow"
+    assert owner_calls == [model]
+    assert len(analyses) == 1
+    assert analyses[0]["native_error_fns"]["libero"](
+        torch.zeros(2, 16, 7), torch.ones(2, 16, 7)
+    ).tolist() == [1.0, 1.0]
     assert any(
         name == "Valid/energy_score32_native_equal_components"
         for name, _, _ in model.logged
@@ -141,6 +203,7 @@ def test_libero_diagnostic_binds_wrapper_not_inner_pipeline(tmp_path):
     evaluator = LiberoActionFlowEvaluator(
         energy_seed_bank_path=seed_file,
         energy_seed_bank_sha256=hashlib.sha256(seed_file.read_bytes()).hexdigest(),
+        native_diagnostic_config=_native_profile(seed_file, tmp_path),
     )
     inner_pipeline = SimpleNamespace(device=None)
     evaluator.model = inner_pipeline
@@ -158,3 +221,18 @@ def test_libero_diagnostic_binds_wrapper_not_inner_pipeline(tmp_path):
     behavior.on_validation_start()
     assert evaluator.model is wrapper
     assert inner_pipeline.device == wrapper.device
+
+
+def test_libero_diagnostic_profile_is_not_implicitly_waived(tmp_path):
+    seed_file = tmp_path / "seeds.json"
+    seed_file.write_text(json.dumps({"seeds": list(range(32))}))
+    kwargs = {
+        "energy_seed_bank_path": seed_file,
+        "energy_seed_bank_sha256": hashlib.sha256(seed_file.read_bytes()).hexdigest(),
+    }
+    with pytest.raises(ValueError, match="explicit native same-pass"):
+        LiberoActionFlowEvaluator(**kwargs)
+    profile = _native_profile(seed_file, tmp_path)
+    profile["max_samples"] = 7
+    with pytest.raises(ValueError, match="native8/k2/all12"):
+        LiberoActionFlowEvaluator(**kwargs, native_diagnostic_config=profile)

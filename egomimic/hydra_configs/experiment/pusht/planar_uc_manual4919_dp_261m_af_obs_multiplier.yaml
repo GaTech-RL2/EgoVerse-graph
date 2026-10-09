@@ -12,12 +12,6 @@ trainer:
   max_steps: 80000
   precision: bf16
   val_check_interval: 15000
-callbacks:
-  ema:
-    _target_: egomimic.utils.ema_callback.EMACallback
-    decay: 0.9978
-    validate_with_ema: true
-    use_warmup: false
 norm_stats:
   norm_mode: minmax
   sample_frac: 1.0

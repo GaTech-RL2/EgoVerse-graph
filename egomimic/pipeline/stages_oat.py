@@ -116,6 +116,12 @@ class OATObservationStage(Stage):
         self.encoder = encoder
         self.reads = tuple(obs_keys)
 
+    def bind_data_context(self, *, normalizer):
+        # Direct action-space DP has no ARC stage to carry these receipts.
+        # Record the same data contract without changing encoder normalization.
+        self.normalizer_state = normalizer.to_state()
+        self.data_context = normalizer.tokenizer_context()
+
     def forward(self, batch):
         batch["condition"] = self.encoder(
             {key: batch[key] for key in self.reads}

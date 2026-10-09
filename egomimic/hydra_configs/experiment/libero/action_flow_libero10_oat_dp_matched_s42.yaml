@@ -1,0 +1,26 @@
+# @package _global_
+defaults:
+- /experiment/oat/libero_base
+- override /model: libero/action_flow_oat_dp_matched
+- override /logger: wandb
+- _self_
+name: action_flow_libero10_oat_dp_matched_s42
+description: Fresh original-OAT-DP matched comparison; launch gates pending
+benchmark:
+  suite: libero10
+  dataset: ???
+  decoded_replay_cache: false
+  batch_size: 16
+trainer:
+  max_epochs: 5001
+  max_steps: -1
+  accumulate_grad_batches: 64
+callbacks:
+  model_checkpoint:
+    filename: epoch-{epoch:04d}-step-{step:09d}
+  av_only_layer_norm:
+    _target_: egomimic.pipeline.action_flow_av_norm.AVOnlyLayerNormCallback
+    expected_norms_per_decoder: 25
+    require_routed: false
+  dit_half:
+    _target_: egomimic.utils.libero_dit_half.LiberoDiTHalf

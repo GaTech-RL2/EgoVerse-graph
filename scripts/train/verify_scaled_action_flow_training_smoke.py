@@ -18,6 +18,11 @@ from omegaconf import OmegaConf
 
 SCHEMA_VERSION = 1
 EXPERIMENTS = {
+    "pusht/action_flow_cotrain_uc_multiplier_interpolation": {
+        "config_name": "action_flow_cotrain_uc_multiplier_interpolation",
+        "parameter_count": 471549402, "hidden_dim": 696, "routed": True,
+        "sources": {"pushshapes_sim_u_socket": 4, "pushshapes_sim_chain_gripper": 6},
+    },
     "pusht/action_flow_chain_manual4919_avln_80k_s42": {
         "config_name": "action_flow_chain_manual4919_avln_80k_s42",
         "parameter_count": 151_990_970,
@@ -290,6 +295,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
+    multiplier = args.experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation")
+    if multiplier:
+        require(config.model.pipeline.conditioning_input == "retiming_multiplier", "raw multiplier required")
+        require(config.model.pipeline.get("speed_reference") is None, "physical speed reference forbidden")
     require(config.model.hidden_dim == row.get("hidden_dim", 512), "model width mismatch")
     require(config.model.cfg_scale == 4.0, "CFG scale mismatch")
     require(config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch")
@@ -541,6 +550,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "gpu_probes": probes,
         "identities": {
             "repo_head": args.expected_head,
+            **({"speed_conditioning": {"encoding": "scalar", "conditioning_input": "retiming_multiplier", "input_key": "retiming_rate"}} if multiplier else {}),
             "split_manifest_sha256": args.expected_split_sha256,
             "normalization_sha256": args.expected_normalization_sha256,
             "content_manifest_sha256": args.expected_content_manifest_sha256,

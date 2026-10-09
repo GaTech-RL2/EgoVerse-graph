@@ -11,8 +11,7 @@ def test_pair_config_diff_is_only_encoding(monkeypatch):
     with initialize_config_dir(config_dir=str(root), version_base="1.3"):
         for encoding in ("scalar", "fourier"):
             c = compose(config_name="train_zarr_cartesian", overrides=[
-                "hydra/launcher=basic", "+experiment=pusht/action_flow_cotrain_uc_speed_interpolation",
-                "speed_diagnostic.speed_reference=84.11600368466028",
+                "hydra/launcher=basic", "+experiment=pusht/action_flow_cotrain_uc_multiplier_interpolation",
                 f"speed_diagnostic.encoding={encoding}",
             ])
             assert c.model.hidden_dim == 696
@@ -43,7 +42,7 @@ def test_factory_places_speed_inside_diagnostic_prefix(monkeypatch):
         {"_target_": "unused.LatentBridgeStage"},
         {"_target_": "unused.ConditionalVelocityStage"},
     ])
-    pipeline = build_speed_conditioned_pipeline(configs, 84.116, device="cpu")
+    pipeline = build_speed_conditioned_pipeline(configs, device="cpu")
     stages = pipeline.pipeline.stages
     assert isinstance(stages[1], SharedSpeedCondition)
     assert stages[2].config["_target_"].endswith("RoutedContentEncoderStage")

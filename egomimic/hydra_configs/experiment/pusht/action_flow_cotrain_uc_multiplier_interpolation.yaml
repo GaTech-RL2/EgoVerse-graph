@@ -3,19 +3,20 @@ defaults:
   - /experiment/pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42
   - _self_
 
-name: action_flow_cotrain_uc_speed_interpolation
-description: "NON-PROTOCOL interpolation-only scalar/Fourier speed diagnostic"
+name: action_flow_cotrain_uc_multiplier_interpolation
+description: "NON-PROTOCOL interpolation-only scalar/Fourier retiming-multiplier diagnostic"
 speed_diagnostic:
   encoding: scalar
-  speed_reference: ???
   rates_chain: [1.0, 1.25, 1.5, 1.75, 2.0]
   fps: 30.0
 model:
   hidden_dim: 696
+  num_latent_tokens: 8
+  latent_dim: 16
   pipeline:
     _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
     _recursive_: false
-    speed_reference: ${speed_diagnostic.speed_reference}
+    conditioning_input: retiming_multiplier
     encoding: ${speed_diagnostic.encoding}
     condition_dim: ${model.condition_dim}
 data:
@@ -57,13 +58,29 @@ data:
         transform_list: *chain_transforms
 run_provenance:
   comparison_label: NON-PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC
+  checkpoint_initialization: fresh_required_not_native_speed_resume
   speed_conditioning:
+    input_key: retiming_rate
+    conditioning_input: retiming_multiplier
     encoding: ${speed_diagnostic.encoding}
-    speed_reference: ${speed_diagnostic.speed_reference}
-    normalization: log1p_native_commanded_xy_speed_over_reference
-    unit: native_pixels_per_second
+    normalization: none_raw_multiplier
+    unit: dimensionless
     chain_rates: ${speed_diagnostic.rates_chain}
     usocket_rates: [1.0]
     sampling: equal_virtual_views_per_valid_anchor
     validation: target_speed_conditioned_teacher_forced_not_closed_loop
     contact_physics_verified: false
+
+# Fresh source-bound optimization; native RNG draws replay per source.
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9978
+    validate_with_ema: true
+    use_warmup: false
+    update_after_step: 0
+  homogeneous_dithalf:
+    _target_: egomimic.pl_utils.homogeneous_training.callback.HomogeneousDiTHalf
+norm_stats:
+  norm_mode: minmax
+  sample_frac: 1.0

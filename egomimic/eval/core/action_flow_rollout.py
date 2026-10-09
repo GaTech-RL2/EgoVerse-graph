@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from contextlib import nullcontext
 from functools import wraps
 import subprocess
-import math
 
 import numpy as np
 import torch
@@ -15,6 +14,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes_sim import _env_to_zarr_pushshapes_oriented
 from egomimic.pipeline.stages_sampler import GaussianLatentNoise
 from egomimic.pipeline.stages_action_flow import ConditionalVelocityStage
+from egomimic.pipeline.stages_speed import requested_rollout_condition
 from scripts.ice.ice_gpu_probe import parse_ecc_health
 
 _PREFIX = "egomimic.pipeline.stages_action_flow."
@@ -103,7 +103,7 @@ def action_flow_contract(cfg, *, selected_embodiment_name, selected_embodiment_i
         item = OmegaConf.select(cfg, f"deployment.{kind}.{selected_embodiment_name}")
         if item is None or item.get("_target_") != "egomimic.pipeline.pushshapes." + name:
             raise ValueError(f"Action Flow {kind} boundary mismatch")
-    requested_rollout_speed(cfg)
+    requested_rollout_condition(cfg)
     decoder = instantiate(cfg.deployment.action_decoders[selected_embodiment_name])
     # Constructor and stochastic-axis checks are cheap and run before loading
     # the full checkpoint. Native decoders must preserve all leading axes.
@@ -116,22 +116,9 @@ def action_flow_contract(cfg, *, selected_embodiment_name, selected_embodiment_i
     return decoder
 
 
-def requested_rollout_speed(cfg):
-    """Explicit native commanded XY speed; never infer it from live predictions."""
-    target = OmegaConf.select(cfg, "model.pipeline._target_")
-    if target != "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline":
-        return None
-    value = OmegaConf.select(cfg, "deployment.requested_speed")
-    if value is None:
-        raise ValueError("speed-conditioned rollout requires explicit deployment.requested_speed")
-    speed = float(value)
-    if not math.isfinite(speed) or speed < 0:
-        raise ValueError("deployment.requested_speed must be finite and nonnegative")
-    return speed
-
-
 def action_flow_metadata(cfg):
     stage = next(s for s in cfg.model.pipeline.stages if s.get("_target_") == _PREFIX + "ConditionalVelocityStage")
+    condition_key, condition_value = requested_rollout_condition(cfg)
     return {"bridge": "pipeline_routed_action_flow_h16_v1", "sampler": "euler",
             "sampler_inference_steps": int(stage.num_inference_steps),
             "cfg_scale": float(stage.cfg_scale), "cfg_interval": list(stage.cfg_interval),
@@ -139,8 +126,9 @@ def action_flow_metadata(cfg):
             "timestep_shift_alpha": float(stage.timestep_shift_alpha),
             "timestep_shift_active": False, "timing_semantics": "dense_fixed_rate",
             "replan_semantics": "dense_chunk_prefix_before_next_inference",
-            "requested_speed": requested_rollout_speed(cfg),
-            "requested_speed_units": "native_commanded_xy_units_per_second"}
+            "conditioning_input_key": condition_key,
+            "requested_multiplier": condition_value if condition_key == "retiming_rate" else None,
+            "requested_multiplier_units": "dimensionless" if condition_key == "retiming_rate" else None}
 
 
 class RoutedActionFlowPolicy:
@@ -158,7 +146,7 @@ class RoutedActionFlowPolicy:
         if model_autocast_precision == "bf16":
             install_fp32_sampler_boundaries(algo)
         self.model_width, self.native_width, _, _, _ = _BOUNDARIES[embodiment_name]
-        self.requested_speed = requested_rollout_speed(cfg)
+        self.conditioning_key, self.conditioning_value = requested_rollout_condition(cfg)
         self.adapter = instantiate(cfg.deployment.observation_adapters[embodiment_name])
         self.token_horizon = self.decoded_horizon = 16
 
@@ -174,9 +162,9 @@ class RoutedActionFlowPolicy:
         adapted = self.adapter.encode(raw)
         normalized = self.normalizer.normalize(adapted, self.embodiment_id)
         normalized["embodiment"] = torch.tensor([self.embodiment_id], device=self.device)
-        if self.requested_speed is not None:
-            normalized["requested_speed"] = torch.tensor(
-                [[self.requested_speed]], device=self.device, dtype=torch.float32)
+        if self.conditioning_key is not None:
+            normalized[self.conditioning_key] = torch.tensor(
+                [[self.conditioning_value]], device=self.device, dtype=torch.float32)
         context = (torch.autocast(device_type="cuda", dtype=torch.bfloat16)
                    if self.model_autocast_precision == "bf16" else nullcontext())
         with context:

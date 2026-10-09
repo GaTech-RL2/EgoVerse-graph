@@ -71,3 +71,12 @@ def test_partial_batches_recapture_native_rng_without_padding(monkeypatch):
     assert cb.capture_updates==3 and cb.grouped_updates==3 and cb.updates==6
     cb.restore()
     assert algo._execute is native
+
+
+def test_launcher_child_helper_exists_and_parses():
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    helper = root/'scripts/train/action_flow_run_child.sh'
+    assert helper.is_file()
+    subprocess.run(['bash','-n',str(helper)],check=True)
+    assert '--cpu-bind=none' in helper.read_text()

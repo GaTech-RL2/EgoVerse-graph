@@ -12,6 +12,11 @@ model:
   pipeline:
     flow_inference_method: euler
 run_provenance:
+  split_manifest_sha256: ${oc.env:MATCHED_AF_SPLIT_SHA256}
+  speed_augmentation:
+    sample_views_per_source: null
+    sample_views_by_source: ${stationary_speed.sample_views_by_source}
+    source_sampling_contract: proportional_to_actual_windows_robot1_human5
   architecture:
     latent_shape: [64,16]
     parameter_count_candidate: 270467328
@@ -27,3 +32,22 @@ evaluator:
   energy_score_provenance:
     sampler: euler
     sampler_steps: 50
+
+# User-selected exposure: one native robot view, five augmented human views.
+stationary_speed:
+  sample_views_per_source: null
+  sample_views_by_source: {yam_bimanual: 1, human_bimanual: 5}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          window_transform:
+            sample_views: 1
+  valid_datasets:
+    yam:
+      yam_bimanual:
+        resolver:
+          transform_list:
+            window_transform:
+              sample_views: 1

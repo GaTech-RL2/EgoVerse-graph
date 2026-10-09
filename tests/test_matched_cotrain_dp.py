@@ -59,6 +59,13 @@ def test_matched_configs():
             assert aug[key]==native[key]
         assert comparable(aug.resolver)["folder_path"]==comparable(native.resolver)["folder_path"]
     assert a.stationary_speed.yam_rates==d.stationary_speed.yam_rates==[1.]
+    assert a.stationary_speed.sample_views_per_source is None
+    for group,domain,views in (("yam","yam_bimanual",1),("human","human_bimanual",5)):
+        assert a.data.train_datasets[domain].resolver.transform_list.window_transform.sample_views==views
+        assert a.data.valid_datasets[group][domain].resolver.transform_list.window_transform.sample_views==views
+        assert a.stationary_speed.sample_views_by_source[domain]==views
+        assert d.stationary_speed.sample_views_by_source[domain]==1
+    assert comparable(a.run_provenance)["split_manifest_sha256"]=="${oc.env:MATCHED_AF_SPLIT_SHA256}"
 
 
 def test_native_af_and_dp_optimizers_and_schedule_contracts():

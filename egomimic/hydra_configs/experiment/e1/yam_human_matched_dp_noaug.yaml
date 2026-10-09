@@ -60,6 +60,7 @@ run_provenance:
   normalization_sha256: ${oc.env:MATCHED_DP_NORMALIZATION_SHA256}
   split_manifest_sha256: ${oc.env:MATCHED_DP_SPLIT_SHA256}
   speed_augmentation:
+    source_sampling_contract: proportional_to_actual_windows_robot1_human1
     enabled: false
     inference_contract: observation_only_no_speed_or_multiplier_input
     scientific_label: native_unaugmented_training
@@ -91,6 +92,7 @@ stationary_speed:
   probabilities:
   - 1.0
   sample_views_per_source: 1
+  sample_views_by_source: {yam_bimanual: 1, human_bimanual: 1}
 norm_stats:
   precomputed_norm_path: ${oc.env:MATCHED_DP_NORM}
 data:

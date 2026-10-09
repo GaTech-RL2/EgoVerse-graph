@@ -42,6 +42,7 @@ def test_matched_configs():
     assert d.model.num_latent_tokens is None and d.model.latent_dim is None
     assert d.run_provenance.objective.epsilon_samples_per_content==1
     assert a.evaluator.action_flow_diagnostics.provenance.latent_shape==[64,16]
+    assert a.evaluator.action_flow_diagnostics.provenance.sampler==a.model.pipeline.flow_inference_method
     assert a.model.pipeline.flow_inference_method=="euler" and d.model.pipeline.dp_inference_steps==100
     assert (a.model.num_latent_tokens,a.model.latent_dim,a.model.action_horizon)==(64,16,100)
     assert a.data.train_datasets.yam_bimanual.expected_train_episode_count==375

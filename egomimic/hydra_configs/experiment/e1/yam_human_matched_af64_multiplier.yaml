@@ -23,6 +23,7 @@ evaluator:
   action_flow_diagnostics:
     provenance:
       latent_shape: [64,16]
+      sampler: euler
   energy_score_provenance:
     sampler: euler
     sampler_steps: 50

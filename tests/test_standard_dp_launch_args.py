@@ -35,3 +35,29 @@ def test_exact_standard_dp_phases(monkeypatch):
                 assert cfg.logger.wandb.resume==('never' if phase=='resume-smoke' else 'must')
                 assert cfg.logger.wandb.id==('fixture-smoke-retry' if phase=='resume-smoke' else 'fixture')
                 assert cfg.evaluator.limit_val_batches==(1 if phase=='resume-smoke' else 1.0)
+
+
+def test_multiplier_profile_all_phases(monkeypatch):
+    root = Path(__file__).resolve().parents[1]
+    env = dict(DP_COTRAIN_STANDARD='usocket_chain_manual4919_af_obs_multiplier_261m_v1',
+               DP_REPO=str(root), DP_WANDB_ID='multiplier-fixture', DP_EXPECTED_HEAD='a'*40,
+               DP_NORM_SHA256='b'*64, DP_SPLIT_SHA256='c'*64, DP_CONTENT_MANIFEST='/content',
+               DP_CONTENT_SHA256='d'*64, DP_CONTENT_AGGREGATE_SHA256='e'*64,
+               DP_RESUME_STEP='20000', DP_RESUME_CHECKPOINT='/checkpoint')
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    builder = runpy.run_path(str(root/'scripts/train/standard_dp_launch.py'))['arguments']
+    for phase in ['normalize', 'smoke', 'full', 'resume-smoke', 'resume']:
+        argv = builder(phase, '/output/'+phase, '/normalization')
+        with initialize_config_dir(config_dir=str(root/'egomimic/hydra_configs'), version_base=None):
+            c = compose(config_name='train_zarr_cartesian', overrides=argv[1:])
+            assert c.name == 'planar_uc_manual4919_dp_261m_af_obs_multiplier'
+            assert c.planar.batch_size == 32
+            assert c.model.pipeline.stages[5].condition_input_dim == 128
+            assert c.model.pipeline.stages[2].conditioning_input == 'retiming_multiplier'
+            assert dict(c.model.pipeline.stages[6].active_action_dims_by_embodiment) == {
+                'pushshapes_sim_u_socket': 4, 'pushshapes_sim_chain_gripper': 5}
+            assert c.callbacks.get("ema") is None
+            assert c.norm_stats.sample_frac == 1.0
+            assert c.trainer.precision == 'bf16'
+            assert c.callbacks.model_checkpoint.save_top_k == -1

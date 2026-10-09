@@ -47,3 +47,6 @@ sample_data/
 external_ckpts/
 external/MANO/
 .claude/
+
+# Local development environment is not audited training source.
+.venv

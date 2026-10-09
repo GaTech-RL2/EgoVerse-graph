@@ -18,15 +18,27 @@ def run(argv, **kwargs):
 def digest(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
+def multiplier():
+    return os.environ.get('DP_COTRAIN_STANDARD') == 'usocket_chain_manual4919_af_obs_multiplier_261m_v1'
+
 def cotrain():
-    return os.environ.get('DP_COTRAIN_STANDARD') == 'usocket_chain_manual4919_retimed_masked_v1'
+    return multiplier() or os.environ.get('DP_COTRAIN_STANDARD') == 'usocket_chain_manual4919_retimed_masked_v1'
+
+def recipe():
+    if multiplier():
+        return 'pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier'
+    return ('pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked' if cotrain() else 'pusht/planar_chain_manual4919_standard_dp_retimed')
+
+def layout():
+    # Stage indices follow the typed YAML pipeline rather than the old recipe.
+    return (5, 6, 128, 32) if multiplier() else (3, 4, 67, 16)
 
 def arguments(phase, output, norm):
     smoke = phase in {'smoke', 'resume-smoke'}
     resume = phase in {'resume', 'resume-smoke'}
     start = int(os.environ['DP_RESUME_STEP']) if resume else 0
     checkpoint = os.environ['DP_RESUME_CHECKPOINT'] if resume else 'null'
-    a=['--config-name=train_zarr_cartesian',('+experiment=pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked' if cotrain() else '+experiment=pusht/planar_chain_manual4919_standard_dp_retimed'),
+    a=['--config-name=train_zarr_cartesian','+experiment='+recipe(),
        'mode=train',(f"ckpt_path='{checkpoint}'" if resume else 'ckpt_path=null'),'++model.train_log_on_step=true',f'hydra.run.dir={output}',f'++paths.root_dir={output}',
        f'paths.output_dir={output}',f'paths.work_dir={os.environ["DP_REPO"]}',
        'launch_params.gpus_per_node=1','launch_params.nodes=1','trainer.devices=1',
@@ -35,7 +47,7 @@ def arguments(phase, output, norm):
        f'trainer.val_check_interval={1 if smoke else 15000}',
        f'trainer.limit_train_batches={2 if smoke and not resume else 1.0}',
        'trainer.limit_val_batches=1','trainer.num_sanity_val_steps=0','trainer.log_every_n_steps=1',
-       'norm_stats.sample_frac=0.05','norm_stats.save_cache_dir=null',f'norm_stats.precomputed_norm_path={norm}',
+       f'norm_stats.sample_frac={1.0 if multiplier() else 0.05}','norm_stats.save_cache_dir=null',f'norm_stats.precomputed_norm_path={norm}',
        '++callbacks.model_checkpoint.monitor=null','++callbacks.model_checkpoint.save_top_k=-1',
        f'++callbacks.model_checkpoint.save_last={str(smoke).lower()}',
        '++callbacks.model_checkpoint.every_n_epochs=null',
@@ -114,8 +126,9 @@ def main():
             c=OmegaConf.load(path)
             assert str(c.data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_path)==os.environ['DP_DATASET_DIR']
             assert list(c.planar.retiming_rates)==[1.,1.25,1.5,1.75,2.]
-            assert c.model.pipeline.stages[3].condition_input_dim==67
-            assert c.planar.batch_size==16 and c.planar.observation_horizon==1
+            denoiser, loss, condition, batch = layout()
+            assert c.model.pipeline.stages[denoiser].condition_input_dim==condition
+            assert c.planar.batch_size==batch and c.planar.observation_horizon==1
             assert c.data.train_datasets.pushshapes_sim_chain_gripper.expected_train_episode_count==4870
             assert c.data.valid_datasets.pushshapes_sim_chain_gripper.expected_valid_episode_count==49
             if cotrain():
@@ -124,13 +137,13 @@ def main():
                 assert str(c.data.train_datasets[u].resolver.folder_path)==os.environ['DP_U_DATASET_DIR']
                 assert c.data.train_datasets[u].expected_train_episode_count==2970 and c.data.valid_datasets[u].expected_valid_episode_count==29
                 assert dict(c.planar.active_action_dims)=={u:4,chain:5}
-                assert dict(c.model.pipeline.stages[4].active_action_dims_by_embodiment)=={u:4,chain:5}
+                assert dict(c.model.pipeline.stages[loss].active_action_dims_by_embodiment)=={u:4,chain:5}
                 assert dict(c.evaluator.active_action_dims_by_embodiment)=={u:4,chain:5}
                 assert c.evaluator.native_decoders[u].native_action_dim==3
                 assert c.evaluator.native_decoders[chain].native_action_dim==4
                 assert c.run_provenance.domains[chain].union_episode_count==4919
                 assert c.model.scheduler.max_steps==80000
-                assert all(c.data.train_dataloader_params[k].batch_size==16 for k in (u,chain))
+                assert all(c.data.train_dataloader_params[k].batch_size==batch for k in (u,chain))
             assert c.callbacks.model_checkpoint.save_top_k==-1
             assert c.model.train_log_on_step is True
             if phase in {'resume', 'resume-smoke'}:
@@ -144,6 +157,11 @@ def main():
             records[phase]={'config_sha256':digest(path),'argv':command}
         c=OmegaConf.load(dest/'full.yaml');model=instantiate(c.model.pipeline)
         count=sum(x.numel() for x in model.nets.parameters());records['parameters']=count
+        if multiplier():
+            assert count == 261382885
+            assert c.model.pipeline.stages[2].conditioning_input == 'retiming_multiplier'
+            assert c.callbacks.get("ema") is None
+            assert float(c.norm_stats.sample_frac) == 1.0
         # Prove real native schema/virtual sampling before normalization.
         resolver=instantiate(c.data.train_datasets.pushshapes_sim_chain_gripper.resolver)
         split=json.loads(pathlib.Path(os.environ['DP_SPLIT_MANIFEST']).read_text())['domains']['pushshapes_sim_chain_gripper']
@@ -168,7 +186,7 @@ def main():
             ul=ZarrDataset(up,key_map=ur.key_map,transform_list=ur.transform_list,embodiment_override='pushshapes_sim_u_socket')
             ux=ul[0];assert ux['actions'].shape==(16,5) and torch.isfinite(ux['actions']).all()
             assert torch.count_nonzero(ux['actions'][...,4])==0
-            assert dict(model.pipeline.stages[4].active_action_dims)=={'pushshapes_sim_u_socket':4,'pushshapes_sim_chain_gripper':5}
+            assert dict(model.pipeline.stages[layout()[1]].active_action_dims)=={'pushshapes_sim_u_socket':4,'pushshapes_sim_chain_gripper':5}
             records['u4_chain5_mask_activation']='PASS'
         records.update(status='PASS',source_head=head,driver_head=os.environ.get('DP_DRIVER_HEAD',head),real_native_sample_contract='PASS')
         (task/'PREFLIGHT_RESULT_V1.json').write_text(json.dumps(records,indent=2)+'\n');return
@@ -188,7 +206,7 @@ def main():
         verify_args=[] if cotrain() else ['--single-domain','pushshapes_sim_chain_gripper']
         run([sys.executable,str(pathlib.Path(__file__).with_name('verify_planar_training_smoke.py')),str(out),
              '--expected-head',head,'--world-size','1','--parameter-count',str(records['parameters']),
-             '--expected-name',('planar_usocket_chain_manual4919_standard_dp_retimed_masked_h16' if cotrain() else 'planar_chain_manual4919_standard_dp_retimed_h16'),
+             '--expected-name',('planar_uc_manual4919_dp_261m_af_obs_multiplier' if multiplier() else 'planar_usocket_chain_manual4919_standard_dp_retimed_masked_h16' if cotrain() else 'planar_chain_manual4919_standard_dp_retimed_h16'),
              *verify_args,
              '--start-step',str(resume_identity['global_step'] if args.mode == 'resume-smoke' else 0)])
 if __name__=='__main__':main()

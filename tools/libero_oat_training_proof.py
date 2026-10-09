@@ -93,6 +93,23 @@ def main():
     progress('CONSTRUCTOR_PASS',parameters=counts,optimizer=type(optimizer).__name__,initial_group_lrs=rates)
     del model,optimizer,params;gc.collect();torch.cuda.empty_cache()
     from egomimic.trainHydra import train
+    progress('VERIFY_REAL_EPISODE_SPLIT')
+    train_view=hydra.utils.instantiate(cfg.data.train_datasets.libero_panda)
+    valid_view=hydra.utils.instantiate(cfg.data.valid_datasets.libero_panda)
+    train_ids=sorted(train_view.datasets);valid_ids=sorted(valid_view.datasets)
+    assert len(train_ids)==450 and len(valid_ids)==50
+    assert not set(train_ids)&set(valid_ids)
+    assert len(set(train_ids)|set(valid_ids))==500
+    train_paths={str(v.episode_path) for v in train_view.datasets.values()}
+    valid_paths={str(v.episode_path) for v in valid_view.datasets.values()}
+    assert not train_paths&valid_paths and len(train_paths)==450 and len(valid_paths)==50
+    split={'train':train_ids,'valid':valid_ids,'train_episode_paths':sorted(train_paths),
+           'valid_episode_paths':sorted(valid_paths),'ratio':.1,'seed':42,
+           'dataset':str(train_view.resolver.folder_path)}
+    write(out/'SPLIT.json',split)
+    split_path=out/'SPLIT.json'
+    split_path.with_suffix('.sha256').write_text(hashlib.sha256(split_path.read_bytes()).hexdigest()+'\n')
+    del train_view,valid_view;gc.collect()
     progress('REAL_OPTIMIZER_AND_VALIDATION')
     metrics,objects=train(cfg)
     trainer=objects['trainer'];model=objects['model'];data=objects['datamodule']
@@ -106,7 +123,7 @@ def main():
     assert len(train_ids)==450 and len(valid_ids)==50
     assert not set(train_ids)&set(valid_ids)
     assert len(set(train_ids)|set(valid_ids))==500
-    write(out/'SPLIT.json',{'train':train_ids,'valid':valid_ids,'ratio':.1,'seed':42,'dataset':str(train_ds.resolver.folder_path)})
+    assert train_ids == split['train'] and valid_ids == split['valid']
     checkpoint=out/'checkpoints/terminal-step000000002.ckpt'
     payload=torch.load(checkpoint,map_location='cpu',weights_only=False)
     assert payload['global_step']==2 and payload['ema_num_updates']==2

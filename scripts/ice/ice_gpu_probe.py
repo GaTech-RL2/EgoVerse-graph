@@ -91,6 +91,22 @@ def parse_ecc_health(report: str) -> dict[str, Any]:
     }
 
 
+def nvml_gpu_uuid(value: object) -> str:
+    """Bind NVML health to the actual visible CUDA device, never physical index0."""
+    if not isinstance(value, str):
+        raise RuntimeError("CUDA device UUID must be a string")
+    bare = value[4:] if value.startswith("GPU-") else value
+    if (
+        re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            bare,
+        )
+        is None
+    ):
+        raise RuntimeError(f"Unsupported CUDA device UUID: {value!r}")
+    return "GPU-" + bare
+
+
 def _required_slurm_integer(name: str) -> int:
     value = os.environ.get(name)
     if value is None:
@@ -143,8 +159,9 @@ def main() -> int:
     if not torch.cuda.is_bf16_supported():
         raise RuntimeError(f"allocated GPU does not support BF16: {gpu_name}")
 
+    gpu_uuid = nvml_gpu_uuid(torch.cuda.get_device_properties(0).uuid)
     smi = subprocess.run(
-        ["nvidia-smi", "-q", "-i", "0"],
+        ["nvidia-smi", "-q", "-i", gpu_uuid],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -223,6 +240,7 @@ def main() -> int:
         "local_rank": local_rank,
         "world_size": world_size,
         "gpu_name": gpu_name,
+        "gpu_uuid": gpu_uuid,
         "bf16_supported": True,
         "bf16_forward_backward": {
             "matrix_size": args.matrix_size,

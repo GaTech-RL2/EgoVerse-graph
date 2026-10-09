@@ -178,7 +178,9 @@ def test_pipeline_algo_constructor_and_source_are_route_agnostic():
         "trainability",
         "loss_pipeline",
         "training_passes",
+        "compatibility_mode",
     )
+    assert parameters["compatibility_mode"].default == "current"
     with pytest.raises(TypeError):
         PipelineAlgo(stages=[], domains=["anything"])
 

@@ -11,7 +11,6 @@ import torch
 from egomimic.eval.energy_score import energy_score
 from egomimic.eval.planar_action_eval import PlanarActionEval
 
-
 YAM_ACTION_DIM = 14
 YAM_ANGLE_INDICES = (3, 4, 5, 10, 11, 12)
 YAM_TRANSLATION_INDICES = (0, 1, 2, 7, 8, 9)
@@ -96,16 +95,28 @@ class YamCartesianActionFlowEval(PlanarActionEval):
             native_right = self._native(right, embodiment_id, None)
             native_residual = yam_native_residual(native_left, native_right)
             translation = (
-                (left[..., list(YAM_TRANSLATION_INDICES)] - right[..., list(YAM_TRANSLATION_INDICES)])
-                .square().mean(dim=(-2, -1)).sqrt()
+                (
+                    left[..., list(YAM_TRANSLATION_INDICES)]
+                    - right[..., list(YAM_TRANSLATION_INDICES)]
+                )
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
             )
             rotation = (
                 (native_residual[..., list(YAM_ANGLE_INDICES)] / torch.pi)
-                .square().mean(dim=(-2, -1)).sqrt()
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
             )
             gripper = (
-                (left[..., list(YAM_GRIPPER_INDICES)] - right[..., list(YAM_GRIPPER_INDICES)])
-                .square().mean(dim=(-2, -1)).sqrt()
+                (
+                    left[..., list(YAM_GRIPPER_INDICES)]
+                    - right[..., list(YAM_GRIPPER_INDICES)]
+                )
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
             )
             return (translation + rotation + gripper) / 3.0
 
@@ -129,7 +140,9 @@ class YamCartesianActionFlowEval(PlanarActionEval):
             def native_error(prediction, target, *, _id=embodiment_id):
                 native_prediction = self._native(prediction, _id, None)
                 native_target = self._native(target, _id, None)
-                return self._native_mse_by_condition(native_prediction, native_target, None)
+                return self._native_mse_by_condition(
+                    native_prediction, native_target, None
+                )
 
             functions[source_id] = native_error
         return functions

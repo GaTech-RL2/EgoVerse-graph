@@ -220,6 +220,11 @@ class ModelWrapper(LightningModule):
         )
 
     def _log_prediction_metrics(self, predictions, reference: torch.Tensor) -> None:
+        return self.training_behavior.log_prediction_metrics(predictions, reference)
+
+    def _default_log_prediction_metrics(
+        self, predictions, reference: torch.Tensor
+    ) -> None:
         for metric, source_values in self._prediction_log_metrics(
             predictions, reference
         ).items():

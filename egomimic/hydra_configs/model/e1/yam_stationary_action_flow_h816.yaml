@@ -122,6 +122,7 @@ pipeline:
       independent_condition_dropout_per_sample: true
     - _target_: egomimic.pipeline.stages_action_flow.ConditionalVelocityStage
       flow_clean_gradient_mode: all_stopgrad
+      fm_field_execution: shared
       num_inference_steps: ${model.num_inference_steps}
       inference_method: dopri5
       timestep_shift_alpha: 0.5

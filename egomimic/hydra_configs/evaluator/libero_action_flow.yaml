@@ -1,0 +1,5 @@
+_target_: egomimic.eval.libero_action_flow_eval.LiberoActionFlowEvaluator
+energy_sample_count: 32
+energy_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+energy_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+diagnostic_raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]

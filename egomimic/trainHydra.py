@@ -172,6 +172,12 @@ def _validate_run_config(cfg: DictConfig) -> str:
     return mode
 
 
+def _needs_final_validation(evaluator, global_step):
+    """Optional evaluator capability proves validation already completed here."""
+    completed = getattr(evaluator, "has_completed_validation", None)
+    return not (callable(completed) and completed(global_step) is True)
+
+
 def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     """Strictly restore a configured Pipeline for standalone evaluation."""
     algo = getattr(model, "model", None)
@@ -181,6 +187,11 @@ def _load_eval_checkpoint(model, checkpoint: dict, cfg: DictConfig):
     use_ema = settings.get("use_ema", False) if settings is not None else False
     if not isinstance(use_ema, bool):
         raise TypeError("eval_checkpoint.use_ema must be a boolean")
+    # Manual evaluation restore must honor the same data/model contracts as
+    # Lightning's full-state resume before any checkpoint weights are applied.
+    checkpoint_hook = getattr(model, "on_load_checkpoint", None)
+    if checkpoint_hook is not None:
+        checkpoint_hook(checkpoint)
     strict_load_pipeline_checkpoint(
         algo,
         checkpoint,
@@ -219,8 +230,8 @@ def _instantiate_model_wrapper(cfg: DictConfig) -> LightningModule:
         config_tree=_build_model_config_tree(cfg),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
         scheduler_frequency=cfg.model.get("scheduler_frequency", 1),
-        train_log_on_step=cfg.model.get("train_log_on_step", False),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
+        train_log_on_step=bool(cfg.model.get("train_log_on_step", False)),
     )
 
 
@@ -629,6 +640,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ckpt_path=cfg.get("ckpt_path"),
             weights_only=False,
         )
+        if (
+            cfg.get("val_at_end", False)
+            and trainer.global_step >= cfg.trainer.max_steps
+            and _needs_final_validation(model.evaluator, trainer.global_step)
+        ):
+            trainer.validate(model=model, datamodule=datamodule)
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model

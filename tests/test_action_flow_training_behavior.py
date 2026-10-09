@@ -129,9 +129,6 @@ class _ActionFlowHead(Stage):
         "log/action_flow_reconstruction",
         "log/action_flow_reconstruction_l1",
         "log/action_flow_action_velocity",
-        "log/action_flow_decoded_noise_moments",
-        "log/action_flow_decoded_noise_mean_penalty",
-        "log/action_flow_decoded_noise_covariance_penalty",
     )
     reads_by_mode = {"inference": ("condition",)}
     writes_by_mode = {"inference": ("prediction",)}
@@ -190,6 +187,16 @@ def _batch():
             "reconstruction_l1": 8.0,
             "action_velocity": 7.0,
         },
+    )
+
+
+def test_training_metrics_match_action_flow_objective_stage_outputs():
+    assert ActionFlowTrainingBehavior._metric_specs == (
+        ("TotalLoss", "log/action_flow_total"),
+        ("FlowMatchingLoss", "log/action_flow_fm"),
+        ("ReconstructionLoss", "log/action_flow_reconstruction"),
+        ("ReconstructionL1", "log/action_flow_reconstruction_l1"),
+        ("ActionVelocityLoss", "log/action_flow_action_velocity"),
     )
 
 
@@ -300,6 +307,66 @@ def test_reconstruction_only_warmup_is_loaded_from_training_config_tree(monkeypa
     }
 
 
+def test_flow_mini_batch_is_bound_to_full_parallel_flow_set(monkeypatch):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    wrapper = _action_flow_wrapper(
+        config_tree={
+            "model": {
+                "pipeline": {},
+                "flow_samples_per_content": 14,
+                "flow_mini_batch": 14,
+            }
+        },
+        gradient_telemetry_cadence=0,
+    )
+
+    assert wrapper.training_behavior.flow_samples_per_content == 14
+    assert wrapper.training_behavior.flow_mini_batch == 14
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True])
+def test_flow_mini_batch_rejects_invalid_values(monkeypatch, value):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="flow_mini_batch must be a positive integer"):
+        _action_flow_wrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": value,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
+def test_flow_mini_batch_rejects_partial_flow_chunking(monkeypatch):
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree: _ToyAlgo(),
+    )
+    with pytest.raises(ValueError, match="must equal flow_samples_per_content"):
+        _action_flow_wrapper(
+            config_tree={
+                "model": {
+                    "pipeline": {},
+                    "flow_samples_per_content": 14,
+                    "flow_mini_batch": 7,
+                }
+            },
+            gradient_telemetry_cadence=0,
+        )
+
+
 def test_joint_flow_weight_is_applied_and_logged(monkeypatch):
     wrapper = _action_flow_wrapper(
         pipeline=_ToyAlgo(reconstruction_weight=10.0, flow_weight=0.01),
@@ -376,6 +443,10 @@ def test_distributed_gradient_makes_strided_autograd_values_contiguous(monkeypat
 def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypatch):
     wrapper = _action_flow_wrapper(pipeline=_ToyAlgo(), gradient_telemetry_cadence=1)
     wrapper.training_behavior.flow_samples_per_content = 14
+    wrapper.training_behavior.flow_mini_batch = 14
+    monkeypatch.setattr(
+        wrapper.training_behavior, "_fm_endpoint_detached", lambda: True
+    )
     logged = _capture_logs(monkeypatch, wrapper)
     batch = OrderedDict(
         source={
@@ -415,13 +486,16 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     ) == pytest.approx(1.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldForwardCallsPerStep"][0]
-    ) == pytest.approx(1.0)
+    ) == pytest.approx(2.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"][0]
-    ) == pytest.approx(14.0)
+    ) == pytest.approx(28.0)
     assert float(
         logged["Train/ActionFlow/Compute/FieldBackwardVJPCallsPerStep"][0]
-    ) == pytest.approx(1.0)
+    ) == pytest.approx(2.0)
+    assert float(
+        logged["Train/ActionFlow/Compute/FlowMiniBatchPerStep"][0]
+    ) == pytest.approx(14.0)
     assert float(
         logged["Train/ActionFlow/Compute/DecoderJVPCallsPerStep"][0]
     ) == pytest.approx(1.0)
@@ -462,9 +536,7 @@ def test_action_flow_component_telemetry_preserves_accumulated_grad_with_reentra
     behavior = ActionFlowTrainingBehavior(gradient_telemetry_cadence=1)
     behavior._checkpointed_jvp_telemetry = True
 
-    gradients = behavior._component_gradients(
-        loss, (("parameter", parameter),), "FM"
-    )
+    gradients = behavior._component_gradients(loss, (("parameter", parameter),), "FM")
 
     assert float(gradients[0]) == pytest.approx(3.0)
     assert parameter.grad is accumulated
@@ -707,7 +779,7 @@ class _BatchSensitiveDecoder(_TinySequenceModule):
 
     def forward(self, value):
         decoded = super().forward(value)
-        return decoded + decoded.new_tensor(float(value.shape[0]) * 1.0e-3)
+        return decoded + float(value.shape[0]) * 1.0e-3
 
 
 def _diagnostic_wrapper():
@@ -728,6 +800,51 @@ def _diagnostic_wrapper():
     )
     wrapper.eval()
     return wrapper, encoder, field, decoder
+
+
+def test_action_flow_diagnostics_route_private_codecs_through_one_field():
+    torch.manual_seed(9)
+    encoder_yam, encoder_human = _TinySequenceModule(), _TinySequenceModule()
+    decoder_yam, decoder_human = _TinySequenceModule(), _TinySequenceModule()
+    field = _TinyField()
+    wrapper = _action_flow_wrapper(
+        pipeline=PipelineAlgo(
+            stages=[
+                ContentEncoderStage(
+                    encoders={"yam": encoder_yam, "human": encoder_human}
+                ),
+                ConditionalVelocityStage(field=field, num_inference_steps=2),
+                ContentDecoderStage(
+                    decoders={"yam": decoder_yam, "human": decoder_human}
+                ),
+            ],
+            device="cpu",
+        ),
+        gradient_telemetry_cadence=0,
+    )
+    wrapper.eval()
+    results = _inference_mode_diagnostics(
+        wrapper,
+        {
+            "yam": {
+                "target": torch.randn(2, 2, 2),
+                "condition": torch.randn(2, 2),
+                "embodiment": ["yam", "yam"],
+            },
+            "human": {
+                "target": torch.randn(2, 2, 2),
+                "condition": torch.randn(2, 2),
+                "embodiment": ["human", "human"],
+            },
+        },
+    )
+    assert set(results) == {"yam", "human"}
+    assert wrapper.training_behavior.field_v is field
+    assert wrapper.training_behavior.encoder_e["yam"] is encoder_yam
+    assert wrapper.training_behavior.encoder_e["human"] is encoder_human
+    assert wrapper.training_behavior.decoder_g["yam"] is decoder_yam
+    assert wrapper.training_behavior.decoder_g["human"] is decoder_human
+    assert all(result["latent/clean"].shape == (2, 2, 2) for result in results.values())
 
 
 @torch.inference_mode()

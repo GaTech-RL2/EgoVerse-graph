@@ -1,0 +1,41 @@
+# @package _global_
+defaults:
+- /experiment/oat/libero_base
+- override /model: libero/action_flow_oat_dp_matched
+- override /logger: wandb
+- _self_
+name: action_flow_libero_spatial_oat_dp_matched_s42
+description: Fresh original-OAT-DP matched comparison; launch gates pending
+benchmark:
+  suite: libero_spatial
+  dataset: ???
+  decoded_replay_cache: false
+  batch_size: 32
+trainer:
+  max_epochs: -1
+  max_steps: 80000
+  accumulate_grad_batches: 1
+  gradient_clip_val: 3.0
+callbacks:
+  ema:
+    _target_: egomimic.pl_utils.oat_matched_training.ActionFlowFixedEMACallback
+    decay: 0.9978
+    use_warmup: false
+  batch_budget:
+    global_batch_size: 32
+  model_checkpoint:
+    filename: epoch-{epoch:04d}-step-{step:09d}
+  av_only_layer_norm:
+    _target_: egomimic.pipeline.action_flow_av_norm.AVOnlyLayerNormCallback
+    expected_norms_per_decoder: 25
+    require_routed: false
+  dit_half:
+    _target_: egomimic.utils.libero_dit_half.LiberoDiTHalf
+
+data:
+  train_datasets:
+    libero_panda:
+      valid_ratio: 0.1
+  valid_datasets:
+    libero_panda:
+      valid_ratio: 0.1

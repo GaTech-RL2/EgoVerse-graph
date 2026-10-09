@@ -1,12 +1,13 @@
 # Action Flow objective with the released separate-UNITE H384 architecture.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
+
 training_behavior:
   _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
 diagnostic_provider:
   _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 
 action_horizon: 16
-action_dim: ${planar.action_model_dim}
+action_dim: ${oc.select:planar.action_model_dim,4}
 num_latent_tokens: 8
 latent_dim: 16
 condition_dim: 128
@@ -33,12 +34,12 @@ pipeline:
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
-      selector_aliases: {19: pushshapes_action_flow, 20: pushshapes_action_flow}
+      selector_aliases: {19: pushshapes_sim_u_socket, 20: pushshapes_sim_u_socket}
       input_key: state_agent_model
       output_key: proprio_condition
       output_dim: 64
       projections:
-        pushshapes_action_flow:
+        pushshapes_sim_u_socket:
           input_dim: 4
           hidden_dim: 64
           semantic: x_y_cos_theta_sin_theta

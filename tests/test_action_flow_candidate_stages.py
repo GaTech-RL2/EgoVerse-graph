@@ -32,11 +32,15 @@ class _Field(nn.Module):
         )
 
 
-def _forward(mode, encoder, decoder, field, target, noise, condition):
+def _forward(
+    mode, encoder, decoder, field, target, noise, condition, execution="separate"
+):
     stages = [
         ContentEncoderStage(encoder),
         LatentBridgeStage(samples_per_content=3, condition_dropout_probability=0.3),
-        ConditionalVelocityStage(field, flow_clean_gradient_mode=mode),
+        ConditionalVelocityStage(
+            field, flow_clean_gradient_mode=mode, fm_field_execution=execution
+        ),
         ContentDecoderStage(decoder),
         ActionFlowObjectiveStage(residual_key="action_flow/fm_velocity_residual"),
     ]
@@ -78,8 +82,12 @@ def test_latent_only_stopgrad_blocks_both_clean_fm_routes_not_shared_condition()
     assert torch.isfinite(condition_gradient).all()
     assert condition_gradient.abs().sum() > 0
 
-    assert len(field.calls) == 1
-    assert field.calls[0][0].requires_grad
+    attached, detached = field.calls
+    assert attached[0].requires_grad and not detached[0].requires_grad
+    torch.testing.assert_close(attached[0], detached[0], rtol=0, atol=0)
+    # No new bridge noise, time, observation encoding, or dropout mask draw.
+    for index in (1, 2, 3):
+        assert attached[index] is detached[index]
     torch.testing.assert_close(
         batch["action_flow/fm_velocity_residual"],
         batch["action_flow/velocity_residual"],
@@ -97,7 +105,16 @@ def test_shared_forward_matches_two_forward_reference_gradients():
     )
     reference_condition = condition.detach().clone().requires_grad_()
 
-    output = _forward("all_stopgrad", encoder, decoder, field, target, noise, condition)
+    output = _forward(
+        "all_stopgrad",
+        encoder,
+        decoder,
+        field,
+        target,
+        noise,
+        condition,
+        execution="shared",
+    )
     torch.manual_seed(72)
     clean = reference_encoder(target)
     bridge = LatentBridgeStage(

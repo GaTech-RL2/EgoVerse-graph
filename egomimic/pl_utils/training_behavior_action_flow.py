@@ -22,6 +22,7 @@ from egomimic.pl_utils.training_metrics import (
     finite_scalar,
     reduce_component_means,
 )
+from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 
 
@@ -40,15 +41,6 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         ("ReconstructionLoss", "log/action_flow_reconstruction"),
         ("ReconstructionL1", "log/action_flow_reconstruction_l1"),
         ("ActionVelocityLoss", "log/action_flow_action_velocity"),
-        ("DecodedNoiseMomentLoss", "log/action_flow_decoded_noise_moments"),
-        (
-            "DecodedNoiseMeanPenalty",
-            "log/action_flow_decoded_noise_mean_penalty",
-        ),
-        (
-            "DecodedNoiseCovariancePenalty",
-            "log/action_flow_decoded_noise_covariance_penalty",
-        ),
     )
     _gradient_components = (
         ("FM", "FlowMatchingLoss"),
@@ -63,12 +55,16 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         *,
         gradient_telemetry_cadence: int | None = None,
         reconstruction_only_warmup_steps: int | None = None,
+        flow_mini_batch: int | None = None,
+        compatibility_mode: str = "current",
     ) -> None:
         super().__init__()
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
         self._requested_gradient_telemetry_cadence = gradient_telemetry_cadence
         self._requested_reconstruction_only_warmup_steps = (
             reconstruction_only_warmup_steps
         )
+        self._requested_flow_mini_batch = flow_mini_batch
 
     def on_bind(self) -> None:
         config_tree = getattr(self.context.hparams, "config_tree", None)
@@ -140,6 +136,37 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
             ):
                 raise ValueError("flow_samples_per_content must be a positive integer")
         self.flow_samples_per_content = configured_samples
+
+        configured_flow_mini_batch = None
+        if config_tree is not None:
+            configured_flow_mini_batch = self.context._as_config(config_tree).model.get(
+                "flow_mini_batch", None
+            )
+        effective_flow_mini_batch = (
+            self._requested_flow_mini_batch
+            if self._requested_flow_mini_batch is not None
+            else (
+                configured_samples
+                if configured_flow_mini_batch is None
+                else configured_flow_mini_batch
+            )
+        )
+        if effective_flow_mini_batch is not None:
+            if (
+                isinstance(effective_flow_mini_batch, bool)
+                or not isinstance(effective_flow_mini_batch, int)
+                or effective_flow_mini_batch <= 0
+            ):
+                raise ValueError("flow_mini_batch must be a positive integer")
+            if (
+                configured_samples is not None
+                and effective_flow_mini_batch != configured_samples
+            ):
+                raise ValueError(
+                    "flow_mini_batch must equal flow_samples_per_content; "
+                    "Action Flow executes the complete flow set in one parallel field call"
+                )
+        self.flow_mini_batch = effective_flow_mini_batch
 
     def optimizer_instantiation_kwargs(self, cfg) -> dict[str, Any]:
         """Bind stable names when Action Flow selects a composite optimizer."""
@@ -223,7 +250,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def encoder_e(self) -> nn.Module:
         """The exact encoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[0].encoder
+        stage = self._action_flow_topology()[0]
+        return stage.encoder if stage.encoders is None else stage.encoders
 
     @property
     def field_v(self) -> nn.Module:
@@ -235,7 +263,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
     def decoder_g(self) -> nn.Module:
         """The exact decoder instance registered by the pipeline."""
 
-        return self._action_flow_topology()[2].decoder
+        stage = self._action_flow_topology()[2]
+        return stage.decoder if stage.decoders is None else stage.decoders
 
     @classmethod
     def _source_values(
@@ -317,7 +346,10 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         count: int,
     ) -> None:
         reduced, global_count = reduce_component_means(
-            components, count, label="Action Flow"
+            components,
+            count,
+            label="Action Flow",
+            preserve_input_dtype=self.compatibility_mode == "legacy_c12",
         )
         for name, value in reduced.items():
             self.context.log(
@@ -565,13 +597,15 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         if self.flow_samples_per_content is None:
             return
         endpoint_detached = self._fm_endpoint_detached()
+        field_calls = 2 if endpoint_detached else 1
         for name, value in (
-            ("Compute/FieldForwardCallsPerStep", 1),
+            ("Compute/FieldForwardCallsPerStep", field_calls),
             (
                 "Compute/FieldSampleEquivalentsPerStep",
-                self.flow_samples_per_content,
+                field_calls * self.flow_samples_per_content,
             ),
             ("Compute/FieldBackwardVJPCallsPerStep", 2 if endpoint_detached else 1),
+            ("Compute/FlowMiniBatchPerStep", self.flow_mini_batch),
             ("Compute/DecoderJVPCallsPerStep", 1),
         ):
             self._log_telemetry(name, value)
@@ -684,6 +718,27 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         return optimizer_loss
 
     def on_after_backward(self) -> None:
+        next_step = int(self.context.global_step) + 1
+        if (
+            self.gradient_telemetry_cadence
+            and next_step % self.gradient_telemetry_cadence == 0
+        ):
+            pieces = [
+                parameter.grad.detach().float().square().sum()
+                for parameter in self.context.nets.parameters()
+                if parameter.grad is not None
+            ]
+            if not pieces:
+                raise RuntimeError("Action Flow optimizer update has no gradients")
+            total = torch.stack(pieces).sum().sqrt()
+            self._log_telemetry("GradientNorm/TotalPreclip", total)
+            clip_value = float(getattr(self.context.trainer, "gradient_clip_val", 0.0))
+            coefficient = (
+                min(1.0, clip_value / max(float(total), 1.0e-12))
+                if clip_value > 0.0
+                else 1.0
+            )
+            self._log_telemetry("GradientClip/Coefficient", coefficient)
         if self.context.device.type == "cuda":
             self._log_telemetry(
                 "Compute/PeakAllocatedBytes",

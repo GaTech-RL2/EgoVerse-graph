@@ -1,0 +1,20 @@
+# @package _global_
+defaults:
+- /experiment/oat/libero_base
+- override /model: libero/oat_dp_matched
+- override /logger: wandb
+- _self_
+name: dp_libero_goal_oat_dp_matched_s42
+description: Fresh original-OAT-DP matched comparison; launch gates pending
+benchmark:
+  suite: libero_goal
+  dataset: ???
+  decoded_replay_cache: false
+  batch_size: 16
+trainer:
+  max_epochs: 5001
+  max_steps: -1
+  accumulate_grad_batches: 64
+callbacks:
+  model_checkpoint:
+    filename: epoch-{epoch:04d}-step-{step:09d}

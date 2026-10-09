@@ -1,10 +1,16 @@
+import csv
 from collections import OrderedDict
 
 import pytest
 import torch
+from lightning import Trainer
+from lightning.pytorch.loggers import CSVLogger
+from omegaconf import OmegaConf
+from torch.utils.data import DataLoader
 
 from egomimic.pipeline.stages_planar import PlanarActionMSELoss
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.trainHydra import _instantiate_model_wrapper
 
 
 class _MetricPipeline:
@@ -111,3 +117,50 @@ def test_planar_action_loss_exports_canonical_mse_metric():
     assert float(result["loss/action"]) == pytest.approx(1.0)
     assert float(result["log/MSE"]) == pytest.approx(1.0)
     assert "log/action_mse" not in result
+
+
+@pytest.mark.parametrize("on_step", [None, False, True])
+def test_entrypoint_logging_control_reaches_real_csv_rows(
+    tmp_path, monkeypatch, on_step
+):
+    """Config-only assertions miss controls dropped by wrapper construction."""
+
+    class TrainMetricPipeline(_MetricPipeline):
+        def forward_training(self, batch):
+            loss = self.nets["anchor"](batch).square().mean()
+            return {"source": {"loss/test": loss, "log/MSE": loss.detach()}}
+
+    monkeypatch.setattr(
+        ModelWrapper, "_instantiate_model", lambda *args: TrainMetricPipeline()
+    )
+    cfg = OmegaConf.create(
+        {
+            "model": {
+                "pipeline": {},
+                "enable_grad_norm": False,
+                "optimizer": {"_target_": "torch.optim.SGD", "lr": 0.01},
+            }
+        }
+    )
+    if on_step is not None:
+        cfg.model.train_log_on_step = on_step
+    wrapper = _instantiate_model_wrapper(cfg)
+    assert wrapper.train_log_on_step is (on_step is True)
+    logger = CSVLogger(tmp_path, name="metrics")
+    trainer = Trainer(
+        accelerator="cpu",
+        devices=1,
+        max_steps=16,
+        max_epochs=1,
+        logger=logger,
+        log_every_n_steps=1,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+    trainer.fit(wrapper, DataLoader(torch.ones(16, 1), batch_size=1))
+    with (tmp_path / "metrics/version_0/metrics.csv").open() as handle:
+        rows = [r for r in csv.DictReader(handle) if r.get("Train/MSE")]
+    assert trainer.global_step == 16
+    assert [int(r["step"]) for r in rows] == (list(range(16)) if on_step else [15])
+    assert all(torch.isfinite(torch.tensor(float(r["Train/MSE"]))) for r in rows)

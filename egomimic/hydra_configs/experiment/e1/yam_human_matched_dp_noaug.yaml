@@ -1,0 +1,111 @@
+# @package _global_
+defaults:
+- /experiment/e1/yam_human_matched_af64_multiplier
+- override /data: e1/yam_human_matched_noaug_proportional_val01
+- _self_
+name: yam_human_matched_dp_noaug
+model:
+  optimizer_named_parameters: false
+  optimizer:
+    _target_: egomimic.pipeline.stages_matched_dp.matched_adamw
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.9
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+    adamw_weight_decay: null
+    muon_weight_decay: null
+    muon_momentum: null
+    muon_adjust_lr_fn: null
+  num_inference_steps: 100
+  condition_dropout_probability: 0.0
+  num_latent_tokens: null
+  latent_dim: null
+  training_behavior:
+    _target_: egomimic.pl_utils.training_behavior.TrainingBehavior
+  diagnostic_provider: null
+  pipeline:
+    _target_: egomimic.pipeline.stages_matched_dp.build_matched_dp_pipeline
+    conditioning_input: none
+    dp_inference_steps: 100
+    dp_condition_dropout_probability: 0.0
+    dp_down_dims:
+    - 512
+    - 1024
+    - 2048
+  scheduler:
+    _target_: egomimic.pipeline.stages_matched_dp.native_dp_scheduler
+    _partial_: true
+    max_steps: ${trainer.max_steps}
+    warmup_steps: 500
+    warmup_start_factor: 1.0e-08
+    eta_min: 0.0
+    decay_start_1_steps: null
+    decay_end_1_steps: null
+    decay_start_2_steps: null
+    decay_end_2_steps: null
+    base_lr_1: null
+    base_lr_2: null
+    final_lr: null
+evaluator:
+  action_flow_diagnostics:
+    enabled: false
+  energy_score_provenance:
+    sampler: ddim
+    sampler_steps: 100
+run_provenance:
+  comparison: task_success_af_aug_vs_dp_noaug_v1
+  normalization_sha256: ${oc.env:MATCHED_DP_NORMALIZATION_SHA256}
+  split_manifest_sha256: ${oc.env:MATCHED_DP_SPLIT_SHA256}
+  speed_augmentation:
+    source_sampling_contract: proportional_to_actual_windows_robot1_human1
+    enabled: false
+    inference_contract: observation_only_no_speed_or_multiplier_input
+    scientific_label: native_unaugmented_training
+  architecture:
+    family: shared_paper_unet_native_private_io_hpt_observation
+    latent_shape: null
+    private_codec: none_native_epsilon_prediction
+    denoiser: shared_PaperConditionalUnet1D_512_1024_2048
+    parameter_count_candidate: 283147096
+  inference:
+    sampler: ddim
+    steps: 100
+  objective:
+    method: native_action_epsilon_prediction
+    flow_clean_gradient_mode: null
+    flow_weight: null
+    reconstruction_weight: null
+    action_velocity_weight: null
+    flow_samples_per_content: null
+    flow_mini_batch: null
+    epsilon_samples_per_content: 1
+    reconstruction_is_optimizer_objective: false
+stationary_speed:
+  conditioning_input: none
+  human_rates:
+  - 1.0
+  yam_rates:
+  - 1.0
+  probabilities:
+  - 1.0
+  sample_views_per_source: 1
+  sample_views_by_source: {yam_bimanual: 1, human_bimanual: 1}
+norm_stats:
+  precomputed_norm_path: ${oc.env:MATCHED_DP_NORM}
+data:
+  proportional_train_batch_size: 16
+trainer:
+  precision: bf16
+  min_epochs: null
+  gradient_clip_val: 0.0
+  gradient_clip_algorithm: norm
+  val_check_interval: 15000
+  limit_val_batches: 1
+  sync_batchnorm: true
+callbacks:
+  ema: null
+eval_checkpoint:
+  use_ema: false

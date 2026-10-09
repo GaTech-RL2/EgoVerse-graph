@@ -34,7 +34,7 @@ jobs:
           python-version: "3.11"
           enable-cache: true
       - name: Install the locked model environment
-        run: uv sync --locked --extra pi05 --extra alignment --extra diagnostics
+        run: uv sync --locked --extra pi05 --extra oat --extra alignment --extra diagnostics
       - name: Install immutable OpenPI source without changing locked dependencies
         run: |
           source .venv/bin/activate

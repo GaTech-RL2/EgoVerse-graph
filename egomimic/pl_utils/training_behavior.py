@@ -67,6 +67,9 @@ class TrainingBehavior:
     def training_step(self, batch, batch_idx):
         return self.context._default_training_step(batch, batch_idx)
 
+    def log_prediction_metrics(self, predictions, reference):
+        return self.context._default_log_prediction_metrics(predictions, reference)
+
     def on_after_backward(self) -> None:
         return self.context._default_on_after_backward()
 

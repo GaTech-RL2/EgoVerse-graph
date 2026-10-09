@@ -10,7 +10,11 @@ CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
 EXPERIMENTS = sorted(
     path.stem
     for path in (CONFIGS / "experiment/e1").glob("*.yaml")
-    if not path.stem.endswith("_base")
+    # This is the BimanualTempo campaign's codec contract, not every experiment
+    # sharing the e1 directory. Stationary/keypoint recipes have distinct
+    # evaluators and are covered by their own matched/native contract tests.
+    if path.stem.startswith(("fold_", "abc_", "abcs_", "abcst_"))
+    and not path.stem.endswith("_base")
 )
 
 

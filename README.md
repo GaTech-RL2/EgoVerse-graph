@@ -3,6 +3,9 @@
 This repository contains EgoVerse data processing plus a dependency-aware Pipeline
 stack for training and evaluation.
 
+For cluster training and maintenance, start with
+[Pipeline and cluster operations](docs/cluster-pipeline.md). It distinguishes
+current source, historical run checkouts, and shared data/runtime dependencies.
 For the integration branch, start with the [migration guide](docs/integration/MIGRATION.md)
 for the locked environment, retained HPT/PI recipes, data tools, and checkpoint
 rules. [Integration status](docs/integration/PLAN.md) records the draft stack and
@@ -43,8 +46,8 @@ curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/path/to/flash/
 ```
 
 ```
-git clone git@github.com:GaTech-RL2/EgoVerse.git
-cd EgoVerse
+git clone git@github.com:GaTech-RL2/EgoVerse-graph.git
+cd EgoVerse-graph
 uv sync --locked
 source .venv/bin/activate
 uv run pre-commit install
@@ -55,8 +58,8 @@ installer; follow the [dependency policy](docs/integration/DEPENDENCIES.md).
 
 ### Conda
 ```
-git clone git@github.com:GaTech-RL2/EgoVerse.git
-cd EgoVerse
+git clone git@github.com:GaTech-RL2/EgoVerse-graph.git
+cd EgoVerse-graph
 conda env create -f environment.yaml
 conda activate emimic
 pip install -e .

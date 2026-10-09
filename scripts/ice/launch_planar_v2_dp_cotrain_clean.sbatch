@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 # Canonical ICE entrypoint for fresh standard-DP clean co-training.
 # Submit one GPU with: sbatch --gres=gpu:1 --constraint='H100|H200' ...
 

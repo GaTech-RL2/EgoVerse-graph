@@ -1,0 +1,416 @@
+{
+  "observed_at": "2026-09-24T06:41:15.095049+00:00",
+  "suite": "libero_spatial",
+  "status": "Complete individual scores; strict full-suite pairing blocked by 200 starting-state hash mismatches",
+  "oat": {
+    "run_id": "arc-oat-eval-p01-20260923-spatial",
+    "metrics": {
+      "episodes": 2500,
+      "mean_success_rate": 0.6168,
+      "success_rate_std": 0.010825894882179495,
+      "success_rate_stderr": 0.0048414873747640854,
+      "per_repetition_success": [
+        0.608,
+        0.634,
+        0.614,
+        0.62,
+        0.608
+      ],
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.6,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.896,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.632,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.788,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.472,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.564,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.724,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.124,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.844,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.524
+      },
+      "inference_seconds_mean": 0.023386310892057807,
+      "inference_seconds_p95": 0.027721691923215986
+    },
+    "artifacts": {
+      "protocol.json": {
+        "sha256": "dee559367864c3a277be0d7b2f52c3e7aeaa3c93290d9a770b923fa9f37ada86",
+        "bytes": 405996,
+        "modified": "2026-09-24T06:10:22+00:00"
+      },
+      "episodes.jsonl": {
+        "sha256": "423ec0c43b36334c77d226da732f79d805ff2773189bb00d7c045244a1f1cf31",
+        "bytes": 1687304,
+        "modified": "2026-09-24T06:10:22+00:00"
+      }
+    },
+    "matched_subsets": {
+      "model": "oat",
+      "all_matching_states": {
+        "episodes": 2300,
+        "successes": 1413,
+        "success_rate": 0.6143478260869565
+      },
+      "nine_unaffected_tasks": {
+        "episodes": 2250,
+        "successes": 1384,
+        "success_rate": 0.6151111111111112
+      },
+      "affected_task": {
+        "episodes": 250,
+        "successes": 158,
+        "success_rate": 0.632
+      }
+    }
+  },
+  "arc": [
+    {
+      "method": "ARC STK1",
+      "run_id": "arc-cache-resume-20260923-stk1-spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 36,
+      "episodes": 2500,
+      "successes": 1700,
+      "success_rate": 0.6799999999999999,
+      "evaluation_repetition_std": 0.022627416997969493,
+      "difference_from_oat_percentage_points": 6.319999999999992,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "49af78046f9e102b1bcd2050b71c877511695e4a479a1a3a4a5355414835b3de",
+          "bytes": 406095,
+          "modified": "2026-09-23T19:56:11+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "76efc2018ca601790bc1340f951cd298674d4955474cace7bd51565ce2f1e108",
+          "bytes": 1536392,
+          "modified": "2026-09-24T05:01:56+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.556,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.824,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.824,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.752,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.528,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.804,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.912,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.064,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.932,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.604
+      },
+      "matched_subsets": {
+        "model": "stk_1_stk",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1539,
+          "success_rate": 0.6691304347826087
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1494,
+          "success_rate": 0.664
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 206,
+          "success_rate": 0.824
+        }
+      }
+    },
+    {
+      "method": "ARC STK2",
+      "run_id": "arc-cache-arc-20260923-stk2-spatial",
+      "R": 192,
+      "D": 0.8,
+      "M": 32,
+      "episodes": 2500,
+      "successes": 1711,
+      "success_rate": 0.6844,
+      "evaluation_repetition_std": 0.012601587201618648,
+      "difference_from_oat_percentage_points": 6.76,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "8bef17e77dd6e6f97587fde985640589417b0890444eec9a3c6b53f67383d3b6",
+          "bytes": 406095,
+          "modified": "2026-09-23T21:10:40+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "96dfbf9b3ef073ee81ccf6071b2f9a5a109882c75c567691436a8f223b1dc730",
+          "bytes": 1527826,
+          "modified": "2026-09-24T06:16:24+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.596,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.736,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.716,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.692,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.552,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.84,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.956,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.044,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.968,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.744
+      },
+      "matched_subsets": {
+        "model": "stk_2_stk",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1571,
+          "success_rate": 0.6830434782608695
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1532,
+          "success_rate": 0.6808888888888889
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 179,
+          "success_rate": 0.716
+        }
+      }
+    },
+    {
+      "method": "ARC DUR1",
+      "run_id": "arc-cache-arc-20260923-dur1-spatial",
+      "R": 192,
+      "D": 1.6,
+      "M": 24,
+      "episodes": 2500,
+      "successes": 1708,
+      "success_rate": 0.6832,
+      "evaluation_repetition_std": 0.01676901905300363,
+      "difference_from_oat_percentage_points": 6.6400000000000015,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "4e02115ac1b1c19f53527e484302a3f4a6b8b48f448f38fc6910291bcaffe319",
+          "bytes": 406095,
+          "modified": "2026-09-23T20:57:27+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "47496ac3c844831d9e9622927eb5ddec93f1ccfe8b5869c8f4997c9f0bf12a43",
+          "bytes": 1531524,
+          "modified": "2026-09-24T06:00:52+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.496,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.908,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.676,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.812,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.536,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.732,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.876,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.112,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.972,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.712
+      },
+      "matched_subsets": {
+        "model": "dur_1_dur",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1574,
+          "success_rate": 0.6843478260869565
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1539,
+          "success_rate": 0.684
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 169,
+          "success_rate": 0.676
+        }
+      }
+    },
+    {
+      "method": "ARC DUR2",
+      "run_id": "arc-cache-arc-20260923-dur2-spatial",
+      "R": 384,
+      "D": 0.8,
+      "M": 32,
+      "episodes": 2500,
+      "successes": 1731,
+      "success_rate": 0.6923999999999999,
+      "evaluation_repetition_std": 0.016456001944579333,
+      "difference_from_oat_percentage_points": 7.559999999999989,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "f8ec3eac1c87b078ed9a2a475903a7db6c416b0dfa27245646b5cac57d178ea0",
+          "bytes": 406095,
+          "modified": "2026-09-23T20:58:26+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "88627b4c90e2583514a8c8aba14b6a3032c1942ddf71e6348fb9a436dde372c2",
+          "bytes": 1515298,
+          "modified": "2026-09-24T05:53:29+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.472,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.856,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.748,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.848,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.548,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.788,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.952,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.016,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.964,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.732
+      },
+      "matched_subsets": {
+        "model": "dur_2_dur",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1583,
+          "success_rate": 0.6882608695652174
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1544,
+          "success_rate": 0.6862222222222222
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 187,
+          "success_rate": 0.748
+        }
+      }
+    },
+    {
+      "method": "ARC shared STK",
+      "run_id": "arc-cache-arc-20260923-shared-stk-spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "episodes": 2500,
+      "successes": 1648,
+      "success_rate": 0.6592,
+      "evaluation_repetition_std": 0.019421637418096313,
+      "difference_from_oat_percentage_points": 4.239999999999999,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "e04b2f3271c886a7722c42c662388474e0a86bf1d082b5095472f0f2343dc5ea",
+          "bytes": 406095,
+          "modified": "2026-09-23T21:05:56+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "6ead17298a57957aaf149e6931a43a6539271d60b73dd312efb7e1398ff16041",
+          "bytes": 1561681,
+          "modified": "2026-09-24T06:36:37+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.588,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.744,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.736,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.788,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.52,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.62,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.916,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.064,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.96,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.656
+      },
+      "matched_subsets": {
+        "model": "shared_stk",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1504,
+          "success_rate": 0.6539130434782608
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1464,
+          "success_rate": 0.6506666666666666
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 184,
+          "success_rate": 0.736
+        }
+      }
+    },
+    {
+      "method": "ARC shared DUR",
+      "run_id": "arc-cache-arc-20260923-shared-dur-spatial",
+      "R": 384,
+      "D": 1.6,
+      "M": 36,
+      "episodes": 2500,
+      "successes": 1693,
+      "success_rate": 0.6772,
+      "evaluation_repetition_std": 0.018793615937333585,
+      "difference_from_oat_percentage_points": 6.040000000000001,
+      "full_suite_records_verified": true,
+      "paired_comparison_verified": false,
+      "initial_state_mismatches": 200,
+      "artifacts": {
+        "protocol.json": {
+          "sha256": "281843666e102db4dfd9215a23f532fe7baf193a54f0b4f4f051d65d94ce6794",
+          "bytes": 406095,
+          "modified": "2026-09-23T21:17:36+00:00"
+        },
+        "episodes.jsonl": {
+          "sha256": "6078e861f14580837ac60c73e2370f8d399f82cd75eed5d7f1b6f2bfd08422c4",
+          "bytes": 1540554,
+          "modified": "2026-09-24T06:24:59+00:00"
+        }
+      },
+      "per_task_success": {
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate": 0.612,
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate": 0.872,
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate": 0.612,
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate": 0.824,
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate": 0.54,
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate": 0.772,
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate": 0.944,
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate": 0.012,
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate": 0.964,
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate": 0.62
+      },
+      "matched_subsets": {
+        "model": "shared_dur",
+        "all_matching_states": {
+          "episodes": 2300,
+          "successes": 1572,
+          "success_rate": 0.6834782608695652
+        },
+        "nine_unaffected_tasks": {
+          "episodes": 2250,
+          "successes": 1540,
+          "success_rate": 0.6844444444444444
+        },
+        "affected_task": {
+          "episodes": 250,
+          "successes": 153,
+          "success_rate": 0.612
+        }
+      }
+    }
+  ],
+  "pairing_audit": {
+    "at": "2026-09-24T06:41:15.095049+00:00",
+    "mismatches": 200,
+    "affected_task": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+    "all_arc_initial_states_identical": true
+  },
+  "caveat": "Matched subsets are diagnostic comparisons and do not replace the full ten-task benchmark. Five evaluation repetitions use one trained checkpoint per configuration."
+}

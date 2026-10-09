@@ -73,6 +73,33 @@ def get_planar_keymap_per_source_proprio(
     return keymap
 
 
+def get_retimed_planar_keymap(rates=(1.0,), action_horizon=16, fps=30.0, **kwargs):
+    """Request enough native history for unpadded, virtual retiming views."""
+    from egomimic.rldb.zarr.planar_retiming import PlanarCommandRetiming
+
+    t = PlanarCommandRetiming(rates, action_horizon, fps)
+    return get_planar_keymap_per_source_proprio(
+        action_horizon=t.required_frames, **kwargs
+    )
+
+
+def get_retimed_planar_transforms(
+    representation, rates=(1.0,), action_horizon=16, fps=30.0
+):
+    from egomimic.rldb.zarr.planar_retiming import PlanarCommandRetiming
+
+    factories = {
+        "rotvec4": get_usocket_rotvec_action_state_transform_list,
+        "points6": get_chain_gripper_points_action_state_transform_list,
+    }
+    if representation not in factories:
+        raise ValueError("Unknown native planar representation")
+    return [
+        PlanarCommandRetiming(rates, action_horizon, fps),
+        *factories[representation](),
+    ]
+
+
 def get_usocket_rotvec_obs2_transform_list(
     action_key: str = "actions",
     state_key: str = "state_agent_model",
@@ -227,15 +254,7 @@ def get_chain_gripper_points_action_state_transform_list(
     state_key: str = "state_agent_model",
     world_size: float = 512.0,
 ):
-    """ChainGripper twin of the U-Socket UNITE transform: six-point actions.
-
-    Native ``[x, y, theta, grip]`` targets become the ordered
-    ``[left, center, right]`` command points (FK, see
-    ``egomimic.rldb.zarr.chain_gripper_points``) so the two embodiments share
-    nothing in action space; the model proprio stays the 4-D
-    ``[x, y, cos, sin]`` agent pose in both, as the dataset state carries no
-    grip opening.
-    """
+    """Encode native ChainGripper controls as three ordered 2-D points."""
     return [
         ChainGripperNative4ToPoints6(keys=[action_key], world_size=world_size),
         PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),

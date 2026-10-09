@@ -53,7 +53,7 @@ def load_bound_graph(
             "data_context_loader must return DataContext, not only normalization statistics"
         )
     checkpoint = torch.load(
-        checkpoint_path, map_location="cpu", weights_only=False, mmap=True
+        str(checkpoint_path), map_location="cpu", weights_only=False, mmap=True
     )
     validate_artifact_binding(artifact, checkpoint, training, context)
     validate_model_data_context(training, context)

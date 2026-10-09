@@ -316,6 +316,7 @@ class UniteDiTBackbone(nn.Module):
         trainable_in_context_position_embeddings: bool = True,
         dropout: float = 0.0,
         gradient_checkpointing: bool = False,
+        checkpoint_policy: str = "all",
     ):
         super().__init__()
         self.input_dim = int(input_dim)
@@ -335,6 +336,16 @@ class UniteDiTBackbone(nn.Module):
         )
         self.in_context_len = int(in_context_len)
         self.gradient_checkpointing = bool(gradient_checkpointing)
+        if checkpoint_policy not in {"all", "dit_half"}:
+            raise ValueError("checkpoint_policy must be all|dit_half")
+        if checkpoint_policy == "dit_half" and (
+            not self.gradient_checkpointing or self.depth % 2
+        ):
+            raise ValueError(
+                "dit_half requires checkpointing and an even native DiT depth"
+            )
+        self.checkpoint_policy = checkpoint_policy
+        self.checkpoint_policy_counts = {"direct": 0, "checkpoint": 0}
         if (
             min(
                 self.input_dim,
@@ -573,13 +584,18 @@ class UniteDiTBackbone(nn.Module):
                 and self.training
                 and torch.is_grad_enabled()
             ):
-                hidden = checkpoint(
-                    block,
-                    hidden,
-                    conditioning,
-                    rope_positions,
-                    use_reentrant=False,
-                )
+                if self.checkpoint_policy == "dit_half" and block_index % 2 == 0:
+                    self.checkpoint_policy_counts["direct"] += 1
+                    hidden = block(hidden, conditioning, rope_positions)
+                else:
+                    self.checkpoint_policy_counts["checkpoint"] += 1
+                    hidden = checkpoint(
+                        block,
+                        hidden,
+                        conditioning,
+                        rope_positions,
+                        use_reentrant=False,
+                    )
             else:
                 hidden = block(hidden, conditioning, rope_positions)
         if inserted_in_context:

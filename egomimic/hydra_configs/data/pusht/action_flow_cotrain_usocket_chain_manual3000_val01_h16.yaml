@@ -1,0 +1,14 @@
+defaults:
+  - /data/pusht/action_flow_unite_usocket_val01_h16@_here_
+  - /data/pusht/action_flow_chain_points6_manual3000_val01_h16@_here_
+  - _self_
+
+# One batch from each independently split manual corpus per optimizer update.
+train_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_USOCKET_ROOT}
+valid_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_USOCKET_ROOT}

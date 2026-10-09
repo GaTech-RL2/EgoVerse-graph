@@ -1,0 +1,68 @@
+# @package _global_
+defaults:
+  - /experiment/oat/libero_base
+  - override /data: libero/action_flow_libero10_val01_h16
+  - override /model: bf/libero10_action_flow_latent_fm_sg_unite_h384
+  - override /callbacks: action_flow_avln_libero
+  - override /evaluator: libero_action_flow
+  - override /logger: wandb
+  - _self_
+
+name: action_flow_libero10_avln_80k_s42
+description: "LIBERO-10 shared Action Flow H384 AV-LN, native 7D OSC"
+val_at_end: true
+seed: 42
+normalizer:
+  _target_: egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowNormalizer
+norm_stats:
+  norm_mode: oat_limits
+  sample_frac: 1.0
+  num_workers: 0
+  precomputed_norm_path: null
+benchmark:
+  suite: libero10
+  dataset: ${oc.env:LIBERO10_REPLAY_ROOT}
+  decoded_replay_cache: false
+  batch_size: 32
+  horizon: 16
+  n_obs_steps: 1
+  n_action_steps: 16
+trainer:
+  max_epochs: -1
+  min_epochs: null
+  max_steps: 80000
+  val_check_interval: 15000
+  check_val_every_n_epoch: null
+  limit_train_batches: 1.0
+  limit_val_batches: 8
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  gradient_clip_val: 3.0
+  gradient_clip_algorithm: norm
+  log_every_n_steps: 10
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval: [0.0, 1.0]
+logger:
+  wandb:
+    project: pushshapes-action-flow
+run_provenance:
+  source_commit: null
+  normalization_sha256: null
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count: 495
+  valid_episode_count: 5
+  union_episode_count: 500
+  action_contract:
+    representation: libero_panda_delta_osc_7d
+    prediction_horizon: 16
+  objective:
+    reconstruction_weight: 1.0
+    flow_weight: 1.0
+    action_velocity_weight: 1.0
+    flow_samples_per_content: 14
+  validation:
+    energy_score_sample_count: 32
+    energy_distance: mean_equal_weight_native_translation_rotation_gripper_chunk_rms

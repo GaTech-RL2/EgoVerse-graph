@@ -9,9 +9,9 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
+from egomimic.utils.runtime_compatibility import math_sdpa_context
 from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 
 
@@ -112,15 +112,13 @@ def _decoder_singular_values(
                 def direction(tangent: torch.Tensor) -> torch.Tensor:
                     return torch.func.jvp(decode_one, (value,), (tangent,))[1]
 
-                with sdpa_kernel([SDPBackend.MATH]):
+                with math_sdpa_context():
                     columns = torch.func.vmap(direction, chunk_size=4)(basis)
                 matrix = columns.float().reshape(value.numel(), -1).T.contiguous()
             else:
                 # Retain the existing method for all other experiments.
                 jacobian = torch.func.jacrev(decode_one, chunk_size=32)(value)
-                matrix = jacobian.float().reshape(
-                    jacobian.numel() // value.numel(), -1
-                )
+                matrix = jacobian.float().reshape(jacobian.numel() // value.numel(), -1)
             singular_values.append(torch.linalg.svdvals(matrix).detach())
     return torch.stack(singular_values)
 
@@ -200,9 +198,11 @@ def _diagnostic_source(
     condition = prepared[condition_key]
     batch_size = limit
 
-    encoder = encoder_stage.encoder
+    encoder_for = getattr(encoder_stage, "encoder_for", None)
+    encoder = encoder_for(prepared) if callable(encoder_for) else encoder_stage.encoder
     field = field_stage.field
-    decoder = decoder_stage.decoder
+    decoder_for = getattr(decoder_stage, "_decoder_for", None)
+    decoder = decoder_for(prepared) if callable(decoder_for) else decoder_stage.decoder
     clean, encoder_activations, encoder_indices = _block_outputs(
         encoder,
         lambda: encoder(target),

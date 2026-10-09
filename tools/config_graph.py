@@ -11,6 +11,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
 _MODES = ("train", "inference")
 _ZARR_DATASET_TARGET = (
     "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver"

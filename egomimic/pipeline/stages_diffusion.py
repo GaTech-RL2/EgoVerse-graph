@@ -8,6 +8,11 @@ import torch
 import torch.nn.functional as F
 
 from egomimic.models.diffusion_policy import DiffusionPolicy
+from egomimic.pipeline.action_dimensions import (
+    active_action_prefix,
+    batch_embodiment_name,
+    normalize_active_action_dimensions,
+)
 from egomimic.pipeline.core import Stage
 
 _SCHEDULER_FIELDS = (
@@ -262,6 +267,14 @@ class DiffusionEpsilonLossStage(Stage):
     writes = ("loss/diffusion_noise", "log/*")
     objective = "epsilon"
 
+    def __init__(self, active_action_dims_by_embodiment: Mapping | None = None):
+        super().__init__()
+        self.active_action_dims = normalize_active_action_dimensions(
+            active_action_dims_by_embodiment
+        )
+        if self.active_action_dims:
+            self.reads = (*type(self).reads, "embodiment")
+
     def forward(self, batch: dict) -> dict:
         prediction = batch["diffusion/predicted_noise"]
         noise_target = batch["diffusion/noise_target"]
@@ -271,11 +284,19 @@ class DiffusionEpsilonLossStage(Stage):
                 f"prediction={tuple(prediction.shape)} "
                 f"target={tuple(noise_target.shape)}"
             )
+        target = batch["target"]
+        if self.active_action_dims:
+            label = batch_embodiment_name(batch)
+            prediction = active_action_prefix(
+                prediction, label, self.active_action_dims
+            )
+            noise_target = active_action_prefix(
+                noise_target, label, self.active_action_dims
+            )
+            target = active_action_prefix(target, label, self.active_action_dims)
         loss = F.mse_loss(prediction, noise_target)
         batch["loss/diffusion_noise"] = loss
         batch["log/diffusion_noise"] = loss.detach()
         batch["log/MSE"] = loss.detach()
-        batch["log/diffusion_target_rms"] = (
-            batch["target"].detach().square().mean().sqrt()
-        )
+        batch["log/diffusion_target_rms"] = target.detach().square().mean().sqrt()
         return batch

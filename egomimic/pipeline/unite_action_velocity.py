@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch.nn.attention import SDPBackend, sdpa_kernel
+
+from egomimic.utils.runtime_compatibility import math_sdpa_context
 
 
 def decoder_action_velocity_loss(
@@ -44,7 +45,7 @@ def decoder_action_velocity_loss(
     if checkpointing is not None:
         decoder.gradient_checkpointing = False
     try:
-        with sdpa_kernel(SDPBackend.MATH):
+        with math_sdpa_context():
             _, action_velocity_residual = torch.autograd.functional.jvp(
                 decoder,
                 latent,

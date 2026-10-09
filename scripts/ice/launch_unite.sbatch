@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --kill-on-invalid-dep=yes
 #SBATCH --job-name=egoverse-unite
 #SBATCH --account=coc
 #SBATCH --partition=ice-gpu

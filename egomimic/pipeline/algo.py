@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
+from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 
 
 class PipelineAlgo:
@@ -28,7 +29,9 @@ class PipelineAlgo:
         trainability=None,
         loss_pipeline: Pipeline | None = None,
         training_passes=None,
+        compatibility_mode="current",
     ):
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
         self.device = torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -68,7 +71,7 @@ class PipelineAlgo:
 
     def _move_value(self, value):
         if torch.is_tensor(value):
-            if value.dtype == torch.float64:
+            if value.dtype == torch.float64 and self.compatibility_mode != "legacy_c12":
                 return value.to(device=self.device, dtype=torch.float32)
             return value.to(self.device)
         if isinstance(value, Mapping):

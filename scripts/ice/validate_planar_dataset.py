@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 DOMAIN = "pushshapes_sim_u_socket"
+SUPPORTED_DOMAINS = {DOMAIN, "pushshapes_sim_chain_gripper"}
 SPLIT_SEED = 42
 VALID_RATIO = 0.01
 SPLIT_ALGORITHM = (
@@ -41,6 +42,46 @@ def names_sha256(names: Iterable[str]) -> str:
 def paths_sha256(paths: Iterable[Path]) -> str:
     payload = "".join(f"{path}\n" for path in sorted(map(str, paths)))
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def validate_content_identity(
+    content_manifest: Mapping[str, Any],
+    entries: Sequence[tuple[str | Path, str]],
+) -> dict[str, Any]:
+    """Rehash resolved episodes and require exact path-independent identity."""
+
+    from egomimic.rldb.zarr.content_manifest import (
+        build_content_manifest,
+        validate_content_manifest,
+    )
+
+    expected = validate_content_manifest(content_manifest)
+    episodes: dict[str, Path] = {}
+    for raw_path, episode_id in entries:
+        if episode_id in episodes:
+            raise RuntimeError(f"duplicate suffixless episode ID: {episode_id}")
+        episodes[episode_id] = Path(raw_path)
+    actual_manifest = build_content_manifest(episodes)
+    if actual_manifest != content_manifest:
+        expected_rows = {
+            row["episode_id"]: row for row in content_manifest.get("episodes", [])
+        }
+        actual_rows = {row["episode_id"]: row for row in actual_manifest["episodes"]}
+        missing = sorted(set(expected_rows) - set(actual_rows))
+        extra = sorted(set(actual_rows) - set(expected_rows))
+        changed = sorted(
+            episode_id
+            for episode_id in set(expected_rows) & set(actual_rows)
+            if expected_rows[episode_id] != actual_rows[episode_id]
+        )
+        raise RuntimeError(
+            "Zarr content manifest mismatch: "
+            f"missing={missing}, extra={extra}, changed={changed}"
+        )
+    return {
+        **expected,
+        "verified_episode_count": len(actual_manifest["episodes"]),
+    }
 
 
 def split_names(names: Iterable[str]) -> tuple[set[str], set[str]]:
@@ -80,9 +121,16 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(manifest.get("generator_sha256"), "generator_sha256")
 
     domains = manifest.get("domains")
-    if not isinstance(domains, Mapping) or set(domains) != {DOMAIN}:
-        raise RuntimeError(f"split manifest must contain only {DOMAIN}")
-    domain = domains[DOMAIN]
+    if (
+        not isinstance(domains, Mapping)
+        or len(domains) != 1
+        or not set(domains) <= SUPPORTED_DOMAINS
+    ):
+        raise RuntimeError(
+            "split manifest must contain exactly one supported PushT domain"
+        )
+    domain_name = next(iter(domains))
+    domain = domains[domain_name]
     if not isinstance(domain, Mapping):
         raise RuntimeError("split manifest domain must be an object")
     source_root = domain.get("folder_path")
@@ -125,7 +173,7 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(domain.get("train_resolved_paths_sha256"), "train path SHA-256")
     _digest(domain.get("valid_resolved_paths_sha256"), "valid path SHA-256")
     return {
-        "domain": DOMAIN,
+        "domain": domain_name,
         "source_dataset_root": source_root,
         "inventory": inventory,
         "train": train,
@@ -201,6 +249,7 @@ def validate_physical_inventory(
             f"union={len(union)}/{len(inventory)}"
         )
     return {
+        "domain": expected["domain"],
         "dataset_root": str(root),
         "total_count": len(inventory),
         "inventory_names_sha256": names_sha256(inventory),
@@ -245,8 +294,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--expected-manifest-sha256", required=True)
+    parser.add_argument("--content-manifest", type=Path)
+    parser.add_argument("--expected-content-manifest-sha256")
     parser.add_argument("--output", required=True, type=Path)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if (args.content_manifest is None) != (
+        args.expected_content_manifest_sha256 is None
+    ):
+        parser.error(
+            "--content-manifest and --expected-content-manifest-sha256 "
+            "must be supplied together"
+        )
+    return args
 
 
 def main() -> int:
@@ -325,6 +384,31 @@ def main() -> int:
             "portable validator hash differs from training implementation"
         )
 
+    content_identity = None
+    if args.content_manifest is not None:
+        content_manifest_path = args.content_manifest.expanduser().resolve(strict=True)
+        expected_content_digest = _digest(
+            args.expected_content_manifest_sha256,
+            "expected content manifest SHA-256",
+        )
+        actual_content_digest = sha256_file(content_manifest_path)
+        if actual_content_digest != expected_content_digest:
+            raise RuntimeError(
+                "content manifest SHA-256 mismatch: "
+                f"{actual_content_digest} != {expected_content_digest}"
+            )
+        try:
+            content_manifest = json.loads(content_manifest_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"invalid content manifest JSON: {content_manifest_path}"
+            ) from exc
+        content_identity = {
+            "manifest": str(content_manifest_path),
+            "manifest_sha256": actual_content_digest,
+            **validate_content_identity(content_manifest, entries),
+        }
+
     payload = {
         "schema_version": 1,
         "status": "DATASET_VALIDATED",
@@ -334,8 +418,9 @@ def main() -> int:
         "valid_ratio": VALID_RATIO,
         "split_algorithm": SPLIT_ALGORITHM,
         "generator_sha256": generator_digest,
-        "domain": DOMAIN,
+        "domain": report["domain"],
         "physical_inventory": report,
+        "content_identity": content_identity,
     }
     output = args.output.expanduser().resolve()
     _atomic_json(output, payload)

@@ -1,0 +1,44 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_usocket_candidate_common
+  - override /model: bf/us_action_flow_bc_bridge_likelihood
+  - _self_
+
+name: action_flow_bc_usocket_bridge_likelihood_s42
+description: "Learned Gaussian bridge likelihood; K32 stochastic reverse chain; full H16 coordinate-sum reduction"
+train:
+  action_flow_method: gaussian_bridge_likelihood
+
+evaluator:
+  # Straight-CFM clean endpoints, velocities and Euler trajectories are not
+  # defined for this model. Native MSE and stochastic EnergyScore32 remain on.
+  action_flow_diagnostics:
+    enabled: false
+
+run_provenance:
+  objective:
+    method: gaussian_bridge_likelihood
+    components: [interior_bridge_kl, action_boundary_nll]
+    target_mean_gradients: attached
+    interior_samples_per_content: ${model.interior_samples_per_content}
+    num_levels: ${model.num_levels}
+    sigma_min: ${model.sigma_min}
+    sigma_max: ${model.sigma_max}
+    rho: ${model.rho}
+    tau: ${model.tau}
+    reduction: sum_all_horizon_coordinates_then_batch_mean
+    interior_level_multiplier: 31
+    # H16 × D4 / (2 × .02²) = 80000 times per-coordinate MSE.
+    boundary_per_coordinate_mse_multiplier: 80000.0
+    reconstruction_only_warmup_steps: 0
+    decoded_noise_scale_weight: 0.0
+  inference:
+    sampler: gaussian_bridge_reverse_chain
+    steps: ${model.num_inference_steps}
+    latent_innovations: 31
+    output_noise_std: ${model.tau}
+    classifier_free_guidance: false
+  requirements:
+    r6: PASS_design
+    conditional_quality: OPEN
+    observation_noise_caveat: finite_tau_models_a_smoothed_action_distribution

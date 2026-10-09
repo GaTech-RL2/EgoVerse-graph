@@ -1,0 +1,69 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42
+  - _self_
+
+name: action_flow_cotrain_uc_speed_interpolation
+description: "NON-PROTOCOL interpolation-only scalar/Fourier speed diagnostic"
+speed_diagnostic:
+  encoding: scalar
+  speed_reference: ???
+  rates_chain: [1.0, 1.25, 1.5, 1.75, 2.0]
+  fps: 30.0
+model:
+  hidden_dim: 696
+  pipeline:
+    _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
+    _recursive_: false
+    speed_reference: ${speed_diagnostic.speed_reference}
+    encoding: ${speed_diagnostic.encoding}
+    condition_dim: ${model.condition_dim}
+data:
+  train_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: &us_keymap
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_keymap
+          action_horizon: 16
+          rates: [1.0]
+          fps: ${speed_diagnostic.fps}
+        transform_list: &us_transforms
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_transforms
+          representation: rotvec4
+          rates: [1.0]
+          action_horizon: 16
+          fps: ${speed_diagnostic.fps}
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map: &chain_keymap
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_keymap
+          action_horizon: 16
+          rates: ${speed_diagnostic.rates_chain}
+          fps: ${speed_diagnostic.fps}
+        transform_list: &chain_transforms
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_transforms
+          representation: points6
+          rates: ${speed_diagnostic.rates_chain}
+          action_horizon: 16
+          fps: ${speed_diagnostic.fps}
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: *us_keymap
+        transform_list: *us_transforms
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map: *chain_keymap
+        transform_list: *chain_transforms
+run_provenance:
+  comparison_label: NON-PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC
+  speed_conditioning:
+    encoding: ${speed_diagnostic.encoding}
+    speed_reference: ${speed_diagnostic.speed_reference}
+    normalization: log1p_native_commanded_xy_speed_over_reference
+    unit: native_pixels_per_second
+    chain_rates: ${speed_diagnostic.rates_chain}
+    usocket_rates: [1.0]
+    sampling: equal_virtual_views_per_valid_anchor
+    validation: target_speed_conditioned_teacher_forced_not_closed_loop
+    contact_physics_verified: false

@@ -32,3 +32,33 @@ def test_visual_core_preserves_leading_shape_and_group_norm_contract():
     assert output.shape == (2, 3, 12)
     assert torch.isfinite(output).all()
     assert not any(isinstance(module, nn.BatchNorm2d) for module in encoder.modules())
+
+
+def test_libero_native_half_resnet_architecture_and_parameter_count():
+    encoder = VisualCore(
+        image_size=96,
+        feature_dimension=32,
+        num_kp=32,
+        pretrained=False,
+        crop_aug=True,
+        crop_height=84,
+        crop_width=84,
+        crop_eval_mode="center",
+        crop_sample_mode="v02",
+        crop_scope="frame",
+        norm_layer="group",
+        pool_type="spatial_softmax",
+        resnet_model="resnet18_half",
+    ).eval()
+    assert encoder.backbone[0].out_channels == 32
+    assert [encoder.backbone[i][-1].conv2.out_channels for i in (4, 5, 6, 7)] == [
+        32,
+        64,
+        128,
+        256,
+    ]
+    assert sum(p.numel() for p in encoder.parameters()) == 2809184
+    assert not any(isinstance(m, nn.BatchNorm2d) for m in encoder.modules())
+    with torch.inference_mode():
+        result = encoder(torch.zeros(1, 3, 96, 96))
+    assert result.shape == (1, 32) and torch.isfinite(result).all()

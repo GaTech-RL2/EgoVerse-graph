@@ -44,6 +44,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_i
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.episode_split import complete_window_count, split_dataset_names
 from egomimic.utils.env import load_env
 from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
@@ -57,37 +58,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SEED = 42
-
-
-def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
-    """
-    Split a list of dataset names into train/valid sets.
-    Args:
-        dataset_names (Iterable[str])
-        valid_ratio (float): fraction of datasets to put in valid.
-        seed (int): for deterministic shuffling.
-
-
-    Returns:
-        train_set (set[str]), valid_set (set[str])
-    """
-    names = sorted(dataset_names)
-    if not names:
-        return set(), set()
-
-    rng = random.Random(seed)
-    rng.shuffle(names)
-
-    if not (0.0 <= valid_ratio <= 1.0):
-        raise ValueError(f"valid_ratio must be in [0,1], got {valid_ratio}")
-
-    n_valid = int(len(names) * valid_ratio)
-    if valid_ratio > 0.0:
-        n_valid = max(1, n_valid)
-
-    valid = set(names[:n_valid])
-    train = set(names[n_valid:])
-    return train, valid
 
 
 def episode_names_sha256(dataset_names: Iterable[str]) -> str:
@@ -326,6 +296,10 @@ class EpisodeResolver:
         # these datasets do (640x480 / 640x360 / 1280x720 / 848x480).
         self.image_hw = tuple(image_hw) if image_hw else None
 
+    def _dataset_init_kwargs(self) -> dict[str, Any]:
+        """Extra leaf-constructor arguments supplied by specialized resolvers."""
+        return {}
+
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -341,10 +315,10 @@ class EpisodeResolver:
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-        dataset_kwargs = {}
+        dataset_kwargs = self._dataset_init_kwargs()
         embodiment_override = getattr(self, "embodiment_override", None)
         if embodiment_override is not None:
-            dataset_kwargs["embodiment_override"] = embodiment_override
+            dataset_kwargs.setdefault("embodiment_override", embodiment_override)
         for p in all_paths:
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
@@ -931,6 +905,9 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
         super().__init__(*args, **kwargs)
         self.embodiment_override = embodiment_override
 
+    def _dataset_init_kwargs(self) -> dict[str, Any]:
+        return {"embodiment_override": self.embodiment_override}
+
     def resolve(self, *args, **kwargs):
         datasets = super().resolve(*args, **kwargs)
         if self.embodiment_override is not None:
@@ -1047,6 +1024,10 @@ class MultiDataset(torch.utils.data.Dataset):
     # Default for instances built without going through __init__ (state
     # reloads, test doubles). __init__ always overwrites it.
     bounds_check: bool = True
+    bounds_semantics: str = "rotation_aware"
+    fallback_policy: str = "legacy_random"
+    fallback_seed: int = SEED
+    compatibility_mode: str = "current"
 
     def __init__(
         self,
@@ -1064,6 +1045,10 @@ class MultiDataset(torch.utils.data.Dataset):
         norm_mode: str = "zscore",
         state: dict | None = None,
         bounds_check: bool = True,
+        bounds_semantics: str = "rotation_aware",
+        fallback_policy: str = "legacy_random",
+        fallback_seed: int = SEED,
+        compatibility_mode: str = "current",
         **kwargs,
     ):
         """
@@ -1076,6 +1061,15 @@ class MultiDataset(torch.utils.data.Dataset):
             state: If provided, populate stats fields from this dict (deploy mode).
         """
         super().__init__()
+        from egomimic.utils.runtime_compatibility import validate_compatibility_mode
+
+        self.compatibility_mode = validate_compatibility_mode(compatibility_mode)
+        if self.compatibility_mode == "legacy_c12":
+            # Reproduce the historical implementation, including its ignored
+            # bounds_check flag. Do not silently change modern default behavior.
+            bounds_check = True
+            bounds_semantics = "legacy_full_vector"
+            fallback_policy = "legacy_random"
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
@@ -1104,6 +1098,17 @@ class MultiDataset(torch.utils.data.Dataset):
         # the dataset graph entirely, and leaving the attribute unset would
         # make any later __getitem__ raise AttributeError instead.
         self.bounds_check = bool(bounds_check)
+        if bounds_semantics not in {"rotation_aware", "legacy_full_vector"}:
+            raise ValueError(
+                "bounds_semantics must be 'rotation_aware' or 'legacy_full_vector'"
+            )
+        if fallback_policy not in {"legacy_random", "deterministic_hash"}:
+            raise ValueError(
+                "fallback_policy must be 'legacy_random' or 'deterministic_hash'"
+            )
+        self.bounds_semantics = bounds_semantics
+        self.fallback_policy = fallback_policy
+        self.fallback_seed = int(fallback_seed)
 
         if state is not None:
             # Deploy / state-only construction — no dataset graph.
@@ -1276,7 +1281,10 @@ class MultiDataset(torch.utils.data.Dataset):
             # channels are bounds-checked. Unrecognized widths fall through to
             # a full-vector check; NaN/Inf above still covers the full vector.
             cartesian_layout = None
-            if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+            if self.bounds_semantics == "rotation_aware" and zarr_key in (
+                "actions_cartesian",
+                "observations.state.ee_pose",
+            ):
                 cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
             if cartesian_layout is not None:
                 check_idx = list(cartesian_layout["xyz"]) + list(
@@ -1294,7 +1302,7 @@ class MultiDataset(torch.utils.data.Dataset):
             # reject every frame on any roundoff (today the cells are exactly
             # 0.0, so this only guards against a different BLAS/dtype path).
             # 1e-6 (m / normalized grip) is far below any real outlier.
-            tol = 1e-6
+            tol = 0.0 if self.bounds_semantics == "legacy_full_vector" else 1e-6
             below = arr_q < q_low - tol
             above = arr_q > q_high + tol
             if torch.any(below) or torch.any(above):
@@ -1312,6 +1320,7 @@ class MultiDataset(torch.utils.data.Dataset):
         return None
 
     def __getitem__(self, idx, _attempts: int | None = None):
+        origin_idx = int(idx)
         attempts = _attempts
         while True:
             dataset_name, local_idx = self.index_map[idx]
@@ -1323,6 +1332,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     idx,
                     dataset_name,
                     attempts,
+                    origin_idx=origin_idx,
                     reason=f"Sample failed ({type(e).__name__}: {e}) at "
                     f"{dataset_name}[{local_idx}]",
                 )
@@ -1344,6 +1354,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     idx,
                     dataset_name,
                     attempts,
+                    origin_idx=origin_idx,
                     reason=violation,
                 )
                 idx = next_idx
@@ -1355,12 +1366,32 @@ class MultiDataset(torch.utils.data.Dataset):
             return data
 
     def _next_after_failure(
-        self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
+        self,
+        idx: int,
+        dataset_name: str,
+        attempts: int | None,
+        *,
+        reason: str,
+        origin_idx: int | None = None,
     ) -> tuple[int, int]:
         if getattr(self, "_ordered_samples", False):
             raise RuntimeError(
                 f"Ordered validation sample {idx} failed: {reason}; random fallback is disabled"
             )
+        if self.compatibility_mode == "legacy_c12":
+            candidates = self._global_indices_by_dataset[dataset_name]
+            next_idx, attempts = get_fallback_idx(
+                idx=idx,
+                candidates=candidates,
+                _attempts=attempts,
+                max_attempts=len(candidates),
+                exhausted_error=f"Entire dataset bad (no valid indices): dataset={dataset_name}",
+            )
+            next_name, next_local = self.index_map[next_idx]
+            logger.warning(
+                f"{reason} | attempt {attempts}, trying {next_name}[{next_local}]"
+            )
+            return next_idx, attempts
         attempts = (attempts or 0) + 1
         if attempts >= self.MAX_FALLBACK_ATTEMPTS:
             raise RuntimeError(
@@ -1373,10 +1404,30 @@ class MultiDataset(torch.utils.data.Dataset):
             ]
         else:
             candidates = None
-        if candidates:
+        if not candidates:
+            candidates = [
+                candidate
+                for candidate in range(len(self.index_map))
+                if candidate != idx
+            ]
+        if not candidates:
+            raise RuntimeError("No fallback sample is available")
+        if self.fallback_policy == "legacy_random":
             next_idx = random.choice(candidates)
         else:
-            next_idx = random.randrange(len(self.index_map))
+            # Stateless selection is independent of worker scheduling, Python's
+            # process-local RNG state, prefetch timing, and retry interleaving.
+            # Keep the requested index in the key so every worker maps the same
+            # rejected sample and attempt to the same replacement.
+            requested = idx if origin_idx is None else int(origin_idx)
+            payload = (
+                f"v1:{self.fallback_seed}:{requested}:{attempts}:"
+                f"{dataset_name}:{len(candidates)}"
+            ).encode("utf-8")
+            offset = int.from_bytes(
+                hashlib.sha256(payload).digest()[:8], "big", signed=False
+            )
+            next_idx = candidates[offset % len(candidates)]
         next_dataset_name, next_local_idx = self.index_map[next_idx]
         logger.warning(
             f"{reason} | attempt {attempts}, "
@@ -1534,6 +1585,7 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        resume_partial_norm_path: str | None = None,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
@@ -1548,6 +1600,23 @@ class MultiDataset(torch.utils.data.Dataset):
             return
 
         self.norm_stats.setdefault(embodiment, {})
+
+        if resume_partial_norm_path is not None:
+            if precomputed_norm_path is not None:
+                raise ValueError(
+                    "partial normalization recovery conflicts with precomputed stats"
+                )
+            with open(resume_partial_norm_path) as stream:
+                partial = json.load(stream)
+            if partial["stats"].get(str(embodiment)):
+                # Native loader still checks normalization mode and exact key set.
+                self._load_precomputed_stats(
+                    resume_partial_norm_path, embodiment, norm_keys
+                )
+                logger.info(
+                    f"[MultiDataset] Reused completed partial stats for embodiment={embodiment}"
+                )
+                return
 
         if precomputed_norm_path is not None:
             if os.path.isdir(precomputed_norm_path):
@@ -1649,7 +1718,14 @@ class MultiDataset(torch.utils.data.Dataset):
                     # float32: stats are consumed as float32 anyway, and the
                     # float64 poses double the stacked-sample footprint (an
                     # (N, 100, 18) action stack at large N is tens of GB).
-                    collected[k].append(np.asarray(x, dtype=np.float32))
+                    # Historical statistics must be computed before rounding
+                    # float64 poses, just as in c12. Keep the memory-saving
+                    # current path unchanged for other experiments.
+                    collected[k].append(
+                        x
+                        if self.compatibility_mode == "legacy_c12"
+                        else np.asarray(x, dtype=np.float32)
+                    )
                 cur += take
                 pbar.update(take)
         return collected
@@ -2093,11 +2169,32 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
-        self._embodiment_override = embodiment_override
+        self.embodiment_override = embodiment_override
         self.init_episode()
 
         self.key_map = key_map
         self.transform = transform_list
+        views = [t for t in (self.transform or []) if hasattr(t, "sample_views")]
+        if len(views) > 1:
+            raise ValueError("Only one virtual-view transform is supported")
+        self._view_transform = views[0] if views else None
+        self._valid_anchors = self.total_frames
+        if self._view_transform is not None:
+            t = self._view_transform
+            binder = getattr(t, "bind_episode", None)
+            if callable(binder):
+                binder(self.metadata, self.key_map)
+            else:
+                # Preserve the existing planar command-retiming contract.
+                if float(self.metadata.get("fps", -1)) != t.fps:
+                    raise ValueError("Episode FPS differs from retiming clock")
+                if self.key_map[t.action_key].get("horizon") != t.required_frames:
+                    raise ValueError(
+                        "Raw keymap horizon must equal retiming required_frames"
+                    )
+            self._valid_anchors = complete_window_count(
+                self.total_frames, t.required_frames
+            )
         self.image_hw = tuple(image_hw) if image_hw else None
         # (H, W) of this episode's front camera BEFORE any resize, captured at
         # decode time so the intrinsics can be rescaled by the same factors.
@@ -2111,10 +2208,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        embodiment_name = (
-            getattr(self, "_embodiment_override", None) or self.metadata["embodiment"]
+        embodiment = (
+            getattr(self, "embodiment_override", None) or self.metadata["embodiment"]
         )
-        self.embodiment = get_embodiment(get_embodiment_id(embodiment_name)).lower()
+        self.embodiment = get_embodiment(get_embodiment_id(embodiment)).lower()
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
@@ -2188,7 +2285,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         return valid_annotations
 
     def __len__(self) -> int:
-        return self.total_frames
+        views = self._view_transform.sample_views if self._view_transform else 1
+        return self._valid_anchors * views
 
     def require_ordered_samples(self):
         self._ordered_samples = True
@@ -2201,7 +2299,11 @@ class ZarrDataset(torch.utils.data.Dataset):
     def frame_index_at(self, index: int) -> int:
         if not 0 <= index < len(self):
             raise IndexError(index)
-        return index
+        return (
+            index // self._view_transform.sample_views
+            if self._view_transform
+            else index
+        )
 
     def episode_length_at(self, index: int) -> int:
         self.frame_index_at(index)
@@ -2244,6 +2346,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         origin = _fallback_origin if _fallback_origin is not None else idx
         attempts = _attempts
+        if not 0 <= idx < len(self):
+            raise IndexError(idx)
+        view = 0
+        if self._view_transform is not None:
+            idx, view = divmod(idx, self._view_transform.sample_views)
 
         def _next(reason: str, key: str = "") -> int:
             nonlocal attempts
@@ -2253,9 +2360,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 )
             next_idx, attempts = get_fallback_idx(
                 idx=idx,
-                candidates=range(self.total_frames),
+                candidates=range(self._valid_anchors),
                 _attempts=attempts,
-                max_attempts=self.total_frames,
+                max_attempts=self._valid_anchors,
                 exhausted_error=(
                     f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                 ),
@@ -2286,6 +2393,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
+                required_keys = (
+                    getattr(self._view_transform, "required_keys", None)
+                    if self._view_transform is not None
+                    else ()
+                )
+                if required_keys is None:
+                    required_keys = (self._view_transform.action_key,)
+                if self._view_transform is not None and k in required_keys:
+                    if len(raw_data[zarr_key]) != self._view_transform.required_frames:
+                        raise ValueError(
+                            "Retiming refuses padded or truncated native windows"
+                        )
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
 
@@ -2315,6 +2434,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             if self.transform:
+                if self._view_transform is not None:
+                    data["_retiming_view"] = view
                 for transform in self.transform or []:
                     data = transform.transform(data)
 

@@ -36,13 +36,13 @@ def test_matched_configs():
     with initialize_config_dir(config_dir=str(root),version_base="1.3"):
         a,d=[compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
             "+experiment=e1/yam_human_matched_"+name]) for name in ("af64_multiplier","dp_noaug")]
-    for key in ("trainer","callbacks","hpt","e1","seed","model.scheduler"):
+    for key in ("hpt","e1","seed"):
         assert comparable(OmegaConf.select(a,key))==comparable(OmegaConf.select(d,key)),key
     for x,y in zip(a.model.pipeline.stages[:3],d.model.pipeline.stages[:3]):assert comparable(x)==comparable(y)
     assert d.model.num_latent_tokens is None and d.model.latent_dim is None
     assert d.run_provenance.objective.epsilon_samples_per_content==1
     assert a.evaluator.action_flow_diagnostics.provenance.latent_shape==[64,16]
-    assert a.model.pipeline.flow_inference_method=="euler" and d.model.pipeline.dp_inference_steps==50
+    assert a.model.pipeline.flow_inference_method=="euler" and d.model.pipeline.dp_inference_steps==100
     assert (a.model.num_latent_tokens,a.model.latent_dim,a.model.action_horizon)==(64,16,100)
     assert a.data.train_datasets.yam_bimanual.expected_train_episode_count==375
     assert a.data.train_datasets.human_bimanual.expected_train_episode_count==37
@@ -77,7 +77,14 @@ def test_native_af_and_dp_optimizers_and_schedule_contracts():
             assert isinstance(opt,torch.optim.AdamW)
             schedule=instantiate(cfg.model.scheduler,optimizer=opt)
             if callable(schedule):schedule=schedule()
-            schedules.append([schedule.lr_lambdas[0](step) for step in (0,7999,8000,12000,20000,80000)])
+            assert opt.defaults["weight_decay"]==1e-6
+            assert opt.defaults["eps"]==1e-8
+            assert cfg.model.scheduler.warmup_steps==500
+            assert cfg.model.pipeline.dp_condition_dropout_probability==0
+            assert cfg.callbacks.ema is None and cfg.eval_checkpoint.use_ema is False
+            assert cfg.trainer.gradient_clip_val==0
+            assert cfg.data.proportional_train_batch_size==16
+            schedules.append(schedule)
     assert len(schedules)==1
 
 

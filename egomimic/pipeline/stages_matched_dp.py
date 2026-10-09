@@ -41,7 +41,7 @@ class SharedNativeDPStage(Stage):
     objective="epsilon"
     def __init__(self,condition_dim=256,action_horizon=100,inference_steps=50,
                  down_dims=(512,1024,2048),kernel_size=5,step_embed_dim=128,n_groups=8,
-                 condition_dropout_probability=0.1):
+                 condition_dropout_probability=0.0):
         super().__init__()
         if action_horizon != 100:
             raise ValueError("Matched comparison requires100 action steps")
@@ -75,7 +75,8 @@ class SharedNativeDPStage(Stage):
 
 def build_matched_dp_pipeline(stages,speed_reference=None,encoding="scalar",condition_dim=256,
                               device=None,compatibility_mode="current",conditioning_input="none",
-                              dp_inference_steps=50,dp_down_dims=(512,1024,2048),flow_inference_method=None):
+                              dp_inference_steps=100,dp_down_dims=(512,1024,2048),flow_inference_method=None,
+                              dp_condition_dropout_probability=0.0):
     from hydra.utils import instantiate
     from egomimic.pipeline.algo import PipelineAlgo
     if speed_reference is not None or encoding!="scalar" or conditioning_input!="none":
@@ -86,7 +87,8 @@ def build_matched_dp_pipeline(stages,speed_reference=None,encoding="scalar",cond
         raise ValueError("Observation and target prefix must match Action Flow")
     modules=[instantiate(x) for x in prefix]
     modules.append(SharedNativeDPStage(condition_dim=condition_dim,
-                   inference_steps=dp_inference_steps,down_dims=dp_down_dims))
+                   inference_steps=dp_inference_steps,down_dims=dp_down_dims,
+                   condition_dropout_probability=dp_condition_dropout_probability))
     return PipelineAlgo(modules,device=device)
 
 
@@ -96,3 +98,14 @@ def matched_adamw(params, lr, betas, eps, weight_decay, adamw_weight_decay=None,
     if any(v is not None for v in (adamw_weight_decay,muon_weight_decay,muon_momentum,muon_adjust_lr_fn)):
         raise ValueError("Inherited composite optimizer options must be disabled")
     return torch.optim.AdamW(params,lr=lr,betas=betas,eps=eps,weight_decay=weight_decay)
+
+
+def native_dp_scheduler(optimizer, max_steps, warmup_steps, warmup_start_factor, eta_min,
+                        **inherited_af_options):
+    """Native DP cosine schedule; reject active inherited AF schedule options."""
+    allowed={"decay_start_1_steps","decay_end_1_steps","decay_start_2_steps",
+             "decay_end_2_steps","base_lr_1","base_lr_2","final_lr"}
+    if set(inherited_af_options)-allowed or any(v is not None for v in inherited_af_options.values()):
+        raise ValueError("AF schedule options must be disabled for native DP")
+    from egomimic.utils.schedulers import warmup_cosine_scheduler
+    return warmup_cosine_scheduler(optimizer,max_steps,warmup_steps,warmup_start_factor,eta_min)

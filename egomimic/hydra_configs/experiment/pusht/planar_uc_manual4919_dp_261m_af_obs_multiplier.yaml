@@ -1,0 +1,52 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked
+  - override /model: bf/bf_planar_v2_dp_af_obs_multiplier_261m
+  - _self_
+
+name: planar_uc_manual4919_dp_261m_af_obs_multiplier
+description: "Fresh DP candidate matching AF observations, multiplier, H16, batches32+32 and ~261M total parameters"
+planar:
+  batch_size: 32
+trainer:
+  max_steps: 80000
+  precision: bf16
+  val_check_interval: 15000
+data:
+  train_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: &us_keymap
+          _target_: egomimic.rldb.embodiment.pushshapes_retiming.get_standard_dp_retimed_keymap
+          action_horizon: 16
+          rates: [1.0]
+          model_proprio: true
+        transform_list: &us_transforms
+          _target_: egomimic.rldb.embodiment.pushshapes_retiming.get_standard_dp_retimed_transform_list
+          action_horizon: 16
+          rates: [1.0]
+          model_proprio: true
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map:
+          model_proprio: true
+        transform_list:
+          model_proprio: true
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: *us_keymap
+        transform_list: *us_transforms
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map:
+          model_proprio: true
+        transform_list:
+          model_proprio: true
+run_provenance:
+  scalar_speed_conditioning: false
+  multiplier_conditioning: true
+  observation_contract: af_rgb64_private_rotvec4_projection64_shared_condition128
+  capacity_target: approximately_261M_total_training_parameters
+  fresh_normalization_required: true
+  comparison_status: source_candidate_requires_full_training_and_evaluation_gates

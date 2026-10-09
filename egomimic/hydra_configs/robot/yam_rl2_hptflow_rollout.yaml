@@ -1,5 +1,3 @@
-6da24029 2026-10-01 13:30:26 -0400 Aidan Gao feat(robot): roll out hybrid arcdur (100,18) and lab wide/stacked tokens
-007104c2 2026-09-30 23:51:52 -0400 Aidan Gao feat(robot): naive replay speed-up for time-indexed policies
 # RL2 YAM HPT-Flow rollout profile. This file resolves only the immutable
 # checkpoint bundle staged on the station; --check-config opens no robot devices.
 robot:
@@ -102,17 +100,18 @@ preview:
 
 policy:
   kind: graph
-  # Default: RL2 stationery slow-pace Aria37 cotrain, E1 arcdurhyb (100, 18),
-  # final 240k step. Its four streams (translation and rotation per arm) run on
+  # Default: RL2 stationery slow-pace 366 + Aria38 cotrain, E1 arcdurhyb (100, 18)
+  # with the 24 deg rotation cap (rotation_distance_unit 0.4189, read from the
+  # bundle), 120k step. Its four streams (translation and rotation per arm) run on
   # their own clocks. ARC models start in fastest-stream termination (execute
   # the first N % of the waypoints, repredict when the first moving stream
   # reaches its cap); the dashboard toggles back to a fixed Repredict every.
   # The environment variables let an operator select another immutable bundle (e.g. the arcdur/arcvel/time
   # twins in the same directory); auto_inference_config derives its profile.
   # Override all three paths together when selecting another immutable bundle.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/resolved-config.yaml}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k__epoch-2399-step-00240000__sha256-249d15917ef96836.ckpt}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/stationery_slowpace_aria37_cotrain_20261004/yam_rl2_stattempo_slowpace_aria37_cotrain_arcdurhyb_h640t8_d384x10_s42_step240k/norm_stats.json}
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/stationery_slowpace366_r24_120k_20261008/yam_rl2_stattempo_slowpace366_aria38_cotrain_arcdurhyb_r24_h640t8_d384x10_s42_step120k/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/stationery_slowpace366_r24_120k_20261008/yam_rl2_stattempo_slowpace366_aria38_cotrain_arcdurhyb_r24_h640t8_d384x10_s42_step120k/yam_rl2_stattempo_slowpace366_aria38_cotrain_arcdurhyb_r24_h640t8_d384x10_s42_step120k__epoch-1199-step-00120000__sha256-0800628bf187ec44.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/stationery_slowpace366_r24_120k_20261008/yam_rl2_stattempo_slowpace366_aria38_cotrain_arcdurhyb_r24_h640t8_d384x10_s42_step120k/norm_stats.json}
   device: cuda:0
   use_ema: false
   # These are the only config-controlled targets allowed during local graph

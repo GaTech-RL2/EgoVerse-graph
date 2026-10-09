@@ -36,8 +36,17 @@ def load_policy(config):
     raise ValueError("Use kind=graph, zarr_replay, or hdf5_replay for recorded actions")
 
 
+def _max_steps(config):
+    """``None`` runs until the operator stops; otherwise a positive step count."""
+    value = config.get("max_steps")
+    if value is not None and (type(value) is not int or value <= 0):
+        raise ValueError("max_steps must be a positive integer or null")
+    return value
+
+
 def validate_rollout_config(config):
     """Validate browser-only rollout settings before creating robot hardware."""
+    _max_steps(config)
     for name in ("reset_on_start", "reset_home_on_restart"):
         value = config.get(name, False)
         if type(value) is not bool:
@@ -254,13 +263,7 @@ def _reset_policy_state(policy) -> None:
 
 def run_rollout(robot, policy, config, view=None):
     frequency = float(config["frequency"])
-    configured_max_steps = config.get("max_steps")
-    if configured_max_steps is None:
-        max_steps = None
-    elif type(configured_max_steps) is int and configured_max_steps > 0:
-        max_steps = configured_max_steps
-    else:
-        raise ValueError("max_steps must be a positive integer or null")
+    max_steps = _max_steps(config)
     limit = float(config["max_joint_velocity"]) / frequency
     max_velocity_replans = config.get("max_velocity_replans", 0)
     if min(frequency, limit) <= 0 or not np.isfinite(limit):
@@ -763,7 +766,7 @@ def run_rollout(robot, policy, config, view=None):
                         robot, commands, row, policy.action_type
                     )
                     episode_recorder.append(obs, joints, eepose, target)
-                except (KeyError, TypeError, ValueError) as error:
+                except Exception as error:  # the command is already sent; only the episode ends
                     print(f"Rollout episode recording stopped: {error}")
                     finish_episode(complete=False, end_reason="writer_error")
                 else:

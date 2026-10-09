@@ -50,6 +50,7 @@ END_REASONS = (
 )
 _EPISODE_ID = re.compile(r"^rollout_\d{8}-\d{6}-\d{6}$")
 _DISK_CHECK_SECONDS = 1.0
+_END_POLL_SECONDS = 0.05
 
 
 def validate_episode_recording(config: Mapping[str, object] | None) -> dict:
@@ -139,6 +140,7 @@ class RolloutEpisodeRecorder:
         self._finished: list[dict] = []
         self._thread: threading.Thread | None = None
         self._queue: queue.Queue | None = None
+        self._request: tuple | None = None
         self._episode_id: str | None = None
         self._failure: str | None = None
         self._failure_detail: str | None = None
@@ -236,6 +238,7 @@ class RolloutEpisodeRecorder:
             path.unlink(missing_ok=True)
             raise
         self._queue = queue.Queue(maxsize=self.config["max_queued_rows"])
+        self._request = None
         self._episode_id = episode_id
         self._failure = self._failure_detail = None
         self._rows, self._plan_index = 0, -1
@@ -340,9 +343,7 @@ class RolloutEpisodeRecorder:
         if self._failure is not None:
             complete, end_reason = False, self._failure
         episode_id, self._episode_id = self._episode_id, None
-        # Blocking put: the writer always drains its queue, so this waits for at
-        # most one row and the close request is never lost.
-        self._queue.put(("close", outcome, bool(complete), end_reason, self._failure_detail))
+        self._end(("close", outcome, bool(complete), end_reason, self._failure_detail))
         return episode_id
 
     def discard(self):
@@ -350,8 +351,23 @@ class RolloutEpisodeRecorder:
         if not self.recording:
             return None
         episode_id, self._episode_id = self._episode_id, None
-        self._queue.put(("discard",))
+        self._end(("discard",))
         return episode_id
+
+    def _end(self, request: tuple) -> None:
+        """Hand the end request to the writer without ever blocking the control loop.
+
+        The writer reads ``_request`` once its queue runs dry, so the request is
+        never lost; the sentinel only shortens that wait when the queue has room.
+        A blocking put here would stall control for as long as one HDF5 write
+        takes on a slow disk, which is exactly when the queue is full.
+        """
+        with self._lock:
+            self._request = request
+        try:
+            self._queue.put_nowait(("end",))
+        except queue.Full:
+            pass
 
     def wait(self, timeout: float | None = None) -> bool:
         """Wait for the writer to finish; return whether it did."""
@@ -371,9 +387,16 @@ class RolloutEpisodeRecorder:
         first_timestamp = last_timestamp = None
         plans = writer.file["rollout/plans"]
         while True:
-            item = items.get()
+            try:
+                item = items.get(timeout=_END_POLL_SECONDS)
+            except queue.Empty:
+                with self._lock:
+                    ended = self._request is not None
+                if ended:
+                    break  # the sentinel was dropped on a full queue; it is drained now
+                continue
             kind = item[0]
-            if kind in ("close", "discard"):
+            if kind == "end":
                 break
             if error is not None:
                 continue  # keep draining so the control loop never blocks on put
@@ -421,15 +444,17 @@ class RolloutEpisodeRecorder:
             except Exception as caught:  # surfaced to the loop through ``failure``
                 error = f"{type(caught).__name__}: {caught}"
                 self._failure, self._failure_detail = "writer_error", error
+        with self._lock:
+            request = self._request
         result = {"id": manifest["id"], "saved": None, "discarded": False, "error": None}
         path = writer.path
         try:
-            if kind == "discard":
+            if request[0] == "discard":
                 writer.close(complete=False)
                 path.unlink(missing_ok=True)
                 result["discarded"] = True
             else:
-                _, outcome, complete, end_reason, detail = item
+                _, outcome, complete, end_reason, detail = request
                 if error is not None:
                     complete, end_reason, detail = False, "writer_error", error
                 frames = writer.frames

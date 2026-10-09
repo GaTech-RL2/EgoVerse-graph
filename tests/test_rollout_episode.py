@@ -206,6 +206,41 @@ def test_a_slow_writer_ends_the_episode_instead_of_blocking_control(
     assert saved["complete"] is False and saved["end_reason"] == "writer_error"
 
 
+@pytest.mark.parametrize("end", ["close", "discard"])
+def test_ending_a_stalled_episode_never_blocks_control(tmp_path, disk, monkeypatch, end):
+    gate = threading.Event()
+    original = EpisodeWriter.append
+
+    def slow_append(self, *args):
+        gate.wait(5)
+        return original(self, *args)
+
+    monkeypatch.setattr(rollout_episode.EpisodeWriter, "append", slow_append)
+    recorder = RolloutEpisodeRecorder(
+        CAMERAS, {"enabled": True, "directory": str(tmp_path), "max_queued_rows": 1}
+    )
+    recorder.start({})
+    accepted = [
+        recorder.append(observation(k), command(k), np.zeros(14)) for k in range(3)
+    ]
+    assert accepted[0] and not accepted[-1] and recorder.failure == "writer_error"
+    began = time.monotonic()
+    episode_id = getattr(recorder, end)()  # the writer is stalled inside one row
+    assert time.monotonic() - began < 0.1
+    assert episode_id is not None and not recorder.recording and recorder.busy
+    gate.set()
+    result = finished(recorder)
+    if end == "discard":
+        assert result["discarded"] is True
+        assert not list(tmp_path.glob("rollout_*"))
+    else:
+        saved = result["saved"]
+        assert saved["complete"] is False and saved["end_reason"] == "writer_error"
+        # Every accepted row was written before finalizing (how many were accepted
+        # depends on whether the writer had dequeued the first row yet).
+        assert saved["frames"] == sum(accepted) >= 1
+
+
 class EpisodeRobot:
     def __init__(self, with_fk=True):
         self.arms = ["left", "right"]

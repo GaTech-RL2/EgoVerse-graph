@@ -105,10 +105,13 @@ class YamInterface:
                 # Current i2rt pins the 50 N limiter in get_yam_robot. Pass the
                 # setting when upstream exposes it; otherwise verify the active
                 # value after construction instead of mutating private state.
-                if "limit_gripper_force" in inspect.signature(get_yam_robot).parameters:
+                supports_limit = (
+                    "limit_gripper_force" in inspect.signature(get_yam_robot).parameters
+                )
+                if supports_limit:
                     kwargs["limit_gripper_force"] = self.gripper_force_limit
                 driver = get_yam_robot(**kwargs)
-                if "limit_gripper_force" not in inspect.signature(get_yam_robot).parameters:
+                if not supports_limit:
                     setter = getattr(driver, "set_gripper_force_limit", None)
                     if self.gripper_force_limit != 50.0:
                         if callable(setter):

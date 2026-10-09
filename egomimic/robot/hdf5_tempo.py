@@ -266,9 +266,11 @@ def _write_json_atomic(path: Path, report: Mapping[str, object]) -> None:
 
 
 def _file_signature(paths: Sequence[Path]) -> tuple[tuple[str, int, int], ...]:
-    return tuple(
-        (str(path), path.stat().st_size, path.stat().st_mtime_ns) for path in paths
-    )
+    signature = []
+    for path in paths:
+        stat = path.stat()
+        signature.append((str(path), stat.st_size, stat.st_mtime_ns))
+    return tuple(signature)
 
 
 def _analyze_once(args: argparse.Namespace) -> tuple[tuple[str, int, int], ...]:
@@ -287,11 +289,13 @@ def _analyze_once(args: argparse.Namespace) -> tuple[tuple[str, int, int], ...]:
                 hold_threshold=args.hold_threshold,
                 require_complete=not args.include_incomplete,
             )
-        except OSError as exc:
+        except (OSError, KeyError, ValueError) as exc:
+            # OSError: unreadable or still being written; KeyError/ValueError: a
+            # malformed file or one whose arms never move. Neither aborts the scan.
             if args.include_incomplete:
                 raise
             skipped_unreadable += 1
-            print(f"Skipping unreadable/in-progress episode {path.name}: {exc}")
+            print(f"Skipping unusable episode {path.name}: {exc}")
             continue
         if episode is None:
             skipped_incomplete += 1

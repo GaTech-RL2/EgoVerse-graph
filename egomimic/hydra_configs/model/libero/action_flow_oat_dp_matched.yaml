@@ -1,11 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 training_behavior:
-  _target_: egomimic.pl_utils.oat_matched_training.OATMatchedActionFlowTrainingBehavior
-  policy_lr: 5.0e-05
-  obs_enc_lr: 1.0e-05
-  betas:
-  - 0.9
-  - 0.95
+  _target_: egomimic.pl_utils.oat_matched_training.OATObservationActionFlowTrainingBehavior
 diagnostic_provider:
   _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 action_horizon: 32
@@ -26,7 +21,7 @@ num_inference_steps: 50
 reconstruction_weight: 1.0
 flow_weight: 1.0
 action_flow_method: latent_fm_stopgrad_unite
-optimizer_named_parameters: false
+optimizer_named_parameters: true
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   stages:
@@ -156,3 +151,26 @@ pipeline:
     flow_samples_per_content: ${model.flow_samples_per_content}
 enable_grad_norm: false
 gradient_telemetry_cadence: 100
+
+optimizer:
+  _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
+  _partial_: true
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  eps: 1.0e-6
+  adamw_weight_decay: 0.0
+  muon_weight_decay: 0.0
+  muon_momentum: 0.95
+  muon_adjust_lr_fn: match_rms_adamw
+
+scheduler:
+  _target_: egomimic.utils.unite_optim.released_unite_two_stage_scheduler
+  _partial_: true
+  warmup_steps: 8000
+  decay_start_1_steps: 12000
+  decay_end_1_steps: 20000
+  decay_start_2_steps: 1200000
+  decay_end_2_steps: 1200000
+  base_lr_1: 1.0e-4
+  base_lr_2: 5.0e-5
+  final_lr: 5.0e-5

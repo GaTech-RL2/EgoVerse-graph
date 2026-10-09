@@ -10,12 +10,14 @@ benchmark:
   suite: libero_object
   dataset: ???
   decoded_replay_cache: false
-  batch_size: 16
+  batch_size: 32
 trainer:
-  max_epochs: 5001
-  max_steps: -1
-  accumulate_grad_batches: 64
+  max_epochs: -1
+  max_steps: 80000
+  accumulate_grad_batches: 1
 callbacks:
+  batch_budget:
+    global_batch_size: 32
   model_checkpoint:
     filename: epoch-{epoch:04d}-step-{step:09d}
   av_only_layer_norm:

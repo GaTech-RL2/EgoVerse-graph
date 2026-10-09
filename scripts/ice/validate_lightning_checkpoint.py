@@ -425,7 +425,7 @@ def _strict_model_reload(
         from egomimic.pl_utils.pl_model import ModelWrapper
     except ImportError as exc:
         raise RuntimeError(
-            "strict model reload requires the EgoVerse runtime dependencies"
+            "strict ModelWrapper reload requires the EgoVerse runtime dependencies"
         ) from exc
 
     wrapper_class = hydra.utils.get_class(target)
@@ -596,7 +596,7 @@ def validate_checkpoint(
 
     before = _stat_signature(path)
     payload = torch.load(
-        path,
+        str(path),
         map_location="cpu",
         weights_only=False,
         mmap=True,

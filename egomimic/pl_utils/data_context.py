@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -19,7 +19,7 @@ def serializable_state(value):
         if len(result) != len(value):
             raise ValueError("Data snapshot keys collide after serialization")
         return result
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [serializable_state(item) for item in value]
     if hasattr(value, "detach"):
         value = value.detach().cpu()

@@ -8,7 +8,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+      folder_path: ${oc.env:PUSHSHAPES_DATA_ROOT,/coc/flash7/paphiwetsa3/datasets/Tsim_v2}/chain_gripper_3000_v2
       embodiment_override: pushshapes_sim_chain_gripper
       expected_episode_count: 3000
       expected_episode_names_sha256: 61e23164126fd2b2a9bd1cc7c7b015ddff05e18d5fe704b34d870b17742cddcd

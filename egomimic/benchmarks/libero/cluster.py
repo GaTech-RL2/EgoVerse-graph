@@ -632,7 +632,9 @@ def restore_checkpoints(
         client.download_file("rldb", uri.removeprefix("s3://rldb/"), str(path))
         if digest(path) != receipt["sha256"] or path.stat().st_size != receipt["bytes"]:
             raise ValueError("Recovered checkpoint hash or size differs")
-        payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+        payload = torch.load(
+            str(path), map_location="cpu", weights_only=False, mmap=True
+        )
         completed = payload["loops"]["fit_loop"]["epoch_progress"]["current"][
             "completed"
         ]

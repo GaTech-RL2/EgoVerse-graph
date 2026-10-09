@@ -15,6 +15,7 @@ from tools.validate_action_flow_config import (
     GRAPH_METHOD,
     LIKELIHOOD_METHOD,
     STOPGRAD_METHOD,
+    STOPGRAD_UNITE_METHOD,
     PreflightError,
     compose_experiment,
     validate_experiment,
@@ -22,14 +23,38 @@ from tools.validate_action_flow_config import (
 )
 
 
+@pytest.fixture(autouse=True)
+def offline_campaign_roots(monkeypatch, tmp_path):
+    # Config composition only: no dataset reads or launch receipts are fabricated.
+    monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", str(tmp_path / "usocket"))
+    monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", str(tmp_path / "chain"))
+
+
 @pytest.mark.parametrize("experiment", CANDIDATE_METHODS)
 def test_real_candidate_config_and_parameter_manifest(experiment):
+    if (
+        "chain_points6_latent_fm_sg_unite_h512" in experiment
+        or "cotrain_uc_latent_fm_sg_unite_h512" in experiment
+    ):
+        # Campaign-owned manifests are deliberately absent from the shipped YAML;
+        # this unit test must verify the gate, not invent production receipts.
+        with pytest.raises(PreflightError, match="manifest.*missing"):
+            validate_experiment(experiment)
+        return
     report, _ = validate_experiment(experiment)
     assert report["status"] == "PASS"
     assert report["action_flow_method"] == CANDIDATE_METHODS[experiment]
     assert report["topology"]["shared_field_instance"]
-    assert report["topology"]["shared_decoder_instance"]
-    assert len(report["topology"]["train_order"]) == 8
+    topology = report["topology"]
+    if "private_codec_routes" in topology:
+        assert set(topology["private_codec_routes"]) == set(
+            report["dimensions"]["actions"]
+        )
+        assert "shared_decoder_instance" not in topology
+    else:
+        assert topology["shared_decoder_instance"]
+    expected_stages = 9 if CANDIDATE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 8
+    assert len(topology["train_order"]) == expected_stages
     assert (
         sum(
             v["total"] for k, v in report["parameters"].items() if k != "pipeline_total"
@@ -40,14 +65,32 @@ def test_real_candidate_config_and_parameter_manifest(experiment):
 
 @pytest.mark.parametrize("experiment", CANDIDATE_METHODS)
 def test_candidate_two_optimizer_update_config_gate(experiment, tmp_path, monkeypatch):
+    if experiment not in MODULE.APPROVED_EXPERIMENTS:
+        # A shipped candidate config is not automatically an approved smoke recipe.
+        with pytest.raises(
+            MODULE.SmokeVerificationError, match="unapproved experiment"
+        ):
+            MODULE._validate_config(
+                config_path=tmp_path / "unused.yaml",
+                experiment=experiment,
+                run_dir=tmp_path,
+                expected_head=HEAD,
+                expected_config_sha256=None,
+                expected_split_sha256=None,
+                expected_normalization_sha256=None,
+            )
+        return
     cfg = compose_experiment(experiment)
     normalization = tmp_path / "norm_stats.json"
     normalization.write_text("{}")
     norm_hash = hashlib.sha256(normalization.read_bytes()).hexdigest()
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
-        cfg.trainer.val_check_interval = 1
+        cfg.trainer.val_check_interval = (
+            2 if CANDIDATE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 1
+        )
         cfg.trainer.limit_val_batches = 1
+        cfg.trainer.precision = "bf16"
         cfg.callbacks.model_checkpoint.every_n_train_steps = 1
         cfg.model.gradient_telemetry_cadence = 2
         cfg.norm_stats.precomputed_norm_path = str(normalization)

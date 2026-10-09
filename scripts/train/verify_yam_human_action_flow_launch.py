@@ -301,7 +301,7 @@ def verify_config(
     require("run_provenance.grad_accumulation", 1)
     require(
         "data._target_",
-        "egomimic.pl_utils.pl_data_utils.ProportionalMultiDataModuleWrapper",
+        "egomimic.rldb.zarr.data_module.ProportionalZarrDataModule",
     )
     require("data.proportional_train_batch_size", 8)
     require("data.proportional_train_num_workers", 12)

@@ -151,5 +151,11 @@ def test_actual_runner_publishes_readiness_before_command_validation(tmp_path):
     assert payload["signal_handlers_ready"] is True
     assert payload["pid"] > 0
     launcher = (ROOT / "scripts/train/launch_action_flow_usocket.sbatch").read_text()
-    assert 'source "$AF_REPO/scripts/ice/relay_batch_signals.sh"' in launcher
-    assert 'ice_run_with_signal_relay "$ATTEMPT/runner-signal-ready.json"' in launcher
+    assert (
+        "AF_SIGNAL_RELAY=${AF_SIGNAL_RELAY:-$AF_TOOL_DIR/relay_batch_signals.sh}"
+        in launcher
+    )
+    assert 'source "$AF_REPO/scripts/train/action_flow_run_child.sh"' in launcher
+    child = (ROOT / "scripts/train/action_flow_run_child.sh").read_text()
+    assert 'source "$AF_SIGNAL_RELAY"' in child
+    assert 'ice_run_with_signal_relay "$ATTEMPT/runner-signal-ready.json"' in child

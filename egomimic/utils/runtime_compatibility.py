@@ -41,6 +41,17 @@ def autocast_noise_dtype(device_type: str):
     raise ValueError(f"Unsupported autocast device {device_type!r}")
 
 
+def register_module_load_pre_hook(module, hook):
+    """Register the same module-aware hook across old/new Torch APIs."""
+    public = getattr(module, "register_load_state_dict_pre_hook", None)
+    if callable(public):
+        return public(hook)
+    legacy = getattr(module, "_register_load_state_dict_pre_hook", None)
+    if not callable(legacy):
+        raise TypeError("Module does not support module-aware load pre-hooks")
+    return legacy(hook, with_module=True)
+
+
 def validate_compatibility_mode(mode: str) -> str:
     if mode not in ("current", "legacy_c12"):
         raise ValueError("compatibility_mode must be 'current' or 'legacy_c12'")

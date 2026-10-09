@@ -2208,7 +2208,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        embodiment = self.embodiment_override or self.metadata["embodiment"]
+        embodiment = (
+            getattr(self, "embodiment_override", None) or self.metadata["embodiment"]
+        )
         self.embodiment = get_embodiment(get_embodiment_id(embodiment)).lower()
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()

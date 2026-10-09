@@ -28,7 +28,8 @@ def test_original_size_cotrain_contract(monkeypatch):
     objective = stages[-1]
     routes = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
 
-    assert cfg.model._target_.endswith("ActionFlowModelWrapper")
+    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
+    assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
     assert cfg.model.hidden_dim == 384
     assert cfg.model.flow_samples_per_content == 14
     assert cfg.model.flow_mini_batch == 14

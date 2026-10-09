@@ -1,5 +1,9 @@
 # Co-trained Action Flow with private codecs and one shared H384/D12/H12 field.
-_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+diagnostic_provider:
+  _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 
 action_horizon: 16
 num_latent_tokens: 8
@@ -215,4 +219,3 @@ scheduler:
   base_lr_1: 1.0e-4
   base_lr_2: 5.0e-5
   final_lr: 5.0e-5
-

@@ -22,6 +22,7 @@ def evaluator_for_synthetic_chunk():
     evaluator = object.__new__(YamCartesianActionFlowEval)
     evaluator.normalizer = IdentityNormalizer()
     evaluator.action_key = "actions_cartesian"
+    evaluator.action_keys_by_embodiment = {}
     return evaluator
 
 

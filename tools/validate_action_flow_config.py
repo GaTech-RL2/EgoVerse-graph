@@ -231,11 +231,9 @@ def method_stage_targets(method: str) -> tuple[str, ...]:
 
 
 def method_wrapper_target(method: str) -> str:
-    if method == LIKELIHOOD_METHOD:
-        return "egomimic.pl_utils.pl_model_action_flow_likelihood.ActionFlowLikelihoodModelWrapper"
-    if method == STOPGRAD_UNITE_METHOD:
-        return "egomimic.pl_utils.pl_model.ModelWrapper"
-    return "egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper"
+    # Tensor semantics remain in the declared graph; framework mechanics are
+    # carried by an exact behavior capability, not a second Lightning wrapper.
+    return "egomimic.pl_utils.pl_model.ModelWrapper"
 
 
 def validate_method_contract(config: DictConfig, experiment: str | None = None) -> str:
@@ -253,6 +251,16 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
             _exact(OmegaConf.select(config, key), "legacy_c12", key)
         _exact(config.val_at_start, False, "no initial validation")
     _exact(str(config.model._target_), method_wrapper_target(method), "model wrapper")
+    expected_behavior = (
+        "egomimic.pl_utils.training_behavior_action_flow_likelihood.ActionFlowLikelihoodTrainingBehavior"
+        if method == LIKELIHOOD_METHOD
+        else "egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior"
+    )
+    _exact(
+        OmegaConf.select(config, "model.training_behavior._target_"),
+        expected_behavior,
+        "training behavior",
+    )
     stages = config.model.pipeline.stages
     _exact(
         tuple(str(stage._target_) for stage in stages),
@@ -922,6 +930,15 @@ def _validate_dimensions_and_modules(
         (44, 176): (48_980, 48_976),
         (204, 816): (1_010_420, 1_010_416),
     }[expected_codec_profile]
+    # These declared methods use different encoder structures: the likelihood
+    # encoder's extra time input adds 20 projection weights, while the graph
+    # encoder predicts four fewer output coordinates (84 fewer parameters).
+    # Do not certify them using
+    # the ordinary reconstruction codec's count merely because widths match.
+    if method == LIKELIHOOD_METHOD:
+        expected_codec_parameter_counts = (10_768, 10_744)
+    elif method == GRAPH_METHOD:
+        expected_codec_parameter_counts = (10_664, 10_744)
     _exact(
         codec_parameter_counts,
         expected_codec_parameter_counts,
@@ -2084,6 +2101,12 @@ def _validate_scaled_h512_config(
         if source == "pushshapes_sim_chain_gripper":
             _exact(
                 int(train.resolver.expected_episode_count), total, f"{source} inventory"
+            )
+        if routed:
+            _require(
+                OmegaConf.select(config, f"run_provenance.content_manifests.{source}")
+                is not None,
+                f"{source} content manifest binding missing",
             )
         if routed and source == "pushshapes_sim_chain_gripper":
             split_path = config.run_provenance.chain_split_manifest_path

@@ -56,6 +56,65 @@ pre-existing environment. The next full run remains a required gate.
 
 Inherited candidate-verifier tests also expose stale constructor/topology/smoke
 expectations. Production approval lists must not be expanded just to pass tests.
+The repaired candidate gate suite passes 42 tests. It distinguishes the private
+codec routes, correct stage counts, campaign-required manifests and explicitly
+approved smoke recipes. The validator uses method-specific encoder parameter
+counts rather than certifying likelihood and graph codecs as ordinary codecs.
+
+The unrestricted-thread full CPU suite stalled in the local Rosetta libiomp5
+runtime; its log and process sample are retained outside the source checkout.
+Only that exact local test process was stopped. The replacement uses
+`scripts/run_local_cpu_validation.sh`'s single-thread CPU envelope and 60-second
+stack diagnostics. That attempt exposed a separate native segfault in tslearn's
+Numba SoftDTW routine. The local runner also selects the single-thread Numba
+workqueue rather than an additional OpenMP pool; the targeted real alignment
+parity retest passes seven cases. The next full run reached a terminal result:
+2,219 passed and 180 failed, with 17 skips and 28 subtests. That run overlapped
+ongoing repairs and is not a final-head gate. Its failures remain recorded.
+This runner does not
+change cluster execution or establish exact-runtime or historical-run parity.
 Publication through authenticated Skynet Graphite and the final GitHub merge are
 still incomplete. No final integration, deployment, training or GPU parity claim
 is made by this progress record.
+
+Subsequent focused results: typed framework/launcher contracts 120 passed;
+native recipe/context/cluster union 134 passed and one failed; compile,
+higher-order DiT-half and world-size resume union 35 passed; retained HPT/PI
+and OAT optimizer/checkpoint lifecycle union 19 passed. These overlapping local
+suites are not additive coverage or certification of historical full-size runs.
+
+The remaining native recipe failure exposed a real merged H384 base-config
+regression: the H640 denoiser override and configured checkpoint policy were
+ignored. The base now carries the explicit independent denoiser dimensions,
+optional zero-weight objective, and checkpoint setting again; default U-Socket
+projection parameter names are retained. Chain's explicit action-model width
+and selector alias are supported, with the original 4D default when that field
+is absent. The focused config/typed artifact/static-buffer union passes 24
+tests. Offline resolution passes all shipped YAML after this correction.
+The shared data preflight also honors native resolvers' explicit omission of
+extra transforms without reading replay data. Strict saved Hydra tests bind the
+actual local version and distinct logical corpus digest, not receipt bytes.
+
+The local runner fails before work when fewer than 4 GiB of temporary storage
+is available. Only completed, independently identified synthetic pytest fixture
+directories are removed for headroom; logs and XML receipts remain outside the
+source checkout. No experiment checkpoint or running job is changed.
+
+The subsequent full constructor audit is still failing and is not waived.
+Native evaluator templates need persisted artifact identities and explicit
+same-pass profiles; original-OAT policy templates need a trained tokenizer.
+Their production gates remain fail-closed. A selected six-context audit now
+confirms native data schemas (zero extra transforms), original tokenizer and ARC
+constructors, and retains four missing-binding failures as actual limitations.
+The deterministic OAT/FSQ scalar-buffer meta construction is isolated to the
+offline audit, with real default-tokenizer layout/RNG and restoration tests.
+Native metric-schema tests now use valid v2 tensor-reference metadata instead
+of making every negative case fail at an obsolete v1 schema: 28 passed,
+including wrong sample axes and legacy metric-only rejection. These metadata
+fixtures are not payload-byte, episode, or optimizer evidence.
+
+Pinned MuJoCo 3.4.0 / Mink 1.1.0 wheels were installed only in the isolated
+local environment. The robot union passes 65 cases; two numeric-interface
+cases cannot execute because MuJoCo rejects x86 Python on Apple Silicon. Do
+not reinterpret that runtime limitation as success or bypass its architecture
+check. Exact Linux/server or native-arm execution remains required.

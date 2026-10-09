@@ -290,7 +290,10 @@ class ReleasedRecipeUniteLatentPolicy(Stage):
         # The wrapper's gradient telemetry calls autograd.grad with
         # retain_graph=True every 100 steps; a compiled backward with donated
         # buffers refuses that. Disabling them is a memory optimisation only.
-        functorch_config.donated_buffer = False
+        # Older Torch has no donated-buffer optimisation to disable. Preserve
+        # the explicit no-donation setting on runtimes which implement it.
+        if hasattr(functorch_config, "donated_buffer"):
+            functorch_config.donated_buffer = False
         for module in self.compiled_modules():
             module.compile(dynamic=False)
 

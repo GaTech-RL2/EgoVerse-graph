@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from hydra import __version__ as hydra_version
 from hydra.conf import HydraConf
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
@@ -22,7 +23,16 @@ def setup(tmp_path, suite):
     (run / ".hydra").mkdir(parents=True)
     p = PROFILES[suite]
     receipt = tmp_path / "receipt.json"
-    receipt.write_text(json.dumps(dict(suite=suite, replay_path="/replay")))
+    logical_sha256 = "a" * 64
+    receipt.write_text(
+        json.dumps(
+            dict(
+                suite=suite,
+                replay_path="/replay",
+                dataset_logical_sha256=logical_sha256,
+            )
+        )
+    )
     proof = tmp_path / "physical.json"
     proof.write_text("{}")
 
@@ -40,7 +50,11 @@ def setup(tmp_path, suite):
     config = dict(
         name=p.name,
         benchmark=dict(suite=suite, dataset="${oc.env:" + p.replay_environment + "}"),
-        run_provenance=dict(source_commit="head", dataset_sha256=sha(receipt)),
+        run_provenance=dict(
+            source_commit="head",
+            dataset_sha256=logical_sha256,
+            dataset_content_aggregate_sha256=logical_sha256,
+        ),
         norm_stats=dict(native_saved_state_binding=binding),
         data={
             group: {
@@ -61,7 +75,7 @@ def setup(tmp_path, suite):
     hydra = OmegaConf.structured(HydraConf)
     hydra.runtime.cwd = str(repo)
     hydra.runtime.output_dir = str(run)
-    hydra.runtime.version = "1.3.2"
+    hydra.runtime.version = hydra_version
     saved = OmegaConf.to_container(hydra, resolve=False)
     saved["env"] = {}
     OmegaConf.save(OmegaConf.create({"hydra": saved}), run / ".hydra/hydra.yaml")

@@ -112,7 +112,7 @@ def restore_policy(client, request, root, evidence):
     client.download_file("rldb", receipt["uri"].removeprefix("s3://rldb/"), str(path))
     if path.stat().st_size != receipt["bytes"] or digest(path) != receipt["sha256"]:
         raise ValueError("Evaluation checkpoint hash or size differs")
-    payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+    payload = torch.load(str(path), map_location="cpu", weights_only=False, mmap=True)
     proof = checkpoint_completion(payload, request)
     if proof is None:
         raise ValueError("Cannot evaluate an incomplete training checkpoint")

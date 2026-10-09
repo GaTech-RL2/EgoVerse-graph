@@ -55,7 +55,11 @@ def test_only_resolved_model_velocity_weight_changes(suite, monkeypatch):
     expected = copy.deepcopy(base["model"])
     expected["pipeline"]["stages"][8]["action_velocity_weight"] = 0.0
     assert ablated["model"] == expected
-    for key in ("trainer", "data", "normalizer", "callbacks", "evaluator", "seed"):
+    expected_data = copy.deepcopy(base["data"])
+    expected_data["run_provenance"]["objective"]["action_velocity_weight"] = 0.0
+    expected_data["run_provenance"]["ablation"] = "action_velocity_off"
+    assert ablated["data"] == expected_data
+    for key in ("trainer", "normalizer", "callbacks", "evaluator", "seed"):
         assert ablated[key] == base[key], key
     assert ablated["run_provenance"]["objective"] == {
         **base["run_provenance"]["objective"],

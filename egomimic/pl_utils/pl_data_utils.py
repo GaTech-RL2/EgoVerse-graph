@@ -582,9 +582,9 @@ class ProportionalMultiDataModuleWrapper(MultiDataModuleWrapper):
                     "Proportional validation groups require one native action space each"
                 )
             source, dataset = next(iter(members.items()))
-            params = _params_for_group(self.valid_dataloader_params, group_name).get(
-                source
-            )
+            params = _params_for_group(
+                self.valid_dataloader_params, group_name, set(members)
+            ).get(source)
             if not params:
                 raise ValueError(
                     f"Missing validation loader params for {group_name}/{source}"

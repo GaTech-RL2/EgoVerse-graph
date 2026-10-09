@@ -42,7 +42,7 @@ def verify_checkpoint(path, *, settings, suite, epochs, mode, method, complete=T
     """Never continue from a raw-action tokenizer or incompatible ARC units."""
     import torch
 
-    payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+    payload = torch.load(str(path), map_location="cpu", weights_only=False, mmap=True)
     if payload.get("oat_input_representation") != input_representation(settings):
         raise ValueError("Checkpoint uses a different ARC+OAT representation")
     protocol = payload["hyper_parameters"]["config_tree"]["model"]["benchmark_protocol"]

@@ -671,8 +671,18 @@ def test_cotrain_energy_score_routes_distance_and_audits_both_domains(tmp_path):
     )
     assert set(artifact["domains"]) == set(contracts)
     assert "native_predictions" in artifact["domains"]["pushshapes_sim_u_socket"]
-    assert (
-        "native_predictions" not in artifact["domains"]["pushshapes_sim_chain_gripper"]
+    chain = artifact["domains"]["pushshapes_sim_chain_gripper"]
+    # Schema v2 retains Points6 and its separately decoded native4 payload;
+    # the domain's metric remains in the declared normalized semantic blocks.
+    native_decoder = ChainGripperPointsNativeDecoder()
+    expected_native = native_decoder.decode(c_sample).float().cpu()
+    assert chain["native_predictions"].shape == (32, 2, 16, 4)
+    torch.testing.assert_close(chain["predictions"], samples["c"].float().cpu())
+    torch.testing.assert_close(
+        chain["native_predictions"], expected_native[None].expand(32, -1, -1, -1)
+    )
+    torch.testing.assert_close(
+        chain["native_targets"], native_decoder.decode(c_target).float().cpu()
     )
     for domain in artifact["domains"].values():
         assert len(domain["condition_ids"]) == 2

@@ -65,7 +65,9 @@ def test_launcher_is_one_portable_fail_closed_contract():
         in source
     )
     assert (
-        'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"' in source
+        'PYTHONPATH="$AF_REPO:${AF_RESUME_HELPER_DIR:+$AF_RESUME_HELPER_DIR:}'
+        '$(dirname "$AF_CONFIG_VALIDATOR")${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"'
+        in source
     )
 
 
@@ -183,11 +185,14 @@ def test_smoke_runs_optimizer_validation_checkpoint_and_verifier():
 
 def test_full_and_smoke_share_the_requeue_and_strict_checkpoint_path():
     source = _source()
+    assert 'source "$AF_REPO/scripts/train/action_flow_run_child.sh"' in source
+    # The canonical runner arguments live in the shared child entry point.
+    child = (ROOT / "scripts/train/action_flow_run_child.sh").read_text()
     assert "ice_requeue_runner.py" in source
     assert "validate_lightning_checkpoint.py" in source
-    assert "--checkpoint-validator" in source
-    assert "--requeue-owner runner" in source
-    assert "--confirm-child-requeue-disabled" in source
+    assert '--checkpoint-validator "$AF_CHECKPOINT_VALIDATOR"' in child
+    assert "--requeue-owner runner" in child
+    assert "--confirm-child-requeue-disabled" in child
     assert "runtime.slurm_requeue_owner=runner" in source
     assert "runtime.slurm_save_signal=SIGUSR2" in source
 

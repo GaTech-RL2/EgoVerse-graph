@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from egomimic.models.unite_dit import UniteDiTBackbone
+from egomimic.utils.runtime_compatibility import math_sdpa_context
 
 
 def make(depth, policy):
@@ -64,7 +65,7 @@ def test_native_half_checkpoint_raw_higher_order_rng_and_state(depth):
         def forward(value):
             return model(value, t, c, content_tokens=value)
 
-        with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+        with math_sdpa_context():
             y = forward(x)
             first = torch.autograd.grad(
                 y.square().sum(),

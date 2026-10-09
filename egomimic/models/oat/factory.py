@@ -14,6 +14,7 @@ from egomimic.models.oat.tokenizer.oat.decoder.single_pass_decoder import (
 from egomimic.models.oat.tokenizer.oat.encoder.register_encoder import RegisterEncoder
 from egomimic.models.oat.tokenizer.oat.quantizer.fsq import FSQ
 from egomimic.models.oat.tokenizer.oat.tokenizer import OATTok
+from egomimic.utils.runtime_compatibility import register_module_load_pre_hook
 
 
 def _capture_normalizer_devices(module, *_args):
@@ -35,7 +36,7 @@ def _restore_normalizer_devices(module, _incompatible_keys):
 def _preserve_normalizer_devices(network):
     # Hook the parent: DictOfTensorMixin overrides _load_from_state_dict without
     # invoking Module's pre-hooks. This also covers Lightning GPU resume.
-    network.register_load_state_dict_pre_hook(_capture_normalizer_devices)
+    register_module_load_pre_hook(network, _capture_normalizer_devices)
     network.register_load_state_dict_post_hook(_restore_normalizer_devices)
     return network
 

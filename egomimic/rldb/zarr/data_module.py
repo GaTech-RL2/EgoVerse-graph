@@ -28,6 +28,8 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 def _json_value(value):
+    if OmegaConf.is_config(value):
+        return _json_value(OmegaConf.to_container(value, resolve=True))
     if isinstance(value, dict):
         return {str(k): _json_value(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -169,7 +171,15 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 continue
             config = OmegaConf.create(config)
             keymap = hydra.utils.instantiate(config.resolver.key_map)
-            transforms = hydra.utils.instantiate(config.resolver.transform_list)
+            # Native replay resolvers already publish canonical fields and may
+            # explicitly omit additional transforms. Match their constructor
+            # default without inventing a transform or opening the dataset.
+            transform_config = config.resolver.get("transform_list")
+            transforms = (
+                []
+                if transform_config is None
+                else hydra.utils.instantiate(transform_config)
+            )
             hydra.utils.instantiate(config.get("filters"))
             if not isinstance(keymap, dict) or not isinstance(
                 transforms, (list, tuple)

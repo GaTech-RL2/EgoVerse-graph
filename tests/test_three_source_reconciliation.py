@@ -19,6 +19,19 @@ class DeclaredNormalizer(MultiDataset):
         self.opaque_metadata = state["opaque_metadata"]
 
 
+def test_resume_normalizer_digest_preserves_nested_hydra_state():
+    from omegaconf import OmegaConf
+
+    from egomimic.rldb.zarr.data_module import _digest
+
+    plain = {"stats": {"scale": [1.0, 2.0]}, "shapes": {"1": {"actions": [16, 7]}}}
+    wrapped = {"stats": OmegaConf.create(plain["stats"]), "shapes": plain["shapes"]}
+    assert _digest(wrapped) == _digest(plain)
+    from egomimic.pl_utils.data_context import state_fingerprint
+
+    assert state_fingerprint(OmegaConf.create(plain)) == state_fingerprint(plain)
+
+
 def test_saved_context_restores_declared_normalizer_semantics(tmp_path):
     import json
 

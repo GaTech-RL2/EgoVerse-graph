@@ -779,7 +779,7 @@ class _BatchSensitiveDecoder(_TinySequenceModule):
 
     def forward(self, value):
         decoded = super().forward(value)
-        return decoded + decoded.new_tensor(float(value.shape[0]) * 1.0e-3)
+        return decoded + float(value.shape[0]) * 1.0e-3
 
 
 def _diagnostic_wrapper():

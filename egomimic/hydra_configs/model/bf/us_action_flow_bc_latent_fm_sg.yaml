@@ -1,5 +1,9 @@
 # Context-free H16 codec around one observation-conditioned latent flow field.
-_target_: egomimic.pl_utils.pl_model_action_flow.ActionFlowModelWrapper
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+diagnostic_provider:
+  _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
 
 action_horizon: 16
 action_dim: 4

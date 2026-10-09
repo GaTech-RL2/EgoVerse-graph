@@ -202,6 +202,11 @@ def test_resume_changes_world_size_without_resetting_optimizer_or_ema(tmp_path):
     env = dict(
         os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1"
     )
+    # Execute against this audited checkout, not a globally installed package or
+    # the worker script directory. This also survives a task-local test venv.
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(Path(__file__).resolve().parents[1]), env.get("PYTHONPATH", "")]
+    )
     for suffix in ([], ["--resume"]):
         result = subprocess.run(
             [sys.executable, str(script), "--root", str(tmp_path), *suffix],

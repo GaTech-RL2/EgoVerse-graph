@@ -20,8 +20,11 @@ For rollout this recipe requires explicit `deployment.requested_multiplier`;
 never infers conditioning from predicted actions. Result metadata records
 the multiplier and dimensionless units. BF16 model inference is unchanged.
 
-Historical native-speed recipes retain their default `native_speed` contract,
-their `log1p(speed / speed_reference)` encoding and recorded checkpoints. This
+The user subsequently authorized retirement of the old precomputed-speed
+code/recipe, this scalar run's checkpoints and saved rollout results. The old
+recipe and native-speed implementation are removed from this development
+branch; existing checkpoint-bound source commits remain historical provenance.
+Retiming no longer calculates measured XY speed. This
 new input meaning requires fresh initialization and new experiment identity;
 an additional persistent multiplier-contract buffer makes strict loading reject
 physical-speed weights even though scalar MLP parameter dimensions match.

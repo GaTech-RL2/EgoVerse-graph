@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from contextlib import nullcontext
 from functools import wraps
 import subprocess
-import math
 
 import numpy as np
 import torch
@@ -104,7 +103,7 @@ def action_flow_contract(cfg, *, selected_embodiment_name, selected_embodiment_i
         item = OmegaConf.select(cfg, f"deployment.{kind}.{selected_embodiment_name}")
         if item is None or item.get("_target_") != "egomimic.pipeline.pushshapes." + name:
             raise ValueError(f"Action Flow {kind} boundary mismatch")
-    requested_rollout_speed(cfg)
+    requested_rollout_condition(cfg)
     decoder = instantiate(cfg.deployment.action_decoders[selected_embodiment_name])
     # Constructor and stochastic-axis checks are cheap and run before loading
     # the full checkpoint. Native decoders must preserve all leading axes.
@@ -117,12 +116,6 @@ def action_flow_contract(cfg, *, selected_embodiment_name, selected_embodiment_i
     return decoder
 
 
-def requested_rollout_speed(cfg):
-    """Explicit native commanded XY speed; never infer it from live predictions."""
-    key, value = requested_rollout_condition(cfg)
-    return value if key == "requested_speed" else None
-
-
 def action_flow_metadata(cfg):
     stage = next(s for s in cfg.model.pipeline.stages if s.get("_target_") == _PREFIX + "ConditionalVelocityStage")
     condition_key, condition_value = requested_rollout_condition(cfg)
@@ -133,9 +126,6 @@ def action_flow_metadata(cfg):
             "timestep_shift_alpha": float(stage.timestep_shift_alpha),
             "timestep_shift_active": False, "timing_semantics": "dense_fixed_rate",
             "replan_semantics": "dense_chunk_prefix_before_next_inference",
-            "requested_speed": requested_rollout_speed(cfg),
-            "requested_speed_units": (
-                "native_commanded_xy_units_per_second" if condition_key == "requested_speed" else None),
             "conditioning_input_key": condition_key,
             "requested_multiplier": condition_value if condition_key == "retiming_rate" else None,
             "requested_multiplier_units": "dimensionless" if condition_key == "retiming_rate" else None}
@@ -156,7 +146,6 @@ class RoutedActionFlowPolicy:
         if model_autocast_precision == "bf16":
             install_fp32_sampler_boundaries(algo)
         self.model_width, self.native_width, _, _, _ = _BOUNDARIES[embodiment_name]
-        self.requested_speed = requested_rollout_speed(cfg)
         self.conditioning_key, self.conditioning_value = requested_rollout_condition(cfg)
         self.adapter = instantiate(cfg.deployment.observation_adapters[embodiment_name])
         self.token_horizon = self.decoded_horizon = 16

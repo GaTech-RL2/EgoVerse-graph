@@ -34,7 +34,7 @@ def config():
 
 @pytest.mark.parametrize("name,emb,width", [("pushshapes_sim_u_socket", 19, 3),
                                           ("pushshapes_sim_chain_gripper", 20, 4)])
-@pytest.mark.parametrize("speed,multiplier", [(None, None), (84.11600368466028, None), (None, 1.5)])
+@pytest.mark.parametrize("speed,multiplier", [(None, None), (None, 1.5)])
 def test_boundary_routes_rotvec_state_and_decodes_native(name, emb, width, speed, multiplier):
     cfg = config()
     if speed is not None:

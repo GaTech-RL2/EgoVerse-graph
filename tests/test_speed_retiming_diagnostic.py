@@ -15,7 +15,7 @@ def test_constant_speed_native_retiming(view, rate):
     b = t.transform({"actions": native, "_retiming_view": view, "obs": obs})
     np.testing.assert_allclose(b["actions"][:, 0], np.arange(16)*rate)
     np.testing.assert_allclose(b["actions"][:, 3], np.arange(16)*rate/30)
-    np.testing.assert_allclose(b["requested_speed"], [rate*30])
+    np.testing.assert_allclose(b["retiming_rate"], [rate])
     assert b["obs"] is obs
     assert np.array_equal(native[:, 0], np.arange(31))
 
@@ -26,7 +26,8 @@ def test_wrap_stationary_and_tail_rejection():
     a[:, 2] = [3.0, 3.1, -3.1, -3.0]
     b = t.transform({"actions": a, "_retiming_view": 0})
     assert abs(abs(b["actions"][1, 2]) - np.pi) < 1e-6
-    assert b["requested_speed"].item() == 0
+    assert b["retiming_rate"].item() == 1.5
+    assert "requested_speed" not in b
     with pytest.raises(ValueError, match="unpadded"):
         t.transform({"actions": a[:3], "_retiming_view": 0})
 
@@ -35,17 +36,17 @@ def test_wrap_stationary_and_tail_rejection():
 def test_condition_modes_rng_and_learning(encoding):
     torch.manual_seed(123)
     rng = torch.get_rng_state().clone()
-    stage = SharedSpeedCondition(100., encoding)
+    stage = SharedSpeedCondition(None, encoding)
     assert torch.equal(rng, torch.get_rng_state())
     assert stage.contract("train") == stage.contract("inference")
     cond = torch.zeros(2, 128)
-    speed = torch.tensor([[0.], [100.]])
-    out = stage({"condition": cond, "requested_speed": speed})["speed_condition"]
+    speed = torch.tensor([[1.], [2.]])
+    out = stage({"condition": cond, "retiming_rate": speed})["speed_condition"]
     assert torch.equal(out, cond)
     opt = torch.optim.SGD(stage.parameters(), lr=.01)
     for _ in range(2):
         opt.zero_grad()
-        out = stage({"condition": cond, "requested_speed": speed})["speed_condition"]
+        out = stage({"condition": cond, "retiming_rate": speed})["speed_condition"]
         (out - 1).square().mean().backward()
         opt.step()
     assert stage.mlp[0].weight.grad.abs().sum() > 0
@@ -53,7 +54,7 @@ def test_condition_modes_rng_and_learning(encoding):
     with pytest.raises(KeyError):
         stage({"condition": cond})
     with pytest.raises(ValueError):
-        stage({"condition": cond, "requested_speed": -torch.ones(2, 1)})
+        stage({"condition": cond, "retiming_rate": -torch.ones(2, 1)})
 
 
 def test_unchanged_initialization_across_arms():
@@ -61,7 +62,7 @@ def test_unchanged_initialization_across_arms():
     for encoding in ("scalar", "fourier"):
         torch.manual_seed(42)
         before = torch.nn.Linear(10, 10)
-        SharedSpeedCondition(100., encoding)
+        SharedSpeedCondition(None, encoding)
         after = torch.nn.Linear(10, 10)
         weights.append((before.weight.detach(), after.weight.detach()))
     assert all(torch.equal(a, b) for a, b in zip(*weights))
@@ -74,7 +75,7 @@ def test_condition_initializer_never_reseeds_cuda(monkeypatch):
     monkeypatch.setattr(torch.cuda, "manual_seed_all", forbidden)
     rng = torch.get_rng_state().clone()
     for encoding in ("scalar", "fourier"):
-        SharedSpeedCondition(100., encoding)
+        SharedSpeedCondition(None, encoding)
         assert torch.equal(rng, torch.get_rng_state())
 
 
@@ -87,14 +88,14 @@ def test_real_graph_consumes_speed_in_both_modes(encoding):
         def forward(self, x, t, condition, **kwargs):
             return condition[:, :x.shape[-1]].unsqueeze(1).expand_as(x)
 
-    speed = SharedSpeedCondition(100., encoding, condition_dim=4)
+    speed = SharedSpeedCondition(None, encoding, condition_dim=4)
     torch.nn.init.constant_(speed.mlp[-1].weight, .1)
     bridge = LatentBridgeStage(samples_per_content=1, condition_key="speed_condition",
                               condition_dropout_probability=0)
     velocity = ConditionalVelocityStage(Field(), num_inference_steps=2,
                                          inference_condition_key="speed_condition")
     graph = Pipeline([speed, bridge, velocity])
-    b = {"condition": torch.zeros(2, 4), "requested_speed": torch.tensor([[0.], [100.]]),
+    b = {"condition": torch.zeros(2, 4), "retiming_rate": torch.tensor([[1.], [2.]]),
          "action_flow/clean_latent": torch.zeros(2, 2, 4), "sampler/noise": torch.zeros(2, 2, 4)}
     for mode in ("train", "inference"):
         _, excluded = graph.plan(b.keys(), mode)

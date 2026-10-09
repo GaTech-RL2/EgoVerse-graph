@@ -1,24 +1,72 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_cotrain_uc_speed_interpolation
+  - /experiment/pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42
   - _self_
 
 name: action_flow_cotrain_uc_multiplier_interpolation
-description: "NON-PROTOCOL interpolation-only co-training conditioned directly on retiming multiplier"
+description: "NON-PROTOCOL interpolation-only scalar/Fourier retiming-multiplier diagnostic"
 speed_diagnostic:
   encoding: scalar
-  speed_reference: null
+  rates_chain: [1.0, 1.25, 1.5, 1.75, 2.0]
+  fps: 30.0
 model:
-  # Preserve the existing temporally compressed 8-token x 16-feature latent.
+  hidden_dim: 696
   num_latent_tokens: 8
   latent_dim: 16
   pipeline:
+    _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
+    _recursive_: false
     conditioning_input: retiming_multiplier
+    encoding: ${speed_diagnostic.encoding}
+    condition_dim: ${model.condition_dim}
+data:
+  train_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: &us_keymap
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_keymap
+          action_horizon: 16
+          rates: [1.0]
+          fps: ${speed_diagnostic.fps}
+        transform_list: &us_transforms
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_transforms
+          representation: rotvec4
+          rates: [1.0]
+          action_horizon: 16
+          fps: ${speed_diagnostic.fps}
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map: &chain_keymap
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_keymap
+          action_horizon: 16
+          rates: ${speed_diagnostic.rates_chain}
+          fps: ${speed_diagnostic.fps}
+        transform_list: &chain_transforms
+          _target_: egomimic.rldb.embodiment.pushshapes.get_retimed_planar_transforms
+          representation: points6
+          rates: ${speed_diagnostic.rates_chain}
+          action_horizon: 16
+          fps: ${speed_diagnostic.fps}
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        key_map: *us_keymap
+        transform_list: *us_transforms
+    pushshapes_sim_chain_gripper:
+      resolver:
+        key_map: *chain_keymap
+        transform_list: *chain_transforms
 run_provenance:
+  comparison_label: NON-PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC
+  checkpoint_initialization: fresh_required_not_native_speed_resume
   speed_conditioning:
     input_key: retiming_rate
     conditioning_input: retiming_multiplier
+    encoding: ${speed_diagnostic.encoding}
     normalization: none_raw_multiplier
     unit: dimensionless
-    speed_reference: null
-  checkpoint_initialization: fresh_required_not_native_speed_resume
+    chain_rates: ${speed_diagnostic.rates_chain}
+    usocket_rates: [1.0]
+    sampling: equal_virtual_views_per_valid_anchor
+    validation: target_speed_conditioned_teacher_forced_not_closed_loop
+    contact_physics_verified: false

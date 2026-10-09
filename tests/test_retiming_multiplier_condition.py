@@ -25,7 +25,7 @@ def test_actual_motion_does_not_determine_multiplier_condition():
         result = transform.transform({"actions": actions, "_retiming_view": 1})
         stage({"condition": torch.zeros(1, 4),
                "retiming_rate": torch.from_numpy(result["retiming_rate"]).reshape(1, 1),
-               "requested_speed": torch.from_numpy(result["requested_speed"]).reshape(1, 1)})
+               "requested_speed": torch.tensor([[distance]])})
     handle.remove()
     assert all(torch.equal(value, torch.tensor([[2.]])) for value in seen)
     with pytest.raises(KeyError, match="retiming_rate"):
@@ -40,13 +40,22 @@ def test_bad_multiplier_fails_closed(value):
 
 
 def test_strict_reload_cannot_reinterpret_native_speed_checkpoint():
-    old = SharedSpeedCondition(100.)
     new = SharedSpeedCondition(None, conditioning_input="retiming_multiplier")
+    old_state = dict(new.state_dict())
+    old_state.pop("retiming_multiplier_contract")
+    old_state["speed_reference"] = torch.tensor(100.)
     with pytest.raises(RuntimeError, match="retiming_multiplier_contract"):
-        new.load_state_dict(old.state_dict(), strict=True)
-    with pytest.raises(RuntimeError, match="retiming_multiplier_contract"):
-        old.load_state_dict(new.state_dict(), strict=True)
+        new.load_state_dict(old_state, strict=True)
     new.load_state_dict(new.state_dict(), strict=True)
+
+
+def test_retired_speed_mode_and_recipe_are_unavailable():
+    with pytest.raises(ValueError, match="retired"):
+        SharedSpeedCondition(100.)
+    with pytest.raises(ValueError, match="retired"):
+        SharedSpeedCondition(conditioning_input="native_speed")
+    root = Path(__file__).parents[1] / "egomimic/hydra_configs/experiment/pusht"
+    assert not (root / "action_flow_cotrain_uc_speed_interpolation.yaml").exists()
 
 
 def test_multiplier_reaches_shared_field_in_train_and_inference():
@@ -82,7 +91,7 @@ def test_recipe_preserves_compression_and_explicit_rollout_contract(monkeypatch)
         cfg = compose(config_name="train_zarr_cartesian", overrides=[
             "hydra/launcher=basic", "+experiment=pusht/action_flow_cotrain_uc_multiplier_interpolation"])
     assert (cfg.model.num_latent_tokens, cfg.model.latent_dim, cfg.model.action_horizon) == (8, 16, 16)
-    assert cfg.model.pipeline.speed_reference is None
+    assert "speed_reference" not in cfg.model.pipeline
     assert cfg.model.pipeline.conditioning_input == "retiming_multiplier"
     with pytest.raises(ValueError, match="requested_multiplier"):
         requested_rollout_condition(cfg)

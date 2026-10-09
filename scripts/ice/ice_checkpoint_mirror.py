@@ -13,6 +13,7 @@ import glob
 import hashlib
 import json
 import os
+import pwd
 import re
 import shlex
 import signal
@@ -359,6 +360,37 @@ def scratch_bytes(root: Path, timeout_seconds: float = 120.0) -> int:
     return int(result.stdout.split()[0])
 
 
+def parse_lustre_quota(output: str, mount: Path, username: str, uid: int) -> dict[str, Any]:
+    """Account-wide quota, never task-tree du; unknown/unlimited limits fail closed."""
+    if f"Disk quotas for usr {username} (uid {uid}):" not in output:
+        raise ValueError("Lustre quota identity mismatch")
+    rows=[line.split() for line in output.splitlines() if line.split() and line.split()[0]==str(mount)]
+    if len(rows)!=1 or len(rows[0])!=9:
+        raise ValueError("Expected exactly one full Lustre quota row")
+    row=rows[0]
+    values=[]
+    for i in (1,2,3,5,6,7):
+        value=row[i][:-1] if row[i].endswith('*') else row[i]
+        if not value.isdecimal(): raise ValueError("Invalid native quota counter")
+        values.append(int(value))
+    used,soft,hard,files,isoft,ihard=values
+    limits=[v for v in (soft,hard) if v>0]; ilimits=[v for v in (isoft,ihard) if v>0]
+    if not limits or not ilimits: raise ValueError("Finite block and inode quota required")
+    limit=min(limits)*1024; ilimit=min(ilimits)
+    return {'used_bytes':used*1024,'quota_bytes':limit,'available_bytes':max(0,limit-used*1024),
+            'used_inodes':files,'quota_inodes':ilimit,'available_inodes':max(0,ilimit-files),
+            'quota_user':username,'quota_uid':uid,'quota_mount':str(mount),'usage_authority':'lfs quota -u'}
+
+
+def lustre_quota(mount: Path, scratch_root: Path, timeout: float) -> dict[str, Any]:
+    mount=mount.resolve(strict=True)
+    if os.stat(mount).st_dev!=os.stat(scratch_root).st_dev:
+        raise ValueError("Quota mount and scratch root are different filesystems")
+    uid=os.getuid();username=pwd.getpwuid(uid).pw_name
+    result=run_checked(['lfs','quota','-u',username,str(mount)],capture=True,timeout=timeout)
+    return parse_lustre_quota(result.stdout,mount,username,uid)
+
+
 def append_event(path: Path, payload: dict[str, Any]) -> None:
     payload = {**payload, "at_unix": time.time()}
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -374,6 +406,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--state-dir", type=Path)
     result.add_argument("--scratch-root", type=Path)
     result.add_argument("--quota-bytes", type=int)
+    result.add_argument("--lustre-quota-mount", type=Path, help="Use current UID native block/inode quota; skip scratch-tree du")
     result.add_argument("--remote-host")
     result.add_argument("--ssh", default="ssh")
     result.add_argument("--rsync", default="rsync")
@@ -675,8 +708,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     all_rows_complete = False
 
             try:
-                used = scratch_bytes(scratch_root, args.du_timeout_seconds)
-                fraction = used / args.quota_bytes
+                quota_evidence={}
+                if args.lustre_quota_mount:
+                    quota_evidence=lustre_quota(args.lustre_quota_mount,scratch_root,args.du_timeout_seconds)
+                    if quota_evidence['quota_bytes']!=args.quota_bytes:
+                        raise ValueError("Live quota differs from declared quota bytes")
+                    used=quota_evidence['used_bytes']
+                    fraction=max(used/args.quota_bytes,quota_evidence['used_inodes']/quota_evidence['quota_inodes'])
+                else:
+                    used = scratch_bytes(scratch_root, args.du_timeout_seconds)
+                    fraction = used / args.quota_bytes
                 pressure = (
                     "hard"
                     if fraction >= args.hard_used_fraction
@@ -686,6 +727,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 pressure_payload: dict[str, Any] = {
                     "scratch_root": str(scratch_root),
+                    **quota_evidence,
                     "used_bytes": used,
                     "quota_bytes": args.quota_bytes,
                     "used_fraction": fraction,

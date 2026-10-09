@@ -58,6 +58,7 @@ evaluator:
 run_provenance:
   comparison: task_success_af_aug_vs_dp_noaug_v1
   normalization_sha256: ${oc.env:MATCHED_DP_NORMALIZATION_SHA256}
+  split_manifest_sha256: ${oc.env:MATCHED_DP_SPLIT_SHA256}
   speed_augmentation:
     enabled: false
     inference_contract: observation_only_no_speed_or_multiplier_input

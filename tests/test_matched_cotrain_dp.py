@@ -111,3 +111,25 @@ def test_unaugmented_window_guard_preserves_values_and_complete_anchors():
         assert "retiming_rate" not in result and "requested_speed" not in result
         assert guard.sample_views==1
         assert complete_window_count(200,guard.required_frames)==201-horizon
+
+
+def test_validation_uses_same_episode_and_native_preprocessing_contract():
+    root=Path(__file__).parents[1]/"egomimic/hydra_configs"
+    with initialize_config_dir(config_dir=str(root),version_base="1.3"):
+        a,d=[compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
+            "+experiment=e1/yam_human_matched_"+name]) for name in ("af64_multiplier","dp_noaug")]
+    for group,domain in (("yam","yam_bimanual"),("human","human_bimanual")):
+        for cfg in (a,d):
+            train=cfg.data.train_datasets[domain]
+            valid=cfg.data.valid_datasets[group][domain]
+            assert train.mode=="train" and valid.mode=="valid"
+            for key in ("valid_ratio","split_seed","expected_train_episode_names_sha256",
+                        "expected_valid_episode_names_sha256","expected_train_episode_count",
+                        "expected_valid_episode_count","resolver"):
+                assert comparable(train)[key]==comparable(valid)[key]
+        aug=a.data.valid_datasets[group][domain]
+        native=d.data.valid_datasets[group][domain]
+        assert comparable(aug.resolver.transform_list.native_transforms)==comparable(native.resolver.transform_list.native_transforms)
+        assert aug.resolver.transform_list.window_transform.horizon==native.resolver.transform_list.window_transform.horizon
+    assert comparable(d.run_provenance)["split_manifest_sha256"]=="${oc.env:MATCHED_DP_SPLIT_SHA256}"
+    assert comparable(d.norm_stats)["precomputed_norm_path"]=="${oc.env:MATCHED_DP_NORM}"

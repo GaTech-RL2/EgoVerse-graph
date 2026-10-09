@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - /experiment/e1/yam_human_keypoints_multiplier_h816_private512_s42
+  - /experiment/e1/yam_human_matched_common
+  - _self_
+name: yam_human_matched_af64_multiplier
+model:
+  num_latent_tokens: 64
+  latent_dim: 16
+  action_horizon: 100
+  num_inference_steps: 50
+  pipeline:
+    flow_inference_method: euler
+run_provenance:
+  architecture:
+    latent_shape: [64,16]
+    parameter_count_candidate: null
+  inference:
+    sampler: euler
+    steps: 50
+  comparison: matched_observation_data_optimizer_budget_v1
+evaluator:
+  energy_score_provenance:
+    sampler: euler
+    sampler_steps: 50

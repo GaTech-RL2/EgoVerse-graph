@@ -8,7 +8,7 @@ from egomimic.pipeline.core import Stage
 def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
                                      condition_dim=128, device=None,
                                      compatibility_mode="current",
-                                     conditioning_input="native_speed"):
+                                     conditioning_input="native_speed", flow_inference_method=None):
     """Typed Action Flow graph adapter; leave the generic runner unchanged.
 
     Configure Hydra with _recursive_: false so the two consumers are wired
@@ -30,6 +30,10 @@ def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
         raise ValueError("Unexpected existing inference condition")
     bridges[0]["condition_key"] = "speed_condition"
     fields[0]["inference_condition_key"] = "speed_condition"
+    if flow_inference_method is not None:
+        if flow_inference_method != "euler":
+            raise ValueError("Matched flow uses Euler with fixed evaluation count")
+        fields[0]["inference_method"] = flow_inference_method
     # Instantiate the unchanged stages first, preserving all old RNG draws.
     # Diagnostic preprocessing stops at the content encoder: condition must
     # already exist there, even though the encoder itself does not consume it.

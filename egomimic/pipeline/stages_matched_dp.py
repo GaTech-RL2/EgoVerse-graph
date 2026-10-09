@@ -74,20 +74,17 @@ class SharedNativeDPStage(Stage):
 
 
 def build_matched_dp_pipeline(stages,speed_reference=None,encoding="scalar",condition_dim=256,
-                              device=None,compatibility_mode="current",conditioning_input="retiming_multiplier",
+                              device=None,compatibility_mode="current",conditioning_input="none",
                               dp_inference_steps=50,dp_down_dims=(512,1024,2048),flow_inference_method=None):
     from hydra.utils import instantiate
     from egomimic.pipeline.algo import PipelineAlgo
-    from egomimic.pipeline.stages_speed import SharedSpeedCondition
-    if speed_reference is not None or encoding!="scalar" or conditioning_input!="retiming_multiplier":
-        raise ValueError("Matched DP requires raw multiplier contract")
+    if speed_reference is not None or encoding!="scalar" or conditioning_input!="none":
+        raise ValueError("Unaugmented DP requires observation-only conditioning")
     if compatibility_mode!="current":raise ValueError("Unsupported compatibility mode")
     prefix=list(stages)[:3]
     if [x['_target_'].split('.')[-1] for x in prefix]!=["HPTStemStage","HPTTrunkStage","EmbodimentActionTargetBuilder"]:
         raise ValueError("Observation and target prefix must match Action Flow")
     modules=[instantiate(x) for x in prefix]
-    modules.append(SharedSpeedCondition(None,encoding,condition_dim,
-                   output_key="condition",conditioning_input=conditioning_input))
     modules.append(SharedNativeDPStage(condition_dim=condition_dim,
                    inference_steps=dp_inference_steps,down_dims=dp_down_dims))
     return PipelineAlgo(modules,device=device)

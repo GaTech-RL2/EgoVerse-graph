@@ -14,12 +14,15 @@ model:
 run_provenance:
   architecture:
     latent_shape: [64,16]
-    parameter_count_candidate: null
+    parameter_count_candidate: 270467328
   inference:
     sampler: euler
     steps: 50
   comparison: matched_observation_data_optimizer_budget_v1
 evaluator:
+  action_flow_diagnostics:
+    provenance:
+      latent_shape: [64,16]
   energy_score_provenance:
     sampler: euler
     sampler_steps: 50

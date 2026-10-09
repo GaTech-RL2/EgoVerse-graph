@@ -35,15 +35,28 @@ def test_matched_configs():
     root=Path(__file__).parents[1]/"egomimic/hydra_configs"
     with initialize_config_dir(config_dir=str(root),version_base="1.3"):
         a,d=[compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
-            "+experiment=e1/yam_human_matched_"+name+"_multiplier"]) for name in ("af64","dp")]
-    for key in ("data","norm_stats","trainer","callbacks","hpt","e1","seed","model.optimizer","model.scheduler"):
+            "+experiment=e1/yam_human_matched_"+name]) for name in ("af64_multiplier","dp_noaug")]
+    for key in ("trainer","callbacks","hpt","e1","seed","model.optimizer","model.scheduler"):
         assert comparable(OmegaConf.select(a,key))==comparable(OmegaConf.select(d,key)),key
     for x,y in zip(a.model.pipeline.stages[:3],d.model.pipeline.stages[:3]):assert comparable(x)==comparable(y)
+    assert d.model.num_latent_tokens is None and d.model.latent_dim is None
+    assert d.run_provenance.objective.epsilon_samples_per_content==1
+    assert a.evaluator.action_flow_diagnostics.provenance.latent_shape==[64,16]
     assert a.model.pipeline.flow_inference_method=="euler" and d.model.pipeline.dp_inference_steps==50
     assert (a.model.num_latent_tokens,a.model.latent_dim,a.model.action_horizon)==(64,16,100)
     assert a.data.train_datasets.yam_bimanual.expected_train_episode_count==375
     assert a.data.train_datasets.human_bimanual.expected_train_episode_count==37
-    assert a.stationary_speed.human_rates==d.stationary_speed.human_rates==[.2,.4,.6,.8,1.]
+    assert a.stationary_speed.human_rates==[.2,.4,.6,.8,1.]
+    assert d.stationary_speed.human_rates==[1.]
+    assert d.model.pipeline.conditioning_input=="none"
+    assert d.run_provenance.speed_augmentation.enabled is False
+    for domain in ("yam_bimanual","human_bimanual"):
+        aug=a.data.train_datasets[domain];native=d.data.train_datasets[domain]
+        assert comparable(aug.resolver.transform_list.native_transforms)==comparable(native.resolver.transform_list)
+        assert "window_transform" not in native.resolver.transform_list
+        for key in ("mode","valid_ratio","split_seed","expected_train_episode_count","expected_valid_episode_count"):
+            assert aug[key]==native[key]
+        assert comparable(aug.resolver)["folder_path"]==comparable(native.resolver)["folder_path"]
     assert a.stationary_speed.yam_rates==d.stationary_speed.yam_rates==[1.]
 
 
@@ -52,9 +65,9 @@ def test_identical_optimizer_and_schedule_are_executable():
     root=Path(__file__).parents[1]/"egomimic/hydra_configs"
     schedules=[]
     with initialize_config_dir(config_dir=str(root),version_base="1.3"):
-        for name in ("af64","dp"):
+        for name in ("af64_multiplier","dp_noaug"):
             cfg=compose(config_name="train_zarr_cartesian",overrides=["hydra/launcher=basic",
-                "+experiment=e1/yam_human_matched_"+name+"_multiplier"])
+                "+experiment=e1/yam_human_matched_"+name])
             opt=instantiate(cfg.model.optimizer,params=[torch.nn.Parameter(torch.zeros(1))])()
             assert isinstance(opt,torch.optim.AdamW)
             schedule=instantiate(cfg.model.scheduler,optimizer=opt)

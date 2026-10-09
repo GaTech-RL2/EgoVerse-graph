@@ -59,7 +59,8 @@ class PhysicalWindowRetiming:
     tails. Observations remain at the original anchor.
     """
     def __init__(self, rates, fields, pose_keys, horizon, stride=1,
-                 embodiment="human", sample_views=5, timestamp_key=None):
+                 embodiment="human", sample_views=5, timestamp_key=None,
+                 conditioning_input="native_speed"):
         self.rates = tuple(float(r) for r in rates)
         self.fields = dict(fields)
         self.pose_keys = tuple(pose_keys)
@@ -68,6 +69,9 @@ class PhysicalWindowRetiming:
         self.embodiment = embodiment
         self.sample_views = int(sample_views)
         self.timestamp_key = timestamp_key
+        if conditioning_input not in {"native_speed", "retiming_multiplier"}:
+            raise ValueError("Unknown retiming conditioning input")
+        self.conditioning_input = conditioning_input
         if (not self.rates or not np.isfinite(self.rates).all()
                 or any(r <= 0 or r > 1 for r in self.rates)
                 or len(set(self.rates)) != len(self.rates)
@@ -133,14 +137,20 @@ class PhysicalWindowRetiming:
                 batch[key] = np.concatenate([xyz, xyzw_to_wxyz(quaternion)], axis=1)
         offsets = np.arange(0, self.required_frames, self.stride)
         duration = clock[offsets[-1]] - clock[0]
-        speeds = [np.linalg.norm(np.diff(batch[k][offsets, :3], axis=0), axis=-1).sum() / duration
-                  for k in self.pose_keys]
-        speed = float(np.mean(speeds))
-        if not np.isfinite(speed) or speed < 0:
-            raise ValueError("invalid physical requested speed")
-        batch["requested_speed"] = np.asarray([speed], dtype=np.float32)
-        batch["requested_speed_value"] = np.asarray(speed, dtype=np.float32)
-        batch["retiming_rate"] = np.asarray(rate, dtype=np.float32)
+        if self.conditioning_input == "native_speed":
+            speeds = [np.linalg.norm(np.diff(batch[k][offsets, :3], axis=0), axis=-1).sum() / duration
+                      for k in self.pose_keys]
+            speed = float(np.mean(speeds))
+            if not np.isfinite(speed) or speed < 0:
+                raise ValueError("invalid physical requested speed")
+            batch["requested_speed"] = np.asarray([speed], dtype=np.float32)
+            batch["requested_speed_value"] = np.asarray(speed, dtype=np.float32)
+            batch["retiming_rate"] = np.asarray(rate, dtype=np.float32)
+        else:
+            # PR223 consumes [B,1]; each dataset item supplies a one-value vector.
+            batch.pop("requested_speed", None)
+            batch.pop("requested_speed_value", None)
+            batch["retiming_rate"] = np.asarray([rate], dtype=np.float32)
         batch["retiming_view"] = np.asarray(view, dtype=np.int64)
         batch["physical_window_duration_s"] = np.asarray(duration, dtype=np.float32)
         return batch
@@ -163,3 +173,29 @@ def extend_window_key_map(base_key_map, extra_key_map, norm_mode=False):
         key_map = {k: v for k, v in key_map.items()
                    if v.get("key_type") not in ("camera_keys", "annotation_keys")}
     return key_map
+
+
+class CompleteNativeWindow:
+    """Use the existing complete-window index guard without augmenting values."""
+    sample_views = 1
+
+    def __init__(self, horizon, required_keys, sample_views=1):
+        if type(sample_views) is not int or sample_views != 1:
+            raise ValueError("Native windows require exactly one unaugmented view")
+        self.required_frames = int(horizon)
+        self.required_keys = tuple(required_keys)
+        if self.required_frames < 2 or not self.required_keys:
+            raise ValueError("Complete native windows require horizon and action keys")
+
+    def bind_episode(self, metadata, key_map):
+        for key in self.required_keys:
+            if key not in key_map or key_map[key].get("horizon") != self.required_frames:
+                raise ValueError("Native window/action horizon mismatch")
+
+    def transform(self, batch):
+        if int(batch.pop("_retiming_view")) != 0:
+            raise ValueError("Native windows have exactly one unaugmented view")
+        for key in self.required_keys:
+            if len(batch[key]) != self.required_frames:
+                raise ValueError("Native windows refuse padding")
+        return batch

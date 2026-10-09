@@ -1,0 +1,27 @@
+# @package _global_
+data:
+  proportional_train_batch_size: 8
+  train_datasets:
+    yam_bimanual:
+      expected_train_episode_count: 375
+      expected_valid_episode_count: 3
+    human_bimanual:
+      expected_train_episode_count: 37
+      expected_valid_episode_count: 1
+  valid_datasets:
+    yam:
+      yam_bimanual:
+        expected_train_episode_count: 375
+        expected_valid_episode_count: 3
+    human:
+      human_bimanual:
+        expected_train_episode_count: 37
+        expected_valid_episode_count: 1
+run_provenance:
+  normalization_sha256: ${oc.env:MATCHED_NORMALIZATION_SHA256}
+  split_manifest_sha256: ${oc.env:MATCHED_SPLIT_SHA256}
+  source_commit: ${oc.env:MATCHED_SOURCE_COMMIT}
+  train_episode_count_per_domain: {yam_bimanual: 375, human_bimanual: 37}
+  valid_episode_count_per_domain: {yam_bimanual: 3, human_bimanual: 1}
+  union_episode_count_per_domain: {yam_bimanual: 378, human_bimanual: 38}
+  train_windows_per_domain: null

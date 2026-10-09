@@ -49,7 +49,17 @@ def test_chunked_decoder_jacobian_singular_values_match_full_jacrev():
     torch.testing.assert_close(actual, torch.stack(expected))
 
 
-def test_forward_math_decoder_jacobian_matches_reverse_for_transformer():
+def test_forward_math_decoder_jacobian_matches_reverse_for_transformer(monkeypatch):
+    original_vmap = torch.func.vmap
+
+    def checked_vmap(direction, *args, **kwargs):
+        def checked_direction(tangent):
+            result = direction(tangent)
+            assert not result.requires_grad, "Jacobian chunks must release parameter graphs"
+            return result
+        return original_vmap(checked_direction, *args, **kwargs)
+
+    monkeypatch.setattr(torch.func, "vmap", checked_vmap)
     torch.manual_seed(31)
     decoder = UniteActionDecoder(
         latent_dim=4,
@@ -66,6 +76,7 @@ def test_forward_math_decoder_jacobian_matches_reverse_for_transformer():
     forward = _decoder_singular_values(
         decoder, values, sample_count=2, jacobian_method="forward_math_chunk4"
     )
+    monkeypatch.setattr(torch.func, "vmap", original_vmap)
     reverse = _decoder_singular_values(
         decoder, values, sample_count=2, jacobian_method="reverse_chunked"
     )

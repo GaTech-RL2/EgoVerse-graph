@@ -21,6 +21,7 @@ class HomogeneousDiTHalf(Callback):
         self.capture_updates = 0
         self.grouped_updates = 0
         self.saved = None
+        self.row_signature = None
 
     def on_fit_start(self, trainer, module):
         from egomimic.pipeline.algo import PipelineAlgo
@@ -36,14 +37,21 @@ class HomogeneousDiTHalf(Callback):
         self.saved = (unite_dit.checkpoint, "_execute" in vars(algo), vars(algo).get("_execute"))
         self.native_execute = algo._execute
         unite_dit.checkpoint = policy(unite_dit.checkpoint, "dit-half", "dit", self.counts)
-        self.plan.install_capture(algo)
-        capture = algo._execute
 
         def execute(batch, *, mode):
             if mode != "train" or not algo.nets.training:
                 return self.native_execute(batch, mode=mode)
             assert len(batch) == 2
-            if not self.active:
+            signature = tuple((source, int(values["actions"].shape[0])) for source, values in batch.items())
+            assert all(rows > 0 for _, rows in signature), "empty source batch"
+            if not self.active or signature != self.row_signature:
+                # Capture the real native update for each new row shape. Never
+                # pad, drop, repeat, or guess draws for partial source batches.
+                self.plan.restore()
+                algo._execute = self.native_execute
+                self.plan = HomogeneousNativeReplay(self.task)
+                self.plan.install_capture(algo)
+                capture = algo._execute
                 result = capture(batch, mode=mode)
                 assert self.plan.ready
                 self.capture_updates += 1
@@ -52,6 +60,7 @@ class HomogeneousDiTHalf(Callback):
                 self.candidate_execute = algo._execute
                 algo._execute = execute
                 self.active = True
+                self.row_signature = signature
             else:
                 before = self.plan.grouped_encoder_calls
                 result = self.candidate_execute(batch, mode=mode)
@@ -69,11 +78,11 @@ class HomogeneousDiTHalf(Callback):
         loss = outputs["loss"] if isinstance(outputs, dict) else outputs
         assert torch.isfinite(loss).all()
         assert self.updates == self.before[0] + 1
-        assert self.capture_updates == 1
-        if self.updates > 1:
-            assert self.grouped_updates == self.before[1] + 1
+        assert self.capture_updates + self.grouped_updates == self.updates
+        assert self.grouped_updates in (self.before[1], self.before[1] + 1)
         assert self.counts.get("dit/direct", 0) > self.before[2]
         assert self.counts.get("dit/checkpoint", 0) > self.before[3]
+        module.log("Train/Execution/NativeShapeCaptureUpdates", float(self.capture_updates), on_step=True, on_epoch=False)
         module.log("Train/Execution/HomogeneousGroupedUpdates", float(self.grouped_updates), on_step=True, on_epoch=False)
         module.log("Train/Execution/DiTHalfDirectCalls", float(self.counts["dit/direct"]), on_step=True, on_epoch=False)
 

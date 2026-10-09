@@ -33,13 +33,50 @@ def layout():
     # Stage indices follow the typed YAML pipeline rather than the old recipe.
     return (5, 6, 128, 32) if multiplier() else (3, 4, 67, 16)
 
+def supervised_full(phase):
+    return phase == 'full' and os.environ.get('DP_SUPERVISED') == '1'
+
+def supervised_checkpoint(output):
+    """Shared runner and trainHydra retain full-state/SHA validation authority."""
+    value = os.environ.get('ICE_RESUME_CHECKPOINT', '')
+    if not value:
+        assert not os.environ.get('ICE_RESUME_CHECKPOINT_SHA256', '')
+        assert not os.environ.get('ICE_RESUME_GLOBAL_STEP', '')
+        return None
+    path = pathlib.Path(value).resolve(strict=True)
+    path.relative_to((pathlib.Path(output)/'checkpoints').resolve())
+    assert path.is_file() and "'" not in str(path) and '\n' not in str(path)
+    sha = os.environ.get('ICE_RESUME_CHECKPOINT_SHA256', '')
+    assert len(sha) == 64 and all(c in '0123456789abcdef' for c in sha)
+    step = int(os.environ['ICE_RESUME_GLOBAL_STEP'])
+    assert 0 <= step < 80000
+    return str(path)
+
+def guard_output(phase, output):
+    out = pathlib.Path(output)
+    if not supervised_full(phase):
+        assert not out.exists(), out
+        return
+    assert os.environ.get('ICE_REQUEUE_OWNER') == 'runner'
+    assert os.environ.get('ICE_CHILD_REQUEUE_DISABLED') == '1'
+    assert os.environ.get('DP_SUPERVISED_JOB_ID') == os.environ.get('SLURM_JOB_ID')
+    assert os.environ.get('SLURM_JOB_ID'), 'Native job identity is required'
+    checkpoint = supervised_checkpoint(out)
+    restart = int(os.environ.get('SLURM_RESTART_COUNT', '0'))
+    if restart == 0:
+        assert checkpoint is None and not out.exists(), 'Fresh output collision'
+    else:
+        assert checkpoint is not None and out.is_dir(), 'Restart needs runner-bound checkpoint'
+
 def arguments(phase, output, norm):
     smoke = phase in {'smoke', 'resume-smoke'}
     resume = phase in {'resume', 'resume-smoke'}
     start = int(os.environ['DP_RESUME_STEP']) if resume else 0
     checkpoint = os.environ['DP_RESUME_CHECKPOINT'] if resume else 'null'
+    supervised_resume = supervised_checkpoint(output) if supervised_full(phase) else None
+    if supervised_resume: checkpoint = supervised_resume
     a=['--config-name=train_zarr_cartesian','+experiment='+recipe(),
-       'mode=train',(f"ckpt_path='{checkpoint}'" if resume else 'ckpt_path=null'),'++model.train_log_on_step=true',f'hydra.run.dir={output}',f'++paths.root_dir={output}',
+       'mode=train',(f"ckpt_path='{checkpoint}'" if resume or supervised_resume else 'ckpt_path=null'),'++model.train_log_on_step=true',f'hydra.run.dir={output}',f'++paths.root_dir={output}',
        f'paths.output_dir={output}',f'paths.work_dir={os.environ["DP_REPO"]}',
        'launch_params.gpus_per_node=1','launch_params.nodes=1','trainer.devices=1',
        'trainer.num_nodes=1','trainer.strategy=auto','trainer.precision=bf16',
@@ -57,7 +94,7 @@ def arguments(phase, output, norm):
        '++logger.wandb.entity=rl2-group','++logger.wandb.project=pushshapes-planar-v2',
        f'++logger.wandb.id={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
        f'++logger.wandb.name={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
-       f'++logger.wandb.resume={"must" if resume and not smoke else "never"}',('++logger.wandb.group=standard-dp-usocket-chain-manual4919-five-rate-masked-20261008' if cotrain() else '++logger.wandb.group=standard-dp-chain-manual4919-five-rate-20261007'),
+       f'++logger.wandb.resume={"must" if (resume and not smoke) or supervised_resume else "never"}',('++logger.wandb.group=standard-dp-usocket-chain-manual4919-five-rate-masked-20261008' if cotrain() else '++logger.wandb.group=standard-dp-chain-manual4919-five-rate-20261007'),
        ('++logger.wandb.tags=[standard-dp,cotrain,u4-mask,common5,manual4919,uniform-five-rate,interpolation-only,bf16,world1]' if cotrain() else '++logger.wandb.tags=[standard-dp,chain-only,manual4919,uniform-five-rate,interpolation-only,bf16,world1]'),
        'evaluator.energy_score_max_batches_per_rank=1']
     # This optional evaluator field is present in the native constructor, not YAML.
@@ -78,6 +115,10 @@ def arguments(phase, output, norm):
         }
         a += [f'++evaluator.energy_score_provenance.{key}={value}' for key,value in provenance.items()]
         a += [f'++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ["DP_SPLIT_SHA256"]}']
+
+    if supervised_full(phase):
+        a += ['++runtime.slurm_requeue_owner=runner', '++runtime.slurm_save_signal=SIGUSR2',
+              '++runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints']
 
     if phase == 'normalize':
         a = [x for x in a if not x.startswith('++logger.') ]
@@ -190,7 +231,7 @@ def main():
             records['u4_chain5_mask_activation']='PASS'
         records.update(status='PASS',source_head=head,driver_head=os.environ.get('DP_DRIVER_HEAD',head),real_native_sample_contract='PASS')
         (task/'PREFLIGHT_RESULT_V1.json').write_text(json.dumps(records,indent=2)+'\n');return
-    out=task/({'normalize':'normalization','smoke':'smoke-v1','full':'full-v1','resume-smoke':'resume-smoke-v1','resume':'resume-v1'}[args.mode]);assert not out.exists(),out
+    out=task/({'normalize':'normalization','smoke':'smoke-v1','full':'full-v1','resume-smoke':'resume-smoke-v1','resume':'resume-v1'}[args.mode]);guard_output(args.mode, out)
     if args.mode!='normalize':assert pathlib.Path(norm,'norm_stats.json').is_file()
     if args.mode=='resume':
         proof=json.loads((task/'resume-smoke-v1/SMOKE_RESULT.json').read_text())

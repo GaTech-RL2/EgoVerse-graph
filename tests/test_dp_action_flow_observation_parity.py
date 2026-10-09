@@ -48,6 +48,9 @@ def test_resolved_observation_capacity_and_training_contract(monkeypatch):
     assert list(denoiser.policy.model.down_dims) == [648, 1296, 2592]
     assert c.planar.active_action_dims.pushshapes_sim_u_socket == 4
     assert c.planar.active_action_dims.pushshapes_sim_chain_gripper == 5
+    assert c.callbacks.ema.decay == 0.9978
+    assert c.callbacks.ema.validate_with_ema is True
+    assert c.callbacks.ema.use_warmup is False
     assert c.norm_stats.norm_mode == "minmax"
     assert c.norm_stats.sample_frac == 1.0
     assert c.norm_stats.precomputed_norm_path is None

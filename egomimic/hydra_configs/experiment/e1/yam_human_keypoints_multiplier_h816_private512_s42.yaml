@@ -2,12 +2,13 @@
 # Direct multiplier conditioning; fresh training required.
 defaults:
   - /experiment/e1/yam_human_keypoints_action_flow_h816_private512_s42
-  - override /data: e1/yam_human_keypoints_speed_proportional_val01
+  - override /data: e1/yam_human_keypoints_multiplier_proportional_val01
   - _self_
 
 name: yam_human_keypoints_multiplier_h816_private512_s42
 description: human_multiplier_02_04_06_08_10_robot1x_scalar
 stationary_speed:
+  conditioning_input: retiming_multiplier
   yam_rates: [1.0]
   human_rates: [0.2, 0.4, 0.6, 0.8, 1.0]
   probabilities: [0.2, 0.2, 0.2, 0.2, 0.2]
@@ -19,7 +20,8 @@ model:
   pipeline:
     _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
     _recursive_: false
-    conditioning_input: multiplier
+    conditioning_input: retiming_multiplier
+    speed_reference: null
     encoding: scalar
     condition_dim: ${model.condition_dim}
 run_provenance:
@@ -33,3 +35,4 @@ run_provenance:
     units: ${stationary_speed.units}
     inference_contract: external_retiming_multiplier_no_future_action_oracle
     scientific_label: interpolation_only_recorded_trajectory_diagnostic
+  checkpoint_initialization: fresh_required_not_native_speed_resume

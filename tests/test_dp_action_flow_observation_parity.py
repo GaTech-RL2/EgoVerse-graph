@@ -48,6 +48,9 @@ def test_resolved_observation_capacity_and_training_contract(monkeypatch):
     assert list(denoiser.policy.model.down_dims) == [648, 1296, 2592]
     assert c.planar.active_action_dims.pushshapes_sim_u_socket == 4
     assert c.planar.active_action_dims.pushshapes_sim_chain_gripper == 5
+    assert c.norm_stats.norm_mode == "minmax"
+    assert c.norm_stats.sample_frac == 1.0
+    assert c.norm_stats.precomputed_norm_path is None
     assert c.planar.batch_size == 32
     for group in (c.data.train_datasets, c.data.valid_datasets):
         for item in group.values():

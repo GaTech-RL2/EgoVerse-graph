@@ -65,3 +65,5 @@ gradients in training and inference graph modes for both embodiments, retained
 native state/common5 action targets, masks, and the exact real-module count.
 Legacy data helpers default to their previous behavior. This avoids changing
 historical runs while making the new recipe explicit.
+
+Data audit: exact U/Chain episode and train/validation list hashes match the AF reference. Pin minmax/full sampling rather than inherited quantile/5% defaults. Compute fresh per-source statistics from training episodes only; action-representation statistics cannot be copied from AF.

@@ -12,6 +12,10 @@ trainer:
   max_steps: 80000
   precision: bf16
   val_check_interval: 15000
+norm_stats:
+  norm_mode: minmax
+  sample_frac: 1.0
+  precomputed_norm_path: null
 data:
   train_datasets:
     pushshapes_sim_u_socket:

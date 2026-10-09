@@ -36,6 +36,15 @@ def layout():
 def supervised_full(phase):
     return phase == 'full' and os.environ.get('DP_SUPERVISED') == '1'
 
+def signal_audit_smoke(phase):
+    if phase != 'smoke' or os.environ.get('DP_SIGNAL_AUDIT_SMOKE') != '1':
+        return False
+    assert os.environ.get('ICE_REQUEUE_OWNER') == 'runner'
+    assert os.environ.get('ICE_CHILD_REQUEUE_DISABLED') == '1'
+    assert os.environ.get('SLURM_JOB_ID')
+    assert int(os.environ.get('SLURM_RESTART_COUNT', '0')) == 0
+    return True
+
 def supervised_checkpoint(output):
     """Shared runner and trainHydra retain full-state/SHA validation authority."""
     value = os.environ.get('ICE_RESUME_CHECKPOINT', '')
@@ -116,7 +125,7 @@ def arguments(phase, output, norm):
         a += [f'++evaluator.energy_score_provenance.{key}={value}' for key,value in provenance.items()]
         a += [f'++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ["DP_SPLIT_SHA256"]}']
 
-    if supervised_full(phase):
+    if supervised_full(phase) or signal_audit_smoke(phase):
         a += ['++runtime.slurm_requeue_owner=runner', '++runtime.slurm_save_signal=SIGUSR2',
               '++runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints']
 

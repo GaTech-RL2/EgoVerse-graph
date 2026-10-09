@@ -61,9 +61,11 @@ def phase_bindings(phase):
         raise ValueError("unknown maintained phase")
     return {**COMMON, **PHASES[phase]}
 
-def validate_flat_config(config, phase, *, training_seed=42):
+def validate_flat_config(config, phase, *, training_seed=42, action_velocity_weight=1.0):
     """Check flattened resolved values, not guessed Hydra argument reachability."""
-    wanted_bindings = {**phase_bindings(phase), "seed": training_seed}
+    if action_velocity_weight not in (0.0, 1.0):
+        raise ValueError("unsupported native action velocity weight")
+    wanted_bindings = {**phase_bindings(phase), "seed": training_seed, "model.pipeline.stages.8.action_velocity_weight": action_velocity_weight}
     for key, wanted in wanted_bindings.items():
         if key not in config or config[key] != wanted:
             raise ValueError(("resolved profile mismatch", key, wanted, config.get(key)))

@@ -1086,6 +1086,13 @@ def _validate_checkpoint_loss_schedule(
     flow_weight: float,
 ) -> int:
     _require(config is not None, "checkpoint loss schedule needs its exact config")
+    from egomimic.benchmarks.libero.native_launch_profiles import PROFILES, AV0_PROFILES, profile_for_config
+    native_names = {profile.name for profile in (*PROFILES.values(), *AV0_PROFILES.values())}
+    action_velocity_weight = 1.0
+    if str(config.get("name", "")) in native_names:
+        action_velocity_weight = profile_for_config(config).action_velocity_weight
+        _require(OmegaConf.select(config, "model.pipeline.stages.8.action_velocity_weight") == action_velocity_weight,
+                 "native checkpoint objective/profile mismatch")
     warmup_steps = OmegaConf.select(
         config, "model.reconstruction_only_warmup_steps", default=0
     )
@@ -1102,7 +1109,7 @@ def _validate_checkpoint_loss_schedule(
             "reconstruction_only_optimizer_steps": warmup_steps,
             "joint_flow_weight": flow_weight,
             "joint_reconstruction_weight": reconstruction_weight,
-            "joint_action_velocity_weight": 1.0,
+            "joint_action_velocity_weight": action_velocity_weight,
             "schema_version": 1,
         },
         f"unexpected Action Flow loss schedule: {loss_schedule}",
@@ -1451,12 +1458,14 @@ def _validate_history(
     *,
     reconstruction_weight: float = 1.0,
     flow_weight: float = 1.0,
+    action_velocity_weight: float = 1.0,
     expect_reconstruction_warmup: bool = False,
     method: str = LEGACY_METHOD,
     source_label: str = SOURCE_LABEL,
     validation_metric_names: Sequence[str] | None = None,
     diagnostic_metric_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
+    _require(action_velocity_weight in (0.0, 1.0), "unsupported action velocity weight")
     component_names = (
         "TotalLoss",
         "FlowMatchingLoss",
@@ -1572,7 +1581,7 @@ def _validate_history(
                 rel_tol=0.0,
                 abs_tol=1.0e-6,
             )
-            and train["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] == 1.0
+            and train["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] == action_velocity_weight
         ),
         "joint smoke step did not enable both delayed objectives",
     )
@@ -1587,7 +1596,7 @@ def _validate_history(
                 flow_weight * train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
                 + reconstruction_weight
                 * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
-                + train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+                + action_velocity_weight * train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
             )
         )
         _require(
@@ -1689,7 +1698,7 @@ def _validate_history(
         else (
             flow_weight * valid["Valid/ActionFlow/FlowMatchingLoss"]
             + reconstruction_weight * valid["Valid/ActionFlow/ReconstructionLoss"]
-            + valid["Valid/ActionFlow/ActionVelocityLoss"]
+            + action_velocity_weight * valid["Valid/ActionFlow/ActionVelocityLoss"]
         )
     )
     _require(
@@ -2224,7 +2233,7 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
-    if experiment in ("libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42"):
+    if experiment in ("libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42"):
         from scripts.train.verify_libero_native_action_flow_smoke import verify_native_smoke
         return verify_native_smoke(run_dir=run_dir, expected_head=expected_head,
             expected_config_sha256=expected_config_sha256,
@@ -2373,7 +2382,7 @@ def _parser() -> argparse.ArgumentParser:
         "--experiment",
         "--expected-experiment",
         dest="experiment",
-        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42"),
+        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42"),
         required=True,
     )
     parser.add_argument("--expected-head", required=True)

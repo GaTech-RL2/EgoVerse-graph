@@ -69,7 +69,7 @@ def validate_resolved(config, phase):
     seed = config.get("seed")
     if type(seed) is not int or seed not in ({42, 43} if profile.suite in {"libero_goal", "libero_object"} else {42}):
         raise ValueError("unsupported native training seed")
-    validate_flat_config(flat, phase, training_seed=seed)
+    validate_flat_config(flat, phase, training_seed=seed, action_velocity_weight=profile.action_velocity_weight)
     if config["callbacks"]["dit_half"]["_target_"] != "egomimic.utils.libero_dit_half.LiberoDiTHalf":
         raise ValueError("DiT-half callback unreachable")
     if config["callbacks"]["ema"]["validate_with_ema"] is not True:

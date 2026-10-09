@@ -171,7 +171,7 @@ pipeline:
       residual_key: action_flow/fm_velocity_residual
       flow_weight: ${model.flow_weight}
       reconstruction_weight: ${model.reconstruction_weight}
-      action_velocity_weight: 1.0
+      action_velocity_weight: ${run_provenance.objective.action_velocity_weight}
       flow_aggregation: ${model.flow_loss_aggregation}
       flow_samples_per_content: ${model.flow_samples_per_content}
 

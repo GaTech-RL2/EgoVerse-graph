@@ -70,7 +70,8 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     from egomimic.benchmarks.libero.saved_hydra_context import load_saved_native_config
     config=load_saved_native_config(run_dir,shared.REPOSITORY_ROOT)
     from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
-    profile=profile_for_config(config).experiment
+    selected_profile=profile_for_config(config)
+    profile=selected_profile.experiment
     require(profile==expected_profile,"native requested/configured profile mismatch")
     require(all(v is not None for v in (expected_config_sha256,expected_split_sha256,expected_normalization_sha256,expected_preflight_sha256)),"native smoke needs every explicit expected hash")
     require(shared._git_head()==expected_head,"native verifier source HEAD mismatch")
@@ -169,7 +170,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     nativevalid=tuple("Valid/"+key for key in REQUIRED)
     history={}
     for label,rows in (("offline",offline),("online",online)):
-        history[label]=shared._validate_history(rows,reconstruction_weight=1.,flow_weight=1.,method=shared.STOPGRAD_UNITE_METHOD,source_label=SOURCE,validation_metric_names=nativevalid,diagnostic_metric_names=())
+        history[label]=shared._validate_history(rows,reconstruction_weight=1.,flow_weight=1.,action_velocity_weight=selected_profile.action_velocity_weight,method=shared.STOPGRAD_UNITE_METHOD,source_label=SOURCE,validation_metric_names=nativevalid,diagnostic_metric_names=())
         history[label]["dit_half"]=validate_dit_counts(rows,shared)
     require(history["offline"]["valid_step"]==history["online"]["valid_step"],"native online/offline validation step mismatch")
     native=checked_json(evidence["native_metrics_artifact"]);validate_payload(native)
@@ -181,7 +182,7 @@ def verify_native_smoke(*,run_dir,expected_head,expected_config_sha256,expected_
     require(native["identity"]["source_normalizer_module_sha256"]==binding["normalizer_module_sha256"]==sha(shared.REPOSITORY_ROOT/"egomimic/rldb/zarr/libero_action_flow.py"),"native artifact normalizer module identity mismatch")
     require(native["identity"]["dataset_receipt_sha256"]==binding["dataset_receipt_sha256"] and native["identity"]["physical_split_proof_sha256"]==binding["physical_proof_sha256"],"native artifact receipt identity mismatch")
     require(native["identity"]["historical_split_sha256"]==select("run_provenance.historical_split_manifest_sha256"),"native artifact lost historical split provenance")
-    require(native["identity"]["precision"]=="bf16-mixed" and native["identity"]["native_objective_weights"]=={"reconstruction":1.,"flow":1.,"action_velocity":1.},"native artifact precision/objective mismatch")
+    require(native["identity"]["precision"]=="bf16-mixed" and native["identity"]["native_objective_weights"]=={"reconstruction":1.,"flow":1.,"action_velocity":selected_profile.action_velocity_weight},"native artifact precision/objective mismatch")
     require(native["group"]=="valid","native smoke metrics must use scheduled validation")
     artifactroot=Path(evidence["native_metrics_artifact"]["path"]).resolve().parent
     for batch in native["batches"]:

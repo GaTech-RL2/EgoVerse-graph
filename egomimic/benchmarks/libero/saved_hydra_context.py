@@ -19,6 +19,14 @@ def checked_json(path,digest):
     require(hashlib.sha256(raw).hexdigest()==digest,'saved context receipt SHA mismatch')
     return json.loads(raw)
 
+def validate_dataset_provenance(receipt,provenance):
+    # Receipt FILE digest is already enforced by checked_json. This distinct
+    # field binds the logical corpus, never the receipt serialization bytes.
+    logical=receipt.get('dataset_logical_sha256')
+    require(isinstance(logical,str) and re.fullmatch(r'[0-9a-f]{64}',logical) is not None,'saved receipt logical dataset SHA missing')
+    require(logical==provenance['dataset_sha256'],'saved logical dataset provenance mismatch')
+    require(logical==provenance['dataset_content_aggregate_sha256'],'saved logical dataset aggregate mismatch')
+
 def load_saved_native_config(run_dir,repo=None):
     from omegaconf import OmegaConf,open_dict
     from hydra import __version__ as hydra_version
@@ -42,7 +50,7 @@ def load_saved_native_config(run_dir,repo=None):
     require(isinstance(replay,str) and Path(replay).is_absolute() and '${' not in replay,'literal bound replay root required')
     receipt=checked_json(binding['dataset_receipt_path'],binding['dataset_receipt_sha256'])
     require(receipt['replay_path']==replay and receipt['suite']==profile.suite,'saved suite/replay receipt mismatch')
-    require(binding['dataset_receipt_sha256']==literal['run_provenance']['dataset_sha256'],'saved dataset provenance mismatch')
+    validate_dataset_provenance(receipt,literal['run_provenance'])
     checked_json(binding['physical_proof_path'],binding['physical_proof_sha256'])
     references=set(re.findall(r'\$\{oc\.env:([A-Za-z_][A-Za-z0-9_]*)',OmegaConf.to_yaml(config)))
     require(references=={profile.replay_environment},'unexpected saved oc.env reference inventory')

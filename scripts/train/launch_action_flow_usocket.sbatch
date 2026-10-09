@@ -129,8 +129,40 @@ AF_SCALED_H512=false
 AF_FROZEN_CHAIN_4920=false
 AF_PAIRED_CHAIN_MANUAL4919=false
 AF_SPEED_DIAGNOSTIC=false
+AF_H696_EULER=false
 AF_NATIVE_LIBERO=false
+AF_NATIVE_RECIPE_BASE=$AF_EXPERIMENT
 case "$AF_EXPERIMENT" in
+  libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42|libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42|libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42|libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42)
+    AF_NATIVE_RECIPE_BASE=${AF_EXPERIMENT/_80k_av0_/_80k_}
+    ;;
+esac
+case "$AF_NATIVE_RECIPE_BASE" in
+  pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42)
+    test "${AF_RESUME_TYPED_MODEL:-}" = noaug && test -n "${AF_INITIAL_CHECKPOINT:-}" || die "noaug route is checkpoint continuation only"
+    test "$AF_EXPECTED_HEAD" = fb397446056a73ebcc2cf546217a6284d582727a || die "H696 Euler source mismatch"
+    AF_METHOD=latent_fm_stopgrad_unite
+    AF_RECONSTRUCTION_WEIGHT=1
+    AF_FLOW_WEIGHT=1
+    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual4919_avln_80k_s42
+    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
+    AF_FULL_MAX_STEPS=80000
+    AF_FULL_VALIDATE_EVERY=15000
+    AF_FULL_CHECKPOINT_EVERY=5000
+    AF_FULL_LIMIT_VAL_BATCHES=8
+    AF_VALID_BATCH_SIZE=32
+    AF_COTRAIN=true
+    AF_H696_EULER=true
+    required AF_SAMPLER_AUDITOR
+    required AF_SAMPLER_AUDITOR_SHA256
+    test "$(sha256 "$AF_SAMPLER_AUDITOR")" = "$AF_SAMPLER_AUDITOR_SHA256" || die "sampler auditor hash mismatch"
+    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
+    AF_EXPECTED_PARAMETER_COUNT=471545114
+    AF_EXPECTED_SMOKE_PARAMETER_COUNT=471545114
+    AF_SMOKE_VERIFIER=${AF_H696_SMOKE_VERIFIER:?}
+    test "$(sha256 "$AF_SMOKE_VERIFIER")" = "${AF_H696_SMOKE_VERIFIER_SHA256:?}" || die "H696 smoke verifier SHA mismatch"
+    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual4919,cotrain,h696,euler50,bf16,fresh,single-gpu,$AF_RUN_KIND]"
+    ;;
   libero/action_flow_libero10_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
     AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
@@ -159,7 +191,7 @@ case "$AF_EXPERIMENT" in
       required "$variable"
     done
     case "$AF_NATIVE_PHASE" in preflight|smoke|full) ;; *) die "invalid native phase" ;; esac
-    case "$AF_EXPERIMENT:$AF_SEED" in
+    case "$AF_NATIVE_RECIPE_BASE:$AF_SEED" in
       libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:43|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42:43|libero/action_flow_libero10_h240_euler50_dithalf_80k_s42:42|libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42:42) ;;
       *) die "unsupported native suite/training seed" ;;
     esac
@@ -560,7 +592,7 @@ fi
   die "AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
 if test "$AF_NATIVE_LIBERO" = true; then
   # Suite corpus identities are immutable; destination receipt paths may differ.
-  case "$AF_EXPERIMENT" in
+  case "$AF_NATIVE_RECIPE_BASE" in
     libero/action_flow_libero10_h240_euler50_dithalf_80k_s42)
       native_logical_sha=3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d
       native_historical_split_sha=c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236 ;;
@@ -608,7 +640,7 @@ if test "$AF_COTRAIN" = true; then
     die "AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256 must be a lowercase SHA-256"
   [[ "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" =~ ^[0-9a-f]{64}$ ]] || \
     die "AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256 must be a lowercase SHA-256"
-  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true; then
+  if test "$AF_PAIRED_CHAIN_MANUAL4919" = true || test "$AF_SPEED_DIAGNOSTIC" = true || test "$AF_H696_EULER" = true; then
     test "$AF_EXPECTED_SECOND_CONTENT_MANIFEST_SHA256" = "$CHAIN_MANUAL4919_CONTENT_MANIFEST_SHA256" || \
       die "second content manifest is not the paired manual4919 ChainGripper manifest"
     test "$AF_EXPECTED_SECOND_DATASET_CONTENT_AGGREGATE_SHA256" = "$CHAIN_MANUAL4919_DATASET_CONTENT_AGGREGATE_SHA256" || \
@@ -642,7 +674,7 @@ if test "$AF_NATIVE_LIBERO" = true; then
 else
   test "$AF_PRECISION" = bf16 || die "AF_PRECISION must be bf16"
 fi
-if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run && test "$AF_EXPERIMENT" != libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42; then
+if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" = run && test "$AF_EXPECTED_GPU_CONSTRAINT" = "(null)"; then
   # Native Lambda GPU identity is established by actual allocation + H100 BF16
   # probe in the maintained phase adapter; this cluster has no Features value.
   test "$AF_EXPECTED_GPU_CONSTRAINT" = '(null)' || die "native GPU allocation requires AF_EXPECTED_GPU_CONSTRAINT=(null)"
@@ -752,7 +784,7 @@ if test -n "${AF_EXTRA_PYTHONPATH:-}"; then
 fi
 
 export PATH="$(dirname "$AF_PYTHON"):$PATH"
-export PYTHONPATH="$AF_REPO:$(dirname "$AF_CONFIG_VALIDATOR")${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
+export PYTHONPATH="$AF_REPO:${AF_RESUME_HELPER_DIR:+$AF_RESUME_HELPER_DIR:}$(dirname "$AF_CONFIG_VALIDATOR")${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
 export AF_CONFIG_VALIDATOR
 export AF_EXTRA_PYTHONPATH
 export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR
@@ -763,7 +795,7 @@ export ICE_EXPECTED_SOURCE_COMMIT=$AF_EXPECTED_HEAD
 export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
 export ICE_EXPECTED_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
 if test "$AF_NATIVE_LIBERO" = true; then
-  case "$AF_EXPERIMENT" in
+  case "$AF_NATIVE_RECIPE_BASE" in
     libero/action_flow_libero10_h240_euler50_dithalf_80k_s42) export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR ;;
     libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42) export LIBERO_SPATIAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
     libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42) export LIBERO_GOAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
@@ -810,6 +842,22 @@ else
   LOG_EVERY=10
   TELEMETRY_EVERY=100
   RECONSTRUCTION_ONLY_WARMUP_STEPS=$AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS
+fi
+
+if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
+  required AF_RESUME_DRIVER_REPO
+  required AF_RESUME_CPU_PROOF
+  required AF_RESUME_CPU_PROOF_SHA256
+  required AF_RESUME_START_STEP
+  required AF_INITIAL_CHECKPOINT_SHA256
+  required AF_PARENT_WANDB_RUN_ID
+  test "$(sha256 "$AF_RESUME_CPU_PROOF")" = "$AF_RESUME_CPU_PROOF_SHA256" || die "resume CPU proof SHA mismatch"
+  test "$(sha256 "$AF_INITIAL_CHECKPOINT")" = "$AF_INITIAL_CHECKPOINT_SHA256" || die "initial checkpoint SHA mismatch"
+  if test "$AF_RUN_KIND" = smoke; then
+    MAX_STEPS=$((AF_RESUME_START_STEP + 4))
+    VALIDATE_EVERY=4
+    LIMIT_TRAIN_BATCHES=1.0
+  fi
 fi
 
 BASE_OVERRIDES=(
@@ -1011,8 +1059,96 @@ else
   die "run mode requires AF_NORM_STATS_PATH and AF_EXPECTED_NORM_SHA256 from a passed preflight"
 fi
 
+if test -n "${AF_INITIAL_CHECKPOINT:-}" && test -n "${AF_RESUME_TYPED_MODEL:-}"; then
+  case "$AF_RESUME_TYPED_MODEL" in noaug|av0) ;; *) die "unsupported typed continuation";; esac
+  test "${AF_HOMOGENEOUS_NUMERICAL_DELTA_ACCEPTED:-}" = false || die "typed continuation requires source-specific raw proof"
+  required AF_RESUME_HELPER_DIR
+  required AF_RESUME_TYPED_CALLBACK_SHA256
+  test "$(sha256 "$AF_RESUME_HELPER_DIR/homogeneous_typed_native_training.py")" = "$AF_RESUME_TYPED_CALLBACK_SHA256" || die "typed callback hash mismatch"
+  BASE_OVERRIDES+=("trainer.deterministic=true" "++trainer.benchmark=false")
+  if test "$AF_RESUME_TYPED_MODEL" = noaug; then
+    test "$AF_H696_EULER" = true || die "noaug model mismatch"
+    BASE_OVERRIDES+=(
+      "+callbacks.homogeneous_dithalf._target_=homogeneous_dithalf_training_typed_native_rows_proposal_v6.HomogeneousDiTHalf"
+      "+callbacks.homogeneous_dithalf.task=$AF_NOAUG_TASK"
+      "+callbacks.homogeneous_dithalf.reference_task=$AF_NOAUG_REFERENCE_TASK"
+      "+callbacks.homogeneous_dithalf.contract_path=$AF_NOAUG_TASK/NOAUG_EXECUTION_CONTRACT_VERIFIED_V2.json"
+      model.hidden_dim=696
+      model.pipeline.stages.6.inference_method=euler
+      model.num_inference_steps=50
+      ++run_provenance.scaled_from_hidden_dim=384
+      ++run_provenance.inference_parameter_count=257829594
+      ++run_provenance.validation_inference_sampler=euler
+      ++run_provenance.validation_inference_updates=50
+    )
+  else
+    test "$AF_SPEED_DIAGNOSTIC" = true && test "$AF_ACTION_VELOCITY_WEIGHT" = 0 || die "AV0 model mismatch"
+    BASE_OVERRIDES+=(
+      "+callbacks.homogeneous_dithalf._target_=av0_native_rows_callback_v5.HomogeneousDiTHalf"
+      "+callbacks.homogeneous_dithalf.task=$AF_AV_ZERO_TASK"
+      "+callbacks.homogeneous_dithalf.reference_task=$AF_HOMOGENEOUS_TASK"
+      "+callbacks.homogeneous_dithalf.contract_path=$AF_EXECUTION_CONTRACT_PATH"
+      "++run_provenance.execution_numerical_contract=raw-required"
+      "++run_provenance.execution_contract_sha256=$AF_EXECUTION_CONTRACT_SHA256"
+      "model.pipeline.stages.8.action_velocity_weight=0"
+      "++run_provenance.objective.action_velocity_weight=0"
+      model.pipeline.stages.6.inference_method=euler
+      model.pipeline.stages.6.num_inference_steps=50
+      ++run_provenance.validation_inference_sampler=euler
+      ++run_provenance.validation_inference_steps=50
+    )
+  fi
+elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
+  # Task-local typed extension of canonical launcher; user accepts the known
+  # grouped BF16 numerical delta, but never a silent sampling/augmentation delta.
+  test "${AF_HOMOGENEOUS_NUMERICAL_DELTA_ACCEPTED:-}" = true || die "explicit numerical authorization required"
+  required AF_HOMOGENEOUS_TASK
+  required AF_HOMOGENEOUS_CALLBACK_SHA256
+  test "$(sha256 "$AF_HOMOGENEOUS_TASK/homogeneous_dithalf_training.py")" = "$AF_HOMOGENEOUS_CALLBACK_SHA256" || die "callback SHA mismatch"
+  # Full-corpus retimed normalization retains shared-memory batch buffers.
+  # The gateway's inherited 1024 descriptor limit failed before completion.
+  ulimit -Sn 131072 || die "speed diagnostic requires RLIMIT_NOFILE >=131072"
+  test "$(ulimit -Sn)" -ge 131072 || die "open-file limit guard failed"
+  printf '[speed-contract] open_file_soft_limit=%s\n' "$(ulimit -Sn)"
+  BASE_OVERRIDES+=(
+    "+callbacks.homogeneous_dithalf._target_=homogeneous_dithalf_training.HomogeneousDiTHalf"
+    "+callbacks.homogeneous_dithalf.task=$AF_HOMOGENEOUS_TASK"
+    "model.pipeline.stages.6.inference_method=euler"
+    "model.pipeline.stages.6.num_inference_steps=50"
+    "++run_provenance.validation_inference_sampler=euler"
+    "++run_provenance.validation_inference_steps=50"
+    "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
+    "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE"
+    "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
+    "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
+    "run_provenance.architecture.decoder=two_private_UniteActionDecoder_h696_d12_h12"
+    "run_provenance.validation.interval_optimizer_steps=$VALIDATE_EVERY"
+    "run_provenance.validation.limit_batches=$LIMIT_VAL_BATCHES"
+  )
+fi
+
+
+if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
+  BASE_OVERRIDES+=("ckpt_path='$AF_INITIAL_CHECKPOINT'")
+  if test "$AF_RUN_KIND" = full; then BASE_OVERRIDES+=("++logger.wandb.resume=must");
+  else BASE_OVERRIDES+=("++logger.wandb.resume=never" "+callbacks.resume_batch_probe._target_=homogeneous_dithalf_training.ResumeBatchProbe"); fi
+  source "$AF_RESUME_DRIVER_REPO/scripts/train/action_flow_checkpoint_resume.sh"
+  exit 0
+fi
+
 if test "$AF_NATIVE_LIBERO" = true && test "$AF_LAUNCH_MODE" != schema; then
-  source "$AF_REPO/scripts/train/libero_native_launch_phases.sh"
+  if test -n "${AF_NATIVE_CONTEXT_RELEASE:-}"; then
+    test "$AF_EXPECTED_HEAD" = 26a3dce73cf6a770c040d3433424915a525c745b || die "external native context source mismatch"
+    case "$AF_NATIVE_CONTEXT_RELEASE" in /*) ;; *) die "absolute external context release required";; esac
+    test "$(sha256 "$AF_NATIVE_CONTEXT_RELEASE/libero_native_launch_phases_context_v3.sh")" = f51a5f2590e7bb48d65b008a2a0e4db0dde70542211359403c08525b5b260f07 || die "external native phase SHA mismatch"
+    test "$(sha256 "$AF_NATIVE_CONTEXT_RELEASE/saved_hydra_context_dataset_identity_v1.py")" = 76713364ac3245ab0bc2434b3d38e1e25f7c2dc2e49627dff9b7b3e0678e35ca || die "external native context SHA mismatch"
+    test "$(sha256 "$AF_NATIVE_CONTEXT_RELEASE/bootstrap_saved_dataset_identity_v1.py")" = c6e95242e8b5b182edb35b57a0b1526fecb6d74ca054269bf6a36e30be249050 || die "external native bootstrap SHA mismatch"
+    printf '[native external certification] model-source=%s phase=f51a5f2590e7bb48d65b008a2a0e4db0dde70542211359403c08525b5b260f07 context=76713364ac3245ab0bc2434b3d38e1e25f7c2dc2e49627dff9b7b3e0678e35ca bootstrap=c6e95242e8b5b182edb35b57a0b1526fecb6d74ca054269bf6a36e30be249050\n' "$AF_EXPECTED_HEAD"
+    source "$AF_NATIVE_CONTEXT_RELEASE/libero_native_launch_phases_context_v3.sh"
+  else
+    source "$AF_REPO/scripts/train/libero_native_launch_phases.sh"
+  fi
   exit 0
 fi
 

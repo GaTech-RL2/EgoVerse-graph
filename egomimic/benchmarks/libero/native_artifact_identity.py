@@ -105,7 +105,9 @@ def _identity_from_resolved(cfg, snapshot_sha, source_head, normalizer_module_sh
         or objective.get('flow_samples_per_content')!=14):
         raise ValueError('historical native sum_samples/14 flow aggregation must be preserved')
     weights={k:objective[k] for k in ('reconstruction_weight','flow_weight','action_velocity_weight')}
-    if any(value!=1. for value in weights.values()):raise ValueError('native objective weights mismatch')
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+    selected_profile=profile_for_config(cfg)
+    if weights != {'reconstruction_weight':1., 'flow_weight':1., 'action_velocity_weight':selected_profile.action_velocity_weight}:raise ValueError('native objective weights mismatch')
     for name,mode in [('train_datasets','train'),('valid_datasets','valid')]:
         datasets=data[name]
         if set(datasets)!={'libero_panda'}:raise ValueError('native single logical source required')

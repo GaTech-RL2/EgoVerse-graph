@@ -16,7 +16,10 @@ def validate_scientific_contract(config,phase,contract_path,expected_contract_sh
     raw=Path(contract_path).read_bytes()
     if hashlib.sha256(raw).hexdigest()!=expected_contract_sha256:raise ValueError('historical scientific-contract hash mismatch')
     reference=json.loads(raw);expected=copy.deepcopy(reference['historical_model'])
+    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_config
+    profile=profile_for_config(config)
     expected['pipeline']['stages'][6]['inference_method']='euler'
+    expected['pipeline']['stages'][8]['action_velocity_weight']=profile.action_velocity_weight
     actual=flatten(config['model']);wanted=flatten(expected)
     # Instrumentation is separately proven by native diagnostics tests; it may
     # change logging/provider schema, never the actual pipeline/optimizer path.
@@ -43,4 +46,4 @@ def validate_scientific_contract(config,phase,contract_path,expected_contract_sh
     for name in ['_target_','energy_sample_count','energy_seed_bank_sha256','diagnostic_raw_noise_levels']:
         if evaluator.get(name)!=he[name]:raise ValueError(('native evaluator contract',name))
     if any(k.startswith('energy_score_validation_view') for k in evaluator):raise ValueError('U-Socket-only evaluator contract leaked')
-    return {'model_contract':'historical_exact_except_requested_euler50_and_instrumentation','objective':'sum_samples_K14','optimizer':'historical_exact','batch':32,'source_count':1,'phase':phase,'gpu_ready':False}
+    return {'model_contract':'historical_exact_except_requested_euler50_and_instrumentation_and_typed_velocity_ablation','action_velocity_weight':profile.action_velocity_weight,'objective':'sum_samples_K14','optimizer':'historical_exact','batch':32,'source_count':1,'phase':phase,'gpu_ready':False}

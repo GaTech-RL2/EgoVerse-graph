@@ -31,6 +31,8 @@ class WholeLauncher(unittest.TestCase):
    'egomimic/hydra_configs/experiment/libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42.yaml',
    'egomimic/hydra_configs/experiment/libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42.yaml',
    'egomimic/hydra_configs/experiment/libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42.yaml']
+  from egomimic.benchmarks.libero.native_launch_profiles import AV0_PROFILES
+  files += ['egomimic/hydra_configs/experiment/'+p.experiment+'.yaml' for p in AV0_PROFILES.values()]
   for rel in files:
    p=self.repo/rel;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(R/rel,p)
   self.launcher=self.repo/files[0]
@@ -52,7 +54,8 @@ case "$1" in
  */libero_native_launch_contract.py)
   printf 'NATIVE_DISPATCH_PREPARE_STOP\\n'
   printf '%s\\n' "$*" > "$SAFE_HANDOFF_LOG"
-  printf '%s\\n' "${LIBERO_SPATIAL_REPLAY_ROOT:-}" > "$SAFE_HANDOFF_LOG.replay"
+  replay_variable=${SAFE_REPLAY_VARIABLE:-LIBERO_SPATIAL_REPLAY_ROOT}
+  printf '%s\\n' "${!replay_variable:-}" > "$SAFE_HANDOFF_LOG.replay"
   exit 91 ;;
  *) printf 'UNEXPECTED_EXTERNAL_TOOL\\n' >&2; exit 92 ;;
 esac
@@ -125,8 +128,9 @@ esac
   argv=(self.root/'output-parent/run/provenance/restart-0/exact-phase.argv0').read_bytes()
   self.assertIn(b'+experiment=libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42\0',argv)
   self.assertEqual((self.root/'handoff.log.replay').read_text().strip(),str(self.root/'data'))
- def test_spatial_ice_actual_whole_path_null_rejected(self):
-  self.assertRejected(self.invoke(**{**self.suite_values('libero_spatial',42),'AF_EXPECTED_GPU_CONSTRAINT':'(null)'}),'AF_EXPECTED_GPU_CONSTRAINT must be H100')
+ def test_spatial_native_actual_whole_path_null_reaches_hardware_guard(self):
+  result=self.invoke(**{**self.suite_values('libero_spatial',42),'AF_EXPECTED_GPU_CONSTRAINT':'(null)'})
+  self.assertEqual(result.returncode,91,result.stdout+result.stderr)
  def test_native_full_positive_restart_cap_and_null_constraint_reach_dispatch(self):
   result=self.invoke(AF_RUN_KIND='full',AF_MAX_RESTARTS='4',
    AF_SMOKE_RESULT=str(self.preflight),AF_EXPECTED_SMOKE_SHA256=sha(self.preflight))
@@ -137,7 +141,7 @@ esac
   self.assertIn(b'trainer.val_check_interval=15000\0',argv)
   self.assertIn(b'++callbacks.model_checkpoint.every_n_train_steps=5000\0',argv)
  def test_native_unsupported_gpu_constraint_rejected(self):
-  self.assertRejected(self.invoke(AF_EXPECTED_GPU_CONSTRAINT='RTX4090'),'native GPU allocation requires')
+  self.assertRejected(self.invoke(AF_EXPECTED_GPU_CONSTRAINT='RTX4090'),'AF_EXPECTED_GPU_CONSTRAINT must be H100')
  def test_native_invalid_restart_counter_rejected(self):
   self.assertRejected(self.invoke(SLURM_RESTART_COUNT='bad'),'invalid SLURM_RESTART_COUNT')
  def test_native_smoke_requeue_cap_must_be_zero(self):
@@ -146,8 +150,9 @@ esac
   self.assertRejected(self.invoke(AF_MAX_RESTARTS='-1'),'native smoke requires AF_MAX_RESTARTS=0')
  def test_native_restart_attempt_rejected(self):
   self.assertRejected(self.invoke(SLURM_RESTART_COUNT='1'),'restart limit exceeded')
- def test_native_wrong_gpu_constraint_rejected(self):
-  self.assertRejected(self.invoke(AF_EXPECTED_GPU_CONSTRAINT='H100'),'native GPU allocation requires')
+ def test_native_h100_constraint_reaches_hardware_guard(self):
+  result=self.invoke(AF_EXPECTED_GPU_CONSTRAINT='H100')
+  self.assertEqual(result.returncode,91,result.stdout+result.stderr)
  def test_native_wrong_precision_rejected(self):
   self.assertRejected(self.invoke(AF_PRECISION='bf16'),'native BF16-mixed required')
  def test_native_wrong_cpu_envelope_rejected_before_tool(self):
@@ -157,6 +162,20 @@ esac
    AF_EXPECTED_CONTENT_MANIFEST_SHA256='a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761',
    AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256='80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52')
   params.update(changes);return self.invoke(**params)
+ def test_av0_suites_reach_same_canonical_phase_with_distinct_identity(self):
+  from egomimic.benchmarks.libero.native_launch_profiles import AV0_PROFILES
+  for suite,profile in AV0_PROFILES.items():
+   with self.subTest(suite=suite):
+    values=self.suite_values(suite,42)
+    values['AF_EXPERIMENT']=profile.experiment
+    values['SAFE_REPLAY_VARIABLE']=profile.replay_environment
+    output=self.root/'output-parent'/('run-'+suite)
+    values['AF_OUTPUT_DIR']=str(output)
+    result=self.invoke(**values)
+    self.assertEqual(result.returncode,91,result.stdout+result.stderr)
+    argv=(output/'provenance/restart-0/exact-phase.argv0').read_bytes()
+    self.assertIn(('+experiment='+profile.experiment+'\0').encode(),argv)
+    self.assertEqual((self.root/'handoff.log.replay').read_text().strip(),str(self.root/'data'))
  def test_general_zero_restart_gate_preserved(self):
   self.assertRejected(self.planar(AF_MAX_RESTARTS='0'),'invalid AF_MAX_RESTARTS')
  def test_general_null_gpu_constraint_gate_preserved(self):

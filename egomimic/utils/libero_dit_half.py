@@ -9,9 +9,19 @@ from lightning import Callback
 
 def resolve_backbones(module):
     stages = tuple(module.model.pipeline.stages)
-    if len(stages) != 9 or type(stages[4]).__name__ != "ContentEncoderStage" or type(stages[6]).__name__ != "ConditionalVelocityStage":
-        raise ValueError("exact native single-source LIBERO stage topology required")
-    return {"encoder": stages[4].encoder.backbone, "velocity": stages[6].field.backbone}
+    names = tuple(type(stage).__name__ for stage in stages)
+    native = len(stages) == 9 and names[4] == "ContentEncoderStage" and names[6] == "ConditionalVelocityStage"
+    oat = names == ("OATObservationStage", "ActionTargetBuilder", "GaussianLatentNoise",
+                    "ContentEncoderStage", "LatentBridgeStage", "ConditionalVelocityStage",
+                    "ContentDecoderStage", "ActionFlowObjectiveStage")
+    if native:
+        encoder, velocity = stages[4], stages[6]
+    elif oat:
+        encoder, velocity = stages[3], stages[5]
+    else:
+        raise ValueError("audited native or OAT-observation single-source LIBERO stage topology required")
+    return {"encoder": encoder.encoder.backbone, "velocity": velocity.field.backbone}
+
 
 
 class HalfCheckpointScope:

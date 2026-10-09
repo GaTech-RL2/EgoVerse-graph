@@ -16,6 +16,9 @@ class _Leaf(Dataset):
     def __len__(self):
         return self.length
 
+    def episode_id_at(self, index):
+        return self.episode_path.stem
+
     def __getitem__(self, index):
         return {
             "episode_hash": self.episode_path.stem,
@@ -37,6 +40,10 @@ class _Multi(Dataset):
 
     def __len__(self):
         return len(self.index_map)
+
+    def episode_id_at(self, index):
+        name, local_index = self.index_map[index]
+        return self.datasets[name].episode_id_at(local_index)
 
     def __getitem__(self, index):
         name, local_index = self.index_map[index]

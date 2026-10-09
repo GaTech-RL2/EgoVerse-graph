@@ -5,6 +5,9 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
 
 - `zarr/zarr_dataset_multi.py`: episode resolvers, `ZarrDataset`, `MultiDataset`,
   normalization, saved schema, bounds checking and annotation cutoffs.
+- `zarr/data_module.py`: configured data lifecycle, immutable normalization
+  context restoration and source validation. `resolve_memo.py` scopes resolver
+  reuse to one preparation call; it is not a persistent cache of SQL results.
 - `embodiment/human.py`, `eva.py`, `yam.py`: raw keymaps and geometric frame
   conventions. `action_mode`, `coord_frame`, `rotation_mode`, camera mappings,
   local-frame corrections and calibration inputs come from YAML.
@@ -17,6 +20,11 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
 - `zarr/e1_resolvers.py`, `zarr/e1_anchor_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.
 - `filters.py`: dataset query builder. Filter values belong in the selected YAML.
+- `zarr/selection.py`: pinned random/paired/custom diagnostic selections and
+  evenly spaced episode sampling; preserve real frame indices.
+- `scripts/viz_language.py`, `scripts/check_data.py` (under `egomimic/`): use
+  the DataModule's preview capabilities without fitting normalization. See
+  [data tools](../../docs/integration/DATA_TOOLS.md).
 
 Transforms produce native values. `MultiDataset` owns normalization; graph
 training/inference consumes normalized values, and evaluation/rollout adapters

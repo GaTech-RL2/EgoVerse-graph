@@ -23,8 +23,11 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
     if not OmegaConf.is_dict(logger_cfg):
         return
     wandb_configs = [
-        value for value in logger_cfg.values()
-        if OmegaConf.is_dict(value) and str(value.get("_target_", "")) in {
+        value
+        for value in logger_cfg.values()
+        if OmegaConf.is_dict(value)
+        and str(value.get("_target_", ""))
+        in {
             "lightning.pytorch.loggers.wandb.WandbLogger",
             "pytorch_lightning.loggers.wandb.WandbLogger",
         }
@@ -40,7 +43,9 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
     metadata = {}
     if restart_count > 0:
         if not env.get("ICE_RESUME_CHECKPOINT"):
-            raise ValueError("automatic W&B resume requires the runner-selected checkpoint")
+            raise ValueError(
+                "automatic W&B resume requires the runner-selected checkpoint"
+            )
         metadata = json.loads(env.get("ICE_RESUME_CHECKPOINT_METADATA_JSON", "{}"))
         if not isinstance(metadata, dict):
             raise ValueError("runner checkpoint metadata must be a JSON object")
@@ -48,15 +53,23 @@ def configure_runner_wandb(cfg: DictConfig, environ=None) -> None:
         raw_id = OmegaConf.to_container(logger, resolve=False).get("id")
         run_id = logger.get("id")
         if not isinstance(run_id, str) or not run_id.strip() or "${now:" in str(raw_id):
-            raise ValueError("runner-owned W&B logging requires an explicit stable logger id")
+            raise ValueError(
+                "runner-owned W&B logging requires an explicit stable logger id"
+            )
         if restart_count > 0:
-            recorded_ids = [metadata[key] for key in ("wandb_run_id", "run_id") if metadata.get(key)]
+            recorded_ids = [
+                metadata[key] for key in ("wandb_run_id", "run_id") if metadata.get(key)
+            ]
             if not recorded_ids or any(value != run_id for value in recorded_ids):
-                raise ValueError("W&B logger id does not match the runner checkpoint run identity")
+                raise ValueError(
+                    "W&B logger id does not match the runner checkpoint run identity"
+                )
             for field in ("entity", "project"):
                 recorded = metadata.get(f"wandb_{field}")
                 if recorded is not None and logger.get(field) != recorded:
-                    raise ValueError(f"W&B logger {field} does not match the runner checkpoint")
+                    raise ValueError(
+                        f"W&B logger {field} does not match the runner checkpoint"
+                    )
         with open_dict(logger):
             logger.resume = "must" if restart_count > 0 else "never"
 

@@ -5,6 +5,9 @@ from functools import partial
 from pathlib import Path
 
 import torch
+from collections.abc import Mapping
+
+import hydra
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, default_collate
@@ -12,6 +15,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset, default_collate
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 from egomimic.rldb.zarr.proportional_batch_sampler import ProportionalHomogeneousBatchSampler
+from egomimic.eval.eval import EvaluationDataRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -21,106 +25,54 @@ logger = logging.getLogger(__name__)
 DEFAULT_VALID_GROUP = "valid"
 
 
-def _is_embodiment_name(name) -> bool:
-    """True when *name* names an embodiment the loader keys can carry.
+def _is_dataset_leaf(value):
+    return not isinstance(value, Mapping) or "_target_" in value
 
-    This is what separates the two shapes `valid_datasets` accepts. Note the
-    pipeline runner itself treats source keys as opaque -- it never resolves an
-    embodiment -- so this lookup is used ONLY to disambiguate config shape here,
-    never to route a batch.
+
+def as_valid_groups(valid_datasets: dict, *, layout: str = "auto") -> dict:
+    """Normalize source/group structure without interpreting source names.
+
+    Auto accepts dataset objects or Hydra target mappings as leaves. Adapters
+    whose dataset objects themselves implement Mapping must declare a layout.
     """
-    try:
-        get_embodiment_id(str(name))
-    except (KeyError, AttributeError):
-        return False
-    return True
-
-
-def as_valid_groups(valid_datasets: dict) -> dict:
-    """Normalise `valid_datasets` to `{group_name: {source: dataset}}`.
-
-    Two accepted shapes:
-
-      * FLAT -- `{source: dataset}`. Every key is an embodiment name, so the
-        whole mapping becomes the single `DEFAULT_VALID_GROUP` group. This is
-        the historical shape and stays identical in behaviour.
-      * GROUPED -- `{group_name: {source: dataset}}`. Keys are arbitrary labels
-        (`valid`, `newtask`, ...), each mapping to a per-source dict. Lightning
-        runs one val loop per group, in insertion order.
-
-    The shapes are told apart by whether the top-level keys are embodiment
-    names rather than by inspecting value types -- hydra hands us instantiated
-    objects for the flat shape and DictConfig/dict for the grouped one, and
-    that distinction is fragile across omegaconf versions.
-    """
+    if layout not in {"auto", "flat", "grouped"}:
+        raise ValueError("validation layout must be auto, flat or grouped")
     if not valid_datasets:
         return {}
-
-    keys = list(valid_datasets.keys())
-    if all(_is_embodiment_name(key) for key in keys):
+    leaves = [_is_dataset_leaf(v) for v in valid_datasets.values() if v is not None]
+    if layout == "flat" or (layout == "auto" and all(leaves)):
         return {DEFAULT_VALID_GROUP: dict(valid_datasets)}
-
-    mixed = [key for key in keys if _is_embodiment_name(key)]
-    if mixed:
-        raise ValueError(
-            "valid_datasets mixes embodiment keys with val-group keys "
-            f"({mixed} look like embodiments, "
-            f"{[key for key in keys if key not in mixed]} do not). Use either "
-            "{source: dataset} or {group: {source: dataset}}, not both."
-        )
-
+    if layout == "auto" and any(leaves):
+        raise ValueError("valid_datasets mixes dataset leaves and validation groups")
     groups = {}
-    for group_name, members in valid_datasets.items():
-        try:
-            members = dict(members)
-        except TypeError as exc:
+    for name, members in valid_datasets.items():
+        if members is None:
+            continue
+        if not isinstance(members, Mapping):
+            raise ValueError(f"val group {name!r} must map source -> dataset")
+        if any(not _is_dataset_leaf(v) for v in members.values()):
             raise ValueError(
-                f"val group {group_name!r} must map source -> dataset, got "
-                f"{type(members).__name__}."
-            ) from exc
-        bad = [key for key in members if not _is_embodiment_name(key)]
-        if bad:
-            raise ValueError(
-                f"val group {group_name!r} has non-embodiment keys {bad}. A "
-                "group's keys name datasets, so they must be embodiment names; "
-                "nesting groups inside groups is not supported."
+                f"val group {name!r} contains nested groups; only one level is supported"
             )
-        groups[group_name] = members
+        groups[name] = dict(members)
     return groups
 
 
-def _params_for_group(valid_dataloader_params: dict, group_name: str) -> dict:
-    """Per-group dataloader params, falling back to a single shared block.
-
-    `valid_dataloader_params` may be keyed by source (one block shared by every
-    group) or by group name (a block per group). The former is the historical
-    shape.
-    """
-    if not valid_dataloader_params:
-        return {}
-    if all(_is_embodiment_name(key) for key in valid_dataloader_params):
-        return valid_dataloader_params
-    return valid_dataloader_params.get(group_name, {})
+def _params_for_group(params: dict, group_name: str, source_names) -> dict:
+    group = params.get(group_name)
+    if isinstance(group, Mapping) and set(group).issubset(source_names):
+        return group
+    return params
 
 
 def _episode_id_at(dataset: Dataset, index: int) -> str:
-    """Resolve an episode id without loading a sample or decoding images."""
-
-    index_map = getattr(dataset, "index_map", None)
-    datasets = getattr(dataset, "datasets", None)
-    if index_map is not None and datasets is not None:
-        dataset_name, local_index = index_map[index]
-        return _episode_id_at(datasets[dataset_name], int(local_index))
-
-    episode_path = getattr(dataset, "episode_path", None)
-    if episode_path is None:
+    capability = getattr(dataset, "episode_id_at", None)
+    if not callable(capability):
         raise TypeError(
-            "limit_val_episodes requires a dataset exposing either index_map/"
-            "datasets or episode_path; got "
-            f"{type(dataset).__name__}"
+            f"Complete-episode validation requires episode_id_at(index); "
+            f"{type(dataset).__name__} does not declare that capability"
         )
-    name = Path(episode_path).name
-    return name[:-5] if name.endswith(".zarr") else name
+    return str(capability(index))
 
 
 class EpisodeLimitedDataset(Dataset):
@@ -180,6 +132,11 @@ class MultiDataModuleWrapper(LightningDataModule):
         compatibility_mode: str = "current",
         valid_episode_limit: int | None = None,
         force_valid_order: bool = False,
+        validation_layout: str = "auto",
+        collate_fn=None,
+        train_loader_mode: str = "max_size_cycle",
+        valid_loader_mode: str = "max_size_cycle",
+        source_fps: float | None = None,
     ):
         """
         Args:
@@ -202,7 +159,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         # `None` slots inside each group.
         self.valid_groups = {
             group: {k: v for k, v in members.items() if v is not None}
-            for group, members in as_valid_groups(valid_datasets).items()
+            for group, members in as_valid_groups(
+                valid_datasets, layout=validation_layout
+            ).items()
         }
         self.valid_groups = {g: m for g, m in self.valid_groups.items() if m}
         self.valid_episode_limit = (
@@ -237,7 +196,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.seed = int(seed)
         self._loader_generators = {}
         self._restored_generator_states = {}
-        self.collate_fn = annotation_collate
+        self.collate_fn = collate_fn or annotation_collate
+        self.train_loader_mode = train_loader_mode
+        self.valid_loader_mode = valid_loader_mode
+        self.source_fps = source_fps
 
     def _loader_generator(self, split: str, dataset_name: str) -> torch.Generator | None:
         # c12 consumed the global CPU RNG for both shuffle and worker seeds.
@@ -297,6 +259,111 @@ class MultiDataModuleWrapper(LightningDataModule):
             for source, dataset in members.items():
                 yield group, source, dataset
 
+    def configure_evaluation(self, requirements: EvaluationDataRequirements):
+        if not isinstance(requirements, EvaluationDataRequirements):
+            raise TypeError("Evaluator must return EvaluationDataRequirements")
+        self.force_valid_order |= requirements.ordered or requirements.complete_episodes
+        if (
+            requirements.source_fps is not None
+            and self.source_fps != requirements.source_fps
+        ):
+            raise ValueError(
+                f"Evaluator requires source_fps={requirements.source_fps}; data declares {self.source_fps}"
+            )
+        for group, source, dataset in self.iter_valid_datasets():
+            if not len(dataset):
+                raise ValueError(f"Validation dataset {group}/{source} is empty")
+            if requirements.complete_episodes or requirements.max_episodes is not None:
+                _episode_id_at(dataset, 0)
+                if requirements.complete_episodes:
+                    frame_at = getattr(dataset, "frame_index_at", None)
+                    length_at = getattr(dataset, "episode_length_at", None)
+                    if not callable(frame_at) or not callable(length_at):
+                        raise TypeError(
+                            "Complete episodes require frame_index_at(index) and episode_length_at(index)"
+                        )
+                    finished, current, expected = set(), None, 0
+                    for index in range(len(dataset)):
+                        episode = _episode_id_at(dataset, index)
+                        if episode != current:
+                            if current is not None and expected != length_at(index - 1):
+                                raise ValueError(
+                                    f"Validation episode is missing its tail: {group}/{source}/{current}"
+                                )
+                            if episode in finished:
+                                raise ValueError(
+                                    f"Validation episodes are interleaved: {group}/{source}"
+                                )
+                            finished.add(episode)
+                            current, expected = episode, 0
+                        if frame_at(index) != expected:
+                            raise ValueError(
+                                f"Validation episode is incomplete or unordered: {group}/{source}/{episode}, expected frame {expected}"
+                            )
+                        expected += 1
+                    if expected != length_at(len(dataset) - 1):
+                        raise ValueError(
+                            f"Validation episode is missing its tail: {group}/{source}/{current}"
+                        )
+            required_keys = {
+                requirements.sample_id_key,
+                requirements.frame_index_key,
+            } - {None}
+            required_keys.update(requirements.required_keys)
+            if required_keys:
+                missing = required_keys - set(dataset[0])
+                if missing:
+                    raise ValueError(
+                        f"Validation dataset {group}/{source} lacks metadata {sorted(missing)}"
+                    )
+            params = _params_for_group(
+                self.valid_dataloader_params, group, set(self.valid_groups[group])
+            )
+            options = params.get(source, {})
+            if self.force_valid_order and options.get("sampler") is not None:
+                raise ValueError(
+                    f"Ordered validation does not accept an undeclared sampler: {group}/{source}"
+                )
+            if requirements.complete_episodes and options.get("drop_last", False):
+                raise ValueError(
+                    f"Complete episodes require drop_last=False: {group}/{source}"
+                )
+            if requirements.max_episodes is not None:
+                self.valid_groups[group][source] = EpisodeLimitedDataset(
+                    dataset, requirements.max_episodes
+                )
+        self.valid_datasets = self.valid_groups.get(
+            DEFAULT_VALID_GROUP, next(iter(self.valid_groups.values()), {})
+        )
+
+    def _make_loader(self, dataset, params, *, default_shuffle, generator=None):
+        params = dict(params)
+        sampler = params.pop("sampler", None)
+        anchor_sampler = params.pop("anchor_sampler", None)
+        if anchor_sampler is not None:
+            if sampler is not None:
+                raise ValueError("Declare sampler or anchor_sampler, not both")
+            from omegaconf import OmegaConf
+            from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
+
+            if OmegaConf.is_config(anchor_sampler):
+                anchor_sampler = OmegaConf.to_container(anchor_sampler, resolve=True)
+            sampler = build_anchor_sampler(dataset, **dict(anchor_sampler))
+        collate = params.pop("collate_fn", self.collate_fn)
+        if isinstance(collate, Mapping):
+            collate = hydra.utils.instantiate(collate)
+        if isinstance(sampler, Mapping):
+            sampler = hydra.utils.instantiate(sampler, dataset=dataset)
+        shuffle = params.pop("shuffle", default_shuffle)
+        return DataLoader(
+            dataset,
+            sampler=sampler,
+            shuffle=False if sampler is not None else shuffle,
+            collate_fn=collate,
+            generator=generator,
+            **params,
+        )
+
     def train_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
@@ -306,36 +373,17 @@ class MultiDataModuleWrapper(LightningDataModule):
                     f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config train_dataloader_params."
                 )
             dataset_params = dict(dataset_params)
-            sampler_cfg = dataset_params.pop("anchor_sampler", None)
-            if sampler_cfg:
-                from omegaconf import OmegaConf
-
-                from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
-
-                if OmegaConf.is_config(sampler_cfg):
-                    sampler_cfg = OmegaConf.to_container(sampler_cfg, resolve=True)
-                sampler = build_anchor_sampler(dataset, **dict(sampler_cfg))
-                dataset_params.pop("shuffle", None)
-                iterables[dataset_name] = DataLoader(
-                    dataset,
-                    sampler=sampler,
-                    generator=self._loader_generator("train", dataset_name),
-                    collate_fn=self.collate_fn,
-                    **dataset_params,
-                )
-                continue
-            iterables[dataset_name] = DataLoader(
-                dataset,
-                shuffle=True,
+            iterables[dataset_name] = self._make_loader(
+                dataset, dataset_params, default_shuffle=True,
                 generator=self._loader_generator("train", dataset_name),
-                collate_fn=self.collate_fn,
-                **dataset_params,
             )
 
-        return CombinedLoader(iterables, "max_size_cycle")
+        return CombinedLoader(iterables, self.train_loader_mode)
 
     def _val_loader_for_group(self, group_name: str) -> CombinedLoader:
-        group_params = _params_for_group(self.valid_dataloader_params, group_name)
+        group_params = _params_for_group(
+            self.valid_dataloader_params, group_name, set(self.valid_groups[group_name])
+        )
         iterables = dict()
         for dataset_name, dataset in self.valid_groups[group_name].items():
             dataset_params = group_params.get(dataset_name)
@@ -353,17 +401,12 @@ class MultiDataModuleWrapper(LightningDataModule):
                     dataset_name,
                 )
             shuffle = False if self.force_valid_order else requested_shuffle
-            iterables[dataset_name] = DataLoader(
-                dataset,
-                shuffle=shuffle,
-                generator=self._loader_generator(
-                    f"valid:{group_name}", dataset_name
-                ),
-                collate_fn=self.collate_fn,
-                **dataset_params,
+            iterables[dataset_name] = self._make_loader(
+                dataset, dataset_params, default_shuffle=shuffle,
+                generator=self._loader_generator(f"valid:{group_name}", dataset_name),
             )
 
-        return CombinedLoader(iterables, "max_size_cycle")
+        return CombinedLoader(iterables, self.valid_loader_mode)
 
     def val_dataloader(self):
         """One CombinedLoader per val group.
@@ -568,6 +611,7 @@ def _extract_keys(batch, keys):
 
 def annotation_collate(batch):
     """Collate that preserves variable-length list-valued keys (e.g. annotation_keys)."""
+    batch = [dict(sample) for sample in batch]
     extracted = _extract_list_keys(batch)
     collated = default_collate(batch)
     collated.update(extracted)

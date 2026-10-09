@@ -78,7 +78,9 @@ def make_layout(root: Path) -> tuple[Path, Path, Path, Path, Path]:
     return scratch, run, state, checkpoint, manifest
 
 
-def worker_args(manifest: Path, state: Path, scratch: Path, index: int = 0) -> list[str]:
+def worker_args(
+    manifest: Path, state: Path, scratch: Path, index: int = 0
+) -> list[str]:
     return [
         "--manifest",
         str(manifest),
@@ -134,7 +136,14 @@ class MirrorPoolTest(unittest.TestCase):
             remote: dict[str, str] = {}
 
             def fake_mirror(
-                path, digest, remote_dir, host, ssh, rsync, rsync_rsh, temporary_tag=None
+                path,
+                digest,
+                remote_dir,
+                host,
+                ssh,
+                rsync,
+                rsync_rsh,
+                temporary_tag=None,
             ):
                 self.assertEqual(temporary_tag, POOL.task_key(path)[:24])
                 destination = f"/remote/{digest}"
@@ -164,7 +173,14 @@ class MirrorPoolTest(unittest.TestCase):
             remote: dict[str, str] = {}
 
             def fake_mirror(
-                path, digest, remote_dir, host, ssh, rsync, rsync_rsh, temporary_tag=None
+                path,
+                digest,
+                remote_dir,
+                host,
+                ssh,
+                rsync,
+                rsync_rsh,
+                temporary_tag=None,
             ):
                 destination = f"/remote/{digest}"
                 remote[destination] = digest
@@ -233,7 +249,14 @@ class MirrorPoolTest(unittest.TestCase):
             remote: dict[str, str] = {}
 
             def fake_mirror(
-                path, digest, remote_dir, host, ssh, rsync, rsync_rsh, temporary_tag=None
+                path,
+                digest,
+                remote_dir,
+                host,
+                ssh,
+                rsync,
+                rsync_rsh,
+                temporary_tag=None,
             ):
                 destination = f"/remote/{digest}"
                 remote[destination] = digest
@@ -252,7 +275,9 @@ class MirrorPoolTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertFalse((state / "mirror-complete.json").exists())
             saved = json.loads((state / "mirror-state.json").read_text())
-            self.assertTrue(saved["files"][str(checkpoint.resolve())]["remote_verified"])
+            self.assertTrue(
+                saved["files"][str(checkpoint.resolve())]["remote_verified"]
+            )
 
     def test_worker_count_and_index_are_fail_closed(self):
         with tempfile.TemporaryDirectory() as raw:

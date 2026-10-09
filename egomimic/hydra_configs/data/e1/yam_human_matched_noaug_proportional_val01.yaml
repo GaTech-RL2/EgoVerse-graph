@@ -1,5 +1,5 @@
 # Unaugmented complete native windows; guard excludes padded tails.
-_target_: egomimic.pl_utils.pl_data_utils.ProportionalMultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ProportionalZarrDataModule
 proportional_train_batch_size: 8
 proportional_train_num_workers: 12
 proportional_train_seed: 42

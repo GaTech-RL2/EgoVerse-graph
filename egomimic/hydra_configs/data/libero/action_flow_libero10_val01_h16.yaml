@@ -1,4 +1,5 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.LiberoDataModule
+run_provenance: ${oc.select:run_provenance,null}
 train_datasets:
   libero_panda: &dataset
     _target_: egomimic.rldb.zarr.libero_action_flow.LiberoActionFlowDataset._from_resolver

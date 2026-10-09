@@ -127,7 +127,9 @@ def main() -> None:
             **common(joint_id, seed),
             "architecture": "multi_action_adapter_flow",
             "variant": "shared_action_flow_g_rec100",
-            "datasets": {name: str(values["train"]) for name, values in datasets.items()},
+            "datasets": {
+                name: str(values["train"]) for name, values in datasets.items()
+            },
             "evaluation_datasets": {
                 name: str(values["eval"]) for name, values in datasets.items()
             },
@@ -178,7 +180,9 @@ def main() -> None:
             "note": "joint run sees the same examples per embodiment per optimizer step; compare the joint system against each pair of independent systems",
         },
     }
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (args.output_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

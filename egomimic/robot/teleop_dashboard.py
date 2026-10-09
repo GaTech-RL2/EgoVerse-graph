@@ -97,6 +97,15 @@ DEFAULTS = {
 STATIC = Path(__file__).with_name("teleop_dashboard_static")
 
 
+def validate_episode_length(value: object) -> int | None:
+    """A null limit means manual save only; otherwise require whole frames."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+        raise ValueError("recording.episode_length must be a positive integer or null")
+    return int(value)
+
+
 def validate_dashboard_config(config: dict | None) -> dict:
     """Return a complete, local-only dashboard configuration."""
     config = {} if config is None else dict(config)
@@ -152,7 +161,12 @@ class TeleopDashboard:
     """Browser preview and existing-key bridge for three-camera GELLO teleop."""
 
     def __init__(
-        self, cameras, keys: dict[str, str], recording_directory=None, **config
+        self,
+        cameras,
+        keys: dict[str, str],
+        recording_directory=None,
+        gripper_force_limits: dict[str, float] | None = None,
+        **config,
     ) -> None:
         self.config = validate_dashboard_config(config)
         self.cameras = tuple(cameras)
@@ -162,6 +176,10 @@ class TeleopDashboard:
             str(action): str(key).lower() for action, key in keys.items()
         }
         self.keys = set(self.key_bindings.values())
+        self.gripper_force_limits = {
+            str(arm): float(force)
+            for arm, force in (gripper_force_limits or {}).items()
+        }
         self.recording_directory = (
             None if recording_directory is None else Path(recording_directory)
         )
@@ -174,6 +192,9 @@ class TeleopDashboard:
         self._status = "Starting"
         self._episode_id: int | None = None
         self._episode_state = "next"
+        self._episode_length: int | None = None
+        self._recorded_frames = 0
+        self._recording_rate_hz = 30.0
         self._updated_at = 0.0
         self._clients = 0
         self._camera_reconnect_requested = threading.Event()
@@ -225,6 +246,12 @@ class TeleopDashboard:
         with self._lock:
             self._status = str(status)
 
+    def set_gripper_force_limits(self, limits: dict[str, float]) -> None:
+        with self._lock:
+            for arm, value in limits.items():
+                if arm in self.gripper_force_limits:
+                    self.gripper_force_limits[arm] = float(value)
+
     def set_episode(self, episode_id: int, state: str = "next") -> None:
         """Publish the collector-owned episode ID and its recording state."""
         if (
@@ -244,6 +271,16 @@ class TeleopDashboard:
         with self._lock:
             self._status = "Camera reconnect requested — followers will disarm"
         self._camera_reconnect_requested.set()
+
+    def set_episode_length(
+        self, episode_length: int | None, recorded_frames: int, rate_hz: float
+    ) -> None:
+        """Publish collector-confirmed limits and progress, never command a robot."""
+        episode_length = validate_episode_length(episode_length)
+        with self._lock:
+            self._episode_length = episode_length
+            self._recorded_frames = int(recorded_frames)
+            self._recording_rate_hz = float(rate_hz)
 
     def take_camera_reconnect_request(self) -> bool:
         """Return one explicit browser recovery request to the collection loop."""
@@ -272,6 +309,34 @@ class TeleopDashboard:
         except queue.Full:
             pass
 
+    def _enqueue_gripper_force(self, request: object) -> None:
+        if not isinstance(request, dict):
+            return
+        arm = request.get("arm")
+        value = request.get("value")
+        if arm not in self.gripper_force_limits:
+            return
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return
+        if not np.isfinite(value) or not 1 <= value <= 50:
+            return
+        try:
+            self._keys.put_nowait({"gripper_force": {"arm": arm, "value": value}})
+        except queue.Full:
+            pass
+
+    def _enqueue_episode_length(self, value: object) -> None:
+        try:
+            episode_length = validate_episode_length(value)
+        except ValueError:
+            return
+        try:
+            self._keys.put_nowait({"episode_length": episode_length})
+        except queue.Full:
+            pass
+
     def _snapshot(self) -> dict:
         with self._lock:
             return {
@@ -280,6 +345,10 @@ class TeleopDashboard:
                 "status": self._status,
                 "episode": self._episode_id,
                 "episode_state": self._episode_state,
+                "episode_length": self._episode_length,
+                "recorded_frames": self._recorded_frames,
+                "recording_rate_hz": self._recording_rate_hz,
+                "gripper_force_limits": self.gripper_force_limits.copy(),
                 "updated_at": self._updated_at,
             }
 
@@ -317,6 +386,8 @@ class TeleopDashboard:
                     "type": "config",
                     "cameras": self.cameras,
                     "keys": self.key_bindings,
+                    "gripper_force_limits": self.gripper_force_limits,
+                    "episode_length": self._snapshot()["episode_length"],
                 }
             )
             try:
@@ -326,6 +397,9 @@ class TeleopDashboard:
                             command = json.loads(message.data)
                             self._enqueue_key(command.get("key"))
                             self._enqueue_episode(command.get("episode"))
+                            self._enqueue_gripper_force(command.get("gripper_force"))
+                            if "episode_length" in command:
+                                self._enqueue_episode_length(command["episode_length"])
                             if command.get("reconnect_cameras") is True:
                                 self.request_camera_reconnect()
                         except (AttributeError, json.JSONDecodeError):
@@ -414,6 +488,10 @@ class TeleopDashboard:
                     "status": snapshot["status"],
                     "episode": snapshot["episode"],
                     "episode_state": snapshot["episode_state"],
+                    "episode_length": snapshot["episode_length"],
+                    "recorded_frames": snapshot["recorded_frames"],
+                    "recording_rate_hz": snapshot["recording_rate_hz"],
+                    "gripper_force_limits": snapshot["gripper_force_limits"],
                     "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
                 }
                 for client in tuple(clients):

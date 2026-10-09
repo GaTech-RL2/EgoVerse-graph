@@ -1,4 +1,5 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
 
 # U-Socket keeps the native normalized [x,y,theta] observation state while
 # exposing actions to the model as [x,y,cos(theta),sin(theta)].  The conversion

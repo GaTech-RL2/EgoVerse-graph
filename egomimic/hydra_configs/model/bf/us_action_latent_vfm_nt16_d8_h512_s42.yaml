@@ -5,6 +5,10 @@ training_behavior:
   _target_: egomimic.pl_utils.training_behavior_action_latent_vfm.ActionLatentVFMTrainingBehavior
 diagnostic_provider:
   _target_: egomimic.eval.pipeline_diagnostics.ActionLatentVFMDiagnosticProvider
+  encoder_id: encoder
+  velocity_id: velocity
+  decoder_id: decoder
+  prefix_stage_ids: [proprio, observations, target, noise]
 
 num_latent_tokens: 16
 latent_dim: 8
@@ -18,6 +22,7 @@ gradient_telemetry_cadence: 100
 
 pipeline:
   _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids: {proprio: 0, observations: 1, target: 2, noise: 3, encoder: 4, velocity: 8, decoder: 11}
   stages:
     - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
       selector_key: embodiment
@@ -154,3 +159,9 @@ scheduler:
   warmup_steps: 8000
   warmup_start_factor: 0.1
   eta_min: 3.0e-6
+
+# Model-owned deployment compatibility.
+inference:
+  status: unsupported
+  reason: This simulation recipe has no deployment observation/action adapter. Use
+    its configured simulator evaluator; declare an inference adapter before deployment.

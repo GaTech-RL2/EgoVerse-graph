@@ -1,0 +1,5 @@
+# Compatibility name for saved commands/configs; architecture is shared.
+# Canonical definition: hpt_bc_flow_human.yaml
+defaults:
+  - hpt_bc_flow_human
+  - _self_

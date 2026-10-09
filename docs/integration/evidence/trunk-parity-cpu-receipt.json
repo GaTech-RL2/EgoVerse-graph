@@ -1,0 +1,20 @@
+{
+  "tree": "fa0165c8884cabd968bcc74d558e62be9b51b5d5",
+  "snapshot": "8db359eabdfd2b1cd903f49cd8e66da3df6e8a03",
+  "parent": "1118d531e09800bc2b9cf3a3dc6ecd9b04850995",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-trunk-validation-20260924",
+  "status": "passed",
+  "tests": 1454,
+  "warnings": 41,
+  "seconds": 201.78,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "log_sha256": "06b620b49146ab82ba61b4a199fc77520ce68fc7199c0e879048a8172112bcf6",
+  "yaml_contexts": 254,
+  "constructor_contexts": 254,
+  "scope": "isolated full CPU suite including original HPT trunk namespace/numerics; GPU and assembled-tree gates remain open",
+  "post_validation_changes": [
+    "this receipt",
+    "docs/integration/PLAN.md status only",
+    "docs/integration/evidence/destination-preflight.json read-only metadata"
+  ]
+}

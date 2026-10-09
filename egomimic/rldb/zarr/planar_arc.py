@@ -181,9 +181,7 @@ def curvature_adaptive_curve_samples(
     importance = np.concatenate(
         (
             np.zeros(1),
-            np.cumsum(
-                0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s
-            ),
+            np.cumsum(0.5 * (weighted_arc[:-1] + weighted_arc[1:]) * delta_s),
         )
     )
     if importance[-1] <= epsilon:

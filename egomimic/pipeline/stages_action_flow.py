@@ -303,13 +303,9 @@ class LatentBridgeStage(Stage):
         if self.time_sampling == "uniform":
             return torch.rand(count, dtype=torch.float32, device=device)
         normal = torch.randn(count, dtype=torch.float32, device=device)
-        clean_fraction = torch.sigmoid(
-            normal * self.lognorm_sigma + self.lognorm_mu
-        )
+        clean_fraction = torch.sigmoid(normal * self.lognorm_sigma + self.lognorm_mu)
         alpha = clean_fraction.new_tensor(self.timestep_shift_alpha)
-        clean_fraction = alpha * clean_fraction / (
-            1.0 + (alpha - 1.0) * clean_fraction
-        )
+        clean_fraction = alpha * clean_fraction / (1.0 + (alpha - 1.0) * clean_fraction)
         # This bridge uses t=0 clean and t=1 Gaussian.
         return 1.0 - clean_fraction
 
@@ -447,8 +443,15 @@ class ConditionalVelocityStage(Stage):
         )
         self.residual_key = _key(residual_key, label="residual_key")
         self.flow_residual_key = _key(flow_residual_key, label="flow_residual_key")
-        if len({self.predicted_velocity_key, self.residual_key, self.flow_residual_key}) != 3:
-            raise ValueError("prediction, residual, and FM residual keys must be distinct")
+        if (
+            len(
+                {self.predicted_velocity_key, self.residual_key, self.flow_residual_key}
+            )
+            != 3
+        ):
+            raise ValueError(
+                "prediction, residual, and FM residual keys must be distinct"
+            )
         self.inference_noise_key = _key(
             inference_noise_key, label="inference_noise_key"
         )
@@ -572,22 +575,17 @@ class ConditionalVelocityStage(Stage):
         )
 
         def guided_velocity(latent: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
-            conditioned = self._predict(
-                latent, time, condition, conditioned_mask
-            )
+            conditioned = self._predict(latent, time, condition, conditioned_mask)
             if self.cfg_scale <= 1.0:
                 return conditioned
-            unconditioned = self._predict(
-                latent, time, condition, ~conditioned_mask
-            )
-            guided = unconditioned + self.cfg_scale * (
-                conditioned - unconditioned
-            )
+            unconditioned = self._predict(latent, time, condition, ~conditioned_mask)
+            guided = unconditioned + self.cfg_scale * (conditioned - unconditioned)
             start, end = self.cfg_interval
             active = ((time < end) & ((start == 0.0) | (time > start))).reshape(
                 int(time.shape[0]), *([1] * (latent.ndim - 1))
             )
             return torch.where(active, guided, conditioned)
+
         if self.inference_method == "dopri5":
             try:
                 from torchdiffeq import odeint
@@ -603,9 +601,7 @@ class ConditionalVelocityStage(Stage):
                 dtype=torch.float32,
             )
             alpha = raw_grid.new_tensor(self.timestep_shift_alpha)
-            clean_progress = alpha * raw_grid / (
-                1.0 + (alpha - 1.0) * raw_grid
-            )
+            clean_progress = alpha * raw_grid / (1.0 + (alpha - 1.0) * raw_grid)
             grid = 1.0 - clean_progress
 
             def velocity(

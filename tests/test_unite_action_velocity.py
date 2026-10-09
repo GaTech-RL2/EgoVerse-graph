@@ -18,7 +18,6 @@ from egomimic.pl_utils.training_behavior_unite import (
     ReleasedUniteTrainingBehavior,
 )
 
-
 DOMAIN = "pushshapes_sim_u_socket"
 
 
@@ -105,7 +104,9 @@ def test_decoder_jvp_matches_linear_action_metric():
     latent = torch.randn(4, 3, requires_grad=True)
     residual = torch.randn(4, 3, requires_grad=True)
     expected = (residual @ decoder.weight.T).square().mean()
-    actual = decoder_action_velocity_loss(decoder, latent.unsqueeze(1), residual.unsqueeze(1))
+    actual = decoder_action_velocity_loss(
+        decoder, latent.unsqueeze(1), residual.unsqueeze(1)
+    )
     torch.testing.assert_close(actual, expected)
 
 
@@ -124,9 +125,7 @@ def test_unite_av_is_finite_and_reaches_encoder_denoiser_and_decoder():
     torch.manual_seed(17)
     policy = _policy(1).train()
     _activate_initially_zero_latent_projection(policy)
-    output = ReleasedRecipeUniteObjective(action_velocity_weight=1.0)(
-        policy(_batch())
-    )
+    output = ReleasedRecipeUniteObjective(action_velocity_weight=1.0)(policy(_batch()))
     loss = output["loss/unite_action_velocity"]
     assert loss.ndim == 0 and bool(torch.isfinite(loss)) and float(loss) > 0.0
     loss.backward()

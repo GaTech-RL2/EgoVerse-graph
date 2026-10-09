@@ -230,7 +230,9 @@ class VisualCore(nn.Module):
             # was: square image_size for both -> wrong for 480x640 frames
             backbone_size_h, backbone_size_w = self._in_hw
 
-        weights = "DEFAULT" if pretrained else None
+        from egomimic.pipeline.construction import restoring_parameters
+
+        weights = "DEFAULT" if pretrained and not restoring_parameters() else None
         if resnet_model == "resnet18_half":
             if pretrained:
                 raise ValueError("resnet18_half has no pretrained weights")

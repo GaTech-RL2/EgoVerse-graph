@@ -2,7 +2,9 @@
 # (983 in the episode table, all yam_bimanual; the zarr attrs still say
 # eva_bimanual, hence the embodiment override). Front camera + EE pose only,
 # mirroring the mecka rows. Split folders from build_splits.py, no SQL.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   yam_bimanual:
@@ -66,7 +68,7 @@ train_dataloader_params:
   yam_bimanual:
     batch_size: 128
     num_workers: 12
-    anchor_sampler: ${e1.anchor_sampler}
+    sampler: ${e1.anchor_sampler}
 
 valid_dataloader_params:
   yam_bimanual:

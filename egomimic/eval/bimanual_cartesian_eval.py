@@ -6,14 +6,11 @@ normalized and native MSE, aggregated across embodiments -- and adds the overlay
 plumbing the arc-branch evaluator used: predicted vs. ground-truth trajectories
 projected through per-embodiment revert transforms.
 
-Video output matches the main EgoVerse ``EvalVideo`` format: one h264 mp4 per
-episode under ``val_videos/epoch_{N}/[group/]{embodiment}/{episode_hash}.mp4``
-at 30 fps, buffered across the whole val epoch and cut on ``episode_hash``
-boundaries. Batches without ``episode_hash`` fall back to fixed-size
-``validation_video_{i}.mp4`` chunks. Every finished mp4 is also logged to
-WandB via ``wandb.Video`` at ``Val_video/{embodiment}`` (or
-``Val_video_{group}/{embodiment}`` off the default group). Only rank 0
-buffers/writes.
+Episode videos use the configured identity keys and source frame rate. Frames
+are spooled per rank, reassembled in frame order, and streamed to h264 on rank
+zero. Chunked output is an explicit mode; missing episode metadata never
+silently changes the output contract. Finished files are logged under
+``Val_video/{embodiment}`` or ``Val_video_{group}/{embodiment}``.
 
 The action space here is 14-D eef-frame [L pose(6), L grip(1), R pose(6), R
 grip(1)]; ``viz_func`` per-embodiment partials receive it in native units and
@@ -42,7 +39,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchvision.io as tvio
 
 from egomimic.eval.arc_metrics import arcmatch_metrics, chunk_metrics, dtw_metrics
 from egomimic.eval.video import EvalVideo
@@ -119,12 +115,28 @@ class BimanualCartesianEval(EvalVideo):
         deterministic_seed: int = 420042,
         limit_val_batches: int | float | None = None,
         pose_metrics: bool = False,
+        camera_mse_wrap: bool = True,
         rkl_samples: int = 1,
         group_options: Mapping | None = None,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
+        source_fps: float = 30.0,
+        sample_id_key: str = "episode_hash",
+        frame_index_key: str = "frame_index",
+        complete_video_episodes: bool = False,
+        video_mode: str = "episode",
     ):
+        self.configure_video(
+            source_fps=source_fps,
+            sample_id_key=sample_id_key,
+            frame_index_key=frame_index_key,
+            complete_episodes=complete_video_episodes,
+            mode=video_mode,
+        )
         self.pose_metrics = pose_metrics
+        if type(camera_mse_wrap) is not bool:
+            raise TypeError("camera_mse_wrap must be a boolean")
+        self.camera_mse_wrap = camera_mse_wrap
         self.rkl_samples = int(rkl_samples)
         if self.rkl_samples < 1:
             raise ValueError("rkl_samples must be at least one")
@@ -166,16 +178,16 @@ class BimanualCartesianEval(EvalVideo):
         # Frames per file on the LEGACY chunked path (batches with no
         # ``episode_hash``); episode-aware batches cut on episode boundaries.
         self.video_chunk_frames = int(video_chunk_frames)
-        # Safety cap on a single episode's video and the memory bound on the
-        # episode-aware path (an open episode is held in RAM until its boundary).
+        # Safety cap on a single episode. Frames are spooled to private files
+        # and streamed into the encoder rather than retaining the corpus in RAM.
         self.max_episode_frames = int(max_episode_frames)
         self.deterministic_seed = int(deterministic_seed)
         # Only present so ``ConfigStore`` overrides (used by fast probes) have a
         # place to land; ``BimanualCartesianEval`` does not override trainer
         # limits by default the way ``PlanarActionEval`` does.
-        self.override_dict = {}
+        self._trainer_overrides = {}
         if limit_val_batches is not None:
-            self.override_dict["limit_val_batches"] = limit_val_batches
+            self._trainer_overrides["limit_val_batches"] = limit_val_batches
         # All keyed by (group, embodiment_name) so per-group runs don't spill
         # frames into each other.
         self.val_image_buffer: dict = {}
@@ -185,6 +197,29 @@ class BimanualCartesianEval(EvalVideo):
         # (group, embodiment_name, path) accumulated across the epoch and
         # flushed to WandB in on_validation_end.
         self._written_paths: list = []
+        self._written_fps: dict = {}
+
+    def data_requirements(self):
+        from dataclasses import replace
+
+        requirements = super().data_requirements()
+        if self.complete_video_episodes:
+            if not self.viz_func or self.viz_every_n_epochs <= 0:
+                raise ValueError("Complete-episode videos require enabled renderers")
+            missing = set(self.viz_func) - set(self.revert_transforms)
+            if missing:
+                raise ValueError(
+                    f"Complete-episode videos require declared frame reversion for {sorted(missing)}"
+                )
+        if self.complete_video_episodes:
+            requirements = replace(
+                requirements,
+                required_keys=(self.action_key, self.obs_pose_key, self.image_key),
+            )
+        return requirements
+
+    def trainer_overrides(self):
+        return dict(self._trainer_overrides)
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -401,9 +436,13 @@ class BimanualCartesianEval(EvalVideo):
         Returns ``None`` when no revert transform is configured for this
         embodiment, which disables the overlay for that source without failing.
         """
-        transform_list = self.revert_transforms.get(embodiment_name)
-        if not transform_list:
+        if embodiment_name not in self.revert_transforms:
             return None
+        transform_list = self.revert_transforms[embodiment_name]
+        if not transform_list:
+            # An explicitly empty transform declares actions already in camera
+            # coordinates; an absent entry means that conversion is unavailable.
+            return actions.detach().cpu().numpy()
         batch = {
             self.action_key: actions.detach().cpu().numpy().astype(np.float32),
             self.obs_pose_key: obs_pose.detach().cpu().numpy().astype(np.float32),
@@ -425,17 +464,21 @@ class BimanualCartesianEval(EvalVideo):
     ) -> None:
         """Render prediction vs GT overlays and buffer them into the epoch video.
 
-        Rank 0 only -- other ranks racing on the same directory would clobber
-        each other's files.
+        Every rank renders its own samples into private spool files. The shared
+        video layer gathers by episode/frame and encodes only on rank zero.
         """
-        if self.trainer is not None and not getattr(
-            self.trainer, "is_global_zero", True
-        ):
-            return
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires a renderer for {embodiment_name}"
+                )
             return
         if self.obs_pose_key not in source_batch:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires pose key {self.obs_pose_key!r}"
+                )
             # Overlay needs the obs pose to recompose eef-frame actions into
             # cam frame; without it we can't draw a meaningful trajectory.
             return
@@ -465,6 +508,10 @@ class BimanualCartesianEval(EvalVideo):
             embodiment_name=embodiment_name,
         )
         if pred_camframe is None:
+            if self.complete_video_episodes:
+                raise ValueError(
+                    f"Complete-episode video requires frame reversion for {embodiment_name}"
+                )
             return
         gt_camframe = self._revert_to_camframe(
             actions=gt_native,
@@ -505,6 +552,10 @@ class BimanualCartesianEval(EvalVideo):
                 batch=flat_batch,
             )
         except Exception as exc:  # noqa: BLE001 -- overlay is best-effort, don't die val
+            if self.complete_video_episodes:
+                raise RuntimeError(
+                    f"Complete-episode overlay failed for {embodiment_name}"
+                ) from exc
             print(
                 f"[BimanualCartesianEval] skipped {embodiment_name} overlay: {exc}",
                 flush=True,
@@ -521,18 +572,13 @@ class BimanualCartesianEval(EvalVideo):
         # torchvision.io.write_video wants uint8 (T, H, W, 3) tensors; keep the
         # per-frame layout the numpy array already has.
         frame_tensor = torch.from_numpy(frames)
-        n_images = int(frame_tensor.shape[0])
 
         group = self._validation_group or DEFAULT_VALID_GROUP
         buf_key = (group, embodiment_name)
         out_dir = self._group_video_dir(group, embodiment_name)
         os.makedirs(out_dir, exist_ok=True)
 
-        hashes = self._episode_hashes(source_batch, n_images)
-        if hashes is None:
-            self._buffer_chunked(buf_key, out_dir, list(frame_tensor))
-        else:
-            self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
+        self._record_video_frames(buf_key, frame_tensor, source_batch)
 
     # ------------------------------------------------------------------
     # main val entrypoint
@@ -547,6 +593,18 @@ class BimanualCartesianEval(EvalVideo):
         if limit is not None and batch_idx >= limit:
             return {}
         result = self._forward_deterministic(batch)
+        return self.evaluate_predictions(batch, result, batch_idx)
+
+    @torch.inference_mode()
+    def evaluate_predictions(self, batch, result, batch_idx=0):
+        """Score a declared prediction result, also usable by diagnostic providers."""
+        group = self._validation_group or DEFAULT_VALID_GROUP
+        options = self.group_options.get(group, {})
+        limit = options.get("limit_batches")
+        if limit is not None and batch_idx >= limit:
+            return {}
+        if tuple(result) != tuple(batch):
+            raise ValueError("Prediction sources must align with the evaluation batch")
 
         metrics: dict[str, torch.Tensor] = {}
         normalized_values: list[torch.Tensor] = []
@@ -614,7 +672,10 @@ class BimanualCartesianEval(EvalVideo):
                         {
                             "cam_" + k: v
                             for k, v in cartesian_metrics(
-                                cam_pred, cam_target, distribution=False
+                                cam_pred,
+                                cam_target,
+                                distribution=False,
+                                wrap_angles=self.camera_mse_wrap,
                             ).items()
                         }
                     )

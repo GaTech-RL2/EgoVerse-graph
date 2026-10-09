@@ -6,6 +6,10 @@ stack for training and evaluation.
 For cluster training and maintenance, start with
 [Pipeline and cluster operations](docs/cluster-pipeline.md). It distinguishes
 current source, historical run checkouts, and shared data/runtime dependencies.
+For the integration branch, start with the [migration guide](docs/integration/MIGRATION.md)
+for the locked environment, retained HPT/PI recipes, data tools, and checkpoint
+rules. [Integration status](docs/integration/PLAN.md) records the draft stack and
+the remaining GPU and assembled-tree gates.
 
 ---
 
@@ -48,6 +52,9 @@ uv sync --locked
 source .venv/bin/activate
 uv run pre-commit install
 ```
+
+PI additionally requires the locked `pi05` extra and the verified OpenPI source
+installer; follow the [dependency policy](docs/integration/DEPENDENCIES.md).
 
 ### Conda
 ```

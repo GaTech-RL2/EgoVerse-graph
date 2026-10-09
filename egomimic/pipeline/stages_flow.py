@@ -149,6 +149,7 @@ class FlowDenoiserStage(Stage):
         condition_input_dim: int,
         num_inference_steps: int = 50,
         condition_as_tokens: bool = False,
+        condition_ndim: int = 2,
     ):
         super().__init__()
         self.model = model
@@ -156,6 +157,13 @@ class FlowDenoiserStage(Stage):
         # axis, (B, 1, C), rather than the pooled (B, C) vector HPT's trunk
         # emits. This only reshapes; the condition itself is unchanged.
         self.condition_as_tokens = bool(condition_as_tokens)
+        if condition_ndim not in (2, 3) or (
+            condition_ndim == 3 and condition_as_tokens
+        ):
+            raise ValueError(
+                "condition_ndim must be 2 or 3; only vectors can add a token axis"
+            )
+        self.condition_ndim = condition_ndim
         self.action_horizon = int(action_horizon)
         self.action_dim = int(action_dim)
         self.condition_input_dim = int(condition_input_dim)
@@ -171,10 +179,13 @@ class FlowDenoiserStage(Stage):
         return condition.unsqueeze(1) if self.condition_as_tokens else condition
 
     def _validate_condition(self, condition: torch.Tensor) -> None:
-        if condition.ndim != 2 or int(condition.shape[-1]) != self.condition_input_dim:
+        if (
+            condition.ndim != self.condition_ndim
+            or int(condition.shape[-1]) != self.condition_input_dim
+        ):
             raise ValueError(
                 "Flow condition must have shape "
-                f"(B, {self.condition_input_dim}), got {tuple(condition.shape)}"
+                f"{self.condition_ndim} dimensions and width {self.condition_input_dim}, got {tuple(condition.shape)}"
             )
 
     def execute(self, batch: dict, *, mode: str) -> dict:

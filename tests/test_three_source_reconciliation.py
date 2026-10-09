@@ -79,3 +79,33 @@ def test_optional_moment_objective_survives_merge_without_default_loss_change():
     torch.testing.assert_close(
         enabled["loss/action_flow"], default["loss/action_flow"] + 2 * enabled["log/action_flow_decoded_noise_moments"],
     )
+
+
+def test_lazy_proportional_adapter_retains_native_loader_contract():
+    from egomimic.pl_utils.pl_data_utils import ProportionalMultiDataModuleWrapper
+    from egomimic.pl_utils.data_context import ContextDataModule
+    from egomimic.rldb.zarr.data_module import ProportionalZarrDataModule
+
+    module = ProportionalZarrDataModule(
+        train_datasets={}, valid_datasets={},
+        train_dataloader_params={}, valid_dataloader_params={},
+        proportional_train_batch_size=8, proportional_train_num_workers=0,
+        proportional_train_seed=42,
+    )
+    assert isinstance(module, ContextDataModule)
+    assert module.proportional_train_batch_size == 8
+    assert type(module).train_dataloader is ProportionalMultiDataModuleWrapper.train_dataloader
+    assert type(module).val_dataloader is ProportionalMultiDataModuleWrapper.val_dataloader
+
+
+def test_partial_normalization_resume_is_not_used_for_training():
+    from types import SimpleNamespace
+    from egomimic.rldb.zarr.data_module import ZarrDataModule
+
+    calls = []
+    owner = SimpleNamespace(infer_norm_from_dataset=lambda *a, **kw: calls.append(kw))
+    options = {"resume_partial_norm_path": "/exact/task/partial.json"}
+    ZarrDataModule._fit_normalizer(None, owner, object(), "opaque", 19, options, "train", None)
+    ZarrDataModule._fit_normalizer(None, owner, object(), "opaque", 19, options, "normalization", None)
+    assert calls[0]["resume_partial_norm_path"] is None
+    assert calls[1]["resume_partial_norm_path"] == options["resume_partial_norm_path"]

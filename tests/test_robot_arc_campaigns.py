@@ -18,9 +18,9 @@ def test_decoder_matches_source_codec(layout):
     if layout == "lab":
         values[-1, [0, 7]] = [0.3, 0.2]
     elif layout == "e1_dur":
-        values[1:, 14:] = 1/30
+        values[1:, 14:] = 1 / 30
     elif layout == "e1_logdur":
-        values[:, 14:] = np.log(1/30)
+        values[:, 14:] = np.log(1 / 30)
     else:
         values[:, 14:] = 0.3
     expected = decoder.codec.detokenize(values, action_horizon=40)
@@ -32,15 +32,34 @@ def test_decoder_matches_source_codec(layout):
         decoder(values)
 
 
-@pytest.mark.parametrize("experiment", ["abc_stationery_bc", "abc_stationery_arc_bc", "shorts_extreme_bc", "shorts_extreme_arc_bc", "shorts_extreme_arcdur"])
+@pytest.mark.parametrize(
+    "experiment",
+    [
+        "abc_stationery_bc",
+        "abc_stationery_arc_bc",
+        "shorts_extreme_bc",
+        "shorts_extreme_arc_bc",
+        "shorts_extreme_arcdur",
+    ],
+)
 def test_robot_campaign_composes_and_preserves_horizons(experiment):
-    root = Path(__file__).parents[1]/"egomimic/hydra_configs"
+    root = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(root)):
-        cfg = compose(config_name="train_zarr_cartesian", overrides=[
-            f"+experiment=abc_arc/{experiment}",
-            "paths.output_dir=/tmp/robot-campaign"])
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                f"+experiment=abc_arc/{experiment}",
+                "paths.output_dir=/tmp/robot-campaign",
+            ],
+        )
     instantiate(cfg.evaluator)
-    expected = (100, 16) if "arcdur" in experiment else (101, 14) if "arc_bc" in experiment else (100, 14)
+    expected = (
+        (100, 16)
+        if "arcdur" in experiment
+        else (101, 14)
+        if "arc_bc" in experiment
+        else (100, 14)
+    )
     assert (cfg.e1.action_horizon, cfg.e1.action_dim) == expected
     for group in [cfg.data.train_datasets, cfg.data.valid_datasets]:
         for ds in group.values():
@@ -50,6 +69,7 @@ def test_robot_campaign_composes_and_preserves_horizons(experiment):
     # Explicit disjoint shorts lists are 200 train episodes and 30 validation episodes.
     if experiment.startswith("shorts"):
         import ast
+
         sets = []
         for group in [cfg.data.train_datasets, cfg.data.valid_datasets]:
             expr = next(iter(group.values())).filters.filter_lambdas[0]

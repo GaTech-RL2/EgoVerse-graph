@@ -1,0 +1,13 @@
+{
+  "tree": "756ca42f6b194bee8ec6124ba563ddeda7e8f42c",
+  "snapshot": "d89b0bd3fd1f413f9be0a11aaacf32ef35bf09bd",
+  "worktree": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-graph-pi-validation-20260924",
+  "status": "passed",
+  "tests": 1388,
+  "warnings": 26,
+  "seconds": 141.18,
+  "command": "HF_HUB_OFFLINE=1 WANDB_MODE=disabled pytest tests -q",
+  "scope": "isolated PI layer; real-weight GPU and assembled destination gates remain open",
+  "log_sha256": "2bcb1c4305ffe57d5b088fd625a3591bd9bd2d26052cf016c8c3588acc85bbfa",
+  "openpi_source_receipt_sha256": "0789f0f9c9d740ff65699bdb288db066892cb030c5b5d147f0d29a118d0add79"
+}

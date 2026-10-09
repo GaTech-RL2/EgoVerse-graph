@@ -14,6 +14,8 @@ let selectedVideo;
 let modelBrowserEnabled = false;
 let currentCheckpoint;
 let modelDirectory = '.';
+let modelLoadRevision = 0;
+let modelSearchTimer;
 let inferenceControls = {};
 let inferenceControlSignature = '';
 let inferenceControlRevision = 0;
@@ -96,14 +98,17 @@ function updateCurrentModel() {
   $('current-model').title = text;
 }
 
-async function loadModels(path = '.') {
+async function loadModels(path = '.', query = $('model-search').value) {
   if (!modelBrowserEnabled) return;
+  const revision = ++modelLoadRevision;
   const list = $('model-list');
   list.textContent = 'Loading…';
   try {
-    const response = await fetch(`/api/checkpoints?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
+    const parameters = new URLSearchParams({path, query});
+    const response = await fetch(`/api/checkpoints?${parameters}`, {cache: 'no-store'});
     if (!response.ok) throw Error(`Could not load checkpoint directory (${response.status})`);
     const listing = await response.json();
+    if (revision !== modelLoadRevision) return;
     modelDirectory = listing.path;
     $('model-path').textContent = `Folder: ${listing.path}`;
     $('model-up').disabled = listing.parent === null;
@@ -119,15 +124,27 @@ async function loadModels(path = '.') {
       name.textContent = entry.name;
       row.append(kind, name);
       if (entry.type === 'directory') {
-        row.onclick = () => loadModels(entry.path);
+        row.onclick = () => {
+          $('model-search').value = '';
+          loadModels(entry.path, '');
+        };
       } else {
         row.onclick = () => selectModel(entry);
       }
       list.append(row);
     }
-    if (!listing.entries.length) list.textContent = 'No folders or .ckpt files here.';
-    $('model-up').onclick = () => listing.parent !== null && loadModels(listing.parent);
+    if (!listing.entries.length) {
+      list.textContent = query.trim()
+        ? 'No folders or .ckpt files contain that text.'
+        : 'No folders or .ckpt files here.';
+    }
+    $('model-up').onclick = () => {
+      if (listing.parent === null) return;
+      $('model-search').value = '';
+      loadModels(listing.parent, '');
+    };
   } catch (error) {
+    if (revision !== modelLoadRevision) return;
     list.textContent = error.message;
   }
 }
@@ -161,10 +178,20 @@ function togglePause() {
 function parsedInferenceDraft(name) {
   const spec = inferenceControls[name];
   const raw = inferenceDrafts[name] ?? '';
-  const value = Number(raw);
-  const valid = Boolean(spec) && raw.trim() !== '' && Number.isInteger(value)
-    && value >= spec.min && value <= spec.max
-    && (value - spec.min) % spec.step === 0;
+  let value = raw, valid = false;
+  if (spec?.type === 'boolean') {
+    valid = raw === 'true' || raw === 'false';
+    value = raw === 'true';
+  } else if (spec?.type === 'enum') {
+    valid = spec.choices.includes(raw);
+  } else if (spec) {
+    value = Number(raw);
+    const steps = spec.step == null ? 0 : (value - spec.min) / spec.step;
+    valid = raw.trim() !== '' && Number.isFinite(value)
+      && (spec.type === 'number' || Number.isInteger(value))
+      && value >= spec.min && value <= spec.max
+      && Math.abs(steps - Math.round(steps)) < 1e-8;
+  }
   return {valid, value, dirty: valid && value !== spec?.value};
 }
 
@@ -223,7 +250,7 @@ function applyInferenceOverrides() {
 }
 
 function setInferenceControlsDisabled(disabled) {
-  for (const input of $('inference-controls').querySelectorAll('input')) {
+  for (const input of $('inference-controls').querySelectorAll('input, select')) {
     input.disabled = disabled;
   }
   const button = $('apply-inference');
@@ -235,7 +262,7 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
   inferenceControls = controls && typeof controls === 'object' ? controls : {};
   const entries = Object.entries(inferenceControls);
   const signature = JSON.stringify(entries.map(([name, spec]) => [
-    name, spec.label, spec.description, spec.type, spec.min, spec.max, spec.step,
+    name, spec.label, spec.description, spec.type, spec.min, spec.max, spec.step, spec.choices,
   ]));
   const container = $('inference-controls');
   if (signature !== inferenceControlSignature) {
@@ -250,12 +277,22 @@ function updateInferenceControls(controls, revision = inferenceControlRevision) 
       label.title = spec.description || spec.label;
       label.htmlFor = `inference-${name}`;
       label.append(document.createTextNode(spec.label));
-      const input = document.createElement('input');
+      const discrete = spec.type === 'boolean' || spec.type === 'enum';
+      const input = document.createElement(discrete ? 'select' : 'input');
       input.id = `inference-${name}`;
-      input.type = 'number';
-      input.min = String(spec.min);
-      input.max = String(spec.max);
-      input.step = String(spec.step);
+      if (discrete) {
+        for (const value of spec.type === 'boolean' ? ['true', 'false'] : spec.choices) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          input.append(option);
+        }
+      } else {
+        input.type = 'number';
+        input.min = String(spec.min);
+        input.max = String(spec.max);
+        input.step = spec.step == null ? 'any' : String(spec.step);
+      }
       input.value = String(spec.value);
       input.defaultValue = String(spec.value);
       inferenceDrafts[name] = input.value;
@@ -510,8 +547,10 @@ $('record-video').onclick = toggleVideoRecording;
 $('select-model').onclick = () => {
   if (!modelBrowserEnabled) return;
   $('model-current').textContent = currentCheckpoint ? `Current: ${currentCheckpoint}` : 'Current checkpoint unavailable';
+  $('model-search').value = '';
   $('models').showModal();
-  loadModels(modelDirectory);
+  loadModels(modelDirectory, '');
+  $('model-search').focus();
 };
 $('open-videos').onclick = () => {
   $('videos').showModal();
@@ -523,6 +562,10 @@ $('close-videos').onclick = () => {
   $('videos').close();
 };
 $('model-refresh').onclick = () => loadModels(modelDirectory);
+$('model-search').oninput = () => {
+  clearTimeout(modelSearchTimer);
+  modelSearchTimer = setTimeout(() => loadModels(modelDirectory), 120);
+};
 $('model-close').onclick = () => $('models').close();
 $('restart').onclick = restartRollout;
 $('reconnect-cameras').onclick = reconnectCameras;

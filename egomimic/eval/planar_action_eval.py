@@ -268,13 +268,13 @@ class PlanarActionEval(Eval):
                     if key != "enabled"
                 }
             )
-        self.override_dict = {
-            "limit_train_batches": 0,
+        self._trainer_overrides = {
             "limit_val_batches": limit_val_batches,
             "check_val_every_n_epoch": 1,
-            "max_epochs": 1,
-            "min_epochs": 1,
         }
+
+    def trainer_overrides(self):
+        return dict(self._trainer_overrides)
 
     @staticmethod
     def _metadata_copy(value, *, label):
@@ -327,9 +327,12 @@ class PlanarActionEval(Eval):
 
     def _artifact_destination(self, root, batch_idx):
         return artifact_destination(
-            root, self.artifact_execution,
-            epoch=self.trainer.current_epoch, global_step=self.trainer.global_step,
-            rank=self.trainer.global_rank, batch_idx=batch_idx,
+            root,
+            self.artifact_execution,
+            epoch=self.trainer.current_epoch,
+            global_step=self.trainer.global_step,
+            rank=self.trainer.global_rank,
+            batch_idx=batch_idx,
         )
 
     def bind_data_context(self, *, normalizer):
@@ -760,7 +763,7 @@ class PlanarActionEval(Eval):
         return self.energy_score_distances_by_embodiment[name.lower()]
 
     @staticmethod
-    def _native_mse_by_condition(prediction, target, decoder):
+    def _native_residual(prediction, target, decoder):
         """Measure native Planar chunks with a circular theta residual."""
         if prediction.shape != target.shape:
             raise ValueError(
@@ -770,7 +773,7 @@ class PlanarActionEval(Eval):
         # Without a decoder, rotation remains encoded as cos/sin in common-five
         # space, where ordinary subtraction is already wrap-safe.
         if decoder is None or prediction.shape[-1] < 3:
-            return (prediction - target).square().mean(dim=(-2, -1))
+            return prediction - target
 
         residual = prediction - target
         theta_residual = torch.atan2(
@@ -780,13 +783,59 @@ class PlanarActionEval(Eval):
             (residual[..., :2], theta_residual.unsqueeze(-1), residual[..., 3:]),
             dim=-1,
         )
-        return residual.square().mean(dim=(-2, -1))
+        return residual
 
     @classmethod
     def _native_mse(cls, prediction, target, decoder):
         return cls._native_mse_by_condition(prediction, target, decoder).mean()
 
-    def _energy_values(self, samples, target, embodiment_id):
+    @classmethod
+    def _native_l1(cls, prediction, target, decoder):
+        """Measure native Planar L1 with the same circular theta residual."""
+        return cls._native_residual(prediction, target, decoder).abs().mean()
+
+    @classmethod
+    def _native_mse_by_condition(cls, prediction, target, decoder):
+        """Measure native Planar chunks independently per batch condition."""
+        return (
+            cls._native_residual(prediction, target, decoder)
+            .square()
+            .mean(dim=(-2, -1))
+        )
+
+    @classmethod
+    def _trajectory_native_mse(cls, predictions, target, decoder):
+        """Measure every trajectory state against one shared native target."""
+        if predictions.ndim != target.ndim + 1 or predictions.shape[1:] != target.shape:
+            raise ValueError(
+                "native trajectory and target shapes differ: "
+                f"{predictions.shape} != (*, {target.shape})"
+            )
+        expanded_target = target.unsqueeze(0).expand_as(predictions)
+        return (
+            cls._native_residual(predictions, expanded_target, decoder)
+            .square()
+            .mean(dim=(-2, -1))
+        )
+
+    def native_action_errors(
+        self, normalized_prediction, normalized_target, source_batch
+    ):
+        """Measure a normalized action pair in the source embodiment's native space."""
+        embodiment_id, _ = self._embodiment(source_batch)
+        decoder = self._native_decoder(embodiment_id)
+        prediction = self._native(normalized_prediction, embodiment_id, decoder)
+        target = self._native(normalized_target, embodiment_id, decoder)
+        return self._native_mse(prediction, target, decoder), self._native_l1(
+            prediction, target, decoder
+        )
+
+    def _blocks_for(self, label: str | None):
+        if label is None:
+            return self.blocks
+        return self.blocks_by_embodiment.get(str(label).lower(), self.blocks)
+
+    def _energy_values(self, samples, target, embodiment_id, label: str | None = None):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("EnergyScore@32 requires exactly 32 samples")
         distance_fn = None

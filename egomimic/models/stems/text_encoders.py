@@ -68,12 +68,23 @@ class _Qwen3BaseEncoder(PolicyStem):
         super().__init__(**kwargs)
         from transformers import AutoModel, AutoTokenizer
 
+        from egomimic.pipeline.construction import restoring_parameters
+
         self.model_name = model_name
         self.max_length = max_length
         self.freeze_encoder = freeze
         torch_dtype = getattr(torch, dtype) if isinstance(dtype, str) else dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
-        self.encoder = AutoModel.from_pretrained(model_name, torch_dtype=torch_dtype)
+        if restoring_parameters():
+            from transformers import AutoConfig
+
+            self.encoder = AutoModel.from_config(
+                AutoConfig.from_pretrained(model_name), torch_dtype=torch_dtype
+            )
+        else:
+            self.encoder = AutoModel.from_pretrained(
+                model_name, torch_dtype=torch_dtype
+            )
         if freeze:
             for p in self.encoder.parameters():
                 p.requires_grad = False

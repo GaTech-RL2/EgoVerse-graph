@@ -1,0 +1,14 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "additional_optional_dependency": {
+    "name": "overrides",
+    "version": "7.7.0",
+    "wheel": {
+      "url": "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl",
+      "hash": "sha256:c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
+      "size": 17832,
+      "upload-time": "2024-01-27T21:01:31.393Z"
+    }
+  },
+  "environment_policy": "numeric packages shared with graph CPU environment; source-locked projectaria-tools and overrides installed in isolated legacy-probe-libs; no legacy full-training environment claim"
+}

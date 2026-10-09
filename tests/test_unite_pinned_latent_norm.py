@@ -1,4 +1,5 @@
 """latent_norm_affine=False pins the tokenizer's output LayerNorm to unit scale."""
+
 import pytest
 import torch
 
@@ -55,7 +56,9 @@ def test_default_keeps_affine_and_parameter_count_differs():
     n_free = sum(p.numel() for p in free.parameters())
     n_pinned = sum(p.numel() for p in pinned.parameters())
     assert n_free - n_pinned == 2 * 16  # gain + bias of one LayerNorm(16)
-    assert not hasattr(free, "latent_norm_affine") or free.latent_norm_affine is not False
+    assert (
+        not hasattr(free, "latent_norm_affine") or free.latent_norm_affine is not False
+    )
 
 
 def test_pinned_norm_rejects_tied_encoder():

@@ -1,6 +1,39 @@
 # Source: aidan/abc-stationery-pi @ d5f72068. Imports relocated for graph isolation.
 import torch
 
+PI_CAMERA_SLOTS = {
+    "base_0_rgb": "observations.images.front_img_1",
+    "left_wrist_0_rgb": "observations.images.left_wrist_img",
+    "right_wrist_0_rgb": "observations.images.right_wrist_img",
+}
+
+
+def gather_pi_images(batch, slot_map, device):
+    """Map canonical dataset images into backend slots and retain presence masks.
+
+    Legacy slot names are accepted at this adapter boundary for old rollout
+    callers. Canonical names take precedence. Missing slots copy a real view
+    for shape compatibility, but remain masked out by the policy.
+    """
+    images, present = {}, {}
+    for slot, key in slot_map.items():
+        image = batch.get(key)
+        if not (torch.is_tensor(image) and image.ndim == 4):
+            image = batch.get(slot)
+        present[slot] = torch.is_tensor(image) and image.ndim == 4
+        if present[slot]:
+            images[slot] = _ensure_bchw(image.to(device))
+    if not images:
+        raise ValueError(
+            f"No valid camera tensor for PI camera slots: {dict(slot_map)}"
+        )
+    seed = next(iter(images.values()))
+    if any(image.shape[0] != seed.shape[0] for image in images.values()):
+        raise ValueError("PI camera tensors must have equal batch sizes")
+    return {
+        slot: images[slot] if present[slot] else seed.clone() for slot in slot_map
+    }, present
+
 
 class _SimpleObservation:
     """Minimal container matching the structure expected by preprocess_observation_pytorch."""
@@ -18,7 +51,7 @@ def _ensure_bchw(t: torch.Tensor) -> torch.Tensor:
         return t
     elif t.shape[-1] in (1, 3):
         return t.permute(0, 3, 1, 2).contiguous()
-    return t
+    raise ValueError(f"Image must have 1 or 3 channels, got {tuple(t.shape)}")
 
 
 def _bhwc(t_bchw: torch.Tensor) -> torch.Tensor:

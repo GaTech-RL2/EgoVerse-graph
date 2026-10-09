@@ -1,0 +1,471 @@
+"""Zarr-specific construction and normalization behind the data interface.
+
+The shared trainer never inspects a resolver, keymap, episode path or concrete
+normalizer. Standalone evaluation restores the full data context and opens
+only its explicitly configured validation datasets.
+"""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+
+import hydra
+import numpy as np
+import torch
+from omegaconf import OmegaConf
+
+from egomimic.pl_utils.data_context import DataContext
+from egomimic.pl_utils.pl_data_utils import (
+    MultiDataModuleWrapper, ProportionalMultiDataModuleWrapper, as_valid_groups,
+)
+from egomimic.rldb.resolve_memo import resolve_once
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+
+def _json_value(value):
+    if isinstance(value, dict):
+        return {str(k): _json_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(v) for v in value]
+    if torch.is_tensor(value):
+        return value.detach().cpu().tolist()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _digest(value):
+    return hashlib.sha256(
+        json.dumps(
+            _json_value(value), sort_keys=True, allow_nan=False, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+
+
+def normalizer_from_state(state, *, normalizer_config=None):
+    state = copy.deepcopy(state)
+    required = {
+        "norm_mode",
+        "embodiments",
+        "key_types",
+        "zarr_keys",
+        "shapes",
+        "norm_stats",
+    }
+    if not isinstance(state, dict) or not required <= state.keys():
+        raise ValueError(
+            "Evaluation requires a complete immutable normalizer_state, including schema"
+        )
+    for name in ("key_types", "zarr_keys", "shapes", "norm_stats"):
+        state[name] = {int(key): value for key, value in state[name].items()}
+    state["embodiments"] = [int(key) for key in state["embodiments"]]
+    normalizer = (
+        hydra.utils.instantiate(normalizer_config, state=state, norm_mode=state["norm_mode"])
+        if normalizer_config else MultiDataset.from_state(state)
+    )
+    for source, keys in normalizer.norm_stats.items():
+        for key, stats in keys.items():
+            for value in stats.values():
+                tensor = torch.as_tensor(value)
+                if not torch.isfinite(tensor).all():
+                    raise ValueError(f"Nonfinite normalizer value at {source}/{key}")
+                torch.broadcast_to(tensor, tuple(normalizer.key_shape(key, source)))
+    return normalizer
+
+
+def load_normalizer(path):
+    """Restore this adapter's immutable export without resolving any episode."""
+    payload = json.loads(Path(path).read_text())
+    if "data_context" in payload:
+        payload = payload["data_context"]
+    state = payload.get("normalizer_state", payload)
+    if "sha256" in payload and payload["sha256"] != _digest(state):
+        raise ValueError("Data context normalizer hash mismatch")
+    return normalizer_from_state(state)
+
+
+def load_data_context(path):
+    """Restore a full exported data context without opening a data source."""
+    payload = json.loads(Path(path).read_text())
+    state = payload.get("data_context", payload)
+    if state.get("kind") != "zarr-normalizer-v1" or "normalizer_state" not in state:
+        raise ValueError(
+            "Inference requires a complete exported data_context, not a statistics-only cache"
+        )
+    if state.get("sha256") != _digest(state["normalizer_state"]):
+        raise ValueError("Data context normalizer hash mismatch")
+    owner = normalizer_from_state(
+        state["normalizer_state"], normalizer_config=state.get("normalizer_config"),
+    )
+    return DataContext(owner, copy.deepcopy(owner.shapes), (), state)
+
+
+def _preprocessing_contract(config, source_fps):
+    """Keep resolver locations and sample selection out of tensor semantics."""
+    config = OmegaConf.create(config)
+    return {
+        "key_map": OmegaConf.to_container(
+            OmegaConf.create(OmegaConf.select(config, "resolver.key_map", default={})),
+            resolve=True,
+        ),
+        "transforms": OmegaConf.to_container(
+            OmegaConf.create(
+                OmegaConf.select(config, "resolver.transform_list", default=[])
+            ),
+            resolve=True,
+        ),
+        "source_fps": source_fps,
+    }
+
+
+class ZarrDataModule(MultiDataModuleWrapper):
+    """Configured Zarr adapter; construction is lazy until mode is known."""
+
+    def __init__(
+        self,
+        train_datasets,
+        valid_datasets,
+        train_dataloader_params,
+        valid_dataloader_params,
+        **loader_options,
+    ):
+        # Do not instantiate the train branch for standalone evaluation.
+        super().__init__(
+            {}, {}, train_dataloader_params, valid_dataloader_params, **loader_options
+        )
+        self._train_configs = train_datasets
+        self._valid_configs = valid_datasets
+        self._loader_options = loader_options
+        self.context = None
+
+    def preflight_configuration(self):
+        """Construct local schema/filter components without resolving any episode."""
+        configurations = {
+            f"train/{name}": cfg for name, cfg in self._train_configs.items()
+        }
+        configurations.update(
+            {
+                f"{group}/{name}": cfg
+                for group, members in as_valid_groups(self._valid_configs).items()
+                for name, cfg in members.items()
+            }
+        )
+        records = []
+        for name, config in configurations.items():
+            if config is None:
+                continue
+            config = OmegaConf.create(config)
+            keymap = hydra.utils.instantiate(config.resolver.key_map)
+            transforms = hydra.utils.instantiate(config.resolver.transform_list)
+            hydra.utils.instantiate(config.get("filters"))
+            if not isinstance(keymap, dict) or not isinstance(
+                transforms, (list, tuple)
+            ):
+                raise TypeError(
+                    f"Source {name} must declare a mapping keymap and transform sequence"
+                )
+            records.append(
+                {"source": name, "keys": sorted(keymap), "transforms": len(transforms)}
+            )
+        return records
+
+    @resolve_once()
+    def prepare_context(
+        self, *, mode, normalization, normalizer=None, restored_state=None
+    ):
+        if mode not in {"train", "eval", "normalization"}:
+            raise ValueError(f"Unsupported data preparation mode: {mode!r}")
+        options = dict(normalization or {})
+        if mode == "normalization" and not options.get("save_cache_dir"):
+            raise ValueError(
+                "Normalization-only mode requires norm_stats.save_cache_dir"
+            )
+        saved = restored_state
+        path = options.get("precomputed_norm_path")
+        if saved is None and path:
+            path = Path(path)
+            if path.is_dir():
+                path /= "norm_stats.json"
+            payload = json.loads(path.read_text())
+            if "data_context" in payload:
+                saved = payload["data_context"]
+            elif "normalizer_state" in payload:
+                saved = {
+                    "kind": "zarr-normalizer-v1",
+                    "normalizer_state": payload["normalizer_state"],
+                }
+        if mode == "eval" and saved is None:
+            raise ValueError(
+                "Standalone evaluation requires checkpoint data_context or a full "
+                "normalizer_state at norm_stats.precomputed_norm_path. Export it from "
+                "the training run; evaluation will not reopen the training corpus."
+            )
+        train = (
+            {}
+            if mode == "eval"
+            else {
+                name: hydra.utils.instantiate(config)
+                for name, config in self._train_configs.items()
+                if config is not None
+            }
+        )
+        valid = (
+            {}
+            if mode == "normalization"
+            else {
+                group: {
+                    name: hydra.utils.instantiate(config)
+                    for name, config in members.items()
+                    if config is not None
+                }
+                for group, members in as_valid_groups(self._valid_configs).items()
+            }
+        )
+        super().__init__(
+            train,
+            valid,
+            self.train_dataloader_params,
+            self.valid_dataloader_params,
+            **self._loader_options,
+        )
+        if saved is not None:
+            if saved.get("kind") != "zarr-normalizer-v1":
+                raise ValueError(
+                    "Data context kind is not supported by the configured Zarr adapter"
+                )
+            state = saved["normalizer_state"]
+            if "sha256" in saved and saved["sha256"] != _digest(state):
+                raise ValueError("Data context normalizer hash mismatch")
+            normalizer_config = (
+                OmegaConf.to_container(normalizer, resolve=True)
+                if OmegaConf.is_config(normalizer) else normalizer
+            )
+            recorded_config = saved.get("normalizer_config")
+            if recorded_config != normalizer_config:
+                raise ValueError("Configured normalizer differs from saved data context")
+            owner = normalizer_from_state(state, normalizer_config=recorded_config)
+            if options.get("norm_mode", owner.norm_mode) != owner.norm_mode:
+                raise ValueError(
+                    "Requested normalization mode differs from saved data context"
+                )
+        else:
+            kwargs = {"state": {}, "norm_mode": options.get("norm_mode", "quantile")}
+            owner = (
+                hydra.utils.instantiate(normalizer, **kwargs)
+                if normalizer
+                else MultiDataset(**kwargs)
+            )
+            owner.populate_from_datasets(train)
+            seen_identities = set()
+            for name, dataset in train.items():
+                sample = dataset[0]
+                identity = int(sample["embodiment"])
+                if identity in seen_identities:
+                    raise ValueError(
+                        "Combine datasets sharing a normalization identity in one source before fitting statistics"
+                    )
+                seen_identities.add(identity)
+                owner.infer_shapes_from_batch(sample)
+                config = OmegaConf.create(copy.deepcopy(self._train_configs[name]))
+                if OmegaConf.select(config, "resolver.key_map", default=None) is None:
+                    raise ValueError(
+                        f"Zarr normalization needs a configured resolver.key_map: {name}"
+                    )
+                config.resolver.key_map.norm_mode = True
+                norm_dataset = hydra.utils.instantiate(config)
+                owner = self._fit_normalizer(
+                    owner, norm_dataset, name, identity, options, mode, path,
+                )
+        if options.get("save_cache_dir") and mode != "eval":
+            owner.cache_stats(save_cache_dir=str(options["save_cache_dir"]))
+        all_datasets = [(f"train/{k}", v) for k, v in train.items()] + [
+            (f"{group}/{name}", ds) for group, name, ds in self.iter_valid_datasets()
+        ]
+        preprocessing = copy.deepcopy(saved.get("preprocessing", {})) if saved else {}
+        configurations = {
+            f"train/{name}": config for name, config in self._train_configs.items()
+        }
+        configurations.update(
+            {
+                f"{group}/{name}": config
+                for group, members in as_valid_groups(self._valid_configs).items()
+                for name, config in members.items()
+            }
+        )
+        for name, dataset in all_datasets:
+            dataset.set_norm_stats_from(owner)
+            if dataset.norm_stats is not owner.norm_stats:
+                raise RuntimeError(f"Normalization context was not bound to {name}")
+            sample = dataset[0]
+            if int(sample["embodiment"]) not in owner.embodiments:
+                raise ValueError(
+                    f"Validation source {name} is absent from the normalization context"
+                )
+            identity = int(sample["embodiment"])
+            semantic = _preprocessing_contract(configurations[name], self.source_fps)
+            key = str(identity)
+            if key in preprocessing and preprocessing[key] != semantic:
+                raise ValueError(
+                    f"Saved preprocessing/frame contract differs at {name}"
+                )
+            if saved is None:
+                preprocessing[key] = semantic
+            required = {
+                owner.keyname_to_zarr_key(key, identity)
+                for key in owner.norm_stats.get(identity, {})
+            }
+            if missing := required - set(sample):
+                raise ValueError(
+                    f"Saved normalization requires missing keys at {name}: {sorted(missing)}"
+                )
+            for key, shape in owner.shapes.get(int(sample["embodiment"]), {}).items():
+                zarr_key = owner.keyname_to_zarr_key(key, int(sample["embodiment"]))
+                if zarr_key in sample and tuple(np.shape(sample[zarr_key])) != tuple(
+                    shape
+                ):
+                    raise ValueError(
+                        f"Saved normalization schema differs at {name}/{zarr_key}"
+                    )
+        state = owner.to_state()
+        snapshot = {
+            "kind": "zarr-normalizer-v1",
+            "normalizer_state": state,
+            "sha256": _digest(state),
+        }
+        if normalizer is not None:
+            snapshot["normalizer_config"] = (
+                OmegaConf.to_container(normalizer, resolve=True)
+                if OmegaConf.is_config(normalizer) else copy.deepcopy(normalizer)
+            )
+        if preprocessing:
+            snapshot["preprocessing"] = preprocessing
+        self.context = DataContext(
+            owner, copy.deepcopy(owner.shapes), tuple(self.valid_group_names), snapshot
+        )
+        return self.context
+
+    def configure_evaluation(self, requirements):
+        if requirements.ordered or requirements.complete_episodes:
+            for _, _, dataset in self.iter_valid_datasets():
+                dataset.require_ordered_samples()
+        super().configure_evaluation(requirements)
+
+    @resolve_once()
+    def prepare_visualization(self, *, split, requirements):
+        """Open only selected splits in native units, without fitting statistics.
+
+        The preview context is deliberately not a restorable training context.
+        Dataset selection, collation and episode limits stay inside this adapter.
+        """
+        if split not in {"train", "valid", "both"}:
+            raise ValueError("Visualization split must be train, valid, or both")
+        selected, parameters = {}, {}
+        if split in {"train", "both"}:
+            selected["train"] = self._train_configs
+            parameters["train"] = self.train_dataloader_params
+        if split in {"valid", "both"}:
+            groups = as_valid_groups(self._valid_configs)
+            for group, configs in groups.items():
+                name = f"valid/{group}"
+                selected[name] = configs
+                # The data adapter, not the tool entrypoint, owns loader topology.
+                from egomimic.pl_utils.pl_data_utils import _params_for_group
+
+                parameters[name] = _params_for_group(
+                    self.valid_dataloader_params, group, set(configs)
+                )
+        datasets = {
+            group: {
+                name: hydra.utils.instantiate(cfg)
+                for name, cfg in members.items()
+                if cfg is not None
+            }
+            for group, members in selected.items()
+        }
+        options = dict(self._loader_options)
+        options.update(validation_layout="grouped", valid_loader_mode="max_size")
+        super().__init__({}, datasets, {}, parameters, **options)
+        owner = MultiDataset(state={}, norm_mode="quantile")
+        members = {
+            f"{group}/{name}": ds for group, name, ds in self.iter_valid_datasets()
+        }
+        owner.populate_from_datasets(members)
+        for dataset in members.values():
+            dataset.set_norm_stats_from(owner)
+            owner.infer_shapes_from_batch(dataset[0])
+        self.configure_evaluation(requirements)
+        self.context = DataContext(
+            owner,
+            copy.deepcopy(owner.shapes),
+            tuple(self.valid_group_names),
+            {"kind": "zarr-preview-v1", "normalization": "none", "split": split},
+        )
+        return self.context
+
+    def iter_visualization_batches(self):
+        """Yield opaque group names and noncycling, data-collated source batches."""
+        if self.context is None or self.context.state.get("kind") != "zarr-preview-v1":
+            raise RuntimeError(
+                "Call prepare_visualization before iterating preview data"
+            )
+        for group in self.valid_group_names:
+            for batch, _, _ in self._val_loader_for_group(group):
+                yield (
+                    group,
+                    {name: value for name, value in batch.items() if value is not None},
+                )
+
+    def frame_counts(self):
+        return [
+            ("train", name, len(ds)) for name, ds in self.train_datasets.items()
+        ] + [(group, name, len(ds)) for group, name, ds in self.iter_valid_datasets()]
+
+    def _fit_normalizer(self, owner, dataset, name, identity, options, mode, path):
+        owner.infer_norm_from_dataset(
+            dataset, identity,
+            sample_frac=options.get("sample_frac", 1.0),
+            num_workers=options.get("num_workers", 4),
+            precomputed_norm_path=path,
+            resume_partial_norm_path=(
+                options.get("resume_partial_norm_path") if mode == "normalization" else None
+            ),
+        )
+        return owner
+
+
+class ProportionalZarrDataModule(ZarrDataModule, ProportionalMultiDataModuleWrapper):
+    """Lazy shared data context with the existing proportional loader contract."""
+
+
+class LiberoDataModule(ZarrDataModule):
+    """Keep native saved-state receipt validation inside the replay adapter."""
+
+    def __init__(self, *args, run_provenance=None, **kwargs):
+        self.run_provenance = run_provenance
+        super().__init__(*args, **kwargs)
+
+    def _fit_normalizer(self, owner, dataset, name, identity, options, mode, path):
+        binding = options.get("native_saved_state_binding")
+        if binding is None:
+            return super()._fit_normalizer(owner, dataset, name, identity, options, mode, path)
+        from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowNormalizer
+        from egomimic.rldb.zarr.libero_saved_state import bind_saved_native_state
+
+        if type(owner) is not LiberoActionFlowNormalizer:
+            raise ValueError("native saved-state binding requires native LIBERO normalizer")
+        if path is not None or options.get("resume_partial_norm_path") is not None:
+            raise ValueError("native saved-state binding cannot use generic precomputed norms")
+        if len(self.train_datasets) != 1:
+            raise ValueError("native saved-state binding requires one exact source")
+        if self.run_provenance is None:
+            raise ValueError("native saved-state binding requires run provenance")
+        return bind_saved_native_state(
+            norm_stats=owner, dataset=dataset, dataset_name=name,
+            binding=OmegaConf.to_container(OmegaConf.create(binding), resolve=True),
+            run_provenance=OmegaConf.to_container(OmegaConf.create(self.run_provenance), resolve=True),
+        )

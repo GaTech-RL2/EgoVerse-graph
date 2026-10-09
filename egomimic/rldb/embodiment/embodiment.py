@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal
@@ -74,6 +75,19 @@ class Embodiment(ABC):
     INTRINSICS = None
     EXTRINSICS = None
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
+
+    @staticmethod
+    def canonical_keymap_mode(mode):
+        if mode == "cartesian_pi":
+            warnings.warn(
+                "cartesian_pi is a deprecated alias for cartesian; PI camera slots "
+                "are mapped by the model adapter. Owner: graph integration; retain "
+                "until saved-config migration is complete.",
+                FutureWarning,
+                stacklevel=3,
+            )
+            return "cartesian"
+        return mode
 
     @staticmethod
     def get_transform_list() -> list[Transform]:
@@ -167,7 +181,7 @@ class Embodiment(ABC):
         camera_keys: dict | None = None,
     ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
-        key_map = cls._get_keymap(keymap_mode)
+        key_map = cls._get_keymap(cls.canonical_keymap_mode(keymap_mode))
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
@@ -186,6 +200,42 @@ class Embodiment(ABC):
     @abstractmethod
     def _get_keymap(cls, keymap_mode: str):
         raise NotImplementedError
+
+    @classmethod
+    def viz_recorded_batch(
+        cls,
+        batch,
+        *,
+        image_key,
+        action_key,
+        annotation_key=None,
+        mode="traj",
+        transform_list=None,
+        **kwargs,
+    ):
+        """Render recorded trajectories in a declared frame, with active annotations."""
+        if transform_list is not None:
+            batch = cls.apply_transform(batch, transform_list)
+        images, actions = _to_numpy(batch[image_key]), _to_numpy(batch[action_key])
+        if len(images) != len(actions):
+            raise ValueError("Image and action batch sizes differ")
+        annotations = batch[annotation_key] if annotation_key is not None else None
+        if annotations is not None and len(annotations) != len(images):
+            raise ValueError("Annotation and image batch sizes differ")
+        frames = []
+        for i, (image, action) in enumerate(zip(images, actions, strict=True)):
+            frame = cls.viz(
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                intrinsics=_intrinsics_from_batch(batch, i),
+                **kwargs,
+            )
+            if annotations is not None:
+                frame = cls.viz(frame, annotations[i], mode="annotations")
+            frames.append(frame)
+        return np.stack(frames)
 
     @classmethod
     def viz_gt_preds(

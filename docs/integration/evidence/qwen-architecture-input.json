@@ -1,0 +1,7 @@
+{
+  "repo": "Qwen/Qwen3-Embedding-0.6B",
+  "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "filename": "config.json",
+  "sha256": "b5bf1f51fc45be473a54718cef92448d90a1be001bf9b9a44b8c7f10a19feaa9",
+  "scope": "architecture metadata only; no tokenizer or parameter substitution evidence for real-weight training"
+}

@@ -13,7 +13,7 @@ h1 { margin: 4px 0; font-size: 27px; font-weight: 550; }
 p { margin: 0; color: #9aa8b8; }
 .eyebrow { font-size: 11px; letter-spacing: 2px; color: #8793a4; }
 .actions { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 8px; max-width: 620px; }
-.rollout-control-panel { flex: 0 1 660px; width: min(660px, 100%); display: grid; grid-template-rows: 34px 20px auto; gap: 8px; }
+.rollout-control-panel { flex: 0 1 660px; width: min(660px, 100%); display: grid; grid-template-rows: 20px 34px auto; gap: 8px; }
 .rollout-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
 #status { display: block; min-width: 0; padding: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid #3a4655; border-radius: 6px; }
 .starting { background: #3c2630; border-color: #ec7977 !important; }
@@ -78,6 +78,9 @@ dialog header { align-items: center; }
 .video-meta { margin: 4px 0 12px; }
 #video-player { display: block; width: 100%; max-height: calc(100vh - 260px); background: #090c10; }
 .model-path { margin: 0 0 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #dce3ed; }
+.model-search { display: grid; grid-template-columns: auto minmax(220px, 1fr); align-items: center; gap: 10px; margin: 0 0 10px; color: #93a2b4; }
+.model-search input { width: 100%; border: 1px solid #667587; border-radius: 5px; background: #0d1116; color: #dce3ed; padding: 8px 10px; }
+.model-search input:focus { border-color: #8cb5ca; outline: none; }
 .current-model { width: 100%; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dce3ed; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .model-list { min-height: 240px; max-height: calc(100vh - 270px); overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid #303a46; border-radius: 8px; background: #10151b; }
 .model-row { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; }

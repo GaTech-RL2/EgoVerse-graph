@@ -55,6 +55,8 @@ class RealSenseRecorder:
         self._lock = threading.Lock()
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._stop_lock = threading.Lock()
+        self._stopped = False
 
         self._config.enable_device(self._serial)
 
@@ -147,13 +149,21 @@ class RealSenseRecorder:
         """
         Stop streaming and release the device.
         """
-        self._running = False
-        if self._thread is not None:
+        # Signal handlers and atexit can both call stop(), and a user may send
+        # multiple Ctrl-C events while librealsense is stopping. Serialize the
+        # teardown and call pipeline.stop() at most once.
+        with self._stop_lock:
+            if self._stopped:
+                return
+            self._stopped = True
+            self._running = False
+            thread = self._thread
+            self._thread = None
+        if thread is not None and thread is not threading.current_thread():
             try:
-                self._thread.join(timeout=1.0)
+                thread.join(timeout=1.0)
             except Exception:
                 pass
-            self._thread = None
         try:
             self._pipeline.stop()
         except Exception:

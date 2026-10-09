@@ -245,8 +245,12 @@ class SyntheticActionAdapterFlow(nn.Module):
             time = torch.rand(len(clean_many), 1, device=action.device)
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
-        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
-        state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        target_clean = (
+            clean_many if clean_gradient_mode == "full" else clean_many.detach()
+        )
+        state_clean = (
+            clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        )
         target_velocity = noise_many - target_clean
         state = (1.0 - time) * state_clean + time * noise_many
         velocity_residual = self.velocity(state, time) - target_velocity

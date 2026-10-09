@@ -3,6 +3,7 @@
 Weights, tokenizer downloads and robot/data access are deliberately unnecessary.
 """
 
+import hashlib
 import importlib
 import sys
 from pathlib import Path
@@ -13,11 +14,11 @@ import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
+from omegaconf import open_dict
 
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
@@ -76,6 +77,10 @@ def tiny_openpi(monkeypatch):
             super().__init__()
             self.weight = torch.nn.Parameter(torch.tensor(0.25))
             self.config = config
+            self.checkpointing_enabled = False
+
+        def gradient_checkpointing_enable(self):
+            self.checkpointing_enabled = True
 
         def forward(self, observation, action):
             assert not torch.is_inference_mode_enabled()
@@ -116,7 +121,7 @@ def normalizer():
     kinds = {
         "actions_cartesian": "action_keys",
         "observations.state.ee_pose": "proprio_keys",
-        "base_0_rgb": "camera_keys",
+        "observations.images.front_img_1": "camera_keys",
         "annotations": "annotation_keys",
     }
     norm.key_types = {6: kinds}
@@ -138,7 +143,7 @@ def batch():
     return {
         "opaque-input": {
             "embodiment": torch.tensor([6, 6]),
-            "base_0_rgb": torch.rand(2, 3, 32, 32),
+            "observations.images.front_img_1": torch.rand(2, 3, 32, 32),
             "observations.state.ee_pose": torch.zeros(2, 20),
             "actions_cartesian": torch.zeros(2, 100, 20),
             "annotations": [["Sort pens"], ["Sort rulers"]],
@@ -146,14 +151,21 @@ def batch():
     }
 
 
-def test_pi_training_inference_and_strict_checkpoint(tiny_openpi, tmp_path):
+@pytest.mark.parametrize("checkpointing", [False, True])
+def test_pi_training_inference_and_strict_checkpoint(
+    tiny_openpi, tmp_path, checkpointing
+):
     cfg = config()
+    with open_dict(cfg.model.pipeline.stages[0].policy):
+        cfg.model.pipeline.stages[0].policy.gradient_checkpointing = checkpointing
+        cfg.model.pipeline.stages[0].policy.compile_sampler = not checkpointing
     graph = instantiate(cfg.model.pipeline)
     with pytest.raises(RuntimeError, match="Bind PI05Stage"):
         graph.forward_training(batch())
     norm = normalizer()
     graph.bind_data_context(normalizer=norm)
     stage = graph.pipeline.stages[0]
+    assert stage.backend.model.checkpointing_enabled == checkpointing
     params = list(graph.nets.parameters())
     assert params and params[0] is stage.backend.model.weight
     wrapper = ModelWrapper(pipeline=graph)
@@ -180,12 +192,39 @@ def test_pi_training_inference_and_strict_checkpoint(tiny_openpi, tmp_path):
         },
         path,
     )
-    stage.load_initial_weights(path)
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    stage.load_initial_weights(path, sha256=digest, source_prefix="nets.")
     torch.save({"state_dict": {}}, path)
-    with pytest.raises(ValueError, match="complete matching"):
-        stage.load_initial_weights(path)
+    with pytest.raises(ValueError, match="hash mismatch"):
+        stage.load_initial_weights(path, sha256=digest, source_prefix="nets.")
+    with pytest.raises(ValueError, match="namespace mismatch"):
+        stage.load_initial_weights(
+            path,
+            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+            source_prefix="nets.",
+        )
     with pytest.raises(RuntimeError, match="different normalizer"):
         graph.bind_data_context(normalizer=normalizer())
+
+
+def test_pi_strict_restore_does_not_open_original_pretraining_files(
+    tiny_openpi, tmp_path
+):
+    from egomimic.pipeline.construction import checkpoint_construction
+
+    cfg = config()
+    original = instantiate(cfg.model.pipeline)
+    original.bind_data_context(normalizer=normalizer())
+    checkpoint = {"state_dict": ModelWrapper(pipeline=original).state_dict()}
+    cfg.model.pipeline.stages[0].policy.config.pytorch_weight_path = str(
+        tmp_path / "absent"
+    )
+    with checkpoint_construction():
+        restored = instantiate(cfg.model.pipeline)
+        restored.bind_data_context(normalizer=normalizer())
+    strict_load_pipeline_checkpoint(restored, checkpoint)
+    for name, expected in original.nets.state_dict().items():
+        torch.testing.assert_close(restored.nets.state_dict()[name], expected)
 
 
 def test_pi_evaluator_works_through_lightning_wrapper(tiny_openpi, tmp_path):

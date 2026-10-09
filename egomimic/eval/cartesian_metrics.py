@@ -1,16 +1,14 @@
 # Source: aidan/abc-stationery-pi @ d5f72068. Imports relocated for graph isolation.
-import copy
 import math
 
 import torch
 
-from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
-from egomimic.utils.action_encoding import _reconstruct_R_from_cols, _ypr_to_matrix
 from egomimic.eval.distribution_metrics import (
     dtw_distance,
     frechet_gaussian_over_time,
     reverse_kl_from_samples,
 )
+from egomimic.utils.action_encoding import _reconstruct_R_from_cols, _ypr_to_matrix
 from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 
@@ -94,12 +92,16 @@ def _wrap_aware_mse(pred: torch.Tensor, gt: torch.Tensor):
     return diff.pow(2).mean(), nowrap
 
 
-def cartesian_metrics(pred, target, *, distribution=True):
+def cartesian_metrics(pred, target, *, distribution=True, wrap_angles=None):
     """Native/camera pose scores independent of policy architecture."""
     pred, target = torch.as_tensor(pred).cpu(), torch.as_tensor(target).cpu()
     paired, nowrap = _wrap_aware_mse(pred, target)
     final, final_nowrap = _wrap_aware_mse(pred[:, -1], target[:, -1])
-    if distribution:
+    if wrap_angles is None:
+        wrap_angles = not distribution
+    if type(wrap_angles) is not bool:
+        raise TypeError("wrap_angles must be a boolean")
+    if not wrap_angles:
         paired, final = nowrap, final_nowrap
     values = {
         "paired_mse_avg": paired,

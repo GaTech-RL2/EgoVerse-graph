@@ -557,6 +557,7 @@ def test_rl2_profile_is_self_contained_and_requires_physical_calibration():
     assert profile["gello"]["input_filter_alpha"] == 0.9
     assert profile["frequency"] == 60
     assert profile["recording"]["rate_hz"] == 30
+    assert profile["recording"]["episode_length"] is None
     assert profile["keys"]["record"] == "b"
     assert "teleop_kinematics" not in profile["robot"]
     uncalibrated = copy.deepcopy(profile)
@@ -648,6 +649,7 @@ class SequenceView:
         self.recording = []
         self.statuses = []
         self.episodes = []
+        self.episode_limits = []
 
     def update(self, obs, recording=False):
         self.recording.append(recording)
@@ -658,6 +660,9 @@ class SequenceView:
 
     def set_episode(self, episode_id, state="next"):
         self.episodes.append((episode_id, state))
+
+    def set_episode_length(self, episode_length, recorded_frames, rate_hz):
+        self.episode_limits.append((episode_length, recorded_frames, rate_hz))
 
     def close(self):
         self.closed = True
@@ -795,6 +800,132 @@ def test_completed_recording_advances_dashboard_episode_id(tmp_path, monkeypatch
         assert episode.attrs["complete"]
 
 
+@pytest.mark.parametrize("limit", [None, 1, 3000])
+def test_episode_limit_config_accepts_unlimited_or_positive_frames(limit):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["recording"]["episode_length"] = limit
+    collect_gello.validate_gello_config(profile)
+
+
+@pytest.mark.parametrize("limit", [0, -1, True, 1.5, "3000"])
+def test_episode_limit_config_rejects_invalid_frame_counts(limit):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["recording"]["episode_length"] = limit
+    with pytest.raises(ValueError, match="positive integer or null"):
+        collect_gello.validate_gello_config(profile)
+
+
+def test_unlimited_recording_passes_3000_frames_and_saves_manually(
+    tmp_path, monkeypatch
+):
+    writers = []
+
+    class CountingWriter:
+        def __init__(self, path, cameras):
+            self.path = path
+            self.frames = 0
+            self.complete = None
+            writers.append(self)
+
+        def append(self, obs, joints, ee_poses):
+            self.frames += 1
+
+        def close(self, complete=True):
+            self.complete = complete
+
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["robot"]["cameras"] = {}
+    profile["recording"].update(
+        directory=str(tmp_path), episode_length=None, rate_hz=profile["frequency"]
+    )
+    monkeypatch.setattr(time, "sleep", lambda delay: None)
+    monkeypatch.setattr(collect_gello, "EpisodeWriter", CountingWriter)
+    view = SequenceView(["b", None, None, *([None] * 3001), "b", "q"])
+    collect_gello.run_collection(FakeFollower(), TriggerReader(), profile, view=view)
+    assert len(writers) == 1
+    assert writers[0].frames == 3002
+    assert writers[0].complete is True
+    assert view.episodes[-1] == (1, "next")
+    assert (None, 3002, profile["frequency"]) in view.episode_limits
+
+
+@pytest.mark.parametrize(
+    "initial,events,expected_frames",
+    [
+        (None, ["b", None, None, None, {"episode_length": 2}, "q"], 2),
+        (2, ["b", None, None, {"episode_length": None}, None, None, None, "b", "q"], 3),
+        (10, ["b", None, None, None, None, {"episode_length": 1}, "q"], 2),
+        (None, ["b", None, None, {"episode_length": 0}, None, "b", "q"], 2),
+    ],
+)
+def test_episode_limit_changes_apply_during_recording(
+    initial, events, expected_frames, tmp_path, monkeypatch
+):
+    profile = yaml.safe_load(PROFILE.read_text())
+    profile["robot"]["cameras"] = {}
+    profile["recording"].update(directory=str(tmp_path), episode_length=initial)
+    monkeypatch.setattr(time, "sleep", lambda delay: None)
+    view = SequenceView(events)
+    collect_gello.run_collection(FakeFollower(), TriggerReader(), profile, view=view)
+    assert view.episodes[-1] == (1, "next")
+    with h5py.File(tmp_path / "demo_0.hdf5") as episode:
+        assert episode.attrs["complete"]
+        assert len(episode["action"]) == expected_frames
+
+
+def test_dashboard_episode_limit_websocket_roundtrip(tmp_path):
+    import asyncio
+    import socket
+
+    from aiohttp import ClientSession
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    profile = yaml.safe_load(PROFILE.read_text())
+    dashboard = collect_gello.TeleopDashboard(
+        ("front_img_1",),
+        profile["keys"],
+        tmp_path,
+        port=port,
+        open_browser=False,
+    )
+    dashboard.set_episode_length(None, 3001, 30)
+
+    async def exercise():
+        async with ClientSession() as session:
+            async with session.get(dashboard.url) as response:
+                assert 'id="episode-limit-enabled"' in await response.text()
+            async with session.ws_connect(dashboard.url + "/ws") as websocket:
+                config = await websocket.receive_json(timeout=2)
+                assert config["type"] == "config" and config["episode_length"] is None
+                frame = await websocket.receive_json(timeout=2)
+                assert frame["recorded_frames"] == 3001
+                assert frame["recording_rate_hz"] == 30
+                for limit in (4000, None):
+                    await websocket.send_json({"episode_length": limit})
+                    for _ in range(100):
+                        event = dashboard.update({})
+                        if event is not None:
+                            break
+                        await asyncio.sleep(0.01)
+                    assert event == {"episode_length": limit}
+                    dashboard.set_episode_length(limit, 3001, 30)
+                    for _ in range(30):
+                        frame = await websocket.receive_json(timeout=2)
+                        if frame["episode_length"] == limit:
+                            break
+                    assert frame["episode_length"] == limit
+                await websocket.send_json({"episode_length": 0})
+                await asyncio.sleep(0.05)
+                assert dashboard.update({}) is None
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        dashboard.close()
+
+
 def test_stop_discards_active_take_without_advancing_episode_id(tmp_path, monkeypatch):
     profile = yaml.safe_load(PROFILE.read_text())
     profile["robot"]["cameras"] = {}
@@ -894,6 +1025,17 @@ def test_dashboard_places_episode_and_demo_controls_below_cameras():
     assert 'id="reconnect-cameras"' in html
     assert "function reconnectCameras()" in javascript
     assert "reconnect_cameras: true" in javascript
+    assert 'id="episode-limit-enabled"' in html
+    assert 'id="episode-length"' in html
+    assert 'id="episode-length-status"' in html
+    assert "function submitEpisodeLength(event)" in javascript
+    assert "episodeLengthDirty" in javascript
+    assert "JSON.stringify({episode_length: limit})" in javascript
+    assert ".episode-limit-control { grid-column: 1" in css
+    assert 'id="episode-limit-enabled" type="checkbox" disabled' in html
+    assert 'id="set-episode-length" type="submit" disabled' in html
+    assert "if (!Object.hasOwn(message, 'episode_length')) return;" in javascript
+    assert "if ($('episode-limit-enabled').disabled) return;" in javascript
 
 
 def test_pending_recording_creates_no_file_until_triggers_activate(

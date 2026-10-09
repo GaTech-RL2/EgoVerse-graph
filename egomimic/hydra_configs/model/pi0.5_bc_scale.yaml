@@ -1,0 +1,5 @@
+# Compatibility name for saved commands/configs; architecture is shared.
+# Canonical definition: pi0.5_bc_mecka.yaml
+defaults:
+  - pi0.5_bc_mecka
+  - _self_

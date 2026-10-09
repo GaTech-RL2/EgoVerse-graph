@@ -6,21 +6,27 @@ from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-
 CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
 EXPERIMENTS = sorted(
-    path.stem for path in (CONFIGS / "experiment/e1").glob("*.yaml")
+    path.stem
+    for path in (CONFIGS / "experiment/e1").glob("*.yaml")
     if not path.stem.endswith("_base")
 )
 
 
 def config(experiment):
     with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
-        return compose(config_name="train_zarr_cartesian", overrides=[
-            f"+experiment=e1/{experiment}", "e1.spread=smoke",
-            "e1.train_root=/tmp/e1/train", "e1.valid_root=/tmp/e1/valid",
-            "evaluator.results_path=/tmp/e1/results.json", "e1.image_weights=null",
-        ])
+        return compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                f"+experiment=e1/{experiment}",
+                "e1.spread=smoke",
+                "e1.train_root=/tmp/e1/train",
+                "e1.valid_root=/tmp/e1/valid",
+                "evaluator.results_path=/tmp/e1/results.json",
+                "e1.image_weights=null",
+            ],
+        )
 
 
 @pytest.mark.parametrize("experiment", EXPERIMENTS)
@@ -29,8 +35,10 @@ def test_campaign_model_matches_codec(experiment):
     model = OmegaConf.to_container(cfg.model, resolve=True)
     evaluator = instantiate(cfg.evaluator)
     assert evaluator.variant == cfg.e1.variant
-    expected = (101, 14) if cfg.e1.variant == "arcmean" else (
-        100, 14 if cfg.e1.variant == "time" else 16
+    expected = (
+        (101, 14)
+        if cfg.e1.variant == "arcmean"
+        else (100, 14 if cfg.e1.variant == "time" else 16)
     )
     noising = model["pipeline"]["stages"][3]
     head = model["pipeline"]["stages"][4]["model"]
@@ -42,7 +50,10 @@ def test_campaign_model_matches_codec(experiment):
             instantiate(dataset.resolver.transform_list)
 
 
-@pytest.mark.parametrize("experiment,embodiment", [("fold_time", 3), ("abc_arcmean", 7), ("abcs_arclogdur", 7)])
+@pytest.mark.parametrize(
+    "experiment,embodiment",
+    [("fold_time", 3), ("abc_arcmean", 7), ("abcs_arclogdur", 7)],
+)
 def test_graph_training_and_inference(experiment, embodiment):
     torch.set_num_threads(1)
     cfg = config(experiment)
@@ -76,4 +87,7 @@ def test_graph_training_and_inference(experiment, embodiment):
 def test_full_validation_fraction_is_preserved():
     cfg = config("abc_time")
     cfg.evaluator.limit_val_batches = 1.0
-    assert type(instantiate(cfg.evaluator).override_dict["limit_val_batches"]) is float
+    assert (
+        type(instantiate(cfg.evaluator).trainer_overrides()["limit_val_batches"])
+        is float
+    )

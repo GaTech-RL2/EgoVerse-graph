@@ -2,7 +2,7 @@
 # root feeds both resolvers; episode-level train/valid modes partition it.
 # The YAM_* hashes must be exported from the immutable split manifest by the
 # eventual maintained launcher, never typed into a submission command.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
 
 train_datasets:
   yam_bimanual:

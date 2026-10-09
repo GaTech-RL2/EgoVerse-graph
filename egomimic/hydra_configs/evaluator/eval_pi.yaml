@@ -1,0 +1,10 @@
+# Retained root PI recipes emit legacy normalized Cartesian actions.
+defaults:
+  - eval_hpt
+  - _self_
+rkl_samples: 8
+viz_func:
+  eva_bimanual:
+    annotation_key: sampled_prompt
+  human_bimanual:
+    annotation_key: sampled_prompt

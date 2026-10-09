@@ -83,7 +83,7 @@ class AriaRecorder:
         self._rgb_calib = None
         self._height = height
         self._width = width
-        
+
     def start(self) -> None:
         aria.Level = 4
         self._device_client = aria.DeviceClient()

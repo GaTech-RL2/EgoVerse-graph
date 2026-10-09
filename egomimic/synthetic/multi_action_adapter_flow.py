@@ -34,7 +34,9 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         if len(names) < 2 or len(set(names)) != len(names):
             raise ValueError("embodiments must contain at least two unique names")
         if any(not name or "." in name for name in names):
-            raise ValueError("embodiment names must be non-empty and cannot contain dots")
+            raise ValueError(
+                "embodiment names must be non-empty and cannot contain dots"
+            )
         self.embodiments = tuple(names)
         self.latent_dim = int(latent_dim)
         lift = _fixed_lift(self.latent_dim)
@@ -94,9 +96,7 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         points = [self.decode(embodiment, state)]
         delta = 1.0 / steps
         for index in range(steps):
-            time = torch.full(
-                (len(state), 1), 1.0 - index * delta, device=state.device
-            )
+            time = torch.full((len(state), 1), 1.0 - index * delta, device=state.device)
             state = state - delta * self.velocity(state, time)
             points.append(self.decode(embodiment, state))
         return torch.stack(points)
@@ -116,8 +116,10 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         self, embodiment: str, action: torch.Tensor
     ) -> torch.Tensor:
         return (
-            self.decode(embodiment, self.encode(embodiment, action)) - action
-        ).square().mean()
+            (self.decode(embodiment, self.encode(embodiment, action)) - action)
+            .square()
+            .mean()
+        )
 
     def scale_loss(self, embodiment: str, noise: torch.Tensor) -> torch.Tensor:
         if len(noise) <= 1:
@@ -150,18 +152,24 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         base_noise = torch.randn_like(clean) if noise is None else noise
         if base_noise.shape != clean.shape:
             raise ValueError("noise must match the unexpanded latent batch")
-        clean_many = clean[:, None].expand(-1, flow_samples, -1).reshape(
-            -1, self.latent_dim
+        clean_many = (
+            clean[:, None].expand(-1, flow_samples, -1).reshape(-1, self.latent_dim)
         )
-        noise_many = base_noise[:, None].expand(-1, flow_samples, -1).reshape(
-            -1, self.latent_dim
+        noise_many = (
+            base_noise[:, None]
+            .expand(-1, flow_samples, -1)
+            .reshape(-1, self.latent_dim)
         )
         if time is None:
             time = torch.rand(len(clean_many), 1, device=action.device)
         if time.shape != (len(clean_many), 1):
             raise ValueError("time does not match the expanded action batch")
-        target_clean = clean_many if clean_gradient_mode == "full" else clean_many.detach()
-        state_clean = clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        target_clean = (
+            clean_many if clean_gradient_mode == "full" else clean_many.detach()
+        )
+        state_clean = (
+            clean_many.detach() if clean_gradient_mode == "all_stopgrad" else clean_many
+        )
         target_velocity = noise_many - target_clean
         state = (1.0 - time) * state_clean + time * noise_many
         residual = self.velocity(state, time) - target_velocity
@@ -169,10 +177,7 @@ class SyntheticMultiActionAdapterFlow(nn.Module):
         reconstruction_loss = self.reconstruction_loss(embodiment, action)
         scale_loss = self.scale_loss(embodiment, base_noise)
         action_velocity_loss = (
-            self.decoder_jvp(embodiment, state, residual)
-            .square()
-            .sum(dim=-1)
-            .mean()
+            self.decoder_jvp(embodiment, state, residual).square().sum(dim=-1).mean()
             / 3.0
         )
         total = (

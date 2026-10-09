@@ -1,0 +1,5 @@
+# Compatibility name for saved commands/configs; architecture is shared.
+# Canonical definition: hpt_cotrain_mecka_flow_shared_head.yaml
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head
+  - _self_

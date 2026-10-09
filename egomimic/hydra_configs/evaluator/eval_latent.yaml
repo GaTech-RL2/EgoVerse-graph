@@ -1,0 +1,17 @@
+_target_: egomimic.eval.token_diagnostics.TokenDiagnosticsEval
+capability: token_activations
+methods: [umap, pca_umap, tsne2d]
+pca_components: 50
+pca_for_downstream: false
+max_tokens_per_source_layer: 4096
+save_plots: true
+color_by: embodiment
+limit_val_batches: 16
+seed: 0
+prediction_evaluator:
+  _target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+  pose_metrics: true
+  rkl_samples: 1
+  revert_transforms:
+    eva_bimanual: []
+    human_bimanual: []

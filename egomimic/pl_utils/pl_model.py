@@ -10,7 +10,7 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
-from egomimic.eval.pipeline_diagnostics import DiagnosticProvider
+from egomimic.eval.diagnostic_provider import DiagnosticProvider
 from egomimic.pl_utils.training_behavior import TrainingBehavior
 
 
@@ -80,6 +80,7 @@ class ModelWrapper(LightningModule):
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
         self.evaluator = evaluator
+        self.data_context = None
         self._active_validation_batch = None
         self.training_behavior = self._build_training_behavior(
             config_tree=config_tree,
@@ -343,8 +344,7 @@ class ModelWrapper(LightningModule):
         wrapper directly) or the index is out of range, and the evaluator then
         keeps its unprefixed metric names.
         """
-        datamodule = getattr(self.trainer, "datamodule", None) if self._trainer else None
-        names = getattr(datamodule, "valid_group_names", None)
+        names = self.data_context.validation_groups if self.data_context else ()
         if not names or not 0 <= int(dataloader_idx) < len(names):
             return None
         return names[int(dataloader_idx)]
@@ -366,7 +366,7 @@ class ModelWrapper(LightningModule):
         if self.evaluator is None:
             return
         group = self._valid_group_name(dataloader_idx)
-        if group is not None and hasattr(self.evaluator, "set_validation_group"):
+        if group is not None:
             self.evaluator.set_validation_group(group)
         self._active_validation_batch = batch
         try:
@@ -456,9 +456,34 @@ class ModelWrapper(LightningModule):
         )
 
     def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        if self.data_context is not None:
+            checkpoint["data_context"] = self.data_context.snapshot()
+            config_tree = getattr(self.hparams, "config_tree", None)
+            if config_tree is not None:
+                from egomimic.pipeline.checkpoint_binding import checkpoint_binding
+
+                checkpoint["inference_binding"] = checkpoint_binding(
+                    config_tree, self.data_context
+                )
         self.training_behavior.on_save_checkpoint(checkpoint)
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        saved = checkpoint.get("data_context")
+        if saved is not None and self.data_context is not None:
+            current = self.data_context.snapshot()
+            from egomimic.pl_utils.data_context import state_fingerprint
+
+            if state_fingerprint(saved) != state_fingerprint(current):
+                raise ValueError(
+                    "Resume checkpoint normalization differs from the bound data context"
+                )
+            config_tree = getattr(self.hparams, "config_tree", None)
+            if config_tree is not None:
+                from egomimic.pipeline.checkpoint_binding import (
+                    validate_checkpoint_binding,
+                )
+
+                validate_checkpoint_binding(checkpoint, config_tree, self.data_context)
         self.training_behavior.on_load_checkpoint(checkpoint)
 
     def on_fit_start(self):

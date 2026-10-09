@@ -8,7 +8,8 @@ The root AGENTS.md applies here. Configure evaluators in
   `model.forward_eval(batch)[source]["pred_action"]`. It owns normalization,
   validation-group names, pose scores, optional repeated-sample scores and overlays.
 - `video.py`: shared `EvalVideo` episode/chunk buffering, file output, distributed
-  playback FPS and WandB video logging. Only rank zero buffers/writes videos.
+  playback FPS and WandB video logging. All ranks spool their own frames; only
+  rank zero encodes and uploads the reassembled episode videos.
 - `cartesian_metrics.py`, `distribution_metrics.py`: model-independent pose,
   DTW, Fréchet, reverse-KL and coverage calculations.
 - `arc_bimanual_cartesian_eval.py`, `arc_metrics.py`: ARC-specific decoding and
@@ -16,6 +17,10 @@ The root AGENTS.md applies here. Configure evaluators in
 - `bimanual_tempo_eval.py`, `e1_metrics.py`: tempo/duration scoring.
 - `planar_action_eval.py`, `synthetic_trajectory_eval.py`: nonrobot evaluation.
 - `checkpoint_loading.py`: strict graph checkpoint restoration and EMA selection.
+- `token_diagnostics.py`, `latent_archive.py`: provider-owned token capture,
+  bounded per-source reductions, CSV/raw-key archives and model-free rebuilds.
+- `dataset_video.py`, `data_field_audit.py`: recorded-data videos/PNG/array export
+  and configured zero/nonfinite checks; neither constructs a policy.
 
 PI-specific backend calls do not belong in the evaluator. Its graph stage emits
 the same normalized `pred_action` as HPT. Validation groups use `Valid/` for

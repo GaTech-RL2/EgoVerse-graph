@@ -66,9 +66,7 @@ def test_rotation_radius_adds_metric_distance():
 
 def test_hybrid_rotation_budget_caps_a_shared_cartesian_window():
     """A small angular budget shortens the common arc window, not a stream."""
-    action = np.array(
-        [[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]]
-    )
+    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]])
     token = TokenizePlanarArcLength(
         min_distance_unit=20,
         resampled_vector_length=3,
@@ -129,9 +127,7 @@ def test_curvature_sampling_allocates_denser_support_on_a_bend():
 
 
 def test_duration_decoder_restores_the_full_control_rate_trajectory():
-    raw = np.column_stack(
-        (np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40))
-    )
+    raw = np.column_stack((np.arange(40, dtype=np.float32), np.zeros(40), np.zeros(40)))
     token = TokenizePlanarArcLength(
         min_distance_unit=40.0,
         resampled_vector_length=16,

@@ -1,6 +1,8 @@
 # ICE copy for the stationery E1 sweep: identical to abc_skirts.yaml (front camera only,
 # embodiment override, image_hw 480x640); the split folders under e1.train_root / e1.valid_root select the task.
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
 
 train_datasets:
   yam_bimanual:
@@ -64,7 +66,7 @@ train_dataloader_params:
   yam_bimanual:
     batch_size: 128
     num_workers: 12
-    anchor_sampler: ${e1.anchor_sampler}
+    sampler: ${e1.anchor_sampler}
 
 valid_dataloader_params:
   yam_bimanual:

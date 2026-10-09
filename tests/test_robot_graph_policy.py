@@ -96,6 +96,15 @@ class RetryStage(Stage):
         return batch
 
 
+class ConditionStage(Stage):
+    reads = (PROPRIO,)
+    writes = ("condition",)
+
+    def forward(self, batch):
+        batch["condition"] = batch[PROPRIO][..., :8]
+        return batch
+
+
 class ProfileSamplerStage(Stage):
     reads = (PROPRIO,)
     writes = ("pred_action",)
@@ -109,6 +118,61 @@ class ProfileSamplerStage(Stage):
         return batch
 
 
+def declare_test_model(training, horizon=2, width=14, control_path=None):
+    from tests.test_inference_config import training_config
+
+    declaration = training_config(horizon=horizon, action_dim=width).model.inference
+    declaration.input.keys = [PROPRIO, "front", "embodiment"]
+    declaration.input.history_keys = [PROPRIO, "front"]
+    declaration.profiles.default.overrides.replan_every.default = 1
+    if control_path:
+        declaration.profiles.default.overrides.inference_steps.target.attribute_path = (
+            control_path
+        )
+    else:
+        del declaration.profiles.default.overrides["inference_steps"]
+    training.model.pipeline.stage_ids = {"sampler": 0}
+    training.model.inference = declaration
+    training.data_context_loader = {
+        "_target_": "egomimic.rldb.zarr.data_module.load_data_context"
+    }
+    declaration.compatibility.normalizer_schema = {
+        "action_key": ACTION,
+        "native_shape": [horizon, width],
+        "embodiment": 7,
+    }
+    training.model.inference = declaration
+    return training
+
+
+def save_bound_checkpoint(path, training, state):
+    from egomimic.pipeline.checkpoint_binding import checkpoint_binding
+    from egomimic.pipeline.inference_config import write_inference_config
+    from egomimic.pl_utils.data_context import DataContext, serializable_state
+    from egomimic.rldb.zarr.data_module import _digest
+
+    norm = normalizer()
+    snapshot = {
+        "kind": "zarr-normalizer-v1",
+        "normalizer_state": norm.to_state(),
+        "sha256": _digest(norm.to_state()),
+    }
+    context = DataContext(norm, norm.shapes, (), snapshot)
+    checkpoint = {
+        "state_dict": state,
+        "data_context": snapshot,
+        "inference_binding": checkpoint_binding(training, context),
+    }
+    torch.save(checkpoint, path)
+    (path.parent / "data-context.json").write_text(
+        json.dumps(serializable_state(snapshot))
+    )
+    write_inference_config(
+        training, path.parent / "inference-config.yaml", data_context=context
+    )
+    return checkpoint
+
+
 def test_flow_rollout_can_override_only_its_euler_solver_budget():
     from egomimic.pipeline.stages_flow import FlowDenoiserStage
 
@@ -119,14 +183,14 @@ def test_flow_rollout_can_override_only_its_euler_solver_budget():
         condition_input_dim=8,
         num_inference_steps=50,
     )
-    graph = PipelineAlgo([flow], device="cpu")
+    graph = PipelineAlgo([flow], device="cpu", stage_ids={"sampler": 0})
 
     configure_flow_inference_steps(graph, 10)
 
     assert flow.num_inference_steps == 10
     with pytest.raises(ValueError, match="positive integer"):
         configure_flow_inference_steps(graph, 0)
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises((KeyError, ValueError), match="sampler"):
         configure_flow_inference_steps(PipelineAlgo([EchoStage()], device="cpu"), 10)
 
 
@@ -143,7 +207,9 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
         condition_input_dim=8,
         num_inference_steps=50,
     )
-    graph = PipelineAlgo([flow], device="cpu")
+    graph = PipelineAlgo(
+        [ConditionStage(), flow], device="cpu", stage_ids={"sampler": 1}
+    )
     ckpt = tmp_path / "flow.ckpt"
     state = {f"nets.{key}": value for key, value in graph.nets.state_dict().items()}
     torch.save({"state_dict": state}, ckpt)
@@ -156,6 +222,9 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
                         "_target_": "egomimic.pipeline.algo.PipelineAlgo",
                         "stages": [
                             {
+                                "_target_": "tests.test_robot_graph_policy.ConditionStage"
+                            },
+                            {
                                 "_target_": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
                                 "model": {
                                     "_target_": "torch.nn.Linear",
@@ -166,7 +235,7 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
                                 "action_dim": 14,
                                 "condition_input_dim": 8,
                                 "num_inference_steps": 50,
-                            }
+                            },
                         ],
                     }
                 }
@@ -174,6 +243,16 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
         ),
         training,
     )
+    OmegaConf.save(
+        declare_test_model(
+            OmegaConf.load(training), control_path="num_inference_steps"
+        ),
+        training,
+    )
+    config = OmegaConf.load(training)
+    config.model.pipeline.stage_ids.sampler = 1
+    OmegaConf.save(config, training)
+    save_bound_checkpoint(ckpt, config, state)
     boundary = dict(
         _target_="egomimic.robot.graph_policy.CartesianGraphAdapter",
         base_T_model={a: np.eye(4).tolist() for a in ("left", "right")},
@@ -186,56 +265,15 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
 
     policy = load_graph_policy(
         dict(
-            normalizer_path=str(tmp_path / "norm_stats/norm_stats.json"),
+            normalizer_path=str(tmp_path / "data-context.json"),
             training_config=str(training),
             checkpoint=str(ckpt),
             device="cpu",
             adapter=boundary,
-            inference_graph={
-                "input": {"history_length": 1},
-                "output": {"representation": "cartesian", "shape": [2, 14]},
-                "profiles": {
-                    "flow_time": {
-                        "match": {
-                            "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage"
-                        },
-                        "native_shape": [2, 14],
-                        "overrides": {
-                            "inference_steps": {
-                                "label": "Euler integration steps",
-                                "description": "Flow solver budget.",
-                                "type": "integer",
-                                "min": 1,
-                                "max": 100,
-                                "step": 1,
-                                "default": 10,
-                                "target": {
-                                    "kind": "stage_attribute",
-                                    "attribute_path": "num_inference_steps",
-                                },
-                            },
-                            "replan_every": {
-                                "label": "Repredict every",
-                                "description": "Execution prefix.",
-                                "type": "integer",
-                                "min": 1,
-                                "max": 2,
-                                "step": 1,
-                                "default": 1,
-                                "target": {
-                                    "kind": "policy_attribute",
-                                    "attribute_path": "replan_every",
-                                },
-                            },
-                        },
-                        "adapter": {"decoder": None},
-                    }
-                },
-            },
         )
     )
 
-    assert policy.graph.pipeline.stages[0].num_inference_steps == 10
+    assert policy.graph.pipeline.stages[1].num_inference_steps == 10
     assert policy.inference_controls()["inference_steps"]["value"] == 10
     assert policy.execution_plan(np.zeros((2, 14))).shape == (1, 14)
 
@@ -393,44 +431,22 @@ def test_selected_e1_model_derives_its_rollout_decoder(
         "decoder": {"_target_": "old.decoder"},
     }
 
-    profiles = OmegaConf.create(
-        {
-            "flow_time": {
-                "match": {
-                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
-                    "variant": "time",
-                },
-                "native_shape": [100, 14],
-                "adapter": {"decoder": None},
-            },
-            "flow_arcvel": {
-                "match": {
-                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
-                    "variant": "arcvel",
-                },
-                "native_shape": [100, 16],
-                "adapter": {
-                    "decoder": {
-                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
-                        "token_layout": "e1_profile",
-                    }
-                },
-            },
-            "flow_arcdur": {
-                "match": {
-                    "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
-                    "variant": "arcdur",
-                },
-                "native_shape": [100, 16],
-                "adapter": {
-                    "decoder": {
-                        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
-                        "token_layout": "e1_dur",
-                    }
-                },
+    training.model.pipeline.stage_ids = {"sampler": 0}
+    training.model.inference = {"native_output": {"shape": [100, action_dim]}}
+    profiles = {
+        "default": {
+            "stage_id": "sampler",
+            "native_shape": [100, action_dim],
+            "adapter": {
+                "decoder": None
+                if expected_layout is None
+                else {
+                    "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                    "token_layout": expected_layout,
+                }
             },
         }
-    )
+    }
     selected = configure_adapter_for_training(adapter_config, training, profiles)
 
     if expected_layout is None:
@@ -461,16 +477,15 @@ def test_selected_e1_model_rejects_an_incompatible_token_width():
         }
     )
 
+    training.model.pipeline.stage_ids = {"sampler": 0}
+    training.model.inference = {"native_output": {"shape": [100, 14]}}
     with pytest.raises(ValueError, match="expects"):
         configure_adapter_for_training(
             {},
             training,
             {
                 "flow_arcvel": {
-                    "match": {
-                        "stage_target": "egomimic.pipeline.stages_flow.FlowDenoiserStage",
-                        "variant": "arcvel",
-                    },
+                    "stage_id": "sampler",
                     "native_shape": [100, 16],
                     "adapter": {},
                 }
@@ -495,9 +510,10 @@ def test_diffusion_profile_exposes_typed_controls_and_needs_no_arc_variant():
             }
         }
     )
+    declare_test_model(training, horizon=100, control_path="policy.num_inference_steps")
     profiles = {
         "diffusion_time": {
-            "match": {"stage_target": target},
+            "stage_id": "sampler",
             "native_shape": [100, 14],
             "overrides": {
                 "inference_steps": {
@@ -510,6 +526,7 @@ def test_diffusion_profile_exposes_typed_controls_and_needs_no_arc_variant():
                     "default": 12,
                     "target": {
                         "kind": "stage_attribute",
+                        "stage_id": "sampler",
                         "attribute_path": "policy.num_inference_steps",
                     },
                 },
@@ -531,7 +548,7 @@ def test_diffusion_profile_exposes_typed_controls_and_needs_no_arc_variant():
         }
     }
     stage = ProfileSamplerStage()
-    graph = PipelineAlgo([stage], device="cpu")
+    graph = PipelineAlgo([stage], device="cpu", stage_ids={"sampler": 0})
 
     controls = configure_profile_controls(graph, training, profiles)
     selected = configure_adapter_for_training(
@@ -642,6 +659,10 @@ def test_checkpoint_loading_is_strict_and_never_opens_training_datasets(tmp_path
         ),
         training,
     )
+    OmegaConf.save(
+        declare_test_model(OmegaConf.load(training), control_path=None), training
+    )
+    checkpoint = save_bound_checkpoint(ckpt, OmegaConf.load(training), state)
     boundary = dict(
         _target_="egomimic.robot.graph_policy.CartesianGraphAdapter",
         base_T_model={a: np.eye(4).tolist() for a in ("left", "right")},
@@ -652,14 +673,15 @@ def test_checkpoint_loading_is_strict_and_never_opens_training_datasets(tmp_path
         image_hw=[2, 3],
     )
     config = dict(
-        normalizer_path=str(tmp_path / "norm_stats/norm_stats.json"),
+        normalizer_path=str(tmp_path / "data-context.json"),
         training_config=str(training),
         checkpoint=str(ckpt),
         device="cpu",
         adapter=boundary,
     )
     assert load_graph_policy(config).predict(FakeRobot().get_obs()).shape == (2, 14)
-    torch.save({"state_dict": {**state, "nets.unexpected": torch.zeros(1)}}, ckpt)
+    checkpoint["state_dict"] = {**state, "nets.unexpected": torch.zeros(1)}
+    torch.save(checkpoint, ckpt)
     with pytest.raises(ValueError, match="key mismatch"):
         load_graph_policy(config)
 

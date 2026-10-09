@@ -1,0 +1,26 @@
+{
+  "source_commit": "ec5c903c067bf1b29bbff781bc414c6df2bcf1f2",
+  "vendor": "mecka",
+  "representation": "cartesian",
+  "frame": "camframe",
+  "identity": 3,
+  "indices": [
+    0,
+    7,
+    29,
+    47,
+    50
+  ],
+  "model_keys": [
+    "actions_cartesian",
+    "observations.images.front_img_1",
+    "observations.state.ee_pose"
+  ],
+  "api": "legacy",
+  "transform_arguments": {
+    "mode": "cartesian",
+    "stride": 1
+  },
+  "normalization_frames": 54,
+  "archive_sha256": "7aaf6dc3c82a95a2c844e76918334ad2762dd0e0ced038fe117baf928b5cfde6"
+}

@@ -10,10 +10,18 @@ path, perfectly. Its shape is exactly right over that span, but it covers only
     prediction is stretched over the M waypoints and pays for the travel it
     never made.
 """
+
 import numpy as np
+
 from egomimic.eval.e1_fold_tempo_eval import (
-    PAIRED_COLS, arm_travel, match_spans, gt_spans, tokenize_span, _mse_cols,
-    cumulative_arc_length)
+    PAIRED_COLS,
+    _mse_cols,
+    arm_travel,
+    cumulative_arc_length,
+    gt_spans,
+    match_spans,
+    tokenize_span,
+)
 
 T, M, dt, D = 100, 100, 1 / 30, 0.40
 
@@ -21,7 +29,7 @@ T, M, dt, D = 100, 100, 1 / 30, 0.40
 def curve(total_m, n=T):
     """A curved bimanual path of `total_m` arc length, sampled at n frames."""
     u = np.linspace(0, 1, 2000)
-    p = np.stack([u, 0.15 * np.sin(np.pi * u), 0.05 * u ** 2], axis=1)
+    p = np.stack([u, 0.15 * np.sin(np.pi * u), 0.05 * u**2], axis=1)
     c = cumulative_arc_length(p)
     p = p * (total_m / c[-1])
     c = cumulative_arc_length(p)
@@ -45,13 +53,23 @@ for off in (0, 7):
     short[:, off + 6] = np.interp(s_short, c_gt, gt[:, off + 6])
 full = gt.copy()
 
-print(f"travel  gt={arm_travel(gt)[0]:.3f}  full-travel pred={arm_travel(full)[0]:.3f}  "
-      f"short pred={arm_travel(short)[0]:.3f} m\n")
-print("{:18} {:>9} {:>11} {:>9} {:>12}".format("row", "lab span", "lab MSE", "gt span", "gtspan MSE"))
+print(
+    f"travel  gt={arm_travel(gt)[0]:.3f}  full-travel pred={arm_travel(full)[0]:.3f}  "
+    f"short pred={arm_travel(short)[0]:.3f} m\n"
+)
+print(
+    "{:18} {:>9} {:>11} {:>9} {:>12}".format(
+        "row", "lab span", "lab MSE", "gt span", "gtspan MSE"
+    )
+)
 for name, pr in (("full-travel pred", full), ("short pred", short)):
     sl = match_spans(pr, gt)
-    pw, _ = tokenize_span(pr, sl, M, dt); gw, _ = tokenize_span(gt, sl, M, dt)
+    pw, _ = tokenize_span(pr, sl, M, dt)
+    gw, _ = tokenize_span(gt, sl, M, dt)
     sg = gt_spans(gt, D)
-    pg, _ = tokenize_span(pr, sg, M, dt); gg, _ = tokenize_span(gt, sg, M, dt)
-    print(f"{name:18} {sl[0]:>9.3f} {_mse_cols(pw, gw, PAIRED_COLS):>11.6f} "
-          f"{sg[0]:>9.3f} {_mse_cols(pg, gg, PAIRED_COLS):>12.6f}")
+    pg, _ = tokenize_span(pr, sg, M, dt)
+    gg, _ = tokenize_span(gt, sg, M, dt)
+    print(
+        f"{name:18} {sl[0]:>9.3f} {_mse_cols(pw, gw, PAIRED_COLS):>11.6f} "
+        f"{sg[0]:>9.3f} {_mse_cols(pg, gg, PAIRED_COLS):>12.6f}"
+    )

@@ -346,8 +346,8 @@ def main() -> None:
         diagnostic_clean = model.encoder(tgt)
         diagnostic_velocity = src - diagnostic_clean
         diagnostic_state = (
-            (1.0 - diagnostic_time) * diagnostic_clean + diagnostic_time * src
-        )
+            1.0 - diagnostic_time
+        ) * diagnostic_clean + diagnostic_time * src
         diagnostic_residual = (
             model.velocity(diagnostic_state, diagnostic_time) - diagnostic_velocity
         )

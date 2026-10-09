@@ -1,4 +1,4 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
 
 # Frozen 4,920-episode ChainGripper corpus with six-point action targets.
 train_datasets:

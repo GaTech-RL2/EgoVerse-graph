@@ -1,7 +1,23 @@
 #!/usr/bin/env python3
 """Single-rank save-only signal adapter; never signal a Slurm step or supervisor."""
 from __future__ import annotations
-import hashlib,json,os,pathlib,re,signal,subprocess,sys,time
+import ctypes,hashlib,json,os,pathlib,re,signal,subprocess,sys,time
+
+def _linux_syscall(number, *args):
+    assert sys.platform == 'linux' and os.uname().machine == 'x86_64', 'Only verified Linux x86_64 ABI supported'
+    libc=ctypes.CDLL(None,use_errno=True);libc.syscall.restype=ctypes.c_long
+    value=libc.syscall(ctypes.c_long(number),*args)
+    if value < 0:
+        error=ctypes.get_errno();raise OSError(error,os.strerror(error))
+    return value
+
+def open_pidfd(pid):
+    if hasattr(os,'pidfd_open'): return os.pidfd_open(pid)
+    return _linux_syscall(434,ctypes.c_int(pid),ctypes.c_uint(0))
+
+def send_pidfd(fd, sig):
+    if hasattr(signal,'pidfd_send_signal'): return signal.pidfd_send_signal(fd,sig)
+    return _linux_syscall(424,ctypes.c_int(fd),ctypes.c_int(sig),ctypes.c_void_p(None),ctypes.c_uint(0))
 
 def candidate(pid, *, repo, python, uid, namespace, job, proc=pathlib.Path('/proc')):
     assert pid > 0
@@ -48,12 +64,11 @@ def main():
     if audit:
         proof['status']='TRAINER_PID_ROUTE_AUDITED'
     else:
-        assert hasattr(os,'pidfd_open') and hasattr(signal,'pidfd_send_signal'), 'Race-safe Linux PID handle required'
-        fd=os.pidfd_open(proof['pid'])
+        fd=open_pidfd(proof['pid'])
         try:
             current=candidate(proof['pid'],**context)
             assert all(current[k]==proof[k] for k in current), 'Trainer identity changed before signal'
-            signal.pidfd_send_signal(fd,signal.SIGUSR2)
+            send_pidfd(fd,signal.SIGUSR2)
         finally: os.close(fd)
         proof['status']='SAVE_ONLY_TRAINER_PID_SIGNALED'
     print(json.dumps(proof,sort_keys=True),flush=True)

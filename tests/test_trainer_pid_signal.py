@@ -32,3 +32,18 @@ def test_fail_closed(fixture,field):
     if field=='command':(p/'cmdline').write_bytes(b'python\0ice_requeue_runner.py\0')
     if field=='start':(p/'stat').write_text('123 (python) '+' '.join(['0']*40))
     with pytest.raises(AssertionError):api['candidate'](123,**kw)
+
+def test_pid_handle_python_api(monkeypatch):
+    api=runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/ice/trainer_pid_signal.py'))
+    import os
+    monkeypatch.setattr(os,'pidfd_open',lambda pid: 77 if pid==123 else None,raising=False)
+    monkeypatch.setattr(signal,'pidfd_send_signal',lambda fd,sig: (fd,sig),raising=False)
+    assert api['open_pidfd'](123)==77
+    assert api['send_pidfd'](77,signal.SIGUSR2)==(77,signal.SIGUSR2)
+
+def test_missing_api_rejects_unverified_platform(monkeypatch):
+    api=runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/ice/trainer_pid_signal.py'))
+    import os,sys
+    monkeypatch.delattr(os,'pidfd_open',raising=False)
+    monkeypatch.setattr(sys,'platform','unverified')
+    with pytest.raises(AssertionError,match='ABI'): api['open_pidfd'](123)

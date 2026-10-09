@@ -59,7 +59,9 @@ class LiberoActionFlowNormalizer(_LogicalReplayKeyNormalization, LiberoNormalize
         for key in ("action", "task_uid"):
             array = arrays[key]
             for start in range(0, array.shape[0], 4096):
-                digest.update(np.ascontiguousarray(array[start:start + 4096]).tobytes())
+                digest.update(
+                    np.ascontiguousarray(array[start : start + 4096]).tobytes()
+                )
         self.context = {
             "dataset_sha256": digest.hexdigest(),
             "suite": dataset.resolver.suite,
@@ -90,11 +92,13 @@ class LiberoActionFlowNormalizer(_LogicalReplayKeyNormalization, LiberoNormalize
                     continue
                 for offset in range(int(first), int(last), 4096):
                     values = np.asarray(
-                        array[offset:min(offset + 4096, int(last))],
+                        array[offset : min(offset + 4096, int(last))],
                         dtype=np.float32,
                     ).reshape(-1, array.shape[-1])
                     if not np.isfinite(values).all():
-                        raise ValueError(f"non-finite training normalization data: {key}")
+                        raise ValueError(
+                            f"non-finite training normalization data: {key}"
+                        )
                     low = np.minimum(low, values.min(axis=0))
                     high = np.maximum(high, values.max(axis=0))
             if not np.isfinite(low).all() or not np.isfinite(high).all():

@@ -22,21 +22,39 @@ def _manifest():
             "human": 126699 / 376264,
         },
     }
-    for domain, (_, train_count, valid_count, train_windows, valid_windows, prefix) in DOMAINS.items():
+    for domain, (
+        _,
+        train_count,
+        valid_count,
+        train_windows,
+        valid_windows,
+        prefix,
+    ) in DOMAINS.items():
         rows = []
-        summary = {"episodes": train_count + valid_count,
-                   "train_episodes": train_count, "valid_episodes": valid_count,
-                   "train_frame_windows": train_windows, "valid_frame_windows": valid_windows}
-        for group, count, windows in (("train", train_count, train_windows),
-                                      ("valid", valid_count, valid_windows)):
+        summary = {
+            "episodes": train_count + valid_count,
+            "train_episodes": train_count,
+            "valid_episodes": valid_count,
+            "train_frame_windows": train_windows,
+            "valid_frame_windows": valid_windows,
+        }
+        for group, count, windows in (
+            ("train", train_count, train_windows),
+            ("valid", valid_count, valid_windows),
+        ):
             names = [f"{domain}-{group}-{index:03d}" for index in range(count)]
             summary[f"{group}_ids_sha256"] = hashlib.sha256(
                 "".join(f"{name}\n" for name in names).encode()
             ).hexdigest()
             for index, name in enumerate(names):
-                rows.append({"split": group, "episode_hash": name,
-                             "zarr_processed_path": f"{prefix}{name}.zarr",
-                             "num_frames": windows - count + 1 if index == 0 else 1})
+                rows.append(
+                    {
+                        "split": group,
+                        "episode_hash": name,
+                        "zarr_processed_path": f"{prefix}{name}.zarr",
+                        "num_frames": windows - count + 1 if index == 0 else 1,
+                    }
+                )
         result[domain] = {"summary": summary, "episodes": rows}
     return result
 
@@ -48,11 +66,15 @@ def test_exact_proportional_split_accepts_all_episodes(tmp_path):
     assert set(ids) == {"yam_train", "yam_valid", "human_train", "human_valid"}
 
 
-@pytest.mark.parametrize("mutation", ["duplicate_path", "balanced_sampling", "wrong_holdout"])
+@pytest.mark.parametrize(
+    "mutation", ["duplicate_path", "balanced_sampling", "wrong_holdout"]
+)
 def test_split_rejects_science_contract_drift(tmp_path, mutation):
     split = _manifest()
     if mutation == "duplicate_path":
-        split["human"]["episodes"][1]["zarr_processed_path"] = split["human"]["episodes"][0]["zarr_processed_path"]
+        split["human"]["episodes"][1]["zarr_processed_path"] = split["human"][
+            "episodes"
+        ][0]["zarr_processed_path"]
     elif mutation == "balanced_sampling":
         split["proportional_train_window_probabilities"] = {"yam": 0.5, "human": 0.5}
     else:

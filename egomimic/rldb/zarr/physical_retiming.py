@@ -3,6 +3,7 @@
 No images are interpolated. Callers retain the observation anchor and request
 sufficient raw futures. Out-of-range requests fail instead of silently padding.
 """
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation, Slerp
@@ -10,15 +11,28 @@ from scipy.spatial.transform import Rotation, Slerp
 from egomimic.utils.pose_utils import wxyz_to_xyzw, xyzw_to_wxyz
 
 
-def retime_stream(values, timestamps_s, *, start_s, rate, output_dt_s,
-                  horizon, kind="linear", embodiment="human"):
+def retime_stream(
+    values,
+    timestamps_s,
+    *,
+    start_s,
+    rate,
+    output_dt_s,
+    horizon,
+    kind="linear",
+    embodiment="human",
+):
     t = np.asarray(timestamps_s, dtype=np.float64)
     x = np.asarray(values)
     if t.ndim != 1 or len(t) < 2 or not np.isfinite(t).all() or (np.diff(t) <= 0).any():
         raise ValueError("timestamps must be strictly increasing finite seconds")
     if x.ndim < 1 or len(x) != len(t) or not np.isfinite(x).all():
         raise ValueError("invalid stream or time axis")
-    if not np.isfinite([start_s, rate, output_dt_s]).all() or rate <= 0 or output_dt_s <= 0:
+    if (
+        not np.isfinite([start_s, rate, output_dt_s]).all()
+        or rate <= 0
+        or output_dt_s <= 0
+    ):
         raise ValueError("invalid retiming clock/rate")
     if not isinstance(horizon, int) or isinstance(horizon, bool) or horizon < 2:
         raise ValueError("horizon must be an integer >= 2")
@@ -44,7 +58,12 @@ def retime_stream(values, timestamps_s, *, start_s, rate, output_dt_s,
 def chunk_speed(positions, output_dt_s):
     """Mean path speed per arm; caller explicitly binds native metric units."""
     x = np.asarray(positions, dtype=np.float64)
-    if x.ndim not in (2, 3) or x.shape[-1] != 3 or len(x) < 2 or not np.isfinite(x).all():
+    if (
+        x.ndim not in (2, 3)
+        or x.shape[-1] != 3
+        or len(x) < 2
+        or not np.isfinite(x).all()
+    ):
         raise ValueError("expected finite (H,3) or (H,arms,3)")
     if not np.isfinite(output_dt_s) or output_dt_s <= 0:
         raise ValueError("invalid output clock")
@@ -58,9 +77,19 @@ class PhysicalWindowRetiming:
     source proportions. Counts use complete native raw windows, never padded
     tails. Observations remain at the original anchor.
     """
-    def __init__(self, rates, fields, pose_keys, horizon, stride=1,
-                 embodiment="human", sample_views=5, timestamp_key=None,
-                 conditioning_input="native_speed"):
+
+    def __init__(
+        self,
+        rates,
+        fields,
+        pose_keys,
+        horizon,
+        stride=1,
+        embodiment="human",
+        sample_views=5,
+        timestamp_key=None,
+        conditioning_input="native_speed",
+    ):
         self.rates = tuple(float(r) for r in rates)
         self.fields = dict(fields)
         self.pose_keys = tuple(pose_keys)
@@ -72,31 +101,51 @@ class PhysicalWindowRetiming:
         if conditioning_input not in {"native_speed", "retiming_multiplier"}:
             raise ValueError("Unknown retiming conditioning input")
         self.conditioning_input = conditioning_input
-        if (not self.rates or not np.isfinite(self.rates).all()
-                or any(r <= 0 or r > 1 for r in self.rates)
-                or len(set(self.rates)) != len(self.rates)
-                or self.sample_views < 1 or self.sample_views % len(self.rates)
-                or self.required_frames < 2 or not 1 <= self.stride < self.required_frames
-                or len(self.pose_keys) != 2 or any(k not in self.fields for k in self.pose_keys)
-                or any(kind not in {"linear", "hold", "pose_wxyz"} for kind in self.fields.values())):
+        if (
+            not self.rates
+            or not np.isfinite(self.rates).all()
+            or any(r <= 0 or r > 1 for r in self.rates)
+            or len(set(self.rates)) != len(self.rates)
+            or self.sample_views < 1
+            or self.sample_views % len(self.rates)
+            or self.required_frames < 2
+            or not 1 <= self.stride < self.required_frames
+            or len(self.pose_keys) != 2
+            or any(k not in self.fields for k in self.pose_keys)
+            or any(
+                kind not in {"linear", "hold", "pose_wxyz"}
+                for kind in self.fields.values()
+            )
+        ):
             raise ValueError("invalid physical retiming contract")
-        if embodiment not in {"human", "robot"} or (embodiment == "robot" and self.rates != (1.0,)):
+        if embodiment not in {"human", "robot"} or (
+            embodiment == "robot" and self.rates != (1.0,)
+        ):
             raise ValueError("robot trajectory must remain at1x")
         if embodiment == "human" and timestamp_key is None:
             raise ValueError("human recorded timestamps are mandatory")
-        self.required_keys = tuple(self.fields) + ((timestamp_key,) if timestamp_key else ())
+        self.required_keys = tuple(self.fields) + (
+            (timestamp_key,) if timestamp_key else ()
+        )
         self.fps = None
 
     def bind_episode(self, metadata, key_map):
         for key in self.required_keys:
-            if key not in key_map or key_map[key].get("horizon") != self.required_frames:
-                raise ValueError("every retimed field/clock needs its full native horizon")
+            if (
+                key not in key_map
+                or key_map[key].get("horizon") != self.required_frames
+            ):
+                raise ValueError(
+                    "every retimed field/clock needs its full native horizon"
+                )
         if self.embodiment == "robot":
             fps = float(metadata.get("fps", -1))
             if not np.isfinite(fps) or fps <= 0:
                 raise ValueError("robot metadata clock absent")
             if self.fps is not None and self.fps != fps:
-                raise ValueError("shared robot transform requires one verified metadata clock")
+                raise ValueError(
+                    "shared robot transform requires one verified metadata clock"
+                )
             self.fps = fps
 
     def transform(self, batch):
@@ -106,7 +155,9 @@ class PhysicalWindowRetiming:
         rate = self.rates[view % len(self.rates)]
         if self.timestamp_key:
             stamp = np.asarray(batch.pop(self.timestamp_key))
-            if stamp.shape != (self.required_frames,) or not np.issubdtype(stamp.dtype, np.integer):
+            if stamp.shape != (self.required_frames,) or not np.issubdtype(
+                stamp.dtype, np.integer
+            ):
                 raise ValueError("recorded timestamps must be integer nanoseconds")
             clock = (stamp - stamp[0]).astype(np.float64) * 1e-9
         else:
@@ -123,23 +174,32 @@ class PhysicalWindowRetiming:
             if len(value) != self.required_frames or not np.isfinite(value).all():
                 raise ValueError("retiming refuses padding or nonfinite native futures")
             if kind == "pose_wxyz":
-                if value.shape != (self.required_frames, 7) or np.any(np.linalg.norm(value[:, 3:], axis=1) < 1e-8):
+                if value.shape != (self.required_frames, 7) or np.any(
+                    np.linalg.norm(value[:, 3:], axis=1) < 1e-8
+                ):
                     raise ValueError("invalid pose quaternion")
             if rate == 1.0:
                 batch[key] = value.copy()  # exact identity, preserving native values
             elif kind == "hold":
-                batch[key] = value[np.searchsorted(clock, query, side="right") - 1].copy()
+                batch[key] = value[
+                    np.searchsorted(clock, query, side="right") - 1
+                ].copy()
             elif kind == "linear":
                 batch[key] = interp1d(clock, value, axis=0, bounds_error=True)(query)
             else:
                 xyz = interp1d(clock, value[:, :3], axis=0, bounds_error=True)(query)
-                quaternion = Slerp(clock, Rotation.from_quat(wxyz_to_xyzw(value[:, 3:])))(query).as_quat()
+                quaternion = Slerp(
+                    clock, Rotation.from_quat(wxyz_to_xyzw(value[:, 3:]))
+                )(query).as_quat()
                 batch[key] = np.concatenate([xyz, xyzw_to_wxyz(quaternion)], axis=1)
         offsets = np.arange(0, self.required_frames, self.stride)
         duration = clock[offsets[-1]] - clock[0]
         if self.conditioning_input == "native_speed":
-            speeds = [np.linalg.norm(np.diff(batch[k][offsets, :3], axis=0), axis=-1).sum() / duration
-                      for k in self.pose_keys]
+            speeds = [
+                np.linalg.norm(np.diff(batch[k][offsets, :3], axis=0), axis=-1).sum()
+                / duration
+                for k in self.pose_keys
+            ]
             speed = float(np.mean(speeds))
             if not np.isfinite(speed) or speed < 0:
                 raise ValueError("invalid physical requested speed")
@@ -170,13 +230,17 @@ def extend_window_key_map(base_key_map, extra_key_map, norm_mode=False):
     if norm_mode:
         # Match native keymap normalization semantics, retaining clock metadata
         # required by physical retiming before native transforms.
-        key_map = {k: v for k, v in key_map.items()
-                   if v.get("key_type") not in ("camera_keys", "annotation_keys")}
+        key_map = {
+            k: v
+            for k, v in key_map.items()
+            if v.get("key_type") not in ("camera_keys", "annotation_keys")
+        }
     return key_map
 
 
 class CompleteNativeWindow:
     """Use the existing complete-window index guard without augmenting values."""
+
     sample_views = 1
 
     def __init__(self, horizon, required_keys, sample_views=1):
@@ -189,7 +253,10 @@ class CompleteNativeWindow:
 
     def bind_episode(self, metadata, key_map):
         for key in self.required_keys:
-            if key not in key_map or key_map[key].get("horizon") != self.required_frames:
+            if (
+                key not in key_map
+                or key_map[key].get("horizon") != self.required_frames
+            ):
                 raise ValueError("Native window/action horizon mismatch")
 
     def transform(self, batch):

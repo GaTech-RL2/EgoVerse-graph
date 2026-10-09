@@ -190,6 +190,7 @@ class GaussianLatentNoise(Stage):
             raise ValueError("condition must describe at least one sample")
         device = condition.device
         from egomimic.utils.runtime_compatibility import autocast_noise_dtype
+
         dtype = autocast_noise_dtype(device.type)
         batch["sampler/noise"] = torch.randn(
             batch_size,

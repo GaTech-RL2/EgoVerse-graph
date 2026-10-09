@@ -204,18 +204,14 @@ def test_reconstruction_only_warmup_then_joint_objective(monkeypatch):
     warmup_loss = wrapper.training_step(_batch(), batch_idx=0)
     assert float(warmup_loss) == pytest.approx(50.0)
     assert float(logged["Train/ActionFlow/FlowMatchingLoss"][0]) == pytest.approx(4.0)
-    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(
-        6.0
-    )
+    assert float(logged["Train/ActionFlow/ActionVelocityLoss"][0]) == pytest.approx(6.0)
     assert float(logged["Train/ActionFlow/Schedule/ReconstructionOnly"][0]) == 1.0
     assert float(logged["Train/ActionFlow/Schedule/EffectiveFlowWeight"][0]) == 0.0
 
     predictions = wrapper.model.forward_training(
         wrapper.model.process_batch_for_training(_batch())
     )
-    assert not wrapper._apply_reconstruction_only_warmup(
-        predictions, optimizer_step=2
-    )
+    assert not wrapper._apply_reconstruction_only_warmup(predictions, optimizer_step=2)
     _, components, joint_loss, _ = wrapper._source_values(predictions)
     assert float(joint_loss) == pytest.approx(60.0)
     assert float(components["TotalLoss"]) == pytest.approx(60.0)
@@ -413,18 +409,19 @@ def test_action_flow_wrapper_measures_component_gradient_intersections(monkeypat
     manifest = wrapper._gradient_route_manifest
     assert manifest is not None
     assert tuple(manifest["routes"]) == ("FM", "Reconstruction", "ActionVelocity")
-    assert manifest["intersections"]["FM__ActionVelocity"] == [
-        "nets.pipeline.anchor"
-    ]
+    assert manifest["intersections"]["FM__ActionVelocity"] == ["nets.pipeline.anchor"]
     core = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
-    assert manifest["manifest_sha256"] == hashlib.sha256(
-        json.dumps(
-            core,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-    ).hexdigest()
+    assert (
+        manifest["manifest_sha256"]
+        == hashlib.sha256(
+            json.dumps(
+                core,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
     checkpoint = {}
     wrapper.on_save_checkpoint(checkpoint)
     assert checkpoint["action_flow_gradient_route_manifest"] == manifest
@@ -779,9 +776,7 @@ def test_action_flow_diagnostic_decoding_preserves_logical_batch_geometry():
     torch.testing.assert_close(
         result["decoded/fixed_states"][0], result["decoded/reconstruction"]
     )
-    torch.testing.assert_close(
-        result["decoded/trajectory"][0], result["decoded/noise"]
-    )
+    torch.testing.assert_close(result["decoded/trajectory"][0], result["decoded/noise"])
 
 
 def test_action_flow_diagnostic_sample_caps_are_independent():

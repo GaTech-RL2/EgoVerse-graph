@@ -47,25 +47,22 @@ from egomimic.pl_utils.pl_model_action_flow import (  # noqa: E402
     ActionFlowModelWrapper,
 )
 from tools.validate_action_flow_config import (  # noqa: E402
-    CANDIDATE_METHODS,
+    GRAPH_METHOD,
     LEGACY_METHOD,
     LIKELIHOOD_METHOD,
-    GRAPH_METHOD,
     STOPGRAD_METHOD,
     STOPGRAD_UNITE_METHOD,
     PreflightError,
+    _validate_dimensions_and_modules,
     action_flow_method,
     method_stage_targets,
     method_wrapper_target,
     validate_method_contract,
-    _validate_dimensions_and_modules,
 )
 
 SCHEMA_VERSION = 1
 EXPECTED_PARAMETER_COUNT = 50_725_221
-CODEC98K_EXPERIMENT = (
-    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
-)
+CODEC98K_EXPERIMENT = "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
 CODEC98K_PARAMETER_COUNT = 50_801_685
 SCALED_MUON_EXPERIMENT = (
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
@@ -92,7 +89,9 @@ UNITE_H384_PARITY_EXPERIMENTS = {
 UNITE_H384_PARAMETER_COUNT = 97_956_100
 APPROVED_EXPERIMENTS = {
     UNITE_H384_COMPAT_EXPERIMENT: (
-        "action_flow_usocket_refactored_c12_compat_s42", 1.0, 1.0,
+        "action_flow_usocket_refactored_c12_compat_s42",
+        1.0,
+        1.0,
     ),
     UNITE_H384_EXPERIMENT: (
         "action_flow_usocket_latent_fm_sg_unite_h384_s42",
@@ -496,7 +495,10 @@ def _validate_config(
         ),
         (f"model.pipeline.stages.{objective_stage}.action_velocity_weight", 1.0),
         ("model.reconstruction_weight", reconstruction_weight),
-        ("model.optimizer.lr", 1.0e-4 if unite_recipe else (1.0e-5 if scaled_200m else 3.0e-5)),
+        (
+            "model.optimizer.lr",
+            1.0e-4 if unite_recipe else (1.0e-5 if scaled_200m else 3.0e-5),
+        ),
         ("model.optimizer.eps", 1.0e-6 if unite_recipe else 1.0e-8),
         (
             "model.optimizer.adamw_weight_decay"
@@ -594,7 +596,9 @@ def _validate_config(
         (
             "gaussian_bridge_reverse_chain"
             if method == LIKELIHOOD_METHOD
-            else "dopri5" if unite_recipe else "reverse_euler"
+            else "dopri5"
+            if unite_recipe
+            else "reverse_euler"
         ),
     )
     _exact(
@@ -1013,10 +1017,14 @@ def _validate_gradient_route_manifest(
         "gradient route intersections do not match route entries",
     )
     for pair, names in expected_intersections.items():
-        expected_empty = method in {
-            STOPGRAD_METHOD,
-            STOPGRAD_UNITE_METHOD,
-        } and pair == "FM__Reconstruction"
+        expected_empty = (
+            method
+            in {
+                STOPGRAD_METHOD,
+                STOPGRAD_UNITE_METHOD,
+            }
+            and pair == "FM__Reconstruction"
+        )
         _require(
             bool(names) is not expected_empty,
             f"unexpected shared gradient pathway: {pair}",
@@ -1086,13 +1094,23 @@ def _validate_checkpoint_loss_schedule(
     flow_weight: float,
 ) -> int:
     _require(config is not None, "checkpoint loss schedule needs its exact config")
-    from egomimic.benchmarks.libero.native_launch_profiles import PROFILES, AV0_PROFILES, profile_for_config
-    native_names = {profile.name for profile in (*PROFILES.values(), *AV0_PROFILES.values())}
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        AV0_PROFILES,
+        PROFILES,
+        profile_for_config,
+    )
+
+    native_names = {
+        profile.name for profile in (*PROFILES.values(), *AV0_PROFILES.values())
+    }
     action_velocity_weight = 1.0
     if str(config.get("name", "")) in native_names:
         action_velocity_weight = profile_for_config(config).action_velocity_weight
-        _require(OmegaConf.select(config, "model.pipeline.stages.8.action_velocity_weight") == action_velocity_weight,
-                 "native checkpoint objective/profile mismatch")
+        _require(
+            OmegaConf.select(config, "model.pipeline.stages.8.action_velocity_weight")
+            == action_velocity_weight,
+            "native checkpoint objective/profile mismatch",
+        )
     warmup_steps = OmegaConf.select(
         config, "model.reconstruction_only_warmup_steps", default=0
     )
@@ -1117,13 +1135,12 @@ def _validate_checkpoint_loss_schedule(
     return warmup_steps
 
 
-def _validate_optimizer_state(
-    optimizer_state: Any, config: DictConfig | None
-) -> None:
+def _validate_optimizer_state(optimizer_state: Any, config: DictConfig | None) -> None:
     _require(isinstance(optimizer_state, Mapping), "optimizer state is not a mapping")
-    composite_optimizer = (
-        config is not None
-        and (str(OmegaConf.select(config, "model.optimizer._target_", default="")) == "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer" or str(config.get("name", ""))
+    composite_optimizer = config is not None and (
+        str(OmegaConf.select(config, "model.optimizer._target_", default=""))
+        == "egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer"
+        or str(config.get("name", ""))
         in {
             APPROVED_EXPERIMENTS[SCALED_MUON_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_EXPERIMENT][0],
@@ -1131,7 +1148,6 @@ def _validate_optimizer_state(
             APPROVED_EXPERIMENTS[UNITE_H384_COMPAT_EXPERIMENT][0],
             APPROVED_EXPERIMENTS[UNITE_H384_DETERMINISTIC_EXPERIMENT][0],
         }
-        )
     )
     if not composite_optimizer:
         _require(bool(optimizer_state.get("state")), "AdamW optimizer state is empty")
@@ -1187,7 +1203,9 @@ def _validate_checkpoint(
         "last.ckpt does not resolve to an immutable checkpoint",
     )
 
-    payload = torch.load(last_path, map_location="cpu", weights_only=False, mmap=True)
+    payload = torch.load(
+        str(last_path), map_location="cpu", weights_only=False, mmap=True
+    )
     _require(isinstance(payload, Mapping), "last checkpoint is not a mapping")
     _require(payload.get("global_step") == 2, "last checkpoint global_step is not 2")
     state_dict = payload.get("state_dict")
@@ -1227,7 +1245,7 @@ def _validate_checkpoint(
     _require(state_tensors > 0, "checkpoint state_dict contains no tensors")
 
     immutable_payload = torch.load(
-        immutable_path, map_location="cpu", weights_only=False, mmap=True
+        str(immutable_path), map_location="cpu", weights_only=False, mmap=True
     )
     _require(
         isinstance(immutable_payload, Mapping)
@@ -1294,9 +1312,7 @@ def _validate_checkpoint(
     )
     if loss_schedule is not None:
         warmup_owner = (
-            restored.training_behavior
-            if method == STOPGRAD_UNITE_METHOD
-            else restored
+            restored.training_behavior if method == STOPGRAD_UNITE_METHOD else restored
         )
         _require(
             warmup_owner.reconstruction_only_warmup_steps == expected_warmup_steps,
@@ -1305,15 +1321,22 @@ def _validate_checkpoint(
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     if method == STOPGRAD_UNITE_METHOD:
         _require(
-            parameter_count == (UNITE_H384_PARAMETER_COUNT if expected_parameter_count_override is None else expected_parameter_count_override),
+            parameter_count
+            == (
+                UNITE_H384_PARAMETER_COUNT
+                if expected_parameter_count_override is None
+                else expected_parameter_count_override
+            ),
             f"parameter count mismatch: {parameter_count} != "
             f"{UNITE_H384_PARAMETER_COUNT}",
         )
     elif method in (LEGACY_METHOD, STOPGRAD_METHOD):
         expected_parameter_count = EXPECTED_PARAMETER_COUNT
-        if config is not None and str(config.get("name", "")) == APPROVED_EXPERIMENTS[
-            CODEC98K_EXPERIMENT
-        ][0]:
+        if (
+            config is not None
+            and str(config.get("name", ""))
+            == APPROVED_EXPERIMENTS[CODEC98K_EXPERIMENT][0]
+        ):
             expected_parameter_count = CODEC98K_PARAMETER_COUNT
         if config is not None and str(config.get("name", "")) in {
             APPROVED_EXPERIMENTS[experiment][0]
@@ -1554,7 +1577,9 @@ def _validate_history(
             (
                 28.0
                 if method in {STOPGRAD_METHOD, STOPGRAD_UNITE_METHOD}
-                else 15.0 if method == LIKELIHOOD_METHOD else 14.0
+                else 15.0
+                if method == LIKELIHOOD_METHOD
+                else 14.0
             ),
         ),
         (
@@ -1581,7 +1606,8 @@ def _validate_history(
                 rel_tol=0.0,
                 abs_tol=1.0e-6,
             )
-            and train["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"] == action_velocity_weight
+            and train["Train/ActionFlow/Schedule/EffectiveActionVelocityWeight"]
+            == action_velocity_weight
         ),
         "joint smoke step did not enable both delayed objectives",
     )
@@ -1596,7 +1622,8 @@ def _validate_history(
                 flow_weight * train[f"Train/ActionFlow/FlowMatchingLoss{suffix}"]
                 + reconstruction_weight
                 * train[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
-                + action_velocity_weight * train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
+                + action_velocity_weight
+                * train[f"Train/ActionFlow/ActionVelocityLoss{suffix}"]
             )
         )
         _require(
@@ -1845,8 +1872,7 @@ def _validate_artifacts(
     )
     _require(
         torch.is_tensor(native_predictions)
-        and tuple(native_predictions.shape)
-        == (32, validation_batch_size, 16, 3),
+        and tuple(native_predictions.shape) == (32, validation_batch_size, 16, 3),
         "typed EnergyScore native predictions have the wrong shape",
     )
     _require(
@@ -2233,14 +2259,30 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
-    if experiment in ("libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42"):
-        from scripts.train.verify_libero_native_action_flow_smoke import verify_native_smoke
-        return verify_native_smoke(run_dir=run_dir, expected_head=expected_head,
+    if experiment in (
+        "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+        "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
+        "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
+        "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
+        "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
+        "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
+        "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
+        "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
+    ):
+        from scripts.train.verify_libero_native_action_flow_smoke import (
+            verify_native_smoke,
+        )
+
+        return verify_native_smoke(
+            run_dir=run_dir,
+            expected_head=expected_head,
             expected_config_sha256=expected_config_sha256,
             expected_split_sha256=expected_split_sha256,
             expected_normalization_sha256=expected_normalization_sha256,
             expected_preflight_sha256=expected_preflight_sha256,
-            shared=sys.modules[__name__], expected_profile=experiment)
+            shared=sys.modules[__name__],
+            expected_profile=experiment,
+        )
     run_dir = Path(run_dir).expanduser().resolve(strict=True)
     _require(run_dir.is_dir(), f"run directory is not a directory: {run_dir}")
     expected_head = str(expected_head).lower()
@@ -2382,7 +2424,17 @@ def _parser() -> argparse.ArgumentParser:
         "--experiment",
         "--expected-experiment",
         dest="experiment",
-        choices=(*tuple(APPROVED_EXPERIMENTS), "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42", "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42"),
+        choices=(
+            *tuple(APPROVED_EXPERIMENTS),
+            "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+            "libero/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
+            "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
+            "libero/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
+            "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
+            "libero/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
+            "libero/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
+            "libero/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
+        ),
         required=True,
     )
     parser.add_argument("--expected-head", required=True)

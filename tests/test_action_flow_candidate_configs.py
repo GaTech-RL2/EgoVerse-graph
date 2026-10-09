@@ -11,7 +11,6 @@ from omegaconf import OmegaConf
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
 from egomimic.pl_utils.pl_model_action_flow import ActionFlowModelWrapper
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic/hydra_configs"
 ROWS = [
     ("latent_fm_sg_recon1", "latent_fm_stopgrad", 1.0),
@@ -68,7 +67,9 @@ def test_candidate_row_instantiates_exact_dimensions_and_shared_codec(
         assert field.flow_clean_gradient_mode == "full"
         assert encoder.encoder.graph is decoder.decoder.graph
         encoder_parameters = {id(parameter) for parameter in encoder.parameters()}
-        residual_parameters = {id(parameter) for parameter in decoder.decoder.residual.parameters()}
+        residual_parameters = {
+            id(parameter) for parameter in decoder.decoder.residual.parameters()
+        }
         assert encoder_parameters.isdisjoint(residual_parameters)
         assert decoder.decoder.latent_dim - decoder.decoder.action_dim == 4
         assert not cfg.run_provenance.objective.reconstruction_is_optimizer_objective
@@ -105,11 +106,16 @@ def test_candidate_wrapper_gradient_routes_and_compute_contract(
         wrapper, "log", lambda key, value, **kwargs: logged.update({key: value})
     )
     torch.manual_seed(51)
-    loss = wrapper.training_step({"fixture": {
-        "target": torch.randn(2, 16, 4),
-        "condition": torch.randn(2, 67),
-        "sampler/noise": torch.randn(2, 16, 8),
-    }}, 0)
+    loss = wrapper.training_step(
+        {
+            "fixture": {
+                "target": torch.randn(2, 16, 4),
+                "condition": torch.randn(2, 67),
+                "sampler/noise": torch.randn(2, 16, 8),
+            }
+        },
+        0,
+    )
     assert torch.isfinite(loss)
     loss.backward()
     assert wrapper._gradient_route_manifest is not None
@@ -117,14 +123,23 @@ def test_candidate_wrapper_gradient_routes_and_compute_contract(
     intersections = wrapper._gradient_route_manifest["intersections"]
     assert routes["FM"] and routes["ActionVelocity"]
     assert intersections["FM__ActionVelocity"]
-    assert all(torch.isfinite(p.grad).all() for p in wrapper.parameters() if p.grad is not None)
+    assert all(
+        torch.isfinite(p.grad).all() for p in wrapper.parameters() if p.grad is not None
+    )
     calls = 2 if method == "latent_fm_stopgrad" else 1
     assert logged["Train/ActionFlow/Compute/FieldForwardCallsPerStep"] == calls
-    assert logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] == calls * 14
+    assert (
+        logged["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] == calls * 14
+    )
     if method == "latent_fm_stopgrad":
         assert intersections["FM__Reconstruction"] == []
         assert logged["Train/ActionFlow/GradientCosineDefined/FM__Reconstruction"] == 0
-        assert logged["Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"] == 0
+        assert (
+            logged[
+                "Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"
+            ]
+            == 0
+        )
         assert routes["Reconstruction"]
     else:
         assert "Reconstruction" not in routes

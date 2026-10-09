@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+
 from egomimic.utils.runtime_compatibility import math_sdpa_context
 
 

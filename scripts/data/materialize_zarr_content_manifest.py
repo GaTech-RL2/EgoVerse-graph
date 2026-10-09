@@ -51,6 +51,7 @@ def main() -> int:
         build_content_manifest,
         canonical_manifest_bytes,
     )
+
     episodes = {}
     for path in sorted(dataset_root.iterdir()):
         if not path.is_dir():

@@ -407,6 +407,7 @@ def configure_global_basis_candidate(
     dependent on an external fit file at inference time.
     """
     from omegaconf import OmegaConf, open_dict
+
     from egomimic.rldb.zarr.libero_arc_global import LiberoArcGlobalCodec
 
     if cfg.benchmark.arc_mode != "global_basis":

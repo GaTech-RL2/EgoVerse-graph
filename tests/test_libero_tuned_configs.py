@@ -1,9 +1,9 @@
 from pathlib import Path
 
+import pytest
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-import pytest
 
 from egomimic.benchmarks.libero.cluster import (
     configure_global_basis_candidate,
@@ -61,7 +61,6 @@ def test_tuned_dims_attention_and_self_contained_normalization(tmp_path, basis):
     assert stages[1].representation_context() == stages[-1].representation_context()
     assert stages[1].codec.num_waypoints == 104
     assert stages[2].action_horizon == stages[3].action_horizon == 104
-    network = stages[3].policy.model
     # GraphDiffusionTransformer wraps the maintained OAT Transformer.
     assert cfg.model.pipeline.stages[3].policy.model.causal_attn is False
     assert sum(p.numel() for p in model.nets.parameters()) == 27_203_476

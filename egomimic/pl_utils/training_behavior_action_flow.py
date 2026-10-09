@@ -22,8 +22,8 @@ from egomimic.pl_utils.training_metrics import (
     finite_scalar,
     reduce_component_means,
 )
-from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 from egomimic.utils.runtime_compatibility import validate_compatibility_mode
+from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 
 
 class ActionFlowTrainingBehavior(TrainingBehavior):
@@ -346,7 +346,9 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         count: int,
     ) -> None:
         reduced, global_count = reduce_component_means(
-            components, count, label="Action Flow",
+            components,
+            count,
+            label="Action Flow",
             preserve_input_dtype=self.compatibility_mode == "legacy_c12",
         )
         for name, value in reduced.items():

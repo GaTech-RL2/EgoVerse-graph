@@ -48,10 +48,15 @@ def _resolved_smoke_config(
 
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
-        cfg.trainer.val_check_interval = 2 if experiment in {
-            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
-            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
-        } else 1
+        cfg.trainer.val_check_interval = (
+            2
+            if experiment
+            in {
+                "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+                "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+            }
+            else 1
+        )
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
         cfg.trainer.precision = "bf16"
@@ -301,9 +306,7 @@ def test_history_gate_requires_components_gradients_and_scheduled_validation():
 
 def test_history_gate_accepts_float32_flow_weight_telemetry():
     row = _history_row()
-    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(
-        torch.tensor(0.01)
-    )
+    row["Train/ActionFlow/Schedule/EffectiveFlowWeight"] = float(torch.tensor(0.01))
     for suffix in ("", f"/{MODULE.SOURCE_LABEL}"):
         row[f"Train/ActionFlow/TotalLoss{suffix}_step"] = 2.5125
     row["Valid/ActionFlow/TotalLoss"] = 3.015
@@ -321,15 +324,11 @@ def test_unite_history_gate_requires_both_optimizer_family_rates():
     row["Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep"] = 28.0
     row["Train/ActionFlow/GradientCosine/FM__Reconstruction"] = 0.0
     row["Train/ActionFlow/GradientCosineDefined/FM__Reconstruction"] = 0.0
-    row[
-        "Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"
-    ] = 0.0
+    row["Train/ActionFlow/GradientIntersectionParameterCount/FM__Reconstruction"] = 0.0
     row["Optimizer/LR/AdamW"] = 2.5e-8
     row["Optimizer/LR/Muon"] = 2.5e-8
 
-    result = MODULE._validate_history(
-        {2: row}, method=MODULE.STOPGRAD_UNITE_METHOD
-    )
+    result = MODULE._validate_history({2: row}, method=MODULE.STOPGRAD_UNITE_METHOD)
 
     assert result["train"]["Optimizer/LR/AdamW"] == pytest.approx(2.5e-8)
     assert result["train"]["Optimizer/LR/Muon"] == pytest.approx(2.5e-8)
@@ -560,22 +559,34 @@ def test_artifact_gate_verifies_energy_and_diagnostic_immutability(tmp_path):
     assert result["action_flow_diagnostics"]["path"] == str(diagnostic_path)
 
 
-def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(tmp_path, monkeypatch):
+def test_artifact_gate_selects_exact_slurm_attempt_and_checks_execution(
+    tmp_path, monkeypatch
+):
     root = tmp_path / "artifacts"
     for restart in (0, 1):
-        artifact = root / f"job-5714540-restart-{restart}" / "epoch-0-step-2/rank-0-batch-0.pt"
+        artifact = (
+            root / f"job-5714540-restart-{restart}" / "epoch-0-step-2/rank-0-batch-0.pt"
+        )
         artifact.parent.mkdir(parents=True)
-        torch.save({
-            "global_step": 2,
-            "execution": {"slurm_job_id": "5714540", "slurm_restart_count": restart},
-        }, artifact)
+        torch.save(
+            {
+                "global_step": 2,
+                "execution": {
+                    "slurm_job_id": "5714540",
+                    "slurm_restart_count": restart,
+                },
+            },
+            artifact,
+        )
     monkeypatch.setenv("SLURM_JOB_ID", "5714540")
     monkeypatch.setenv("SLURM_RESTART_COUNT", "1")
     selected, payload = MODULE._step_two_artifact(root, label="test")
     assert "job-5714540-restart-1" in str(selected)
     payload["execution"]["slurm_restart_count"] = 0
     torch.save(payload, selected)
-    with pytest.raises(MODULE.SmokeVerificationError, match="execution identity mismatch"):
+    with pytest.raises(
+        MODULE.SmokeVerificationError, match="execution identity mismatch"
+    ):
         MODULE._step_two_artifact(root, label="test")
     monkeypatch.delenv("SLURM_JOB_ID")
     with pytest.raises(MODULE.SmokeVerificationError, match="expected one step-2"):
@@ -598,14 +609,19 @@ def test_artifact_gate_rejects_tampered_diagnostic_sidecar(tmp_path):
         )
 
 
-def test_artifact_gate_accepts_unique_origin_from_separate_validation_job(tmp_path, monkeypatch):
+def test_artifact_gate_accepts_unique_origin_from_separate_validation_job(
+    tmp_path, monkeypatch
+):
     root = tmp_path / "artifacts"
     artifact = root / "job-5714540-restart-1/epoch-0-step-2/rank-0-batch-0.pt"
     artifact.parent.mkdir(parents=True)
-    torch.save({
-        "global_step": 2,
-        "execution": {"slurm_job_id": "5714540", "slurm_restart_count": 1},
-    }, artifact)
+    torch.save(
+        {
+            "global_step": 2,
+            "execution": {"slurm_job_id": "5714540", "slurm_restart_count": 1},
+        },
+        artifact,
+    )
     monkeypatch.setenv("SLURM_JOB_ID", "5719999")
     monkeypatch.setenv("SLURM_RESTART_COUNT", "0")
     selected, payload = MODULE._step_two_artifact(root, label="test")
@@ -787,9 +803,7 @@ def _scaled_muon_optimizer_state():
 
 def test_optimizer_state_gate_accepts_scaled_muon_composite_state():
     config = OmegaConf.create(
-        {
-            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
-        }
+        {"name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"}
     )
 
     MODULE._validate_optimizer_state(_scaled_muon_optimizer_state(), config)
@@ -798,9 +812,7 @@ def test_optimizer_state_gate_accepts_scaled_muon_composite_state():
 @pytest.mark.parametrize("group", ["adamw", "muon"])
 def test_optimizer_state_gate_rejects_empty_scaled_muon_nested_state(group):
     config = OmegaConf.create(
-        {
-            "name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
-        }
+        {"name": "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"}
     )
     optimizer_state = _scaled_muon_optimizer_state()
     optimizer_state[group]["state"] = {}

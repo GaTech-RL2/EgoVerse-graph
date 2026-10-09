@@ -39,25 +39,40 @@ class EmbodimentActionTargetBuilder(Stage):
     """Read each embodiment's native normalized action key without coercion."""
 
     train_only = True
-    writes = ('target',)
+    writes = ("target",)
 
-    def __init__(self, action_keys: dict[str, str], selector_aliases: dict | None = None, selector_key: str = 'embodiment'):
+    def __init__(
+        self,
+        action_keys: dict[str, str],
+        selector_aliases: dict | None = None,
+        selector_key: str = "embodiment",
+    ):
         super().__init__()
         self.action_keys = {str(k): str(v) for k, v in action_keys.items()}
-        if len(self.action_keys) < 2 or any(not k or not v for k, v in self.action_keys.items()):
-            raise ValueError('Expected at least two nonempty embodiment/action-key pairs')
-        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
+        if len(self.action_keys) < 2 or any(
+            not k or not v for k, v in self.action_keys.items()
+        ):
+            raise ValueError(
+                "Expected at least two nonempty embodiment/action-key pairs"
+            )
+        self.selector_aliases = {
+            str(k): str(v) for k, v in dict(selector_aliases or {}).items()
+        }
         self.selector_key = str(selector_key)
         self.reads = (self.selector_key,)
 
     def forward(self, batch: dict) -> dict:
-        raw = resolve_homogeneous_scalar(batch[self.selector_key], label=self.selector_key)
+        raw = resolve_homogeneous_scalar(
+            batch[self.selector_key], label=self.selector_key
+        )
         name = self.selector_aliases.get(str(raw), str(raw))
         try:
             action_key = self.action_keys[name]
         except KeyError as exc:
-            raise KeyError(f'No action interface for embodiment {name!r}') from exc
+            raise KeyError(f"No action interface for embodiment {name!r}") from exc
         if action_key not in batch:
-            raise ValueError(f'Embodiment {name!r} requires normalized actions at {action_key!r}')
-        batch['target'] = batch.pop(action_key)
+            raise ValueError(
+                f"Embodiment {name!r} requires normalized actions at {action_key!r}"
+            )
+        batch["target"] = batch.pop(action_key)
         return batch

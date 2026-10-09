@@ -1,10 +1,10 @@
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
-from torch import nn
 from hydra import compose, initialize_config_dir
+from torch import nn
 
 from egomimic.pipeline import stages_action_flow
 from egomimic.pipeline.action_flow_av_norm import (
@@ -12,11 +12,11 @@ from egomimic.pipeline.action_flow_av_norm import (
     differentiable_layer_norm,
     install_av_only,
 )
-from egomimic.pipeline.stages_action_flow import RoutedContentDecoderStage
 from egomimic.pipeline.stages_action_flow import (
     ActionFlowObjectiveStage,
     ConditionalVelocityStage,
     LatentBridgeStage,
+    RoutedContentDecoderStage,
     RoutedContentEncoderStage,
 )
 
@@ -51,16 +51,21 @@ def _batch(route):
 def test_routed_av_norm_only_touches_selected_jvp_and_restores_everything():
     us, chain = _decoder(4), _decoder(6)
     stage = RoutedContentDecoderStage(
-        decoders={"us": us, "chain": chain}, route_key="embodiment",
+        decoders={"us": us, "chain": chain},
+        route_key="embodiment",
         route_aliases={19: "us", 20: "chain"},
     )
     original_jvp = stages_action_flow.jvp
-    original_forwards = [m.forward for m in (*us.modules(), *chain.modules())
-                         if isinstance(m, nn.LayerNorm)]
+    original_forwards = [
+        m.forward
+        for m in (*us.modules(), *chain.modules())
+        if isinstance(m, nn.LayerNorm)
+    ]
     install_av_only(stage)
 
     for route, selected, other, action_dim in (
-        (19, us, chain, 4), (20, chain, us, 6),
+        (19, us, chain, 4),
+        (20, chain, us, 6),
     ):
         batch = _batch(route)
         stage._forward_train(batch)
@@ -70,25 +75,33 @@ def test_routed_av_norm_only_touches_selected_jvp_and_restores_everything():
         selected_parameters = tuple(selected.parameters())
         other_parameters = tuple(other.parameters())
         grads = torch.autograd.grad(
-            residual.square().mean(), selected_parameters + other_parameters,
+            residual.square().mean(),
+            selected_parameters + other_parameters,
             allow_unused=True,
         )
-        active = grads[:len(selected_parameters)]
-        inactive = grads[len(selected_parameters):]
+        active = grads[: len(selected_parameters)]
+        inactive = grads[len(selected_parameters) :]
         # A synthetic stack of LayerNorms can cancel some affine directions.
         # Require a real, finite AV gradient on the selected route, not a
         # gradient for every mathematically unused fixture parameter.
-        assert any(g is not None and torch.isfinite(g).all() and g.abs().sum() > 0
-                   for g in active)
+        assert any(
+            g is not None and torch.isfinite(g).all() and g.abs().sum() > 0
+            for g in active
+        )
         assert all(g is None or torch.isfinite(g).all() for g in active)
         assert all(g is None for g in inactive)
         assert stages_action_flow.jvp is original_jvp
-        current = [m.forward for m in (*us.modules(), *chain.modules())
-                   if isinstance(m, nn.LayerNorm)]
+        current = [
+            m.forward
+            for m in (*us.modules(), *chain.modules())
+            if isinstance(m, nn.LayerNorm)
+        ]
         assert current == original_forwards
-        assert all(m.forward.__func__ is not differentiable_layer_norm
-                   for m in (*us.modules(), *chain.modules())
-                   if isinstance(m, nn.LayerNorm))
+        assert all(
+            m.forward.__func__ is not differentiable_layer_norm
+            for m in (*us.modules(), *chain.modules())
+            if isinstance(m, nn.LayerNorm)
+        )
 
     with pytest.raises(ValueError, match="homogeneous"):
         bad = _batch(19)
@@ -97,11 +110,11 @@ def test_routed_av_norm_only_touches_selected_jvp_and_restores_everything():
     assert stages_action_flow.jvp is original_jvp
 
 
-
 def test_routed_av_norm_restores_on_jvp_failure(monkeypatch):
     us, chain = _decoder(4), _decoder(6)
     stage = RoutedContentDecoderStage(
-        decoders={"us": us, "chain": chain}, route_key="embodiment",
+        decoders={"us": us, "chain": chain},
+        route_key="embodiment",
         route_aliases={19: "us", 20: "chain"},
     )
     original_forwards = [m.forward for m in us.modules() if isinstance(m, nn.LayerNorm)]
@@ -115,16 +128,21 @@ def test_routed_av_norm_restores_on_jvp_failure(monkeypatch):
     with pytest.raises(RuntimeError, match="injected JVP failure"):
         stage._forward_train(_batch(19))
     assert stages_action_flow.jvp is fail
-    assert [m.forward for m in us.modules() if isinstance(m, nn.LayerNorm)] == original_forwards
+    assert [
+        m.forward for m in us.modules() if isinstance(m, nn.LayerNorm)
+    ] == original_forwards
     monkeypatch.setattr(stages_action_flow, "jvp", original_jvp)
 
 
 def test_callback_installs_only_for_one_routed_stage():
     stage = RoutedContentDecoderStage(
         decoders={"us": _decoder(4), "chain": _decoder(6)},
-        route_key="embodiment", route_aliases={19: "us", 20: "chain"},
+        route_key="embodiment",
+        route_aliases={19: "us", 20: "chain"},
     )
-    module = SimpleNamespace(model=SimpleNamespace(pipeline=SimpleNamespace(stages=[stage])))
+    module = SimpleNamespace(
+        model=SimpleNamespace(pipeline=SimpleNamespace(stages=[stage]))
+    )
     callback = AVOnlyLayerNormCallback()
     callback.setup(None, module, "validate")
     assert not getattr(stage, "_av_norm_fix_installed", False)
@@ -175,11 +193,13 @@ def test_joint_optimizer_step_reaches_shared_field_and_selected_private_codecs()
     decoders = {"us": _decoder(4), "chain": _decoder(6)}
     field = _TinyField()
     encoder = RoutedContentEncoderStage(
-        encoders=encoders, route_key="embodiment",
+        encoders=encoders,
+        route_key="embodiment",
         route_aliases={19: "us", 20: "chain"},
     )
     decoder = RoutedContentDecoderStage(
-        decoders=decoders, route_key="embodiment",
+        decoders=decoders,
+        route_key="embodiment",
         route_aliases={19: "us", 20: "chain"},
     )
     install_av_only(decoder)
@@ -191,11 +211,14 @@ def test_joint_optimizer_step_reaches_shared_field_and_selected_private_codecs()
         ActionFlowObjectiveStage(),
     )
     optimizer = torch.optim.AdamW(
-        list(encoder.parameters()) + list(field.parameters()) + list(decoder.parameters()),
+        list(encoder.parameters())
+        + list(field.parameters())
+        + list(decoder.parameters()),
         lr=1e-3,
     )
     for route, selected, other, action_dim in (
-        (19, "us", "chain", 4), (20, "chain", "us", 6),
+        (19, "us", "chain", 4),
+        (20, "chain", "us", 6),
     ):
         optimizer.zero_grad(set_to_none=True)
         output = {
@@ -208,15 +231,22 @@ def test_joint_optimizer_step_reaches_shared_field_and_selected_private_codecs()
             output = stage(output)
         loss = output["loss/action_flow"]
         assert torch.isfinite(loss)
-        assert all(torch.isfinite(output[key]) for key in (
-            "log/action_flow_fm",
-            "log/action_flow_reconstruction",
-            "log/action_flow_action_velocity",
-        ))
+        assert all(
+            torch.isfinite(output[key])
+            for key in (
+                "log/action_flow_fm",
+                "log/action_flow_reconstruction",
+                "log/action_flow_action_velocity",
+            )
+        )
         loss.backward()
         for module in (encoder.encoder[selected], field, decoder.decoder[selected]):
-            assert any(p.grad is not None and torch.isfinite(p.grad).all()
-                       and p.grad.abs().sum() > 0 for p in module.parameters())
+            assert any(
+                p.grad is not None
+                and torch.isfinite(p.grad).all()
+                and p.grad.abs().sum() > 0
+                for p in module.parameters()
+            )
         for module in (encoder.encoder[other], decoder.decoder[other]):
             assert all(p.grad is None for p in module.parameters())
         optimizer.step()

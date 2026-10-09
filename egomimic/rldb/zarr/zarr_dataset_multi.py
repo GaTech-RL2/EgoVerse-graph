@@ -44,6 +44,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_i
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.episode_split import complete_window_count, split_dataset_names
 from egomimic.utils.env import load_env
 from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
@@ -57,9 +58,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SEED = 42
-
-
-from egomimic.rldb.zarr.episode_split import split_dataset_names, complete_window_count
 
 
 def episode_names_sha256(dataset_names: Iterable[str]) -> str:
@@ -1283,9 +1281,9 @@ class MultiDataset(torch.utils.data.Dataset):
             # channels are bounds-checked. Unrecognized widths fall through to
             # a full-vector check; NaN/Inf above still covers the full vector.
             cartesian_layout = None
-            if (
-                self.bounds_semantics == "rotation_aware"
-                and zarr_key in ("actions_cartesian", "observations.state.ee_pose")
+            if self.bounds_semantics == "rotation_aware" and zarr_key in (
+                "actions_cartesian",
+                "observations.state.ee_pose",
             ):
                 cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
             if cartesian_layout is not None:
@@ -1383,7 +1381,9 @@ class MultiDataset(torch.utils.data.Dataset):
         if self.compatibility_mode == "legacy_c12":
             candidates = self._global_indices_by_dataset[dataset_name]
             next_idx, attempts = get_fallback_idx(
-                idx=idx, candidates=candidates, _attempts=attempts,
+                idx=idx,
+                candidates=candidates,
+                _attempts=attempts,
                 max_attempts=len(candidates),
                 exhausted_error=f"Entire dataset bad (no valid indices): dataset={dataset_name}",
             )
@@ -1603,13 +1603,19 @@ class MultiDataset(torch.utils.data.Dataset):
 
         if resume_partial_norm_path is not None:
             if precomputed_norm_path is not None:
-                raise ValueError("partial normalization recovery conflicts with precomputed stats")
+                raise ValueError(
+                    "partial normalization recovery conflicts with precomputed stats"
+                )
             with open(resume_partial_norm_path) as stream:
                 partial = json.load(stream)
             if partial["stats"].get(str(embodiment)):
                 # Native loader still checks normalization mode and exact key set.
-                self._load_precomputed_stats(resume_partial_norm_path, embodiment, norm_keys)
-                logger.info(f"[MultiDataset] Reused completed partial stats for embodiment={embodiment}")
+                self._load_precomputed_stats(
+                    resume_partial_norm_path, embodiment, norm_keys
+                )
+                logger.info(
+                    f"[MultiDataset] Reused completed partial stats for embodiment={embodiment}"
+                )
                 return
 
         if precomputed_norm_path is not None:
@@ -1716,7 +1722,8 @@ class MultiDataset(torch.utils.data.Dataset):
                     # float64 poses, just as in c12. Keep the memory-saving
                     # current path unchanged for other experiments.
                     collected[k].append(
-                        x if self.compatibility_mode == "legacy_c12"
+                        x
+                        if self.compatibility_mode == "legacy_c12"
                         else np.asarray(x, dtype=np.float32)
                     )
                 cur += take
@@ -2182,8 +2189,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if float(self.metadata.get("fps", -1)) != t.fps:
                     raise ValueError("Episode FPS differs from retiming clock")
                 if self.key_map[t.action_key].get("horizon") != t.required_frames:
-                    raise ValueError("Raw keymap horizon must equal retiming required_frames")
-            self._valid_anchors = complete_window_count(self.total_frames, t.required_frames)
+                    raise ValueError(
+                        "Raw keymap horizon must equal retiming required_frames"
+                    )
+            self._valid_anchors = complete_window_count(
+                self.total_frames, t.required_frames
+            )
         self.image_hw = tuple(image_hw) if image_hw else None
         # (H, W) of this episode's front camera BEFORE any resize, captured at
         # decode time so the intrinsics can be rescaled by the same factors.
@@ -2286,7 +2297,11 @@ class ZarrDataset(torch.utils.data.Dataset):
     def frame_index_at(self, index: int) -> int:
         if not 0 <= index < len(self):
             raise IndexError(index)
-        return index
+        return (
+            index // self._view_transform.sample_views
+            if self._view_transform
+            else index
+        )
 
     def episode_length_at(self, index: int) -> int:
         self.frame_index_at(index)
@@ -2378,13 +2393,16 @@ class ZarrDataset(torch.utils.data.Dataset):
                 raw_data = self.episode_reader.read(read_dict)
                 required_keys = (
                     getattr(self._view_transform, "required_keys", None)
-                    if self._view_transform is not None else ()
+                    if self._view_transform is not None
+                    else ()
                 )
                 if required_keys is None:
                     required_keys = (self._view_transform.action_key,)
                 if self._view_transform is not None and k in required_keys:
                     if len(raw_data[zarr_key]) != self._view_transform.required_frames:
-                        raise ValueError("Retiming refuses padded or truncated native windows")
+                        raise ValueError(
+                            "Retiming refuses padded or truncated native windows"
+                        )
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
 

@@ -11,8 +11,8 @@ import torch
 import torch.nn as nn
 
 from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
-from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 from egomimic.utils.runtime_compatibility import math_sdpa_context
+from egomimic.utils.tensor_tree import clone_inference_tensors, cuda_devices
 
 
 def _block_outputs(
@@ -118,9 +118,7 @@ def _decoder_singular_values(
             else:
                 # Retain the existing method for all other experiments.
                 jacobian = torch.func.jacrev(decode_one, chunk_size=32)(value)
-                matrix = jacobian.float().reshape(
-                    jacobian.numel() // value.numel(), -1
-                )
+                matrix = jacobian.float().reshape(jacobian.numel() // value.numel(), -1)
             singular_values.append(torch.linalg.svdvals(matrix).detach())
     return torch.stack(singular_values)
 
@@ -201,18 +199,10 @@ def _diagnostic_source(
     batch_size = limit
 
     encoder_for = getattr(encoder_stage, "encoder_for", None)
-    encoder = (
-        encoder_for(prepared)
-        if callable(encoder_for)
-        else encoder_stage.encoder
-    )
+    encoder = encoder_for(prepared) if callable(encoder_for) else encoder_stage.encoder
     field = field_stage.field
     decoder_for = getattr(decoder_stage, "_decoder_for", None)
-    decoder = (
-        decoder_for(prepared)
-        if callable(decoder_for)
-        else decoder_stage.decoder
-    )
+    decoder = decoder_for(prepared) if callable(decoder_for) else decoder_stage.decoder
     clean, encoder_activations, encoder_indices = _block_outputs(
         encoder,
         lambda: encoder(target),

@@ -4,6 +4,7 @@
 def math_sdpa_context():
     """Select only math SDPA using the runtime's supported public API."""
     import torch
+
     try:
         from torch.nn.attention import SDPBackend, sdpa_kernel
     except ModuleNotFoundError as exc:
@@ -18,6 +19,7 @@ def math_sdpa_context():
 def autocast_noise_dtype(device_type: str):
     """Query existing autocast without enabling a context or changing RNG."""
     import torch
+
     try:
         enabled = torch.is_autocast_enabled(device_type)
     except TypeError:

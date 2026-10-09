@@ -64,7 +64,7 @@ def parse_scontrol_record(text: str) -> dict[str, str]:
     if len(lines) != 1:
         raise ContractError(
             "scontrol capture must contain exactly one non-empty one-line record; "
-            "capture with `scontrol show job -dd -o \"$SLURM_JOB_ID\"`"
+            'capture with `scontrol show job -dd -o "$SLURM_JOB_ID"`'
         )
     line = lines[0]
     matches = list(_FIELD_RE.finditer(line))
@@ -192,25 +192,50 @@ def evaluate_contract(
     """Return expected values, observed values, and every failed comparison."""
 
     native_requested = native_profile is not None
-    native = native_requested and expected_constraint == '(null)'
+    native = native_requested and expected_constraint == "(null)"
     if native_requested:
         # Suite typing is independent of portable scheduler representation.
         import sys
+
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-        from egomimic.benchmarks.libero.native_launch_profiles import profile_for_experiment
+        from egomimic.benchmarks.libero.native_launch_profiles import (
+            profile_for_experiment,
+        )
+
         try:
-            selected_profile=profile_for_experiment(native_profile)
+            selected_profile = profile_for_experiment(native_profile)
             if selected_profile.suite == "libero_spatial" and native:
-                raise ValueError("Spatial ICE requires an explicit H100/H200 constraint")
+                raise ValueError(
+                    "Spatial ICE requires an explicit H100/H200 constraint"
+                )
             if selected_profile.suite == "libero10" and not native:
-                raise ValueError("existing LIBERO10 native no-constraint contract required")
+                raise ValueError(
+                    "existing LIBERO10 native no-constraint contract required"
+                )
         except ValueError as exc:
             raise ContractError(str(exc)) from exc
-        allowed_names = {'NVIDIA H100 80GB HBM3'} if native else {'NVIDIA H100 80GB HBM3', 'NVIDIA H200'}
-        if expected_constraint == 'H100': allowed_names = {'NVIDIA H100 80GB HBM3'}
-        if expected_constraint == 'H200': allowed_names = {'NVIDIA H200'}
-        if not gpu_probe or gpu_probe.get('status') != 'PASSED' or gpu_probe.get('gpu_name') not in allowed_names or gpu_probe.get('world_size') != 1 or gpu_probe.get('rank') != 0 or gpu_probe.get('local_rank') != 0 or gpu_probe.get('bf16_supported') is not True or gpu_probe.get('bf16_forward_backward', {}).get('finite') is not True:
-            raise ContractError('actual single allowed native GPU finite BF16 probe required')
+        allowed_names = (
+            {"NVIDIA H100 80GB HBM3"}
+            if native
+            else {"NVIDIA H100 80GB HBM3", "NVIDIA H200"}
+        )
+        if expected_constraint == "H100":
+            allowed_names = {"NVIDIA H100 80GB HBM3"}
+        if expected_constraint == "H200":
+            allowed_names = {"NVIDIA H200"}
+        if (
+            not gpu_probe
+            or gpu_probe.get("status") != "PASSED"
+            or gpu_probe.get("gpu_name") not in allowed_names
+            or gpu_probe.get("world_size") != 1
+            or gpu_probe.get("rank") != 0
+            or gpu_probe.get("local_rank") != 0
+            or gpu_probe.get("bf16_supported") is not True
+            or gpu_probe.get("bf16_forward_backward", {}).get("finite") is not True
+        ):
+            raise ContractError(
+                "actual single allowed native GPU finite BF16 probe required"
+            )
     if not native and expected_constraint not in ALLOWED_CONSTRAINTS:
         raise ContractError(
             "constraint must be one of "
@@ -253,7 +278,9 @@ def evaluate_contract(
         observed["requested_tres_memory_bytes"] = parse_slurm_memory(
             requested_tres["mem"]
         )
-        observed["requested_tres_gpus"] = None if native else int(requested_tres["gres/gpu"])
+        observed["requested_tres_gpus"] = (
+            None if native else int(requested_tres["gres/gpu"])
+        )
     except (KeyError, ValueError) as exc:
         raise ContractError(
             "ReqTRES must contain integer node, cpu, and generic gres/gpu values "
@@ -314,22 +341,43 @@ def evaluate_contract(
     if native:
         # Lambda Slurm does not account GPU GRES in ReqTRES/AllocTRES.
         # Bind its actual job request and per-node allocated device record instead.
-        allocated = parse_tres(_required_field(fields, 'AllocTRES'))
-        if any(k.startswith('gres/gpu') for k in requested_tres) or any(k.startswith('gres/gpu') for k in allocated):
-            raise ContractError('native Lambda contract requires exact captured CPU-only TRES representation')
-        for key, expected_value in [('cpu', str(expected_cpus)), ('node', '1')]:
-            comparisons.append(('allocated_'+key, expected_value, allocated.get(key)))
-        comparisons.append(('allocated_mem', expected_memory_bytes, parse_slurm_memory(allocated.get('mem', ''))))
-        comparisons.append(('job_gres', 'gpu:h100:1', _required_field(fields, 'JOB_GRES')))
-        comparisons.append(('tres_per_node', 'gres/gpu:h100:1', _required_field(fields, 'TresPerNode')))
-        node = _required_field(fields, 'NodeList')
-        if not re.fullmatch(r'[A-Za-z0-9_-]+', node):
-            raise ContractError('native GPU allocation requires one explicit node')
-        comparisons.append(('allocated_node', node, _required_field(fields, 'Nodes')))
-        allocated_gres = _required_field(fields, 'GRES')
-        if not re.fullmatch(r'gpu:h100:1\(IDX:[0-9]+\)', allocated_gres):
-            raise ContractError('exact allocated native H100 count and device index required')
-        observed['native_gpu_allocation'] = {'node': node, 'gres': allocated_gres, 'job_gres': fields['JOB_GRES'], 'tres_per_node': fields['TresPerNode']}
+        allocated = parse_tres(_required_field(fields, "AllocTRES"))
+        if any(k.startswith("gres/gpu") for k in requested_tres) or any(
+            k.startswith("gres/gpu") for k in allocated
+        ):
+            raise ContractError(
+                "native Lambda contract requires exact captured CPU-only TRES representation"
+            )
+        for key, expected_value in [("cpu", str(expected_cpus)), ("node", "1")]:
+            comparisons.append(("allocated_" + key, expected_value, allocated.get(key)))
+        comparisons.append(
+            (
+                "allocated_mem",
+                expected_memory_bytes,
+                parse_slurm_memory(allocated.get("mem", "")),
+            )
+        )
+        comparisons.append(
+            ("job_gres", "gpu:h100:1", _required_field(fields, "JOB_GRES"))
+        )
+        comparisons.append(
+            ("tres_per_node", "gres/gpu:h100:1", _required_field(fields, "TresPerNode"))
+        )
+        node = _required_field(fields, "NodeList")
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", node):
+            raise ContractError("native GPU allocation requires one explicit node")
+        comparisons.append(("allocated_node", node, _required_field(fields, "Nodes")))
+        allocated_gres = _required_field(fields, "GRES")
+        if not re.fullmatch(r"gpu:h100:1\(IDX:[0-9]+\)", allocated_gres):
+            raise ContractError(
+                "exact allocated native H100 count and device index required"
+            )
+        observed["native_gpu_allocation"] = {
+            "node": node,
+            "gres": allocated_gres,
+            "job_gres": fields["JOB_GRES"],
+            "tres_per_node": fields["TresPerNode"],
+        }
     failures = [
         {"field": field, "expected": expected_value, "observed": observed_value}
         for field, expected_value, observed_value in comparisons
@@ -372,9 +420,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--expected-constraint", required=True, metavar="GPU_CONSTRAINT"
     )
-    parser.add_argument('--native-profile')
-    parser.add_argument('--gpu-probe', type=Path)
-    parser.add_argument('--gpu-probe-sha256')
+    parser.add_argument("--native-profile")
+    parser.add_argument("--gpu-probe", type=Path)
+    parser.add_argument("--gpu-probe-sha256")
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
 
@@ -398,15 +446,22 @@ def main() -> int:
         fields = parse_scontrol_record(record_bytes.decode("utf-8", errors="strict"))
         probe = None
         if args.native_profile is not None:
-            if os.environ.get('SLURM_JOB_ID') != args.expected_job_id or not os.environ.get('SLURM_STEP_ID'):
-                raise ContractError('native scheduler proof requires the actual matching scheduled job step')
+            if os.environ.get(
+                "SLURM_JOB_ID"
+            ) != args.expected_job_id or not os.environ.get("SLURM_STEP_ID"):
+                raise ContractError(
+                    "native scheduler proof requires the actual matching scheduled job step"
+                )
             if args.gpu_probe is None or args.gpu_probe_sha256 is None:
-                raise ContractError('native GPU probe path and immutable SHA required')
+                raise ContractError("native GPU probe path and immutable SHA required")
             probe_bytes = args.gpu_probe.read_bytes()
             if _sha256(probe_bytes) != args.gpu_probe_sha256:
-                raise ContractError('native GPU probe SHA mismatch')
+                raise ContractError("native GPU probe SHA mismatch")
             probe = json.loads(probe_bytes)
-            evidence['gpu_probe'] = {'path': str(args.gpu_probe.resolve()), 'sha256': args.gpu_probe_sha256}
+            evidence["gpu_probe"] = {
+                "path": str(args.gpu_probe.resolve()),
+                "sha256": args.gpu_probe_sha256,
+            }
         expected, observed, failures = evaluate_contract(
             fields,
             expected_job_id=args.expected_job_id,

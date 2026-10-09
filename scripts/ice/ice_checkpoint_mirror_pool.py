@@ -201,13 +201,20 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
     for checkpoint in core.candidates(row):
         prior = read_entry(state_dir, checkpoint)
         rejection: dict[str, Any] = {}
-        info = core.stable_valid_info(checkpoint, validator, cached=prior, rejection=rejection)
+        info = core.stable_valid_info(
+            checkpoint, validator, cached=prior, rejection=rejection
+        )
         if info is None:
             ok = False
-            log_event(state_dir, {
-                "event": "prune_refused_local_validation", "run_id": row["id"],
-                "path": str(checkpoint), **rejection,
-            })
+            log_event(
+                state_dir,
+                {
+                    "event": "prune_refused_local_validation",
+                    "run_id": row["id"],
+                    "path": str(checkpoint),
+                    **rejection,
+                },
+            )
         else:
             infos.append(info)
     infos.sort(
@@ -223,13 +230,20 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
                 ok = False
                 continue
             rejection = {}
-            current = core.stable_valid_info(info.path, validator, force=True, rejection=rejection)
+            current = core.stable_valid_info(
+                info.path, validator, force=True, rejection=rejection
+            )
             if current is None:
                 ok = False
-                log_event(state_dir, {
-                    "event": "prune_refused_local_validation", "run_id": row["id"],
-                    "path": str(info.path), **rejection,
-                })
+                log_event(
+                    state_dir,
+                    {
+                        "event": "prune_refused_local_validation",
+                        "run_id": row["id"],
+                        "path": str(info.path),
+                        **rejection,
+                    },
+                )
                 continue
             remote_path = entry.get("remote_path")
             if (
@@ -267,7 +281,11 @@ def prune_row(args: argparse.Namespace, state_dir: Path, row: dict[str, Any]) ->
 
 
 def maintain(
-    args: argparse.Namespace, state_dir: Path, manifest: dict[str, Any], *, cycle_errors: int = 0,
+    args: argparse.Namespace,
+    state_dir: Path,
+    manifest: dict[str, Any],
+    *,
+    cycle_errors: int = 0,
 ) -> bool:
     """Publish pressure and completion state; optionally perform guarded pruning."""
     ok = cycle_errors == 0
@@ -451,15 +469,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                         continue
                     if not process_checkpoint(args, args.state_dir, row, checkpoint):
                         errors += 1
-        core.atomic_json(args.state_dir / f"worker-{args.worker_index}-status.json", {
-            "worker_index": args.worker_index,
-            "cycle_errors": errors,
-            "updated_at_unix": time.time(),
-        })
+        core.atomic_json(
+            args.state_dir / f"worker-{args.worker_index}-status.json",
+            {
+                "worker_index": args.worker_index,
+                "cycle_errors": errors,
+                "updated_at_unix": time.time(),
+            },
+        )
         if args.worker_index == 0:
-            with LockedFile(args.state_dir / "maintenance.lock", blocking=False) as reservation:
+            with LockedFile(
+                args.state_dir / "maintenance.lock", blocking=False
+            ) as reservation:
                 if reservation is not None and maintain(
-                    args, args.state_dir, manifest, cycle_errors=errors,
+                    args,
+                    args.state_dir,
+                    manifest,
+                    cycle_errors=errors,
                 ):
                     return 0
         if args.once:

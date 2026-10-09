@@ -6,8 +6,8 @@ current U-Socket candidate; routed co-training applies it only to the decoder
 selected by the homogeneous embodiment batch.
 """
 
-from contextlib import contextmanager
 import importlib
+from contextlib import contextmanager
 from types import MethodType
 
 import torch
@@ -24,7 +24,9 @@ def differentiable_layer_norm(self, x):
         raise AssertionError("AV JVP must run outside autocast in FP32/FP64")
     dims = tuple(range(x.ndim - len(self.normalized_shape), x.ndim))
     centered = x - x.mean(dim=dims, keepdim=True)
-    y = centered * torch.rsqrt(centered.square().mean(dim=dims, keepdim=True) + self.eps)
+    y = centered * torch.rsqrt(
+        centered.square().mean(dim=dims, keepdim=True) + self.eps
+    )
     if self.weight is not None:
         y = y * self.weight
     if self.bias is not None:
@@ -115,7 +117,8 @@ class AVOnlyLayerNormCallback(Callback):
             return
         stages = pl_module.model.pipeline.stages
         decoders = [
-            item for item in stages
+            item
+            for item in stages
             if type(item) in (ContentDecoderStage, RoutedContentDecoderStage)
         ]
         if len(decoders) != 1:

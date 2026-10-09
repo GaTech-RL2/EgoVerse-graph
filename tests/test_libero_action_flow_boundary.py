@@ -1,19 +1,21 @@
-import torch
 import hashlib
 import json
+import weakref
 from pathlib import Path
 from types import SimpleNamespace
-import weakref
 
+import torch
 from hydra import compose, initialize_config_dir
 
 from egomimic.eval.libero_action_flow_eval import LiberoActionFlowEvaluator
 from egomimic.pipeline.libero_action_flow import LiberoActionFlowObservationAdapter
-from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowDataset
 from egomimic.pl_utils.training_behavior_action_flow import ActionFlowTrainingBehavior
+from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowDataset
 
 
-def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(monkeypatch):
+def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(
+    monkeypatch,
+):
     monkeypatch.setenv("LIBERO10_REPLAY_ROOT", "/tmp/libero10-replay-for-compose")
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(config_dir=str(config_dir), version_base="1.3"):
@@ -91,7 +93,10 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
             self.diagnostic_calls = []
 
         def forward_eval(self, batch):
-            return {source: {"pred_action": values["actions"]} for source, values in batch.items()}
+            return {
+                source: {"pred_action": values["actions"]}
+                for source, values in batch.items()
+            }
 
         def run_diagnostic(self, capability, batch, **kwargs):
             self.diagnostic_calls.append((capability, kwargs))
@@ -117,8 +122,13 @@ def test_libero_validation_uses_generic_action_flow_diagnostic(tmp_path):
     evaluator.on_validation_step({"libero": {"actions": torch.zeros(2, 16, 7)}}, 0)
     assert len(model.diagnostic_calls) == 1
     assert model.diagnostic_calls[0][0] == "action_flow"
-    assert any(name == "Valid/energy_score32_native_equal_components" for name, _, _ in model.logged)
-    assert any(name == "Valid/diagnostic_clean_latent_rms" for name, _, _ in model.logged)
+    assert any(
+        name == "Valid/energy_score32_native_equal_components"
+        for name, _, _ in model.logged
+    )
+    assert any(
+        name == "Valid/diagnostic_clean_latent_rms" for name, _, _ in model.logged
+    )
     assert any(
         name == "Valid/diagnostic_clean_decoded_action_normalized_rms"
         for name, _, _ in model.logged

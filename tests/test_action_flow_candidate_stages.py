@@ -32,11 +32,15 @@ class _Field(nn.Module):
         )
 
 
-def _forward(mode, encoder, decoder, field, target, noise, condition, execution="separate"):
+def _forward(
+    mode, encoder, decoder, field, target, noise, condition, execution="separate"
+):
     stages = [
         ContentEncoderStage(encoder),
         LatentBridgeStage(samples_per_content=3, condition_dropout_probability=0.3),
-        ConditionalVelocityStage(field, flow_clean_gradient_mode=mode, fm_field_execution=execution),
+        ConditionalVelocityStage(
+            field, flow_clean_gradient_mode=mode, fm_field_execution=execution
+        ),
         ContentDecoderStage(decoder),
         ActionFlowObjectiveStage(residual_key="action_flow/fm_velocity_residual"),
     ]
@@ -101,7 +105,16 @@ def test_shared_forward_matches_two_forward_reference_gradients():
     )
     reference_condition = condition.detach().clone().requires_grad_()
 
-    output = _forward("all_stopgrad", encoder, decoder, field, target, noise, condition, execution="shared")
+    output = _forward(
+        "all_stopgrad",
+        encoder,
+        decoder,
+        field,
+        target,
+        noise,
+        condition,
+        execution="shared",
+    )
     torch.manual_seed(72)
     clean = reference_encoder(target)
     bridge = LatentBridgeStage(

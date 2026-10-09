@@ -1,11 +1,11 @@
-from collections import OrderedDict
 import csv
+from collections import OrderedDict
 
+import pytest
+import torch
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
-import pytest
-import torch
 from torch.utils.data import DataLoader
 
 from egomimic.pipeline.stages_planar import PlanarActionMSELoss
@@ -120,27 +120,43 @@ def test_planar_action_loss_exports_canonical_mse_metric():
 
 
 @pytest.mark.parametrize("on_step", [None, False, True])
-def test_entrypoint_logging_control_reaches_real_csv_rows(tmp_path, monkeypatch, on_step):
+def test_entrypoint_logging_control_reaches_real_csv_rows(
+    tmp_path, monkeypatch, on_step
+):
     """Config-only assertions miss controls dropped by wrapper construction."""
+
     class TrainMetricPipeline(_MetricPipeline):
         def forward_training(self, batch):
             loss = self.nets["anchor"](batch).square().mean()
             return {"source": {"loss/test": loss, "log/MSE": loss.detach()}}
 
-    monkeypatch.setattr(ModelWrapper, "_instantiate_model", lambda *args: TrainMetricPipeline())
-    cfg = OmegaConf.create({"model": {
-        "pipeline": {}, "enable_grad_norm": False,
-        "optimizer": {"_target_": "torch.optim.SGD", "lr": 0.01},
-    }})
+    monkeypatch.setattr(
+        ModelWrapper, "_instantiate_model", lambda *args: TrainMetricPipeline()
+    )
+    cfg = OmegaConf.create(
+        {
+            "model": {
+                "pipeline": {},
+                "enable_grad_norm": False,
+                "optimizer": {"_target_": "torch.optim.SGD", "lr": 0.01},
+            }
+        }
+    )
     if on_step is not None:
         cfg.model.train_log_on_step = on_step
     wrapper = _instantiate_model_wrapper(cfg)
     assert wrapper.train_log_on_step is (on_step is True)
     logger = CSVLogger(tmp_path, name="metrics")
     trainer = Trainer(
-        accelerator="cpu", devices=1, max_steps=16, max_epochs=1,
-        logger=logger, log_every_n_steps=1, enable_checkpointing=False,
-        enable_model_summary=False, enable_progress_bar=False,
+        accelerator="cpu",
+        devices=1,
+        max_steps=16,
+        max_epochs=1,
+        logger=logger,
+        log_every_n_steps=1,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
     )
     trainer.fit(wrapper, DataLoader(torch.ones(16, 1), batch_size=1))
     with (tmp_path / "metrics/version_0/metrics.csv").open() as handle:

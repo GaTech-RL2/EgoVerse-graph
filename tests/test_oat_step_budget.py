@@ -88,8 +88,10 @@ def test_pilot_arguments_compose_matched_budget_and_checkpoint_policy(
     tmp_path, basis, mode, gpus
 ):
     from pathlib import Path
+
     from hydra import compose, initialize_config_dir
     from hydra.utils import instantiate
+
     from egomimic.benchmarks.libero.cluster import global_basis_training_arguments
 
     args = global_basis_training_arguments(

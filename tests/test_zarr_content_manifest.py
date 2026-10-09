@@ -135,7 +135,9 @@ def test_generator_and_validator_reject_byte_tamper(tmp_path):
 
     split = _split_manifest(module, set(episodes), Path("/canonical/source"))
     split_path = tmp_path / "split.json"
-    split_path.write_text(json.dumps(split, sort_keys=True, separators=(",", ":")) + "\n")
+    split_path.write_text(
+        json.dumps(split, sort_keys=True, separators=(",", ":")) + "\n"
+    )
     split_sha = hashlib.sha256(split_path.read_bytes()).hexdigest()
 
     def validate(output: Path, *, check: bool):
@@ -166,9 +168,10 @@ def test_generator_and_validator_reject_byte_tamper(tmp_path):
 
     validate(tmp_path / "pass.json", check=True)
     payload = json.loads((tmp_path / "pass.json").read_text())
-    assert payload["content_identity"]["aggregate_sha256"] == json.loads(
-        content_path.read_text()
-    )["aggregate_sha256"]
+    assert (
+        payload["content_identity"]["aggregate_sha256"]
+        == json.loads(content_path.read_text())["aggregate_sha256"]
+    )
 
     chunk = next(
         path

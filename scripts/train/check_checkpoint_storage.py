@@ -149,15 +149,9 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True, type=Path)
-    parser.add_argument(
-        "--planned-checkpoint-count", required=True, type=_positive_int
-    )
-    parser.add_argument(
-        "--measured-checkpoint-bytes", type=_optional_checkpoint_size
-    )
-    parser.add_argument(
-        "--expected-checkpoint-bytes", type=_optional_checkpoint_size
-    )
+    parser.add_argument("--planned-checkpoint-count", required=True, type=_positive_int)
+    parser.add_argument("--measured-checkpoint-bytes", type=_optional_checkpoint_size)
+    parser.add_argument("--expected-checkpoint-bytes", type=_optional_checkpoint_size)
     parser.add_argument("--safety-reserve-bytes", required=True, type=_reserve)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()

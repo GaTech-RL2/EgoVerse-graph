@@ -38,6 +38,7 @@ def reconstruction(args):
     if payload.get("oat_input_representation") is not None:
         from hydra.utils import instantiate
         from omegaconf import OmegaConf
+
         from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
         from egomimic.models.oat.checkpoint import validate_input_representation
         from egomimic.pipeline.stages_libero_arc import LiberoArcStage

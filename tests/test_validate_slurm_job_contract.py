@@ -150,8 +150,7 @@ def test_exact_supported_gpu_constraints_pass(constraint):
         (
             {
                 "ReqTRES": (
-                    "cpu=8,mem=250G,node=1,billing=8,"
-                    "gres/gpu=1,gres/gpu:h100=1"
+                    "cpu=8,mem=250G,node=1,billing=8," "gres/gpu=1,gres/gpu:h100=1"
                 )
             },
             "typed_gpu_tres",
@@ -226,7 +225,9 @@ def test_parser_accepts_empty_unrelated_slurm_fields():
 def test_contract_still_rejects_empty_required_fields():
     module = _load_module()
     fields = module.parse_scontrol_record(_record(Account=""))
-    with pytest.raises(module.ContractError, match="required scontrol field Account is empty"):
+    with pytest.raises(
+        module.ContractError, match="required scontrol field Account is empty"
+    ):
         module.evaluate_contract(fields, **_expectations())
 
 

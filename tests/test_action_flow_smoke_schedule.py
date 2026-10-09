@@ -6,7 +6,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
-from test_verify_action_flow_training_smoke import MODULE, _checkpoint_payload
+from tests.test_verify_action_flow_training_smoke import MODULE, _checkpoint_payload
 from tools.validate_action_flow_config import (
     GRAPH_METHOD,
     STOPGRAD_METHOD,

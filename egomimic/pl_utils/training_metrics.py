@@ -115,7 +115,9 @@ def reduce_component_means(
     )
     if preserve_input_dtype:
         dtype = next(iter(components.values())).dtype
-        reduced = OrderedDict((name, value.to(dtype)) for name, value in reduced.items())
+        reduced = OrderedDict(
+            (name, value.to(dtype)) for name, value in reduced.items()
+        )
     return reduced, global_count
 
 

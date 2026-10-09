@@ -121,8 +121,14 @@ def validate_manifest_structure(manifest: Mapping[str, Any]) -> dict[str, Any]:
     _digest(manifest.get("generator_sha256"), "generator_sha256")
 
     domains = manifest.get("domains")
-    if not isinstance(domains, Mapping) or len(domains) != 1 or not set(domains) <= SUPPORTED_DOMAINS:
-        raise RuntimeError("split manifest must contain exactly one supported PushT domain")
+    if (
+        not isinstance(domains, Mapping)
+        or len(domains) != 1
+        or not set(domains) <= SUPPORTED_DOMAINS
+    ):
+        raise RuntimeError(
+            "split manifest must contain exactly one supported PushT domain"
+        )
     domain_name = next(iter(domains))
     domain = domains[domain_name]
     if not isinstance(domain, Mapping):

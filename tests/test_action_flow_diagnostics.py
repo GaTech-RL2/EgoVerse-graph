@@ -11,17 +11,17 @@ import torch.nn as nn
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
 from egomimic.eval.action_flow_diagnostic_forward import (
-    collect_action_flow_diagnostics,
     _decoder_singular_values,
+    collect_action_flow_diagnostics,
 )
+from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
 from egomimic.eval.pipeline_diagnostics import ActionFlowDiagnosticProvider
-from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.eval.planar_action_eval import (
     USOCKET_NATIVE_ERROR_CONFIG,
     PlanarActionEval,
 )
+from egomimic.models.unite_action_decoder import UniteActionDecoder
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.pushshapes import USocketRotVecNativeDecoder
 from egomimic.pipeline.stages_action_flow import (

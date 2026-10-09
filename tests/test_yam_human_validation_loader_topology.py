@@ -39,8 +39,20 @@ def test_two_validation_groups_reach_lightning_as_flat_source_mappings(workers):
         },
         train_dataloader_params={},
         valid_dataloader_params={
-            "yam": {"yam_bimanual": {"batch_size": 4, "num_workers": workers, "shuffle": False}},
-            "human": {"human_bimanual": {"batch_size": 4, "num_workers": workers, "shuffle": False}},
+            "yam": {
+                "yam_bimanual": {
+                    "batch_size": 4,
+                    "num_workers": workers,
+                    "shuffle": False,
+                }
+            },
+            "human": {
+                "human_bimanual": {
+                    "batch_size": 4,
+                    "num_workers": workers,
+                    "shuffle": False,
+                }
+            },
         },
         proportional_train_batch_size=8,
         proportional_train_num_workers=0,
@@ -54,8 +66,12 @@ def test_two_validation_groups_reach_lightning_as_flat_source_mappings(workers):
         assert tuple(batch) == (source,)
     probe = _ValidationProbe()
     trainer = Trainer(
-        accelerator="cpu", devices=1, logger=False, enable_checkpointing=False,
-        enable_model_summary=False, limit_val_batches=1,
+        accelerator="cpu",
+        devices=1,
+        logger=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        limit_val_batches=1,
     )
     trainer.validate(probe, dataloaders=loaders)
     assert probe.seen == [

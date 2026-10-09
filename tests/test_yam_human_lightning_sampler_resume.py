@@ -37,7 +37,10 @@ class _RecordingModel(L.LightningModule):
 
 def _data(num_workers: int):
     return ProportionalMultiDataModuleWrapper(
-        train_datasets={"yam_bimanual": _IndexedDataset(17), "human_bimanual": _IndexedDataset(11)},
+        train_datasets={
+            "yam_bimanual": _IndexedDataset(17),
+            "human_bimanual": _IndexedDataset(11),
+        },
         valid_datasets={"valid": {"yam_bimanual": _IndexedDataset(2)}},
         train_dataloader_params={},
         valid_dataloader_params={},
@@ -49,17 +52,27 @@ def _data(num_workers: int):
 
 def _trainer(max_steps: int, root):
     return L.Trainer(
-        accelerator="cpu", devices=1, max_steps=max_steps,
-        default_root_dir=root, logger=False, enable_checkpointing=False,
-        enable_progress_bar=False, enable_model_summary=False,
-        limit_val_batches=0, num_sanity_val_steps=0,
+        accelerator="cpu",
+        devices=1,
+        max_steps=max_steps,
+        default_root_dir=root,
+        logger=False,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        limit_val_batches=0,
+        num_sanity_val_steps=0,
     )
 
 
 @pytest.mark.parametrize("num_workers", [0, 2])
-def test_mid_epoch_full_state_resume_preserves_exact_source_order(tmp_path, num_workers):
+def test_mid_epoch_full_state_resume_preserves_exact_source_order(
+    tmp_path, num_workers
+):
     uninterrupted = _RecordingModel()
-    _trainer(4, tmp_path / "reference").fit(uninterrupted, datamodule=_data(num_workers))
+    _trainer(4, tmp_path / "reference").fit(
+        uninterrupted, datamodule=_data(num_workers)
+    )
     assert len(uninterrupted.seen) == 4
 
     first = _RecordingModel()

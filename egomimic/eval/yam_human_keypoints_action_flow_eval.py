@@ -49,7 +49,9 @@ HUMAN_ENERGY_DISTANCE_METADATA = {
 }
 
 
-def human_native_residual(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+def human_native_residual(
+    prediction: torch.Tensor, target: torch.Tensor
+) -> torch.Tensor:
     if prediction.shape[-1] != HUMAN_ACTION_DIM or target.shape[-1] != HUMAN_ACTION_DIM:
         raise ValueError("Human native residual requires 138-D keypoint/wrist actions")
     try:
@@ -80,7 +82,8 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
         super().__init__(**kwargs)
         self._co_train_artifact_root = self.artifact_root
         self._co_train_diagnostic_root = (
-            None if self._action_flow_diagnostics is None
+            None
+            if self._action_flow_diagnostics is None
             else self._action_flow_diagnostics.artifact_root
         )
         self.energy_score_distance_metadata = {
@@ -124,18 +127,46 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
             raise ValueError(f"Unexpected YAM/human evaluation embodiment {label!r}")
         if samples.ndim != 4 or samples.shape[0] != 32 or target.ndim != 3:
             raise ValueError("Human EnergyScore@32 requires 32 sampled chunks")
-        if tuple(target.shape[-2:]) != (100, HUMAN_ACTION_DIM) or samples.shape[1:] != target.shape:
-            raise ValueError("Human EnergyScore requires complete matching (100,138) chunks")
-        if not bool(torch.isfinite(samples).all()) or not bool(torch.isfinite(target).all()):
+        if (
+            tuple(target.shape[-2:]) != (100, HUMAN_ACTION_DIM)
+            or samples.shape[1:] != target.shape
+        ):
+            raise ValueError(
+                "Human EnergyScore requires complete matching (100,138) chunks"
+            )
+        if not bool(torch.isfinite(samples).all()) or not bool(
+            torch.isfinite(target).all()
+        ):
             raise ValueError("Human EnergyScore received non-finite actions")
 
         def distance(left, right):
             left_native = self._native(left, embodiment_id, None)
             right_native = self._native(right, embodiment_id, None)
             native_residual = human_native_residual(left_native, right_native)
-            translation = (left[..., list(HUMAN_WRIST_TRANSLATION_INDICES)] - right[..., list(HUMAN_WRIST_TRANSLATION_INDICES)]).square().mean(dim=(-2, -1)).sqrt()
-            rotation = (native_residual[..., list(HUMAN_WRIST_ANGLE_INDICES)] / torch.pi).square().mean(dim=(-2, -1)).sqrt()
-            keypoints = (left[..., list(HUMAN_KEYPOINT_INDICES)] - right[..., list(HUMAN_KEYPOINT_INDICES)]).square().mean(dim=(-2, -1)).sqrt()
+            translation = (
+                (
+                    left[..., list(HUMAN_WRIST_TRANSLATION_INDICES)]
+                    - right[..., list(HUMAN_WRIST_TRANSLATION_INDICES)]
+                )
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
+            )
+            rotation = (
+                (native_residual[..., list(HUMAN_WRIST_ANGLE_INDICES)] / torch.pi)
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
+            )
+            keypoints = (
+                (
+                    left[..., list(HUMAN_KEYPOINT_INDICES)]
+                    - right[..., list(HUMAN_KEYPOINT_INDICES)]
+                )
+                .square()
+                .mean(dim=(-2, -1))
+                .sqrt()
+            )
             return (translation + rotation + keypoints) / 3.0
 
         values = energy_score(samples, target, distance_fn=distance)
@@ -158,7 +189,9 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
             def native_error(prediction, target, *, _id=embodiment_id):
                 prediction_native = self._native(prediction, _id, None)
                 target_native = self._native(target, _id, None)
-                return self._native_mse_by_condition(prediction_native, target_native, None)
+                return self._native_mse_by_condition(
+                    prediction_native, target_native, None
+                )
 
             functions[source_id] = native_error
         return functions

@@ -154,8 +154,7 @@ UNITE_STAGE_TYPES = (
     ActionFlowObjectiveStage,
 )
 UNITE_STAGE_TARGETS = tuple(
-    f"{stage_type.__module__}.{stage_type.__name__}"
-    for stage_type in UNITE_STAGE_TYPES
+    f"{stage_type.__module__}.{stage_type.__name__}" for stage_type in UNITE_STAGE_TYPES
 )
 SCALED_H512_ROWS = {
     "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": {
@@ -244,10 +243,12 @@ def validate_method_contract(config: DictConfig, experiment: str | None = None) 
     method = action_flow_method(config, experiment)
     if str(config.name) == HISTORICAL_COMPAT_CONFIG_NAME:
         for key in (
-            "data.compatibility_mode", "normalizer.compatibility_mode",
+            "data.compatibility_mode",
+            "normalizer.compatibility_mode",
             "data.train_datasets.pushshapes_sim_u_socket.compatibility_mode",
             "data.valid_datasets.pushshapes_sim_u_socket.compatibility_mode",
-            "model.pipeline.compatibility_mode", "model.training_behavior.compatibility_mode",
+            "model.pipeline.compatibility_mode",
+            "model.training_behavior.compatibility_mode",
         ):
             _exact(OmegaConf.select(config, key), "legacy_c12", key)
         _exact(config.val_at_start, False, "no initial validation")
@@ -540,7 +541,21 @@ def _validate_generic_surface(config: DictConfig, pipeline: nn.Module) -> None:
                 )
 
     parameters = tuple(inspect.signature(PipelineAlgo.__init__).parameters)
-    _exact(parameters, ("self", "stages", "device"), "PipelineAlgo constructor")
+    _exact(
+        parameters,
+        (
+            "self",
+            "stages",
+            "device",
+            "stage_ids",
+            "initialization",
+            "trainability",
+            "loss_pipeline",
+            "training_passes",
+            "compatibility_mode",
+        ),
+        "PipelineAlgo constructor",
+    )
     for module in pipeline.modules():
         qualified = f"{type(module).__module__}.{type(module).__name__}".lower()
         for token in FORBIDDEN_IMPLEMENTATION_TOKENS:
@@ -602,9 +617,7 @@ def _validate_unite_dimensions_and_modules(
     )
     _require(isinstance(field, UniteActionFlowVelocityField), "wrong UNITE denoiser")
     _require(isinstance(decoder, UniteActionDecoder), "wrong UNITE decoder")
-    _require(
-        isinstance(encoder.backbone, UniteDiTBackbone), "wrong tokenizer backbone"
-    )
+    _require(isinstance(encoder.backbone, UniteDiTBackbone), "wrong tokenizer backbone")
     _require(isinstance(field.backbone, UniteDiTBackbone), "wrong denoiser backbone")
     _require(
         encoder.backbone is not field.backbone,
@@ -717,9 +730,7 @@ def _validate_unite_dimensions_and_modules(
     }
     for label, expected in expected_counts.items():
         _exact(parameters[label]["total"], expected, f"{label} parameter count")
-        _exact(
-            parameters[label]["trainable"], expected, f"{label} trainable count"
-        )
+        _exact(parameters[label]["trainable"], expected, f"{label} trainable count")
     _exact(sum(expected_counts.values()), 97_956_100, "total parameter accounting")
     dimensions = {
         "action": [16, 4],
@@ -962,9 +973,7 @@ def _validate_topology(
         if unite_recipe
         else ("front_img_1", "state_agent_obj")
     )
-    train, train_excluded = pipeline_algo.pipeline.plan(
-        available_train, mode="train"
-    )
+    train, train_excluded = pipeline_algo.pipeline.plan(available_train, mode="train")
     inference, inference_excluded = pipeline_algo.pipeline.plan(
         available_inference, mode="inference"
     )
@@ -1056,18 +1065,20 @@ def _validate_optimization(config: DictConfig) -> dict[str, Any]:
         checkpoint_every = 5_000 if historical_compat else 30_000
         _exact(int(trainer.max_steps), maximum_steps, "trainer maximum steps")
         validation_every = (
-            10_000
-            if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES
-            else 30_000
+            10_000 if str(config.name) in STOPGRAD_UNITE_PARITY_CONFIG_NAMES else 30_000
         )
         _exact(int(trainer.val_check_interval), validation_every, "validation cadence")
         _require(str(trainer.precision) in {"bf16", "bf16-mixed"}, "BF16 precision")
         _float(trainer.gradient_clip_val, 3.0, "gradient clip")
         checkpoint = config.callbacks.model_checkpoint
-        _exact(int(checkpoint.every_n_train_steps), checkpoint_every, "checkpoint cadence")
+        _exact(
+            int(checkpoint.every_n_train_steps), checkpoint_every, "checkpoint cadence"
+        )
         _exact(int(checkpoint.save_top_k), -1, "checkpoint retention")
         _exact(str(config.norm_stats.norm_mode), "minmax", "normalization mode")
-        _exact(bool(config.norm_stats.reduce_all_but_last), True, "normalization reduction")
+        _exact(
+            bool(config.norm_stats.reduce_all_but_last), True, "normalization reduction"
+        )
         _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
         _exact(bool(config.callbacks.ema.validate_with_ema), True, "EMA validation")
         return {
@@ -1903,7 +1914,9 @@ def _validate_scaled_h512_config(
             f"{source} wrong private decoder",
         )
         _exact(int(encoder.input_dim), action_dim, f"{source} encoder action dimension")
-        _exact(int(decoder.action_dim), action_dim, f"{source} decoder action dimension")
+        _exact(
+            int(decoder.action_dim), action_dim, f"{source} decoder action dimension"
+        )
         _require(
             encoder.backbone is not field.backbone,
             f"{source} encoder shares field backbone",
@@ -1924,7 +1937,9 @@ def _validate_scaled_h512_config(
                 ("in_context_len", 32),
             ):
                 _exact(getattr(backbone, key), expected, f"{label} {key}")
-            _exact(bool(backbone.gradient_checkpointing), True, f"{label} checkpointing")
+            _exact(
+                bool(backbone.gradient_checkpointing), True, f"{label} checkpointing"
+            )
         for key, expected in (
             ("latent_dim", 16),
             ("num_latent_tokens", 8),
@@ -1934,7 +1949,11 @@ def _validate_scaled_h512_config(
             ("num_heads", 16),
         ):
             _exact(getattr(decoder, key), expected, f"{source} decoder {key}")
-        _exact(bool(decoder.gradient_checkpointing), True, f"{source} decoder checkpointing")
+        _exact(
+            bool(decoder.gradient_checkpointing),
+            True,
+            f"{source} decoder checkpointing",
+        )
 
     available_train = ("front_img_1", "state_agent_model", "embodiment", "actions")
     available_inference = ("front_img_1", "state_agent_model", "embodiment")
@@ -1996,7 +2015,9 @@ def _validate_scaled_h512_config(
         30_000,
         "checkpoint cadence",
     )
-    _exact(int(config.callbacks.model_checkpoint.save_top_k), -1, "checkpoint retention")
+    _exact(
+        int(config.callbacks.model_checkpoint.save_top_k), -1, "checkpoint retention"
+    )
     _float(config.callbacks.ema.decay, 0.9978, "EMA decay")
     _exact(bool(config.callbacks.ema.validate_with_ema), True, "EMA validation")
 
@@ -2030,14 +2051,40 @@ def _validate_scaled_h512_config(
         _float(valid.valid_ratio, 0.01, f"{source} validation ratio")
         _exact(int(train.split_seed), 42, f"{source} train seed")
         _exact(int(valid.split_seed), 42, f"{source} validation seed")
-        _exact(int(train.expected_train_episode_count), train_count, f"{source} train count")
-        _exact(int(train.expected_valid_episode_count), valid_count, f"{source} valid count")
-        _exact(str(train.expected_train_episode_names_sha256), train_sha, f"{source} train hash")
-        _exact(str(train.expected_valid_episode_names_sha256), valid_sha, f"{source} valid hash")
-        _exact(int(config.data.train_dataloader_params[source].batch_size), 32, f"{source} train batch")
-        _exact(int(config.data.valid_dataloader_params[source].batch_size), 32, f"{source} valid batch")
+        _exact(
+            int(train.expected_train_episode_count),
+            train_count,
+            f"{source} train count",
+        )
+        _exact(
+            int(train.expected_valid_episode_count),
+            valid_count,
+            f"{source} valid count",
+        )
+        _exact(
+            str(train.expected_train_episode_names_sha256),
+            train_sha,
+            f"{source} train hash",
+        )
+        _exact(
+            str(train.expected_valid_episode_names_sha256),
+            valid_sha,
+            f"{source} valid hash",
+        )
+        _exact(
+            int(config.data.train_dataloader_params[source].batch_size),
+            32,
+            f"{source} train batch",
+        )
+        _exact(
+            int(config.data.valid_dataloader_params[source].batch_size),
+            32,
+            f"{source} valid batch",
+        )
         if source == "pushshapes_sim_chain_gripper":
-            _exact(int(train.resolver.expected_episode_count), total, f"{source} inventory")
+            _exact(
+                int(train.resolver.expected_episode_count), total, f"{source} inventory"
+            )
         if routed and source == "pushshapes_sim_chain_gripper":
             split_path = config.run_provenance.chain_split_manifest_path
             split_sha = config.run_provenance.chain_split_manifest_sha256
@@ -2063,7 +2110,9 @@ def _validate_scaled_h512_config(
             "content": _scaled_content_contract(
                 content.path if routed else content.content_manifest_path,
                 content.manifest_sha256 if routed else content.content_manifest_sha256,
-                content.aggregate_sha256 if routed else content.dataset_content_aggregate_sha256,
+                content.aggregate_sha256
+                if routed
+                else content.dataset_content_aggregate_sha256,
                 repository_root=repository_root,
                 source=source,
                 expected_count=total,
@@ -2084,9 +2133,19 @@ def _validate_scaled_h512_config(
         "provenance FM detachment",
     )
     _float(provenance.objective.flow_weight, 1.0, "provenance FM weight")
-    _float(provenance.objective.reconstruction_weight, 1.0, "provenance reconstruction weight")
-    _float(provenance.objective.action_velocity_weight, 1.0, "provenance action-velocity weight")
-    _exact(int(provenance.objective.flow_samples_per_content), 14, "provenance FM samples")
+    _float(
+        provenance.objective.reconstruction_weight,
+        1.0,
+        "provenance reconstruction weight",
+    )
+    _float(
+        provenance.objective.action_velocity_weight,
+        1.0,
+        "provenance action-velocity weight",
+    )
+    _exact(
+        int(provenance.objective.flow_samples_per_content), 14, "provenance FM samples"
+    )
     _exact(int(provenance.objective.flow_mini_batch), 14, "provenance FM mini-batch")
     _exact(
         str(provenance.objective.flow_aggregation),
@@ -2095,7 +2154,9 @@ def _validate_scaled_h512_config(
     )
     _exact(bool(provenance.inference.classifier_free_guidance), True, "provenance CFG")
     _float(provenance.inference.cfg_scale, 4.0, "provenance CFG scale")
-    _exact(tuple(provenance.inference.cfg_interval), (0.0, 1.0), "provenance CFG interval")
+    _exact(
+        tuple(provenance.inference.cfg_interval), (0.0, 1.0), "provenance CFG interval"
+    )
     for requirement in (
         "r1_full_conditional_distribution",
         "r2_common_stochastic_latent",
@@ -2106,12 +2167,16 @@ def _validate_scaled_h512_config(
         "r7_simple_objectives_with_disclosed_jvp_cost",
         "r8_no_required_action_path",
     ):
-        _require(str(provenance.requirements[requirement]).startswith("PASS"), requirement)
+        _require(
+            str(provenance.requirements[requirement]).startswith("PASS"), requirement
+        )
     for requirement in (
         "r9_collapse_and_decoder_sensitivity",
         "r10_baseline_quality_and_compute",
     ):
-        _require(str(provenance.requirements[requirement]).startswith("OPEN"), requirement)
+        _require(
+            str(provenance.requirements[requirement]).startswith("OPEN"), requirement
+        )
 
     parameters = {"pipeline_total": _parameter_manifest(pipeline_algo.nets)}
     parameters["state_projection"] = _parameter_manifest(projection)
@@ -2121,11 +2186,11 @@ def _validate_scaled_h512_config(
         parameters[f"encoder_e/{source}"] = _parameter_manifest(encoders[source])
         parameters[f"decoder_g/{source}"] = _parameter_manifest(decoders[source])
     accounted = sum(
-        item["total"]
-        for name, item in parameters.items()
-        if name != "pipeline_total"
+        item["total"] for name, item in parameters.items() if name != "pipeline_total"
     )
-    _exact(accounted, parameters["pipeline_total"]["total"], "scaled parameter accounting")
+    _exact(
+        accounted, parameters["pipeline_total"]["total"], "scaled parameter accounting"
+    )
     _exact(
         parameters["pipeline_total"]["total"],
         int(row["parameter_count"]),
@@ -2135,7 +2200,11 @@ def _validate_scaled_h512_config(
         pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
     )
     grouped = (*adamw_named, *muon_named)
-    _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
+    _exact(
+        len({id(parameter) for _, parameter in grouped}),
+        len(grouped),
+        "optimizer group disjointness",
+    )
     _exact(
         sum(parameter.numel() for _, parameter in grouped),
         parameters["pipeline_total"]["trainable"],
@@ -2163,7 +2232,9 @@ def _validate_scaled_h512_config(
         "action_flow_method": STOPGRAD_UNITE_METHOD,
         "resolved_config_sha256": resolved_hash,
         "dimensions": {
-            "actions": {source: [16, action_dim] for source, action_dim in sources.items()},
+            "actions": {
+                source: [16, action_dim] for source, action_dim in sources.items()
+            },
             "condition": 128,
             "image_feature": 64,
             "latent": [8, 16],
@@ -2257,12 +2328,8 @@ def validate_config(
             "optimizer group coverage",
         )
         optimization["parameter_groups"] = {
-            "adamw_parameters": sum(
-                parameter.numel() for _, parameter in adamw_named
-            ),
-            "muon_parameters": sum(
-                parameter.numel() for _, parameter in muon_named
-            ),
+            "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
+            "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
             "complete": True,
             "disjoint": True,
         }
@@ -2274,18 +2341,28 @@ def validate_config(
         )
         if str(config.name) == SCALED_MUON_CONFIG_NAME:
             adamw_named, muon_named = partition_released_unite_parameters(
-                pipeline_algo.nets.named_parameters(prefix="nets", remove_duplicate=True)
+                pipeline_algo.nets.named_parameters(
+                    prefix="nets", remove_duplicate=True
+                )
             )
             grouped = (*adamw_named, *muon_named)
-            _exact(len({id(parameter) for _, parameter in grouped}), len(grouped), "optimizer group disjointness")
+            _exact(
+                len({id(parameter) for _, parameter in grouped}),
+                len(grouped),
+                "optimizer group disjointness",
+            )
             _exact(
                 sum(parameter.numel() for _, parameter in grouped),
                 parameters["pipeline_total"]["trainable"],
                 "optimizer group coverage",
             )
             optimization["parameter_groups"] = {
-                "adamw_parameters": sum(parameter.numel() for _, parameter in adamw_named),
-                "muon_parameters": sum(parameter.numel() for _, parameter in muon_named),
+                "adamw_parameters": sum(
+                    parameter.numel() for _, parameter in adamw_named
+                ),
+                "muon_parameters": sum(
+                    parameter.numel() for _, parameter in muon_named
+                ),
                 "complete": True,
                 "disjoint": True,
             }

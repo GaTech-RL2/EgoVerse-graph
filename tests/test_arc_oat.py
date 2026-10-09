@@ -110,6 +110,7 @@ def test_arc_tokenizer_then_policy_train_resume_and_self_contained_inference(
     assert all(not p.requires_grad for p in tokenizer.parameters())
     if precision == "32-true":
         from argparse import Namespace
+
         from egomimic.benchmarks.libero.cli import reconstruction
 
         reconstruction_result = reconstruction(
@@ -183,8 +184,10 @@ def test_arc_tokenizer_then_policy_train_resume_and_self_contained_inference(
 
 @pytest.mark.parametrize("method", ["tokenizer", "oat"])
 def test_hybrid_cluster_arguments_preserve_global_training_budget(method, tmp_path):
-    from hydra import compose, initialize_config_dir
     from pathlib import Path
+
+    from hydra import compose, initialize_config_dir
+
     from egomimic.benchmarks.libero.cluster import training_arguments
 
     args = training_arguments(
@@ -258,6 +261,7 @@ def test_workflow_runs_hybrid_with_existing_replay_and_distinct_run_id(
     mode, profile, replay
 ):
     import json
+
     from scripts.benchmarks.launch_libero_osmo import arc_oat_workflow
 
     result = arc_oat_workflow(
@@ -349,6 +353,7 @@ def test_hybrid_comparison_requires_explicit_method_and_still_rejects_state_mism
     tmp_path,
 ):
     import json
+
     from egomimic.benchmarks.libero.report import compare_runs
     from egomimic.benchmarks.libero.rollout import rollout_plan, run_rollouts
     from tests.test_libero_benchmark import FakeEnvironment, FakePolicy

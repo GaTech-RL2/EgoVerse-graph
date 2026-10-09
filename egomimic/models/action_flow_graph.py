@@ -33,17 +33,25 @@ def build_graph_section_pipeline(*, codec, stages, device=None):
         target = str(config.get("_target_", ""))
         if target == "egomimic.pipeline.stages_action_flow.ContentEncoderStage":
             if "encoder" in config:
-                raise ValueError("graph encoder is injected; do not configure a second codec")
-            stage = hydra.utils.instantiate(config, encoder=GraphSectionSequenceEncoder(shared))
+                raise ValueError(
+                    "graph encoder is injected; do not configure a second codec"
+                )
+            stage = hydra.utils.instantiate(
+                config, encoder=GraphSectionSequenceEncoder(shared)
+            )
             counts["encoder"] += 1
         elif target == "egomimic.pipeline.stages_action_flow.ContentDecoderStage":
             if "decoder" in config:
-                raise ValueError("graph decoder is injected; do not configure a second codec")
+                raise ValueError(
+                    "graph decoder is injected; do not configure a second codec"
+                )
             stage = hydra.utils.instantiate(config, decoder=shared)
             counts["decoder"] += 1
         else:
             stage = hydra.utils.instantiate(config)
         bound_stages.append(stage)
     if counts != {"encoder": 1, "decoder": 1}:
-        raise ValueError(f"exact-section graph requires one encoder and decoder: {counts}")
+        raise ValueError(
+            f"exact-section graph requires one encoder and decoder: {counts}"
+        )
     return PipelineAlgo(bound_stages, device=device)

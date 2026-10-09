@@ -1,5 +1,7 @@
 """Shared native episode split; no dataset traversal or runtime imports."""
+
 import random
+
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=42):
     """
@@ -32,8 +34,9 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=42):
     return train, valid
 
 
-
 def complete_window_count(total_frames, raw_horizon, sample_views=1):
-    if any(type(x) is not int or x <= 0 for x in (total_frames, raw_horizon, sample_views)):
+    if any(
+        type(x) is not int or x <= 0 for x in (total_frames, raw_horizon, sample_views)
+    ):
         raise ValueError("frame/horizon/view counts must be positive integers")
     return max(0, total_frames - raw_horizon + 1) * sample_views

@@ -44,7 +44,7 @@ def test_launcher_is_one_portable_fail_closed_contract():
     assert "validate_action_flow_config.py" in source
     assert "capture_runtime_lock.py" in source
     assert "dataset_loader_probe.json" in source
-    assert 'dataset = instantiate(dataset_cfg)' in source
+    assert "dataset = instantiate(dataset_cfg)" in source
     assert "validate_slurm_job_contract.py" in source
     assert "check_checkpoint_storage.py" in source
     assert "--gres=gpu:1 --constraint='H100|H200'" in source
@@ -65,8 +65,7 @@ def test_launcher_is_one_portable_fail_closed_contract():
         in source
     )
     assert (
-        'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"'
-        in source
+        'PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"' in source
     )
 
 
@@ -76,8 +75,13 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_recon10_s42" in source
     assert "pusht/action_flow_bc_usocket_recon100_s42" in source
     assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
-    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
-    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42" in source
+    assert (
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
+    )
+    assert (
+        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+        in source
+    )
     assert "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42" in source
     assert (
         "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
@@ -106,17 +110,25 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=30000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
-    assert 'data.train_dataloader_params.$AF_SOURCE.batch_size=32' in source
+    assert "data.train_dataloader_params.$AF_SOURCE.batch_size=32" in source
     assert (
-        'data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE'
+        "data.valid_dataloader_params.$AF_SOURCE.batch_size=$AF_VALID_BATCH_SIZE"
         in source
     )
     assert "AF_FULL_LIMIT_VAL_BATCHES=8" in source
     assert "AF_VALID_BATCH_SIZE=32" in source
-    assert 'cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size' in source
-    assert 'diagnostics.validation_view.per_rank_batch_size == valid_batch_size' in source
-    assert 'cfg.trainer.val_check_interval == full_validate_every' in source
-    assert 'cfg.callbacks.model_checkpoint.every_n_train_steps == full_checkpoint_every' in source
+    assert (
+        "cfg.data.valid_dataloader_params[source].batch_size == valid_batch_size"
+        in source
+    )
+    assert (
+        "diagnostics.validation_view.per_rank_batch_size == valid_batch_size" in source
+    )
+    assert "cfg.trainer.val_check_interval == full_validate_every" in source
+    assert (
+        "cfg.callbacks.model_checkpoint.every_n_train_steps == full_checkpoint_every"
+        in source
+    )
     assert "ckpt_path=null" in source
     assert "norm_stats.precomputed_norm_path=$AF_NORM_STATS_PATH" in source
     assert "++run_provenance.source_commit=$AF_EXPECTED_HEAD" in source
@@ -199,7 +211,7 @@ def test_second_preflight_can_reuse_the_first_train_only_normalization():
     source = _source()
     assert 'if test -z "${AF_NORM_STATS_PATH:-}"; then' in source
     assert 'test -s "$EFFECTIVE_NORM_FILE"' in source
-    assert 'normalization SHA-256 mismatch' in source
+    assert "normalization SHA-256 mismatch" in source
 
 
 def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():

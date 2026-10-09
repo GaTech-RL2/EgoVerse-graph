@@ -175,7 +175,10 @@ def complete_row(
         values = {name: metric(rows[step], name) for name in names}
         if all(value is not None for value in values.values()):
             concrete = {name: float(value) for name, value in values.items()}
-            require(all(math.isfinite(value) for value in concrete.values()), f"non-finite {label}")
+            require(
+                all(math.isfinite(value) for value in concrete.values()),
+                f"non-finite {label}",
+            )
             return step, concrete
     raise VerificationError(f"no complete {label} metric row")
 
@@ -217,22 +220,34 @@ def step_two_artifact(
     for path in paths:
         match = re.fullmatch(r"epoch-(\d+)-step-2", path.parent.name)
         require(match is not None, f"unexpected {label} artifact epoch: {path}")
-        require(path.name == "rank-0-batch-0.pt", f"unexpected {label} artifact rank/batch: {path}")
+        require(
+            path.name == "rank-0-batch-0.pt",
+            f"unexpected {label} artifact rank/batch: {path}",
+        )
         payload = torch.load(path, map_location="cpu", weights_only=False)
         require(isinstance(payload, Mapping), f"{label} artifact is not a mapping")
         require(payload.get("global_step") == 2, f"{label} artifact is not step two")
         finite_tree(payload, f"{label} artifact")
         require_sources_in_artifact(payload, sources, label=label)
-        verified.append({"epoch": int(match.group(1)), "path": str(path), "sha256": sha256(path), "payload": payload})
+        verified.append(
+            {
+                "epoch": int(match.group(1)),
+                "path": str(path),
+                "sha256": sha256(path),
+                "payload": payload,
+            }
+        )
     selected = max(verified, key=lambda item: item["epoch"])
-    require(sum(item["epoch"] == selected["epoch"] for item in verified) == 1, f"duplicate latest {label} artifact")
+    require(
+        sum(item["epoch"] == selected["epoch"] for item in verified) == 1,
+        f"duplicate latest {label} artifact",
+    )
     return {
         "path": selected["path"],
         "sha256": selected["sha256"],
         "payload": selected["payload"],
         "verified_artifacts": [
-            {key: item[key] for key in ("epoch", "path", "sha256")}
-            for item in verified
+            {key: item[key] for key in ("epoch", "path", "sha256")} for item in verified
         ],
     }
 
@@ -269,7 +284,9 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     sources = tuple(row["sources"])
     cotrain = len(sources) == 2
     routed = row.get("routed", cotrain)
-    require(args.expected_parameter_count > 0, "expected parameter count must be positive")
+    require(
+        args.expected_parameter_count > 0, "expected parameter count must be positive"
+    )
     require(
         args.expected_parameter_count == row["parameter_count"],
         "requested parameter count is not the pinned row identity",
@@ -284,15 +301,24 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "secondary identities must be supplied exactly for routed co-training",
     )
     require(config.name == row["config_name"], "config name mismatch")
-    require(config.run_provenance.source_commit == args.expected_head, "source mismatch")
+    require(
+        config.run_provenance.source_commit == args.expected_head, "source mismatch"
+    )
     require(config.trainer.max_steps == 2, "smoke must use two optimizer steps")
     require(config.trainer.val_check_interval == 2, "validation must follow step two")
-    require(config.trainer.limit_val_batches == 1, "smoke must run one real validation batch")
+    require(
+        config.trainer.limit_val_batches == 1,
+        "smoke must run one real validation batch",
+    )
     require(config.model.flow_samples_per_content == 14, "FM sample count mismatch")
     require(config.model.flow_mini_batch == 14, "FM mini-batch mismatch")
-    require(config.model.hidden_dim == row.get("hidden_dim", 512), "model width mismatch")
+    require(
+        config.model.hidden_dim == row.get("hidden_dim", 512), "model width mismatch"
+    )
     require(config.model.cfg_scale == 4.0, "CFG scale mismatch")
-    require(config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch")
+    require(
+        config.model.flow_loss_aggregation == "sum_samples", "FM aggregation mismatch"
+    )
     require(
         config.model.pipeline.stages[6].flow_clean_gradient_mode == "all_stopgrad",
         "FM clean-endpoint detachment mismatch",
@@ -305,14 +331,24 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         config.model.pipeline.stages[8].flow_aggregation == "sum_samples",
         "objective FM aggregation mismatch",
     )
-    require(config.model.pipeline.stages[4]._target_.endswith(
-        "RoutedContentEncoderStage" if routed else "ContentEncoderStage"
-    ), "content encoder mismatch")
-    require(config.model.pipeline.stages[7]._target_.endswith(
-        "RoutedContentDecoderStage" if routed else "ContentDecoderStage"
-    ), "content decoder mismatch")
-    require(set(config.data.train_datasets) == set(sources), "training sources mismatch")
-    require(set(config.data.valid_datasets) == set(sources), "validation sources mismatch")
+    require(
+        config.model.pipeline.stages[4]._target_.endswith(
+            "RoutedContentEncoderStage" if routed else "ContentEncoderStage"
+        ),
+        "content encoder mismatch",
+    )
+    require(
+        config.model.pipeline.stages[7]._target_.endswith(
+            "RoutedContentDecoderStage" if routed else "ContentDecoderStage"
+        ),
+        "content decoder mismatch",
+    )
+    require(
+        set(config.data.train_datasets) == set(sources), "training sources mismatch"
+    )
+    require(
+        set(config.data.valid_datasets) == set(sources), "validation sources mismatch"
+    )
     if routed:
         require(
             {
@@ -323,12 +359,33 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "configured routed encoder action dimensions mismatch",
         )
     else:
-        require(config.model.action_dim == row["sources"][sources[0]], "action dimension mismatch")
-    require(config.run_provenance.split_manifest_sha256 == args.expected_split_sha256, "split mismatch")
-    require(config.run_provenance.normalization_sha256 == args.expected_normalization_sha256, "normalization mismatch")
-    require(config.run_provenance.content_manifest_sha256 == args.expected_content_manifest_sha256, "content manifest mismatch")
-    require(config.run_provenance.dataset_content_aggregate_sha256 == args.expected_dataset_content_aggregate_sha256, "content aggregate mismatch")
-    require(sha256(config_path) == args.expected_config_sha256, "resolved config hash mismatch")
+        require(
+            config.model.action_dim == row["sources"][sources[0]],
+            "action dimension mismatch",
+        )
+    require(
+        config.run_provenance.split_manifest_sha256 == args.expected_split_sha256,
+        "split mismatch",
+    )
+    require(
+        config.run_provenance.normalization_sha256
+        == args.expected_normalization_sha256,
+        "normalization mismatch",
+    )
+    require(
+        config.run_provenance.content_manifest_sha256
+        == args.expected_content_manifest_sha256,
+        "content manifest mismatch",
+    )
+    require(
+        config.run_provenance.dataset_content_aggregate_sha256
+        == args.expected_dataset_content_aggregate_sha256,
+        "content aggregate mismatch",
+    )
+    require(
+        sha256(config_path) == args.expected_config_sha256,
+        "resolved config hash mismatch",
+    )
     if cotrain:
         secondary = config.run_provenance.content_manifests[sources[1]]
         require(
@@ -337,8 +394,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "secondary split mismatch",
         )
         require(
-            secondary.manifest_sha256
-            == args.expected_second_content_manifest_sha256,
+            secondary.manifest_sha256 == args.expected_second_content_manifest_sha256,
             "secondary content manifest mismatch",
         )
         require(
@@ -349,10 +405,15 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
 
     preflight_path = run_dir / "provenance/restart-0/PREFLIGHT_RESULT.json"
     require(preflight_path.is_file(), "preflight receipt is missing")
-    require(sha256(preflight_path) == args.expected_preflight_sha256, "preflight hash mismatch")
+    require(
+        sha256(preflight_path) == args.expected_preflight_sha256,
+        "preflight hash mismatch",
+    )
     preflight = json.loads(preflight_path.read_text())
     require(preflight["status"] == "PASS", "preflight did not pass")
-    require(preflight["source"]["head"] == args.expected_head, "preflight source mismatch")
+    require(
+        preflight["source"]["head"] == args.expected_head, "preflight source mismatch"
+    )
     if cotrain:
         require("secondary" in preflight["datasets"], "secondary dataset proof missing")
         secondary_preflight = preflight["datasets"]["secondary"]
@@ -401,7 +462,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     for key in ("state_dict", "optimizer_states", "lr_schedulers"):
         finite_counts[key] = finite_tree(checkpoint[key], f"checkpoint.{key}")
     route_manifest = checkpoint.get("action_flow_gradient_route_manifest")
-    require(isinstance(route_manifest, Mapping) and route_manifest, "gradient route manifest missing")
+    require(
+        isinstance(route_manifest, Mapping) and route_manifest,
+        "gradient route manifest missing",
+    )
     require(
         set(route_manifest.get("routes", ()))
         == {"FM", "Reconstruction", "ActionVelocity"},
@@ -428,7 +492,9 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         )
     except Exception as error:
         raise VerificationError("strict ModelWrapper reload failed") from error
-    require(type(restored) is ModelWrapper, "restored wrapper is not generic ModelWrapper")
+    require(
+        type(restored) is ModelWrapper, "restored wrapper is not generic ModelWrapper"
+    )
     require(
         isinstance(restored.training_behavior, ActionFlowTrainingBehavior),
         "restored training behavior is not ActionFlowTrainingBehavior",
@@ -450,11 +516,23 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         # Chain-only training selects one active source, but deliberately keeps
         # both embodiment codecs in the routed model for checkpoint parity.
         expected_routes = ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper")
-        require(tuple(stages[4].encoder) == expected_routes, "restored encoder routes mismatch")
-        require(tuple(stages[7].decoder) == expected_routes, "restored decoder routes mismatch")
+        require(
+            tuple(stages[4].encoder) == expected_routes,
+            "restored encoder routes mismatch",
+        )
+        require(
+            tuple(stages[7].decoder) == expected_routes,
+            "restored decoder routes mismatch",
+        )
         if cotrain:
-            require(stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]], "restored encoders alias")
-            require(stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]], "restored decoders alias")
+            require(
+                stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]],
+                "restored encoders alias",
+            )
+            require(
+                stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]],
+                "restored decoders alias",
+            )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())
     require(
         parameter_count == args.expected_parameter_count,
@@ -462,10 +540,18 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     )
     del restored, checkpoint
 
-    streams = [*run_dir.glob("wandb/run-*/run-*.wandb"), *run_dir.glob("wandb/offline-run-*/run-*.wandb")]
+    streams = [
+        *run_dir.glob("wandb/run-*/run-*.wandb"),
+        *run_dir.glob("wandb/offline-run-*/run-*.wandb"),
+    ]
     require(len(streams) == 1, f"expected one W&B stream, found {len(streams)}")
     rows, exit_code = wandb_history(streams[0])
-    components = ("TotalLoss", "FlowMatchingLoss", "ReconstructionLoss", "ActionVelocityLoss")
+    components = (
+        "TotalLoss",
+        "FlowMatchingLoss",
+        "ReconstructionLoss",
+        "ActionVelocityLoss",
+    )
     train_names = tuple(
         f"Train/ActionFlow/{component}{suffix}"
         for suffix in ("", *(f"/{source}" for source in sources))
@@ -492,8 +578,13 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     valid_step, valid = complete_row(rows, valid_names, "validation")
     for suffix in ("", *(f"/{source}" for source in sources)):
         total = train[f"Train/ActionFlow/TotalLoss{suffix}"]
-        expected = sum(train[f"Train/ActionFlow/{name}{suffix}"] for name in components[1:])
-        require(math.isclose(total, expected, rel_tol=1e-5, abs_tol=1e-7), f"weighted total mismatch: {suffix}")
+        expected = sum(
+            train[f"Train/ActionFlow/{name}{suffix}"] for name in components[1:]
+        )
+        require(
+            math.isclose(total, expected, rel_tol=1e-5, abs_tol=1e-7),
+            f"weighted total mismatch: {suffix}",
+        )
     require(
         train["Train/ActionFlow/Compute/FieldForwardCallsPerStep"] == 2,
         "field-forward count mismatch",
@@ -564,7 +655,12 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
                 ),
             },
         },
-        "metrics": {"train_step": train_step, "valid_step": valid_step, "train": train, "valid": valid},
+        "metrics": {
+            "train_step": train_step,
+            "valid_step": valid_step,
+            "train": train,
+            "valid": valid,
+        },
         "artifacts": {
             "energy_score": {
                 "path": energy_artifact["path"],
@@ -577,15 +673,25 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
                 "verified_artifacts": diagnostic_artifact["verified_artifacts"],
             },
         },
-        "preflight": {"path": str(preflight_path), "sha256": args.expected_preflight_sha256},
+        "preflight": {
+            "path": str(preflight_path),
+            "sha256": args.expected_preflight_sha256,
+        },
         "run_dir": str(run_dir),
         "schema_version": SCHEMA_VERSION,
         "status": "PASS",
-        "wandb": {"exit_code": exit_code, "stream_path": str(streams[0]), "stream_sha256": sha256(streams[0])},
+        "wandb": {
+            "exit_code": exit_code,
+            "stream_path": str(streams[0]),
+            "stream_sha256": sha256(streams[0]),
+        },
     }
     destination = run_dir / "SMOKE_RESULT.json"
     rendered = json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n"
-    require(not destination.exists() or destination.read_text() == rendered, "differing smoke result exists")
+    require(
+        not destination.exists() or destination.read_text() == rendered,
+        "differing smoke result exists",
+    )
     if not destination.exists():
         temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
         temporary.write_text(rendered)
@@ -616,7 +722,9 @@ def parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = parser().parse_args()
-    require(args.expected_reconstruction_weight == 1.0, "reconstruction weight mismatch")
+    require(
+        args.expected_reconstruction_weight == 1.0, "reconstruction weight mismatch"
+    )
     require(args.expected_flow_weight == 1.0, "flow weight mismatch")
     payload = verify(args)
     print(json.dumps(payload, indent=2, sort_keys=True))

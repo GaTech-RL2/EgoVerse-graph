@@ -1,14 +1,23 @@
 """Shared scalar speed conditioning, identical in train and inference."""
+
 import math
+
 import torch
 from torch import nn
+
 from egomimic.pipeline.core import Stage
 
 
-def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
-                                     condition_dim=128, device=None,
-                                     compatibility_mode="current",
-                                     conditioning_input="native_speed", flow_inference_method=None):
+def build_speed_conditioned_pipeline(
+    stages,
+    speed_reference=None,
+    encoding="scalar",
+    condition_dim=128,
+    device=None,
+    compatibility_mode="current",
+    conditioning_input=None,
+    flow_inference_method=None,
+):
     """Typed Action Flow graph adapter; leave the generic runner unchanged.
 
     Configure Hydra with _recursive_: false so the two consumers are wired
@@ -16,14 +25,33 @@ def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
     """
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
+
     from egomimic.pipeline.algo import PipelineAlgo
+
+    if conditioning_input is None:
+        conditioning_input = (
+            "native_speed" if speed_reference is not None else "retiming_multiplier"
+        )
     configs = OmegaConf.to_container(stages, resolve=True)
-    bridges = [c for c in configs if c.get("_target_", "").endswith(".LatentBridgeStage")]
-    fields = [c for c in configs if c.get("_target_", "").endswith(".ConditionalVelocityStage")]
-    encoders = [c for c in configs if c.get("_target_", "").endswith(
-        (".RoutedContentEncoderStage", ".ContentEncoderStage"))]
+    bridges = [
+        c for c in configs if c.get("_target_", "").endswith(".LatentBridgeStage")
+    ]
+    fields = [
+        c
+        for c in configs
+        if c.get("_target_", "").endswith(".ConditionalVelocityStage")
+    ]
+    encoders = [
+        c
+        for c in configs
+        if c.get("_target_", "").endswith(
+            (".RoutedContentEncoderStage", ".ContentEncoderStage")
+        )
+    ]
     if len(bridges) != 1 or len(fields) != 1 or len(encoders) != 1:
-        raise ValueError("Speed adapter requires one codec stage, bridge and shared field")
+        raise ValueError(
+            "Speed adapter requires one codec stage, bridge and shared field"
+        )
     if bridges[0].get("condition_key", "condition") != "condition":
         raise ValueError("Unexpected existing bridge condition")
     if fields[0].get("inference_condition_key", "condition") != "condition":
@@ -38,46 +66,87 @@ def build_speed_conditioned_pipeline(stages, speed_reference, encoding="scalar",
     # Diagnostic preprocessing stops at the content encoder: condition must
     # already exist there, even though the encoder itself does not consume it.
     modules = [instantiate(c) for c in configs]
-    modules.insert(configs.index(encoders[0]),
-                   SharedSpeedCondition(speed_reference, encoding, condition_dim,
-                                        conditioning_input=conditioning_input))
+    modules.insert(
+        configs.index(encoders[0]),
+        SharedSpeedCondition(
+            speed_reference,
+            encoding,
+            condition_dim,
+            conditioning_input=conditioning_input,
+        ),
+    )
     return PipelineAlgo(modules, device=device, compatibility_mode=compatibility_mode)
 
 
 class SharedSpeedCondition(Stage):
-    def __init__(self, speed_reference, encoding="scalar", condition_dim=128,
-                 hidden_dim=32, condition_key="condition", speed_key="requested_speed",
-                 output_key="speed_condition", initialization_seed=42,
-                 conditioning_input="native_speed"):
+    def __init__(
+        self,
+        speed_reference=None,
+        encoding="scalar",
+        condition_dim=128,
+        hidden_dim=32,
+        condition_key="condition",
+        speed_key="requested_speed",
+        output_key="speed_condition",
+        initialization_seed=42,
+        conditioning_input=None,
+    ):
         super().__init__()
+        if conditioning_input is None:
+            # Legacy positional references retain native-speed semantics;
+            # reference-free new callers consume the raw multiplier.
+            conditioning_input = (
+                "native_speed" if speed_reference is not None else "retiming_multiplier"
+            )
         if encoding not in {"scalar", "fourier"}:
             raise ValueError("encoding must be scalar or fourier")
         if conditioning_input not in {"native_speed", "retiming_multiplier"}:
-            raise ValueError("conditioning_input must be native_speed or retiming_multiplier")
+            raise ValueError(
+                "conditioning_input must be native_speed or retiming_multiplier"
+            )
         if conditioning_input == "native_speed" and (
-                speed_reference is None or not math.isfinite(speed_reference) or speed_reference <= 0):
+            speed_reference is None
+            or not math.isfinite(speed_reference)
+            or speed_reference <= 0
+        ):
             raise ValueError("speed_reference must be positive and train-derived")
         self.conditioning_input = conditioning_input
         if conditioning_input == "retiming_multiplier":
             if speed_reference is not None:
-                raise ValueError("Multiplier conditioning requires speed_reference=null")
+                raise ValueError(
+                    "Multiplier conditioning requires speed_reference=null"
+                )
             speed_key = "retiming_rate"
             # Make strict reload reject historical physical-speed weights even
             # though the scalar MLP has the same tensor shapes in both modes.
             self.register_buffer("retiming_multiplier_contract", torch.tensor(1))
         self.encoding = encoding
-        self.condition_key, self.speed_key, self.output_key = condition_key, speed_key, output_key
+        self.condition_key, self.speed_key, self.output_key = (
+            condition_key,
+            speed_key,
+            output_key,
+        )
         self.reads, self.writes = (condition_key, speed_key), (output_key,)
-        self.register_buffer("speed_reference", torch.tensor(
-            float(speed_reference) if speed_reference is not None else 1.0))
+        self.register_buffer(
+            "speed_reference",
+            torch.tensor(
+                float(speed_reference) if speed_reference is not None else 1.0
+            ),
+        )
         # Added layers must not shift initialization of the unchanged model.
         with torch.random.fork_rng(devices=[]):
             # These layers initialize on CPU. torch.manual_seed also reseeds
             # CUDA generators, which fork_rng(devices=[]) does not restore.
-            torch.set_rng_state(torch.Generator(device="cpu").manual_seed(
-                initialization_seed).get_state())
-            self.mlp = nn.Sequential(nn.Linear(1 if encoding == "scalar" else 5, hidden_dim),
-                                     nn.SiLU(), nn.Linear(hidden_dim, condition_dim))
+            torch.set_rng_state(
+                torch.Generator(device="cpu")
+                .manual_seed(initialization_seed)
+                .get_state()
+            )
+            self.mlp = nn.Sequential(
+                nn.Linear(1 if encoding == "scalar" else 5, hidden_dim),
+                nn.SiLU(),
+                nn.Linear(hidden_dim, condition_dim),
+            )
             nn.init.zeros_(self.mlp[-1].weight)
             nn.init.zeros_(self.mlp[-1].bias)
 
@@ -94,11 +163,17 @@ class SharedSpeedCondition(Stage):
             u = speed  # Direct dimensionless multiplier; never measured XY speed.
         else:
             u = torch.log1p(speed / self.speed_reference)
-        features = u if self.encoding == "scalar" else torch.cat(
-            (u, u.sin(), u.cos(), (2*u).sin(), (2*u).cos()), dim=-1)
+        features = (
+            u
+            if self.encoding == "scalar"
+            else torch.cat((u, u.sin(), u.cos(), (2 * u).sin(), (2 * u).cos()), dim=-1)
+        )
         # Preserve native-speed dtype behavior; the new multiplier path owns
         # its explicit input-to-parameter dtype boundary.
-        if self.conditioning_input == "retiming_multiplier":
+        if (
+            self.conditioning_input == "retiming_multiplier"
+            or self.mlp[0].weight.dtype == torch.float64
+        ):
             features = features.to(dtype=self.mlp[0].weight.dtype)
         delta = self.mlp(features)
         if condition.ndim == 3:
@@ -112,18 +187,26 @@ class SharedSpeedCondition(Stage):
 def requested_rollout_condition(cfg):
     """Resolve the checkpoint-selected conditioning contract without fallback."""
     from omegaconf import OmegaConf
+
     if OmegaConf.select(cfg, "model.pipeline._target_") != (
-            "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"):
+        "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
+    ):
         return None, None
-    kind = OmegaConf.select(cfg, "model.pipeline.conditioning_input", default="native_speed")
+    kind = OmegaConf.select(
+        cfg, "model.pipeline.conditioning_input", default="native_speed"
+    )
     if kind == "retiming_multiplier":
         key, path = "retiming_rate", "deployment.requested_multiplier"
         if OmegaConf.select(cfg, "deployment.requested_speed") is not None:
-            raise ValueError("Multiplier rollout must not supply deployment.requested_speed")
+            raise ValueError(
+                "Multiplier rollout must not supply deployment.requested_speed"
+            )
     elif kind == "native_speed":
         key, path = "requested_speed", "deployment.requested_speed"
         if OmegaConf.select(cfg, "deployment.requested_multiplier") is not None:
-            raise ValueError("Native-speed checkpoint cannot use a multiplier condition")
+            raise ValueError(
+                "Native-speed checkpoint cannot use a multiplier condition"
+            )
     else:
         raise ValueError("Unsupported conditioning_input")
     value = OmegaConf.select(cfg, path)

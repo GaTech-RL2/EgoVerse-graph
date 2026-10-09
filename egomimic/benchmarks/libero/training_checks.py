@@ -1,12 +1,12 @@
 """Training receipts and checkpoint identity checks, never a training loop."""
 
-from pathlib import Path
 import time
+from pathlib import Path
 
-from lightning import Callback
 import numpy as np
-from omegaconf import OmegaConf
 import torch
+from lightning import Callback
+from omegaconf import OmegaConf
 
 from egomimic.benchmarks.libero.cluster import write_json
 

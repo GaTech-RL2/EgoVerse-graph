@@ -19,7 +19,9 @@ from omegaconf import OmegaConf
 
 from egomimic.pl_utils.data_context import DataContext
 from egomimic.pl_utils.pl_data_utils import (
-    MultiDataModuleWrapper, ProportionalMultiDataModuleWrapper, as_valid_groups,
+    MultiDataModuleWrapper,
+    ProportionalMultiDataModuleWrapper,
+    as_valid_groups,
 )
 from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -65,8 +67,11 @@ def normalizer_from_state(state, *, normalizer_config=None):
         state[name] = {int(key): value for key, value in state[name].items()}
     state["embodiments"] = [int(key) for key in state["embodiments"]]
     normalizer = (
-        hydra.utils.instantiate(normalizer_config, state=state, norm_mode=state["norm_mode"])
-        if normalizer_config else MultiDataset.from_state(state)
+        hydra.utils.instantiate(
+            normalizer_config, state=state, norm_mode=state["norm_mode"]
+        )
+        if normalizer_config
+        else MultiDataset.from_state(state)
     )
     for source, keys in normalizer.norm_stats.items():
         for key, stats in keys.items():
@@ -86,7 +91,9 @@ def load_normalizer(path):
     state = payload.get("normalizer_state", payload)
     if "sha256" in payload and payload["sha256"] != _digest(state):
         raise ValueError("Data context normalizer hash mismatch")
-    return normalizer_from_state(state)
+    return normalizer_from_state(
+        state, normalizer_config=payload.get("normalizer_config")
+    )
 
 
 def load_data_context(path):
@@ -100,7 +107,8 @@ def load_data_context(path):
     if state.get("sha256") != _digest(state["normalizer_state"]):
         raise ValueError("Data context normalizer hash mismatch")
     owner = normalizer_from_state(
-        state["normalizer_state"], normalizer_config=state.get("normalizer_config"),
+        state["normalizer_state"],
+        normalizer_config=state.get("normalizer_config"),
     )
     return DataContext(owner, copy.deepcopy(owner.shapes), (), state)
 
@@ -243,11 +251,14 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 raise ValueError("Data context normalizer hash mismatch")
             normalizer_config = (
                 OmegaConf.to_container(normalizer, resolve=True)
-                if OmegaConf.is_config(normalizer) else normalizer
+                if OmegaConf.is_config(normalizer)
+                else normalizer
             )
             recorded_config = saved.get("normalizer_config")
             if recorded_config != normalizer_config:
-                raise ValueError("Configured normalizer differs from saved data context")
+                raise ValueError(
+                    "Configured normalizer differs from saved data context"
+                )
             owner = normalizer_from_state(state, normalizer_config=recorded_config)
             if options.get("norm_mode", owner.norm_mode) != owner.norm_mode:
                 raise ValueError(
@@ -279,7 +290,13 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 config.resolver.key_map.norm_mode = True
                 norm_dataset = hydra.utils.instantiate(config)
                 owner = self._fit_normalizer(
-                    owner, norm_dataset, name, identity, options, mode, path,
+                    owner,
+                    norm_dataset,
+                    name,
+                    identity,
+                    options,
+                    mode,
+                    path,
                 )
         if options.get("save_cache_dir") and mode != "eval":
             owner.cache_stats(save_cache_dir=str(options["save_cache_dir"]))
@@ -340,7 +357,8 @@ class ZarrDataModule(MultiDataModuleWrapper):
         if normalizer is not None:
             snapshot["normalizer_config"] = (
                 OmegaConf.to_container(normalizer, resolve=True)
-                if OmegaConf.is_config(normalizer) else copy.deepcopy(normalizer)
+                if OmegaConf.is_config(normalizer)
+                else copy.deepcopy(normalizer)
             )
         if preprocessing:
             snapshot["preprocessing"] = preprocessing
@@ -427,12 +445,15 @@ class ZarrDataModule(MultiDataModuleWrapper):
 
     def _fit_normalizer(self, owner, dataset, name, identity, options, mode, path):
         owner.infer_norm_from_dataset(
-            dataset, identity,
+            dataset,
+            identity,
             sample_frac=options.get("sample_frac", 1.0),
             num_workers=options.get("num_workers", 4),
             precomputed_norm_path=path,
             resume_partial_norm_path=(
-                options.get("resume_partial_norm_path") if mode == "normalization" else None
+                options.get("resume_partial_norm_path")
+                if mode == "normalization"
+                else None
             ),
         )
         return owner
@@ -452,20 +473,30 @@ class LiberoDataModule(ZarrDataModule):
     def _fit_normalizer(self, owner, dataset, name, identity, options, mode, path):
         binding = options.get("native_saved_state_binding")
         if binding is None:
-            return super()._fit_normalizer(owner, dataset, name, identity, options, mode, path)
+            return super()._fit_normalizer(
+                owner, dataset, name, identity, options, mode, path
+            )
         from egomimic.rldb.zarr.libero_action_flow import LiberoActionFlowNormalizer
         from egomimic.rldb.zarr.libero_saved_state import bind_saved_native_state
 
         if type(owner) is not LiberoActionFlowNormalizer:
-            raise ValueError("native saved-state binding requires native LIBERO normalizer")
+            raise ValueError(
+                "native saved-state binding requires native LIBERO normalizer"
+            )
         if path is not None or options.get("resume_partial_norm_path") is not None:
-            raise ValueError("native saved-state binding cannot use generic precomputed norms")
+            raise ValueError(
+                "native saved-state binding cannot use generic precomputed norms"
+            )
         if len(self.train_datasets) != 1:
             raise ValueError("native saved-state binding requires one exact source")
         if self.run_provenance is None:
             raise ValueError("native saved-state binding requires run provenance")
         return bind_saved_native_state(
-            norm_stats=owner, dataset=dataset, dataset_name=name,
+            norm_stats=owner,
+            dataset=dataset,
+            dataset_name=name,
             binding=OmegaConf.to_container(OmegaConf.create(binding), resolve=True),
-            run_provenance=OmegaConf.to_container(OmegaConf.create(self.run_provenance), resolve=True),
+            run_provenance=OmegaConf.to_container(
+                OmegaConf.create(self.run_provenance), resolve=True
+            ),
         )

@@ -205,7 +205,10 @@ class MirrorPoolTest(unittest.TestCase):
 
     def test_rejected_candidate_is_reported_and_blocks_completion(self):
         for worker_index in (0, 1):
-            with self.subTest(worker_index=worker_index), tempfile.TemporaryDirectory() as raw:
+            with (
+                self.subTest(worker_index=worker_index),
+                tempfile.TemporaryDirectory() as raw,
+            ):
                 scratch, run, state, checkpoint, manifest = make_layout(Path(raw))
                 invalid = run / "step-100.ckpt"
                 invalid.write_text("incomplete checkpoint")
@@ -218,18 +221,33 @@ class MirrorPoolTest(unittest.TestCase):
 
                 with (
                     mock.patch.object(POOL.core, "mirror_one", side_effect=fake_mirror),
-                    mock.patch.object(POOL.core, "remote_sha", side_effect=lambda ssh, host, path: remote.get(path)),
+                    mock.patch.object(
+                        POOL.core,
+                        "remote_sha",
+                        side_effect=lambda ssh, host, path: remote.get(path),
+                    ),
                     mock.patch.object(POOL.core, "scratch_bytes", return_value=100),
                 ):
-                    code = POOL.main(worker_args(manifest, state, scratch, index=worker_index))
+                    code = POOL.main(
+                        worker_args(manifest, state, scratch, index=worker_index)
+                    )
                 self.assertEqual(code, 1)
                 self.assertTrue(checkpoint.exists())
                 self.assertTrue(invalid.exists())
                 self.assertFalse((state / "mirror-complete.json").exists())
-                status = json.loads((state / f"worker-{worker_index}-status.json").read_text())
+                status = json.loads(
+                    (state / f"worker-{worker_index}-status.json").read_text()
+                )
                 self.assertEqual(status["cycle_errors"], 1)
-                events = [json.loads(line) for line in (state / "mirror-events.jsonl").read_text().splitlines()]
-                rejected = [event for event in events if event["event"] == "checkpoint_not_stably_valid"]
+                events = [
+                    json.loads(line)
+                    for line in (state / "mirror-events.jsonl").read_text().splitlines()
+                ]
+                rejected = [
+                    event
+                    for event in events
+                    if event["event"] == "checkpoint_not_stably_valid"
+                ]
                 self.assertEqual(len(rejected), 1)
                 self.assertEqual(rejected[0]["reason"], "validator_failed")
                 self.assertEqual(rejected[0]["validator_returncode"], 1)

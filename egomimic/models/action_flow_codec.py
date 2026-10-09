@@ -240,7 +240,9 @@ class GraphSectionSequenceCodec(nn.Module):
         if self.action_dim <= 0 or self.latent_dim <= self.action_dim:
             raise ValueError("graph section requires latent_dim > action_dim > 0")
         if float(dropout) != 0.0:
-            raise ValueError("graph section requires dropout=0 for exact reconstruction")
+            raise ValueError(
+                "graph section requires dropout=0 for exact reconstruction"
+            )
         self.graph = ContextFreeSequenceEncoder(
             input_dim=self.action_dim,
             latent_dim=self.latent_dim - self.action_dim,

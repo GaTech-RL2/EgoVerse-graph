@@ -1075,10 +1075,17 @@ class ActionFlowDiagnostics:
         return artifact_sha256
 
     def analyze_precomputed(
-        self, *, diagnostics: Mapping[Any, Mapping[str, Any]],
-        batch: Mapping[Any, Mapping[str, Any]], batch_idx: int, rank: int,
-        epoch: int, global_step: int, precision: Any,
-        source_labels: Mapping[Any, str], native_error_fns: Mapping[Any, Any] | None = None,
+        self,
+        *,
+        diagnostics: Mapping[Any, Mapping[str, Any]],
+        batch: Mapping[Any, Mapping[str, Any]],
+        batch_idx: int,
+        rank: int,
+        epoch: int,
+        global_step: int,
+        precision: Any,
+        source_labels: Mapping[Any, str],
+        native_error_fns: Mapping[Any, Any] | None = None,
     ) -> dict[str, Any]:
         """Analyze one already-captured native pass without calling a model.
 
@@ -1192,9 +1199,16 @@ class ActionFlowDiagnostics:
         }
         artifact_sha256 = self._write_immutable_artifact(destination, payload)
         self.batches_done += 1
-        return {"metrics": metrics, "artifact": {"path": str(destination),
-                "sha256": artifact_sha256, "identity_sha256": self.identity_sha256,
-                "global_step": int(global_step), "noise_seed": noise_seed}}
+        return {
+            "metrics": metrics,
+            "artifact": {
+                "path": str(destination),
+                "sha256": artifact_sha256,
+                "identity_sha256": self.identity_sha256,
+                "global_step": int(global_step),
+                "noise_seed": noise_seed,
+            },
+        }
 
     def run(
         self,
@@ -1267,7 +1281,13 @@ class ActionFlowDiagnostics:
             )
 
         return self.analyze_precomputed(
-            diagnostics=diagnostics, batch=batch, batch_idx=batch_idx, rank=rank,
-            epoch=epoch, global_step=global_step, precision=precision,
-            source_labels=source_labels, native_error_fns=native_error_fns,
+            diagnostics=diagnostics,
+            batch=batch,
+            batch_idx=batch_idx,
+            rank=rank,
+            epoch=epoch,
+            global_step=global_step,
+            precision=precision,
+            source_labels=source_labels,
+            native_error_fns=native_error_fns,
         )["metrics"]

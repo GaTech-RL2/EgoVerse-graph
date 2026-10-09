@@ -34,9 +34,7 @@ def _module(value: nn.Module, *, label: str) -> nn.Module:
     return value
 
 
-def _routed_modules(
-    modules: Mapping[str, nn.Module], *, label: str
-) -> nn.ModuleDict:
+def _routed_modules(modules: Mapping[str, nn.Module], *, label: str) -> nn.ModuleDict:
     configured = {str(route): module for route, module in dict(modules).items()}
     if not configured:
         raise ValueError(f"{label} must contain at least one route")
@@ -47,11 +45,19 @@ def _routed_modules(
     return nn.ModuleDict(configured)
 
 
-def _routed_module(batch: dict, modules: nn.ModuleDict, selector_key: str, selector_aliases: dict[str, str], label: str) -> nn.Module:
+def _routed_module(
+    batch: dict,
+    modules: nn.ModuleDict,
+    selector_key: str,
+    selector_aliases: dict[str, str],
+    label: str,
+) -> nn.Module:
     raw = resolve_homogeneous_scalar(batch[selector_key], label=selector_key)
     name = selector_aliases.get(str(raw), str(raw))
     if name not in modules:
-        raise KeyError(f'{label} has no module for embodiment {name!r}; configured={tuple(modules)}')
+        raise KeyError(
+            f"{label} has no module for embodiment {name!r}; configured={tuple(modules)}"
+        )
     return modules[name]
 
 
@@ -74,14 +80,22 @@ class _SplitFieldPrediction(torch.autograd.Function):
             return None, None
         if flow_gradient is None:
             return action_gradient, None
-        combined = flow_gradient if action_gradient is None else flow_gradient + action_gradient
+        combined = (
+            flow_gradient
+            if action_gradient is None
+            else flow_gradient + action_gradient
+        )
         if not state.requires_grad:
             return combined, None
         create_graph = torch.is_grad_enabled()
         with torch.enable_grad():
             correction = torch.autograd.grad(
-                prediction, state, flow_gradient, create_graph=create_graph,
-                retain_graph=True, allow_unused=False,
+                prediction,
+                state,
+                flow_gradient,
+                create_graph=create_graph,
+                retain_graph=True,
+                allow_unused=False,
             )[0]
         return combined, -correction
 
@@ -118,26 +132,48 @@ class ContentEncoderStage(Stage):
         input_key: str = "target",
         output_key: str = "action_flow/clean_latent",
         encoders: dict[str, nn.Module] | None = None,
-        selector_key: str = 'embodiment',
+        selector_key: str = "embodiment",
         selector_aliases: dict | None = None,
     ):
         super().__init__()
         if (encoder is None) == (encoders is None):
-            raise ValueError('Provide exactly one encoder or embodiment encoder mapping')
-        self.encoder = _module(encoder, label="encoder") if encoder is not None else None
-        self.encoders = nn.ModuleDict({str(k): _module(v, label=f'encoder[{k}]') for k, v in encoders.items()}) if encoders is not None else None
+            raise ValueError(
+                "Provide exactly one encoder or embodiment encoder mapping"
+            )
+        self.encoder = (
+            _module(encoder, label="encoder") if encoder is not None else None
+        )
+        self.encoders = (
+            nn.ModuleDict(
+                {str(k): _module(v, label=f"encoder[{k}]") for k, v in encoders.items()}
+            )
+            if encoders is not None
+            else None
+        )
         if self.encoders is not None and len(self.encoders) < 2:
-            raise ValueError('Embodiment encoder mapping needs at least two domains')
-        self.selector_key = _key(selector_key, label='selector_key')
-        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
+            raise ValueError("Embodiment encoder mapping needs at least two domains")
+        self.selector_key = _key(selector_key, label="selector_key")
+        self.selector_aliases = {
+            str(k): str(v) for k, v in dict(selector_aliases or {}).items()
+        }
         self.input_key = _key(input_key, label="input_key")
         self.output_key = _key(output_key, label="output_key")
-        self.reads = (self.input_key,) + ((self.selector_key,) if self.encoders is not None else ())
+        self.reads = (self.input_key,) + (
+            (self.selector_key,) if self.encoders is not None else ()
+        )
         self.writes = (self.output_key,)
 
     def encoder_for(self, batch: dict) -> nn.Module:
-        return self.encoder if self.encoders is None else _routed_module(
-            batch, self.encoders, self.selector_key, self.selector_aliases, 'ContentEncoderStage'
+        return (
+            self.encoder
+            if self.encoders is None
+            else _routed_module(
+                batch,
+                self.encoders,
+                self.selector_key,
+                self.selector_aliases,
+                "ContentEncoderStage",
+            )
         )
 
     def forward(self, batch: dict) -> dict:
@@ -184,7 +220,9 @@ class RoutedContentEncoderStage(ContentEncoderStage):
         }
         unknown = set(self.route_aliases.values()) - set(self.routes)
         if unknown:
-            raise ValueError(f"route_aliases reference unknown encoders: {sorted(unknown)}")
+            raise ValueError(
+                f"route_aliases reference unknown encoders: {sorted(unknown)}"
+            )
         self.reads = (self.input_key, self.route_key)
 
     def encoder_for(self, batch: Mapping) -> nn.Module:
@@ -546,7 +584,9 @@ class ConditionalVelocityStage(Stage):
             # action-independent Gaussian noise. Detaching its state and
             # target removes both clean routes from FM, not from Action Flow.
             if self.fm_field_execution == "shared":
-                prediction, flow_prediction = _SplitFieldPrediction.apply(prediction, state)
+                prediction, flow_prediction = _SplitFieldPrediction.apply(
+                    prediction, state
+                )
                 batch[self.predicted_velocity_key] = prediction
             else:
                 flow_prediction = self._predict(
@@ -674,18 +714,30 @@ class ContentDecoderStage(Stage):
         prediction_key: str = "pred_action",
         jvp_activation_checkpointing: bool = False,
         decoders: dict[str, nn.Module] | None = None,
-        selector_key: str = 'embodiment',
+        selector_key: str = "embodiment",
         selector_aliases: dict | None = None,
     ):
         super().__init__()
         if (decoder is None) == (decoders is None):
-            raise ValueError('Provide exactly one decoder or embodiment decoder mapping')
-        self.decoder = _module(decoder, label="decoder") if decoder is not None else None
-        self.decoders = nn.ModuleDict({str(k): _module(v, label=f'decoder[{k}]') for k, v in decoders.items()}) if decoders is not None else None
+            raise ValueError(
+                "Provide exactly one decoder or embodiment decoder mapping"
+            )
+        self.decoder = (
+            _module(decoder, label="decoder") if decoder is not None else None
+        )
+        self.decoders = (
+            nn.ModuleDict(
+                {str(k): _module(v, label=f"decoder[{k}]") for k, v in decoders.items()}
+            )
+            if decoders is not None
+            else None
+        )
         if self.decoders is not None and len(self.decoders) < 2:
-            raise ValueError('Embodiment decoder mapping needs at least two domains')
-        self.selector_key = _key(selector_key, label='selector_key')
-        self.selector_aliases = {str(k): str(v) for k, v in dict(selector_aliases or {}).items()}
+            raise ValueError("Embodiment decoder mapping needs at least two domains")
+        self.selector_key = _key(selector_key, label="selector_key")
+        self.selector_aliases = {
+            str(k): str(v) for k, v in dict(selector_aliases or {}).items()
+        }
         self.jvp_activation_checkpointing = bool(jvp_activation_checkpointing)
         self.reconstruction_noising_start = float(reconstruction_noising_start)
         self.reconstruction_noising_probability = float(
@@ -710,27 +762,46 @@ class ContentDecoderStage(Stage):
         )
         self.prediction_key = _key(prediction_key, label="prediction_key")
         self.reads = (
-            self.clean_key,
-            self.state_key,
-            self.residual_key,
-        ) + ((self.noise_key,) if self.decode_noise else ()) + ((self.selector_key,) if self.decoders is not None else ())
+            (
+                self.clean_key,
+                self.state_key,
+                self.residual_key,
+            )
+            + ((self.noise_key,) if self.decode_noise else ())
+            + ((self.selector_key,) if self.decoders is not None else ())
+        )
         self.writes = (
             self.reconstruction_key,
             self.decoded_residual_key,
         ) + ((self.decoded_noise_key,) if self.decode_noise else ())
-        self.reads_by_mode = {"inference": (self.inference_latent_key,) + ((self.selector_key,) if self.decoders is not None else ())}
+        self.reads_by_mode = {
+            "inference": (self.inference_latent_key,)
+            + ((self.selector_key,) if self.decoders is not None else ())
+        }
         self.writes_by_mode = {"inference": (self.prediction_key,)}
 
     def decoder_for(self, batch: dict) -> nn.Module:
         return self._decoder_for(batch)
 
     def _decoder_for(self, batch: Mapping) -> nn.Module:
-        return self.decoder if self.decoders is None else _routed_module(batch, self.decoders, self.selector_key, self.selector_aliases, 'ContentDecoderStage')
+        return (
+            self.decoder
+            if self.decoders is None
+            else _routed_module(
+                batch,
+                self.decoders,
+                self.selector_key,
+                self.selector_aliases,
+                "ContentDecoderStage",
+            )
+        )
 
     def _selected_decoder(self, batch: dict) -> nn.Module:
         return self.decoder_for(batch)
 
-    def _decode(self, value: torch.Tensor, *, label: str, decoder: nn.Module) -> torch.Tensor:
+    def _decode(
+        self, value: torch.Tensor, *, label: str, decoder: nn.Module
+    ) -> torch.Tensor:
         decoded = decoder(value)
         if not torch.is_tensor(decoded) or decoded.ndim < 2:
             shape = tuple(decoded.shape) if torch.is_tensor(decoded) else None
@@ -765,10 +836,15 @@ class ContentDecoderStage(Stage):
                 < self.reconstruction_noising_probability
             ).reshape(batch_size, *([1] * (clean.ndim - 1)))
             reconstruction_input = torch.where(mask, noised, clean)
-        reconstruction = self._decode(reconstruction_input, label="reconstruction", decoder=decoder)
-        decoded_noise = (
-            self._decode(noise, label="noise", decoder=decoder) if noise is not None else None
+        reconstruction = self._decode(
+            reconstruction_input, label="reconstruction", decoder=decoder
         )
+        decoded_noise = (
+            self._decode(noise, label="noise", decoder=decoder)
+            if noise is not None
+            else None
+        )
+
         # PyTorch's non-reentrant activation checkpointing installs saved-tensor
         # hooks that are incompatible with ``torch.func`` transforms. Preserve
         # checkpointing for the reconstruction pass, but disable it only while
@@ -869,7 +945,9 @@ class RoutedContentDecoderStage(ContentDecoderStage):
         }
         unknown = set(self.route_aliases.values()) - set(self.decoder)
         if unknown:
-            raise ValueError(f"route_aliases reference unknown decoders: {sorted(unknown)}")
+            raise ValueError(
+                f"route_aliases reference unknown decoders: {sorted(unknown)}"
+            )
         self.reads = (self.route_key,) + self.reads
         self.reads_by_mode = {
             "inference": (self.route_key,) + tuple(self.reads_by_mode["inference"])
@@ -944,7 +1022,9 @@ class ActionFlowObjectiveStage(Stage):
         self.action_velocity_log_key = f"{self.log_prefix}_action_velocity"
         self.moment_log_key = f"{self.log_prefix}_decoded_noise_moments"
         self.moment_mean_log_key = f"{self.log_prefix}_decoded_noise_mean_penalty"
-        self.moment_covariance_log_key = f"{self.log_prefix}_decoded_noise_covariance_penalty"
+        self.moment_covariance_log_key = (
+            f"{self.log_prefix}_decoded_noise_covariance_penalty"
+        )
         self.reads = (
             self.target_key,
             self.residual_key,
@@ -981,7 +1061,9 @@ class ActionFlowObjectiveStage(Stage):
             mean = samples.mean(dim=0)
             centered = samples - mean
             covariance = centered.T @ centered / (int(samples.shape[0]) - 1)
-            identity = torch.eye(feature_dim, device=samples.device, dtype=samples.dtype)
+            identity = torch.eye(
+                feature_dim, device=samples.device, dtype=samples.dtype
+            )
             moment_mean = mean.square().sum() / feature_dim
             moment_covariance = (covariance - identity).square().sum() / feature_dim
         moment_penalty = moment_mean + moment_covariance

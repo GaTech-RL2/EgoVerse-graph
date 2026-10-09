@@ -1,21 +1,20 @@
 import hashlib
 import logging
 from bisect import bisect_right
-from functools import partial
-from pathlib import Path
-
-import torch
 from collections.abc import Mapping
+from functools import partial
 
 import hydra
+import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, default_collate
 
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.utils.runtime_compatibility import validate_compatibility_mode
-from egomimic.rldb.zarr.proportional_batch_sampler import ProportionalHomogeneousBatchSampler
 from egomimic.eval.eval import EvaluationDataRequirements
+from egomimic.rldb.zarr.proportional_batch_sampler import (
+    ProportionalHomogeneousBatchSampler,
+)
+from egomimic.utils.runtime_compatibility import validate_compatibility_mode
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +200,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_loader_mode = valid_loader_mode
         self.source_fps = source_fps
 
-    def _loader_generator(self, split: str, dataset_name: str) -> torch.Generator | None:
+    def _loader_generator(
+        self, split: str, dataset_name: str
+    ) -> torch.Generator | None:
         # c12 consumed the global CPU RNG for both shuffle and worker seeds.
         if self.compatibility_mode == "legacy_c12":
             return None
@@ -216,9 +217,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             digest = hashlib.sha256(
                 f"egomimic-loader-v1:{self.seed}:{key}".encode("utf-8")
             ).digest()
-            generator.manual_seed(
-                int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
-            )
+            generator.manual_seed(int.from_bytes(digest[:8], "big") & ((1 << 63) - 1))
         self._loader_generators[key] = generator
         return generator
 
@@ -344,6 +343,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             if sampler is not None:
                 raise ValueError("Declare sampler or anchor_sampler, not both")
             from omegaconf import OmegaConf
+
             from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
 
             if OmegaConf.is_config(anchor_sampler):
@@ -374,7 +374,9 @@ class MultiDataModuleWrapper(LightningDataModule):
                 )
             dataset_params = dict(dataset_params)
             iterables[dataset_name] = self._make_loader(
-                dataset, dataset_params, default_shuffle=True,
+                dataset,
+                dataset_params,
+                default_shuffle=True,
                 generator=self._loader_generator("train", dataset_name),
             )
 
@@ -402,7 +404,9 @@ class MultiDataModuleWrapper(LightningDataModule):
                 )
             shuffle = False if self.force_valid_order else requested_shuffle
             iterables[dataset_name] = self._make_loader(
-                dataset, dataset_params, default_shuffle=shuffle,
+                dataset,
+                dataset_params,
+                default_shuffle=shuffle,
                 generator=self._loader_generator(f"valid:{group_name}", dataset_name),
             )
 
@@ -442,10 +446,10 @@ class _SourceTaggedConcatDataset(Dataset):
 
 def _proportional_collate(tagged_samples):
     if not tagged_samples:
-        raise ValueError('Empty proportional batch')
+        raise ValueError("Empty proportional batch")
     source = tagged_samples[0][0]
     if any(name != source for name, _ in tagged_samples):
-        raise ValueError('Proportional batch mixed action spaces')
+        raise ValueError("Proportional batch mixed action spaces")
     return {source: annotation_collate([sample for _, sample in tagged_samples])}
 
 
@@ -461,7 +465,9 @@ class StatefulProportionalDataLoader(DataLoader):
     DataLoader does not expose that state, even when its datamodule does.
     """
 
-    def __init__(self, *args, batch_sampler: ProportionalHomogeneousBatchSampler, **kwargs):
+    def __init__(
+        self, *args, batch_sampler: ProportionalHomogeneousBatchSampler, **kwargs
+    ):
         super().__init__(*args, batch_sampler=batch_sampler, **kwargs)
         self._active_epoch = 0
         self._next_batch = 0
@@ -473,29 +479,33 @@ class StatefulProportionalDataLoader(DataLoader):
             epoch += 1
             next_batch = 0
         return {
-            'schema_version': 2,
-            'source_lengths': dict(self.batch_sampler.source_lengths),
-            'batch_size': self.batch_sampler.batch_size,
-            'seed': self.batch_sampler.seed,
-            'active_epoch': epoch,
-            'next_batch': next_batch,
+            "schema_version": 2,
+            "source_lengths": dict(self.batch_sampler.source_lengths),
+            "batch_size": self.batch_sampler.batch_size,
+            "seed": self.batch_sampler.seed,
+            "active_epoch": epoch,
+            "next_batch": next_batch,
         }
 
     def load_state_dict(self, state: dict) -> None:
-        if state.get('schema_version') != 2:
-            raise ValueError('Unsupported proportional dataloader state')
+        if state.get("schema_version") != 2:
+            raise ValueError("Unsupported proportional dataloader state")
         if (
-            state.get('source_lengths') != self.batch_sampler.source_lengths
-            or state.get('batch_size') != self.batch_sampler.batch_size
-            or state.get('seed') != self.batch_sampler.seed
+            state.get("source_lengths") != self.batch_sampler.source_lengths
+            or state.get("batch_size") != self.batch_sampler.batch_size
+            or state.get("seed") != self.batch_sampler.seed
         ):
-            raise ValueError('Proportional dataloader resume identity changed')
-        epoch = state.get('active_epoch')
-        next_batch = state.get('next_batch')
+            raise ValueError("Proportional dataloader resume identity changed")
+        epoch = state.get("active_epoch")
+        next_batch = state.get("next_batch")
         if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch < 0:
-            raise ValueError('Invalid proportional dataloader epoch')
-        if isinstance(next_batch, bool) or not isinstance(next_batch, int) or not 0 <= next_batch < len(self):
-            raise ValueError('Invalid proportional dataloader batch offset')
+            raise ValueError("Invalid proportional dataloader epoch")
+        if (
+            isinstance(next_batch, bool)
+            or not isinstance(next_batch, int)
+            or not 0 <= next_batch < len(self)
+        ):
+            raise ValueError("Invalid proportional dataloader batch offset")
         self._active_epoch = epoch
         self._next_batch = next_batch
 
@@ -530,8 +540,11 @@ class ProportionalMultiDataModuleWrapper(MultiDataModuleWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        if isinstance(proportional_train_num_workers, bool) or proportional_train_num_workers < 0:
-            raise ValueError('proportional_train_num_workers must be nonnegative')
+        if (
+            isinstance(proportional_train_num_workers, bool)
+            or proportional_train_num_workers < 0
+        ):
+            raise ValueError("proportional_train_num_workers must be nonnegative")
         self.proportional_train_batch_size = proportional_train_batch_size
         self.proportional_train_num_workers = int(proportional_train_num_workers)
         self.proportional_train_seed = int(proportional_train_seed)
@@ -565,19 +578,30 @@ class ProportionalMultiDataModuleWrapper(MultiDataModuleWrapper):
         for group_name in self.valid_group_names:
             members = self.valid_groups[group_name]
             if len(members) != 1:
-                raise ValueError('Proportional validation groups require one native action space each')
+                raise ValueError(
+                    "Proportional validation groups require one native action space each"
+                )
             source, dataset = next(iter(members.items()))
-            params = _params_for_group(self.valid_dataloader_params, group_name).get(source)
+            params = _params_for_group(self.valid_dataloader_params, group_name).get(
+                source
+            )
             if not params:
-                raise ValueError(f'Missing validation loader params for {group_name}/{source}')
+                raise ValueError(
+                    f"Missing validation loader params for {group_name}/{source}"
+                )
             params = dict(params)
-            if params.pop('shuffle', False):
-                raise ValueError('Proportional validation must be deterministic')
-            loaders.append(DataLoader(
-                dataset, shuffle=False,
-                collate_fn=partial(_single_source_validation_collate, source=source),
-                **params,
-            ))
+            if params.pop("shuffle", False):
+                raise ValueError("Proportional validation must be deterministic")
+            loaders.append(
+                DataLoader(
+                    dataset,
+                    shuffle=False,
+                    collate_fn=partial(
+                        _single_source_validation_collate, source=source
+                    ),
+                    **params,
+                )
+            )
         return loaders[0] if len(loaders) == 1 else loaders
 
     def state_dict(self) -> dict:
@@ -588,7 +612,7 @@ class ProportionalMultiDataModuleWrapper(MultiDataModuleWrapper):
 
     def load_state_dict(self, state_dict: dict) -> None:
         if not state_dict:
-            raise ValueError('Proportional co-train checkpoint has no sampler state')
+            raise ValueError("Proportional co-train checkpoint has no sampler state")
         self._sampler_resume_state = dict(state_dict)
         if self.proportional_data_loader is not None:
             self.proportional_data_loader.load_state_dict(state_dict)

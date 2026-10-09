@@ -223,8 +223,7 @@ def test_cli_emits_renderer_compatible_both_mode_json(
 def test_cli_resolves_repo_imports_without_pythonpath(tmp_path: Path) -> None:
     output = tmp_path / "action-flow.graph.json"
     experiment = (
-        _TOOL.parents[1]
-        / "egomimic/hydra_configs/experiment/pusht/"
+        _TOOL.parents[1] / "egomimic/hydra_configs/experiment/pusht/"
         "action_flow_bc_usocket_recon1_s42.yaml"
     )
     environment = os.environ.copy()

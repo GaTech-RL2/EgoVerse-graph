@@ -8,7 +8,8 @@ from diffusers import DDIMScheduler
 
 from egomimic.models.diffusion_policy import DiffusionPolicy
 from egomimic.models.oat.diffusion import GraphDiffusionTransformer
-from tests.test_oat_native import reference as reference  # noqa: F401
+
+pytest_plugins = ("tests.test_oat_native",)
 
 
 def dimensions(channels=12, horizon=32):

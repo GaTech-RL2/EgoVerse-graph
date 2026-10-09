@@ -545,7 +545,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for checkpoint in row_candidates:
                     prior = state["files"].get(str(checkpoint))
                     rejection: dict[str, Any] = {}
-                    info = stable_valid_info(checkpoint, validator, cached=prior, rejection=rejection)
+                    info = stable_valid_info(
+                        checkpoint, validator, cached=prior, rejection=rejection
+                    )
                     if info is None:
                         cycle_errors += 1
                         unresolved = True
@@ -639,7 +641,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if not prior or not prior.get("remote_verified"):
                             continue
                         rejection = {}
-                        current = stable_valid_info(info.path, validator, force=True, rejection=rejection)
+                        current = stable_valid_info(
+                            info.path, validator, force=True, rejection=rejection
+                        )
                         if current is None or current.sha256 != prior.get("sha256"):
                             cycle_errors += 1
                             unresolved = True
@@ -649,7 +653,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                                     "event": "prune_refused_local_validation",
                                     "run_id": row["id"],
                                     "path": str(info.path),
-                                    **(rejection or {"reason": "checkpoint_sha256_changed"}),
+                                    **(
+                                        rejection
+                                        or {"reason": "checkpoint_sha256_changed"}
+                                    ),
                                 },
                             )
                             continue

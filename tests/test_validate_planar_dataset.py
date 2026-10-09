@@ -74,14 +74,16 @@ def test_committed_manifest_has_exact_hash_and_contract():
 
 
 def test_committed_chain_manifest_has_exact_hash_and_contract():
-    path = MANIFEST_PATH.with_name(
-        "planar_v2_chain_gripper_dp_3k_split_seed42_v1.json"
-    )
+    path = MANIFEST_PATH.with_name("planar_v2_chain_gripper_dp_3k_split_seed42_v1.json")
     expected = "3ced944ea3af8e875ea88fc5c2df3a5d2865a9f95223d109fb4bd28c8be7cf69"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
     result = MODULE.validate_manifest_structure(json.loads(path.read_text()))
     assert result["domain"] == "pushshapes_sim_chain_gripper"
-    assert (result["total_count"], result["train_count"], result["valid_count"]) == (3000, 2970, 30)
+    assert (result["total_count"], result["train_count"], result["valid_count"]) == (
+        3000,
+        2970,
+        30,
+    )
 
 
 def test_unsupported_domain_still_fails_closed():

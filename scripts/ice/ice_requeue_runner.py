@@ -924,7 +924,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             ready_path = Path(signal_ready_file)
             if not ready_path.is_absolute():
                 raise SystemExit("ICE_RUNNER_SIGNAL_READY_FILE must be absolute")
-            atomic_json_once(ready_path, {"pid": os.getpid(), "signal_handlers_ready": True})
+            atomic_json_once(
+                ready_path, {"pid": os.getpid(), "signal_handlers_ready": True}
+            )
 
     if not args.command:
         raise SystemExit("a child command is required after --")
@@ -1621,7 +1623,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if code == 0
                         else "CHILD_FAILED_NO_REQUEUE",
                         "child_exit_code": code,
-                        "child_exit_signal": signal.Signals(-code).name if code < 0 else None,
+                        "child_exit_signal": signal.Signals(-code).name
+                        if code < 0
+                        else None,
                         "finished_at_unix": time.time(),
                     }
                 )

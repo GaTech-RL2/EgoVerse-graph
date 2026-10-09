@@ -49,9 +49,9 @@ def test_graph_section_identity_survives_joint_optimizer_updates_and_shared_owne
     objective = ActionFlowObjectiveStage(
         reconstruction_weight=0.0, residual_key="action_flow/fm_velocity_residual"
     )
-    pipeline = Pipeline([
-        encoder, LatentBridgeStage(samples_per_content=2), field, decoder, objective
-    ])
+    pipeline = Pipeline(
+        [encoder, LatentBridgeStage(samples_per_content=2), field, decoder, objective]
+    )
     parameters = list(pipeline.parameters())
     assert len({id(parameter) for parameter in parameters}) == len(parameters)
     assert encoder.encoder.graph is decoder.decoder.graph
@@ -66,15 +66,18 @@ def test_graph_section_identity_survives_joint_optimizer_updates_and_shared_owne
         latent = codec.encode(target)
         torch.testing.assert_close(latent[..., :4], target, rtol=0, atol=0)
         torch.testing.assert_close(codec(latent), target, rtol=0, atol=1e-12)
-        batch = pipeline({
-            "target": target,
-            "sampler/noise": torch.randn(2, 4, 8, dtype=torch.float64),
-            "condition": torch.randn(2, 3, dtype=torch.float64),
-        })
+        batch = pipeline(
+            {
+                "target": target,
+                "sampler/noise": torch.randn(2, 4, 8, dtype=torch.float64),
+                "condition": torch.randn(2, 3, dtype=torch.float64),
+            }
+        )
         torch.testing.assert_close(
             batch["loss/action_flow"],
             batch["log/action_flow_fm"] + batch["log/action_flow_action_velocity"],
-            rtol=0, atol=0,
+            rtol=0,
+            atol=0,
         )
         optimizer.zero_grad()
         batch["loss/action_flow"].backward()
@@ -85,7 +88,10 @@ def test_graph_section_identity_survives_joint_optimizer_updates_and_shared_owne
         optimizer.step()
     torch.testing.assert_close(codec(codec.encode(target)), target, rtol=0, atol=1e-12)
     for name, module in (("graph", codec.graph), ("residual", codec.residual)):
-        assert any(not torch.equal(old, new) for old, new in zip(snapshots[name], module.parameters()))
+        assert any(
+            not torch.equal(old, new)
+            for old, new in zip(snapshots[name], module.parameters())
+        )
 
 
 def test_graph_section_jvp_matches_finite_difference_with_trainable_graph():
@@ -95,9 +101,13 @@ def test_graph_section_jvp_matches_finite_difference_with_trainable_graph():
     tangent = torch.randn_like(latent, requires_grad=True)
     _, predicted = jvp(codec, (latent,), (tangent,))
     delta = 1e-6
-    expected = (codec(latent + delta*tangent) - codec(latent - delta*tangent))/(2*delta)
+    expected = (codec(latent + delta * tangent) - codec(latent - delta * tangent)) / (
+        2 * delta
+    )
     torch.testing.assert_close(predicted, expected, rtol=2e-5, atol=2e-6)
-    gradients = torch.autograd.grad(predicted.square().mean(), (latent, tangent, *codec.graph.parameters()))
+    gradients = torch.autograd.grad(
+        predicted.square().mean(), (latent, tangent, *codec.graph.parameters())
+    )
     assert all(torch.isfinite(gradient).all() for gradient in gradients)
     assert sum(gradient.abs().sum() for gradient in gradients[2:]) > 0
 
@@ -132,8 +142,10 @@ def test_graph_section_mixed_precision_identity_and_jvp_backward_are_finite():
         assert sum(g.abs().sum() for g in gradients) > 0
 
 
-@pytest.mark.parametrize("kwargs", [{"action_dim":8}, {"latent_dim":3}, {"dropout":0.1}])
+@pytest.mark.parametrize(
+    "kwargs", [{"action_dim": 8}, {"latent_dim": 3}, {"dropout": 0.1}]
+)
 def test_graph_section_rejects_invalid_or_stochastic_section(kwargs):
-    options = {"action_dim":4, "latent_dim":8, "horizon":4, **kwargs}
+    options = {"action_dim": 4, "latent_dim": 8, "horizon": 4, **kwargs}
     with pytest.raises(ValueError):
         GraphSectionSequenceCodec(**options)

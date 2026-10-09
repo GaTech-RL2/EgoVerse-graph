@@ -6,7 +6,6 @@ from hydra import compose, initialize_config_dir
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.trainHydra import _resolve_model_wrapper_class
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
 
@@ -32,15 +31,15 @@ def test_scaled_rows_preserve_linked_action_flow_recipe(row, monkeypatch):
     cfg = _compose(row, monkeypatch)
     stages = cfg.model.pipeline.stages
     objective = stages[-1]
-    bridge = next(stage for stage in stages if stage._target_.endswith("LatentBridgeStage"))
+    bridge = next(
+        stage for stage in stages if stage._target_.endswith("LatentBridgeStage")
+    )
     field = next(
         stage for stage in stages if stage._target_.endswith("ConditionalVelocityStage")
     )
 
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
-    assert cfg.model.training_behavior._target_.endswith(
-        "ActionFlowTrainingBehavior"
-    )
+    assert cfg.model.training_behavior._target_.endswith("ActionFlowTrainingBehavior")
     assert cfg.model.diagnostic_provider._target_ == (
         "egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider"
     )
@@ -79,10 +78,14 @@ def test_cotrain_row_has_two_private_codecs_and_one_shared_field(monkeypatch):
     cfg = _compose(ROWS[2], monkeypatch)
     stages = cfg.model.pipeline.stages
     encoder = next(
-        stage for stage in stages if stage._target_.endswith("RoutedContentEncoderStage")
+        stage
+        for stage in stages
+        if stage._target_.endswith("RoutedContentEncoderStage")
     )
     decoder = next(
-        stage for stage in stages if stage._target_.endswith("RoutedContentDecoderStage")
+        stage
+        for stage in stages
+        if stage._target_.endswith("RoutedContentDecoderStage")
     )
     fields = [
         stage for stage in stages if stage._target_.endswith("ConditionalVelocityStage")
@@ -97,7 +100,9 @@ def test_cotrain_row_has_two_private_codecs_and_one_shared_field(monkeypatch):
     assert decoder.decoders.pushshapes_sim_chain_gripper.action_dim == 6
     assert len(fields) == 1
     assert cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size == 32
-    assert cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size == 32
+    assert (
+        cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size == 32
+    )
     assert cfg.run_provenance.objective.domain_aggregation == (
         "equal_mean_from_one_batch32_per_domain"
     )

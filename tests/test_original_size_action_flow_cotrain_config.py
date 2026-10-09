@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 ROW = "action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42"
 
@@ -18,8 +17,12 @@ def test_original_size_cotrain_contract(monkeypatch):
         )
 
     stages = cfg.model.pipeline.stages
-    encoder = next(s for s in stages if s._target_.endswith("RoutedContentEncoderStage"))
-    decoder = next(s for s in stages if s._target_.endswith("RoutedContentDecoderStage"))
+    encoder = next(
+        s for s in stages if s._target_.endswith("RoutedContentEncoderStage")
+    )
+    decoder = next(
+        s for s in stages if s._target_.endswith("RoutedContentDecoderStage")
+    )
     fields = [s for s in stages if s._target_.endswith("ConditionalVelocityStage")]
     field = fields[0]
     objective = stages[-1]
@@ -52,7 +55,9 @@ def test_original_size_cotrain_contract(monkeypatch):
     assert cfg.trainer.val_check_interval == 10_000
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 30_000
     assert cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size == 32
-    assert cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size == 32
+    assert (
+        cfg.data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size == 32
+    )
     assert cfg.run_provenance.objective.domain_aggregation == (
         "equal_mean_from_one_batch32_per_domain"
     )

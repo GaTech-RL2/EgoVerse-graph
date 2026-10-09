@@ -11,7 +11,6 @@ from egomimic.eval.energy_score import USOCKET_ENERGY_DISTANCE_CONFIG
 from egomimic.eval.planar_action_eval import PlanarActionEval
 from egomimic.pipeline.pushshapes import ChainGripperPointsNativeDecoder
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 ROWS = (
     "action_flow_chain_manual4919_avln_80k_s42",
@@ -23,7 +22,9 @@ ROWS = (
 def test_manual4919_recipe_uses_effective_split_and_cadence(monkeypatch, row):
     monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", "/verified/usocket-clean2999")
     monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", "/verified/manual4919-view")
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR.resolve())):
+    with initialize_config_dir(
+        version_base="1.3", config_dir=str(CONFIG_DIR.resolve())
+    ):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[f"+experiment=pusht/{row}"],
@@ -59,7 +60,9 @@ def test_manual4919_native_evaluator_decoder_instantiates(monkeypatch, row):
     """Catch inherited Hydra kwargs before an allocated GPU smoke starts."""
     monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", "/verified/usocket-clean2999")
     monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", "/verified/manual4919-view")
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR.resolve())):
+    with initialize_config_dir(
+        version_base="1.3", config_dir=str(CONFIG_DIR.resolve())
+    ):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[f"+experiment=pusht/{row}"],
@@ -84,7 +87,9 @@ def test_chain_native_decoder_rejects_wrong_native_shape():
 def test_manual4919_cotrain_resolves_per_domain_energy_distance(monkeypatch):
     monkeypatch.setenv("PUSHSHAPES_USOCKET_ROOT", "/verified/usocket-clean2999")
     monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", "/verified/manual4919-view")
-    with initialize_config_dir(version_base="1.3", config_dir=str(CONFIG_DIR.resolve())):
+    with initialize_config_dir(
+        version_base="1.3", config_dir=str(CONFIG_DIR.resolve())
+    ):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
@@ -103,12 +108,18 @@ def test_manual4919_cotrain_resolves_per_domain_energy_distance(monkeypatch):
         },
         "pushshapes_sim_chain_gripper": None,
     }
-    assert OmegaConf.to_container(
-        cfg.evaluator.energy_score_provenance.distance_contract, resolve=True
-    ) == distances
-    assert OmegaConf.to_container(
-        cfg.run_provenance.energy_score_contract.distance, resolve=True
-    ) == distances
+    assert (
+        OmegaConf.to_container(
+            cfg.evaluator.energy_score_provenance.distance_contract, resolve=True
+        )
+        == distances
+    )
+    assert (
+        OmegaConf.to_container(
+            cfg.run_provenance.energy_score_contract.distance, resolve=True
+        )
+        == distances
+    )
     assert cfg.evaluator.action_flow_diagnostics.native_error is None
     evaluator = PlanarActionEval(
         energy_score_enabled=False,

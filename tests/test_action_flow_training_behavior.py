@@ -536,9 +536,7 @@ def test_action_flow_component_telemetry_preserves_accumulated_grad_with_reentra
     behavior = ActionFlowTrainingBehavior(gradient_telemetry_cadence=1)
     behavior._checkpointed_jvp_telemetry = True
 
-    gradients = behavior._component_gradients(
-        loss, (("parameter", parameter),), "FM"
-    )
+    gradients = behavior._component_gradients(loss, (("parameter", parameter),), "FM")
 
     assert float(gradients[0]) == pytest.approx(3.0)
     assert parameter.grad is accumulated
@@ -812,11 +810,15 @@ def test_action_flow_diagnostics_route_private_codecs_through_one_field():
     wrapper = _action_flow_wrapper(
         pipeline=PipelineAlgo(
             stages=[
-                ContentEncoderStage(encoders={'yam': encoder_yam, 'human': encoder_human}),
+                ContentEncoderStage(
+                    encoders={"yam": encoder_yam, "human": encoder_human}
+                ),
                 ConditionalVelocityStage(field=field, num_inference_steps=2),
-                ContentDecoderStage(decoders={'yam': decoder_yam, 'human': decoder_human}),
+                ContentDecoderStage(
+                    decoders={"yam": decoder_yam, "human": decoder_human}
+                ),
             ],
-            device='cpu',
+            device="cpu",
         ),
         gradient_telemetry_cadence=0,
     )
@@ -824,17 +826,25 @@ def test_action_flow_diagnostics_route_private_codecs_through_one_field():
     results = _inference_mode_diagnostics(
         wrapper,
         {
-            'yam': {'target': torch.randn(2, 2, 2), 'condition': torch.randn(2, 2), 'embodiment': ['yam', 'yam']},
-            'human': {'target': torch.randn(2, 2, 2), 'condition': torch.randn(2, 2), 'embodiment': ['human', 'human']},
+            "yam": {
+                "target": torch.randn(2, 2, 2),
+                "condition": torch.randn(2, 2),
+                "embodiment": ["yam", "yam"],
+            },
+            "human": {
+                "target": torch.randn(2, 2, 2),
+                "condition": torch.randn(2, 2),
+                "embodiment": ["human", "human"],
+            },
         },
     )
-    assert set(results) == {'yam', 'human'}
+    assert set(results) == {"yam", "human"}
     assert wrapper.training_behavior.field_v is field
-    assert wrapper.training_behavior.encoder_e['yam'] is encoder_yam
-    assert wrapper.training_behavior.encoder_e['human'] is encoder_human
-    assert wrapper.training_behavior.decoder_g['yam'] is decoder_yam
-    assert wrapper.training_behavior.decoder_g['human'] is decoder_human
-    assert all(result['latent/clean'].shape == (2, 2, 2) for result in results.values())
+    assert wrapper.training_behavior.encoder_e["yam"] is encoder_yam
+    assert wrapper.training_behavior.encoder_e["human"] is encoder_human
+    assert wrapper.training_behavior.decoder_g["yam"] is decoder_yam
+    assert wrapper.training_behavior.decoder_g["human"] is decoder_human
+    assert all(result["latent/clean"].shape == (2, 2, 2) for result in results.values())
 
 
 @torch.inference_mode()

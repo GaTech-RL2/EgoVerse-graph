@@ -199,12 +199,9 @@ def test_rollouts_stop_inside_chunk_and_compare_all_expected_records(tmp_path):
         compare_runs(
             tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="dur"
         )
-    assert (
-        compare_runs(
-            tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="stk"
-        )["arc"]["episodes"]
-        == len(plan)
-    )
+    assert compare_runs(
+        tmp_path / "arc", tmp_path / "oat", require_full=False, arc_mode="stk"
+    )["arc"]["episodes"] == len(plan)
     with pytest.raises(ValueError, match="Full benchmark"):
         compare_runs(tmp_path / "arc", tmp_path / "oat")
     file = tmp_path / "arc/episodes.jsonl"

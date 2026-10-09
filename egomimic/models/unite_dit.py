@@ -338,8 +338,12 @@ class UniteDiTBackbone(nn.Module):
         self.gradient_checkpointing = bool(gradient_checkpointing)
         if checkpoint_policy not in {"all", "dit_half"}:
             raise ValueError("checkpoint_policy must be all|dit_half")
-        if checkpoint_policy == "dit_half" and (not self.gradient_checkpointing or self.depth % 2):
-            raise ValueError("dit_half requires checkpointing and an even native DiT depth")
+        if checkpoint_policy == "dit_half" and (
+            not self.gradient_checkpointing or self.depth % 2
+        ):
+            raise ValueError(
+                "dit_half requires checkpointing and an even native DiT depth"
+            )
         self.checkpoint_policy = checkpoint_policy
         self.checkpoint_policy_counts = {"direct": 0, "checkpoint": 0}
         if (

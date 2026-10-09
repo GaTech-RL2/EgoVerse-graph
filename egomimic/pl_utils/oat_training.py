@@ -81,8 +81,8 @@ class OATTrainingBehavior(TrainingBehavior):
         self.weight_decay, self.betas = weight_decay, tuple(betas)
 
     def configure_optimizers(self):
-        from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
         from egomimic.models.oat.checkpoint import validate_input_representation
+        from egomimic.pipeline.stages_oat import OATPolicyStage, OATTokenizerStage
 
         validate_input_representation(self.context.model.pipeline.stages)
 
@@ -206,4 +206,8 @@ class OATEMACallback(EMACallback):
         # The released budget (5001 epochs) is not divisible by the ten-epoch
         # checkpoint cadence. Persist the actual final optimizer/EMA state.
         if self.final_checkpoint_path is not None:
-            trainer.save_checkpoint(self.final_checkpoint_path.format(epoch=trainer.current_epoch, step=trainer.global_step))
+            trainer.save_checkpoint(
+                self.final_checkpoint_path.format(
+                    epoch=trainer.current_epoch, step=trainer.global_step
+                )
+            )

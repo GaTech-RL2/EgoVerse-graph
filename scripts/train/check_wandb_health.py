@@ -8,11 +8,11 @@ completed. It never initializes, resumes, or writes a W&B run.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
 import json
 import math
 import sys
 import time
+from collections.abc import Mapping
 
 
 def _finite_number(value):
@@ -55,17 +55,27 @@ def collect_health(
     actual_path = "/".join(run.path)
     errors, warnings, missing = [], [], []
     if actual_path != run_path:
-        errors.append(f"run identity mismatch: requested {run_path}, returned {actual_path}")
+        errors.append(
+            f"run identity mismatch: requested {run_path}, returned {actual_path}"
+        )
     config_checks = {}
     for key, expected in (expected_config or {}).items():
         try:
             actual = _config_value(run.config, key)
         except KeyError:
-            config_checks[key] = {"expected": expected, "present": False, "matches": False}
+            config_checks[key] = {
+                "expected": expected,
+                "present": False,
+                "matches": False,
+            }
             errors.append(f"required config identity missing: {key}")
             continue
         matches = actual == expected
-        config_checks[key] = {"expected": expected, "actual": actual, "matches": matches}
+        config_checks[key] = {
+            "expected": expected,
+            "actual": actual,
+            "matches": matches,
+        }
         if not matches:
             errors.append(f"config identity mismatch: {key}")
 
@@ -78,7 +88,9 @@ def collect_health(
         # Supplying keys asks W&B for rows containing ALL those keys. Training,
         # validation and schedule metrics often occupy different history rows.
         rows = run.scan_history(
-            keys=None, min_step=start, max_step=last_row + 1,
+            keys=None,
+            min_step=start,
+            max_step=last_row + 1,
             page_size=min(window, 1000),
         )
         for row in rows:
@@ -88,7 +100,13 @@ def collect_health(
             step = row.get("trainer/global_step")
             if _finite_number(step):
                 if previous_step is not None and step < previous_step:
-                    regressions.append({"from": previous_step, "to": step, "wandb_step": row.get("_step")})
+                    regressions.append(
+                        {
+                            "from": previous_step,
+                            "to": step,
+                            "wandb_step": row.get("_step"),
+                        }
+                    )
                 previous_step = optimizer_step = step
             if _finite_number(row.get("_timestamp")):
                 timestamp = row["_timestamp"]
@@ -112,9 +130,13 @@ def collect_health(
                     "value": value if _finite_number(value) else repr(value),
                     "finite": _finite_number(value),
                     "source": "summary_only",
-                    "wandb_step": None, "optimizer_step": None, "timestamp": None,
+                    "wandb_step": None,
+                    "optimizer_step": None,
+                    "timestamp": None,
                 }
-                warnings.append(f"{key}: summary value has no proven recent optimizer step")
+                warnings.append(
+                    f"{key}: summary value has no proven recent optimizer step"
+                )
             else:
                 missing.append(key)
         if key in latest and not latest[key]["finite"]:
@@ -123,27 +145,54 @@ def collect_health(
     if optimizer_step is None:
         missing.append("trainer/global_step")
     elif min_optimizer_step is not None and optimizer_step < min_optimizer_step:
-        errors.append(f"optimizer step {optimizer_step} is below required {min_optimizer_step}")
+        errors.append(
+            f"optimizer step {optimizer_step} is below required {min_optimizer_step}"
+        )
     if regressions:
-        warnings.append("optimizer steps regress inside the recent window; inspect checkpoint resume history")
-    age = None if timestamp is None else (time.time() if now is None else now) - timestamp
+        warnings.append(
+            "optimizer steps regress inside the recent window; inspect checkpoint resume history"
+        )
+    age = (
+        None if timestamp is None else (time.time() if now is None else now) - timestamp
+    )
     if max_age_seconds is not None:
         if age is None:
             missing.append("_timestamp")
         elif age > max_age_seconds:
-            warnings.append(f"latest history is {age:.1f}s old, above {max_age_seconds}s")
+            warnings.append(
+                f"latest history is {age:.1f}s old, above {max_age_seconds}s"
+            )
     if run.state in {"failed", "crashed"}:
         errors.append(f"W&B run state is {run.state}")
-    status = "ERROR" if errors else "INCOMPLETE" if missing else "WARN" if warnings else "PASS"
+    status = (
+        "ERROR"
+        if errors
+        else "INCOMPLETE"
+        if missing
+        else "WARN"
+        if warnings
+        else "PASS"
+    )
     return {
-        "schema_version": 1, "status": status,
-        "run_path": actual_path, "url": run.url, "run_state": run.state,
-        "optimizer_step": optimizer_step, "wandb_history_step": last_row,
-        "history_window": {"min_step": start, "max_step_exclusive": last_row + 1, "rows_read": rows_seen},
+        "schema_version": 1,
+        "status": status,
+        "run_path": actual_path,
+        "url": run.url,
+        "run_state": run.state,
+        "optimizer_step": optimizer_step,
+        "wandb_history_step": last_row,
+        "history_window": {
+            "min_step": start,
+            "max_step_exclusive": last_row + 1,
+            "rows_read": rows_seen,
+        },
         "latest_history_age_seconds": age,
-        "metrics": latest, "config_identity": config_checks,
+        "metrics": latest,
+        "config_identity": config_checks,
         "optimizer_step_regressions": regressions,
-        "missing": missing, "warnings": warnings, "errors": errors,
+        "missing": missing,
+        "warnings": warnings,
+        "errors": errors,
         "note": "W&B _step counts history rows; trainer/global_step counts optimizer updates. PASS is telemetry health, not training completion.",
     }
 
@@ -151,9 +200,22 @@ def collect_health(
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run", help="entity/project/run-id")
-    parser.add_argument("--metric", action="append", default=[], help="required numeric metric; repeat for sparse metrics")
-    parser.add_argument("--expect-config", action="append", default=[], metavar="KEY=JSON", help="exact top-level or dotted config identity; strings may be unquoted")
-    parser.add_argument("--window", type=int, default=1000, help="recent W&B history rows, at most 5000")
+    parser.add_argument(
+        "--metric",
+        action="append",
+        default=[],
+        help="required numeric metric; repeat for sparse metrics",
+    )
+    parser.add_argument(
+        "--expect-config",
+        action="append",
+        default=[],
+        metavar="KEY=JSON",
+        help="exact top-level or dotted config identity; strings may be unquoted",
+    )
+    parser.add_argument(
+        "--window", type=int, default=1000, help="recent W&B history rows, at most 5000"
+    )
     parser.add_argument("--min-optimizer-step", type=int)
     parser.add_argument("--max-age-seconds", type=float)
     args = parser.parse_args()
@@ -170,15 +232,24 @@ def main():
         import wandb
 
         result = collect_health(
-            wandb.Api(timeout=30), args.run, metrics=args.metric,
-            expected_config=expected, window=args.window,
+            wandb.Api(timeout=30),
+            args.run,
+            metrics=args.metric,
+            expected_config=expected,
+            window=args.window,
             min_optimizer_step=args.min_optimizer_step,
             max_age_seconds=args.max_age_seconds,
         )
     except Exception as exc:
         result = {"status": "ERROR", "errors": [f"{type(exc).__name__}: {exc}"]}
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
-    return 1 if result["status"] == "ERROR" else 2 if result["status"] == "INCOMPLETE" else 0
+    return (
+        1
+        if result["status"] == "ERROR"
+        else 2
+        if result["status"] == "INCOMPLETE"
+        else 0
+    )
 
 
 if __name__ == "__main__":

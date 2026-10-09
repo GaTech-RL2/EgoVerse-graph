@@ -44,21 +44,29 @@ def test_yam_native_residual_wraps_both_arms_and_broadcasts():
     target[..., 10] = math.pi - 0.02
     residual = yam_native_residual(prediction, target)
     assert residual.shape == (32, 32, 2, 100, 14)
-    torch.testing.assert_close(residual[..., 3], torch.full_like(residual[..., 3], -0.02), atol=1e-5, rtol=0)
-    torch.testing.assert_close(residual[..., 10], torch.full_like(residual[..., 10], 0.04), atol=1e-5, rtol=0)
+    torch.testing.assert_close(
+        residual[..., 3], torch.full_like(residual[..., 3], -0.02), atol=1e-5, rtol=0
+    )
+    torch.testing.assert_close(
+        residual[..., 10], torch.full_like(residual[..., 10], 0.04), atol=1e-5, rtol=0
+    )
 
 
 def test_yam_energy_score_requires_complete_32_by_100_by_14_chunks():
     evaluator = evaluator_for_synthetic_chunk()
     target = torch.zeros(2, 100, 14)
     samples = target.unsqueeze(0).expand(32, -1, -1, -1).clone()
-    values = evaluator._energy_values(samples, target, embodiment_id=7, label="yam_bimanual")
+    values = evaluator._energy_values(
+        samples, target, embodiment_id=7, label="yam_bimanual"
+    )
     assert values["score"].item() == pytest.approx(0.0)
     assert values["accuracy"].item() == pytest.approx(0.0)
     assert values["diversity"].item() == pytest.approx(0.0)
 
     samples[..., 0] = 1.0
-    values = evaluator._energy_values(samples, target, embodiment_id=7, label="yam_bimanual")
+    values = evaluator._energy_values(
+        samples, target, embodiment_id=7, label="yam_bimanual"
+    )
     assert values["accuracy"].item() > 0
     assert values["diversity"].item() == pytest.approx(0.0)
     with pytest.raises(ValueError, match="32"):
@@ -70,7 +78,9 @@ def test_yam_energy_score_requires_complete_32_by_100_by_14_chunks():
 def test_yam_action_flow_diagnostic_native_error_wraps_after_unnormalize():
     evaluator = evaluator_for_synthetic_chunk()
     evaluator._action_flow_diagnostics = type(
-        "Runner", (), {"native_error_enabled": True, "native_error": YAM_NATIVE_ERROR_CONTRACT}
+        "Runner",
+        (),
+        {"native_error_enabled": True, "native_error": YAM_NATIVE_ERROR_CONTRACT},
     )()
     functions = evaluator._action_flow_native_error_fns(
         {"yam_bimanual": {"embodiment": torch.tensor([7])}}

@@ -3,6 +3,13 @@ target-version = "py311"
 
 exclude = [
   "external",
+  # Vendored released OAT implementations retain their upstream formatting.
+  # First-party factory/diffusion/ARC adapters remain linted normally.
+  "egomimic/models/oat/common",
+  "egomimic/models/oat/model",
+  "egomimic/models/oat/perception",
+  "egomimic/models/oat/policy",
+  "egomimic/models/oat/tokenizer",
   "egomimic/robot/eva/stanford_repo",
   "*.ipynb",
   "egomimic/robot/oculus_reader"

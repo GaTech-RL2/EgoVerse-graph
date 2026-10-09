@@ -151,6 +151,7 @@ def test_fractional_independent_budgets_and_invalid_predictions():
 
 def test_factory_source_gate_and_graph_normalization_once():
     import torch
+
     from egomimic.pipeline.stages_libero_arc import LiberoArcStage
 
     assert make_libero_arc_codec(mode="global_basis").mode == "global_basis"
@@ -182,6 +183,7 @@ def test_factory_source_gate_and_graph_normalization_once():
 
 def test_matched_configs_and_real_network_dimensions():
     from pathlib import Path
+
     from hydra import compose, initialize_config_dir
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
@@ -222,7 +224,9 @@ def test_matched_configs_and_real_network_dimensions():
 
 def test_fixed_replay_keeps_all_three_arms_and_native_reconstruction_path():
     from pathlib import Path
+
     import yaml
+
     from egomimic.benchmarks.libero.replay import (
         candidates_from_spec,
         reconstruct_episode,
@@ -255,6 +259,7 @@ def test_local_replay_never_initializes_object_store(tmp_path, monkeypatch):
     import importlib.metadata
     import json
     from pathlib import Path
+
     from egomimic.benchmarks.libero import replay
 
     spec = (

@@ -9,6 +9,7 @@ import torch
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf, open_dict
 
+from tests.test_verify_action_flow_training_smoke import HEAD, MODULE, _history_row
 from tools.validate_action_flow_config import (
     CANDIDATE_METHODS,
     GRAPH_METHOD,
@@ -19,7 +20,6 @@ from tools.validate_action_flow_config import (
     validate_experiment,
     validate_method_contract,
 )
-from test_verify_action_flow_training_smoke import MODULE, HEAD, _history_row
 
 
 @pytest.mark.parametrize("experiment", CANDIDATE_METHODS)

@@ -3,8 +3,8 @@ import json
 from types import SimpleNamespace
 
 import numpy as np
-from omegaconf import OmegaConf
 import pytest
+from omegaconf import OmegaConf
 
 from egomimic.benchmarks.libero.training_checks import (
     StepTiming,

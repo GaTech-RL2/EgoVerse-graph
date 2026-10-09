@@ -325,9 +325,7 @@ def test_decoder_jvp_matches_explicit_linear_jacobian_and_is_differentiable(
             torch.tensor([[1.0, 2.0], [-3.0, 4.0], [0.5, -0.25]])
         )
         decoder.linear.bias.copy_(torch.tensor([7.0, 8.0, 9.0]))
-    stage = ContentDecoderStage(
-        decoder, jvp_activation_checkpointing=jvp_checkpointing
-    )
+    stage = ContentDecoderStage(decoder, jvp_activation_checkpointing=jvp_checkpointing)
     clean = torch.randn(2, 4, 2)
     state = torch.randn(6, 4, 2, requires_grad=True)
     residual = torch.randn(6, 4, 2, requires_grad=True)

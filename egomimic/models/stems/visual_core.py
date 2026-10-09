@@ -256,12 +256,16 @@ class VisualCore(nn.Module):
             )
             for module in pretrained_model.modules():
                 if isinstance(module, nn.Conv2d):
-                    nn.init.kaiming_normal_(module.weight, mode="fan_out", nonlinearity="relu")
+                    nn.init.kaiming_normal_(
+                        module.weight, mode="fan_out", nonlinearity="relu"
+                    )
                 elif isinstance(module, (nn.BatchNorm2d, nn.GroupNorm)):
                     nn.init.constant_(module.weight, 1)
                     nn.init.constant_(module.bias, 0)
         else:
-            pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
+            pretrained_model = getattr(torchvision.models, resnet_model)(
+                weights=weights
+            )
             if in_channels != 3:
                 pretrained_model.conv1 = nn.Conv2d(
                     in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False

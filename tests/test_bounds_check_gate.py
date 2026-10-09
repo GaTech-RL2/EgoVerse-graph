@@ -7,8 +7,9 @@ different sample via get_fallback_idx -- so a run could quietly train on a
 different distribution than its config described.
 """
 
-import numpy as np
 import random
+
+import numpy as np
 import torch
 
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset

@@ -96,7 +96,13 @@ def nvml_gpu_uuid(value: object) -> str:
     if not isinstance(value, str):
         raise RuntimeError("CUDA device UUID must be a string")
     bare = value[4:] if value.startswith("GPU-") else value
-    if re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", bare) is None:
+    if (
+        re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            bare,
+        )
+        is None
+    ):
         raise RuntimeError(f"Unsupported CUDA device UUID: {value!r}")
     return "GPU-" + bare
 

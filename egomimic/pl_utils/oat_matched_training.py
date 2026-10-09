@@ -1,10 +1,13 @@
 """Released-observation checkpoint metadata for original Action Flow training."""
+
+from egomimic.pl_utils.oat_training import OATEMACallback, OATTrainingBehavior
 from egomimic.pl_utils.training_behavior_action_flow import ActionFlowTrainingBehavior
-from egomimic.pl_utils.oat_training import OATTrainingBehavior
+from egomimic.utils.ema_callback import EMACallback
 
 
 class OATObservationActionFlowTrainingBehavior(ActionFlowTrainingBehavior):
     """Inherit the original optimizer/loss path; share OAT checkpoint context."""
+
     def on_save_checkpoint(self, checkpoint):
         super().on_save_checkpoint(checkpoint)
         OATTrainingBehavior.on_save_checkpoint(self, checkpoint)
@@ -14,12 +17,9 @@ class OATObservationActionFlowTrainingBehavior(ActionFlowTrainingBehavior):
         OATTrainingBehavior.on_load_checkpoint(self, checkpoint)
 
 
-from egomimic.utils.ema_callback import EMACallback
-from egomimic.pl_utils.oat_training import OATEMACallback
-
-
 class ActionFlowFixedEMACallback(EMACallback):
     """Original AF EMA counter, with the shared terminal-checkpoint hook."""
+
     def __init__(self, final_checkpoint_path=None, **kwargs):
         super().__init__(**kwargs)
         self.final_checkpoint_path = final_checkpoint_path

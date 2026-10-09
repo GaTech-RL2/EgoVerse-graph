@@ -857,8 +857,7 @@ class RunnerSafetyTest(unittest.TestCase):
             scontrol_log = root / "scontrol.log"
             fake_scontrol = root / "scontrol"
             fake_scontrol.write_text(
-                "#!/bin/sh\n"
-                f"touch {shlex.quote(str(scontrol_log))}\n"
+                "#!/bin/sh\n" f"touch {shlex.quote(str(scontrol_log))}\n"
             )
             fake_scontrol.chmod(0o700)
             env = os.environ.copy()
@@ -867,13 +866,24 @@ class RunnerSafetyTest(unittest.TestCase):
                 state,
                 str(root / "*.ckpt"),
                 validator,
-                [sys.executable, "-c", "import os,signal; os.kill(os.getpid(), signal.SIGTERM)"],
+                [
+                    sys.executable,
+                    "-c",
+                    "import os,signal; os.kill(os.getpid(), signal.SIGTERM)",
+                ],
                 owner="runner",
             )
-            args[args.index("--"):args.index("--")] = ["--scontrol", str(fake_scontrol)]
+            args[args.index("--") : args.index("--")] = [
+                "--scontrol",
+                str(fake_scontrol),
+            ]
             result = subprocess.run(
                 [sys.executable, str(MODULE_PATH), *args],
-                env=env, text=True, capture_output=True, check=False, timeout=10,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=10,
             )
             self.assertEqual(result.returncode, 128 + signal.SIGTERM, result.stderr)
             self.assertFalse(scontrol_log.exists())

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
-import copy
 from types import SimpleNamespace
 
 import pytest
@@ -665,18 +665,23 @@ def test_cotrain_energy_score_routes_distance_and_audits_both_domains(tmp_path):
     assert artifact["identity"]["distance"] == (
         evaluator.energy_score_distance_metadata
     )
-    assert artifact["provenance"]["distance_contract"] == (
-        evaluator.energy_score_provenance["distance_contract"]
+    assert (
+        artifact["provenance"]["distance_contract"]
+        == (evaluator.energy_score_provenance["distance_contract"])
     )
     assert set(artifact["domains"]) == set(contracts)
     assert "native_predictions" in artifact["domains"]["pushshapes_sim_u_socket"]
-    assert "native_predictions" not in artifact["domains"]["pushshapes_sim_chain_gripper"]
+    assert (
+        "native_predictions" not in artifact["domains"]["pushshapes_sim_chain_gripper"]
+    )
     for domain in artifact["domains"].values():
         assert len(domain["condition_ids"]) == 2
         assert torch.isfinite(domain["score_by_condition"]).all()
 
     altered = copy.deepcopy(provenance)
-    altered["distance_contract"]["pushshapes_sim_u_socket"]["rotation_scale_radians"] = 1.0
+    altered["distance_contract"]["pushshapes_sim_u_socket"][
+        "rotation_scale_radians"
+    ] = 1.0
     evaluator.energy_score_provenance = altered
     with pytest.raises(ValueError, match="unsupported USocket EnergyScore distance"):
         evaluator._typed_artifact_identity(domains=artifact["domains"], global_step=2)

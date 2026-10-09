@@ -4,24 +4,37 @@ Only the two resolved native DiT block inventories are intercepted. Decoder
 checkpointing is untouched. Current native checkpoint options are forwarded
 unchanged on retained blocks; unsupported options fail before direct execution.
 """
+
 from lightning import Callback
 
 
 def resolve_backbones(module):
     stages = tuple(module.model.pipeline.stages)
     names = tuple(type(stage).__name__ for stage in stages)
-    native = len(stages) == 9 and names[4] == "ContentEncoderStage" and names[6] == "ConditionalVelocityStage"
-    oat = names == ("OATObservationStage", "ActionTargetBuilder", "GaussianLatentNoise",
-                    "ContentEncoderStage", "LatentBridgeStage", "ConditionalVelocityStage",
-                    "ContentDecoderStage", "ActionFlowObjectiveStage")
+    native = (
+        len(stages) == 9
+        and names[4] == "ContentEncoderStage"
+        and names[6] == "ConditionalVelocityStage"
+    )
+    oat = names == (
+        "OATObservationStage",
+        "ActionTargetBuilder",
+        "GaussianLatentNoise",
+        "ContentEncoderStage",
+        "LatentBridgeStage",
+        "ConditionalVelocityStage",
+        "ContentDecoderStage",
+        "ActionFlowObjectiveStage",
+    )
     if native:
         encoder, velocity = stages[4], stages[6]
     elif oat:
         encoder, velocity = stages[3], stages[5]
     else:
-        raise ValueError("audited native or OAT-observation single-source LIBERO stage topology required")
+        raise ValueError(
+            "audited native or OAT-observation single-source LIBERO stage topology required"
+        )
     return {"encoder": encoder.encoder.backbone, "velocity": velocity.field.backbone}
-
 
 
 class HalfCheckpointScope:
@@ -31,7 +44,11 @@ class HalfCheckpointScope:
         self.native_module = native_module
         self.original = None
         self.inventory = {}
-        self.counts = {f"{family}/{mode}": 0 for family in backbones for mode in ("direct", "checkpoint")}
+        self.counts = {
+            f"{family}/{mode}": 0
+            for family in backbones
+            for mode in ("direct", "checkpoint")
+        }
         for family, backbone in backbones.items():
             blocks = tuple(backbone.blocks)
             if len(blocks) != expected_depth or not backbone.gradient_checkpointing:
@@ -50,7 +67,9 @@ class HalfCheckpointScope:
             if fn not in self.inventory:
                 raise ValueError("unregistered checkpoint owner")
             if kwargs != {"use_reentrant": False}:
-                raise ValueError("changed native checkpoint options: audit contexts/RNG before use")
+                raise ValueError(
+                    "changed native checkpoint options: audit contexts/RNG before use"
+                )
             family, index = self.inventory[fn]
             mode = "direct" if index % 2 == 0 else "checkpoint"
             self.counts[f"{family}/{mode}"] += 1
@@ -66,7 +85,9 @@ class HalfCheckpointScope:
         if self.original is None:
             return
         if self.native_module.checkpoint is not self.wrapped:
-            raise ValueError("checkpoint ownership changed; refuse overwriting another scope")
+            raise ValueError(
+                "checkpoint ownership changed; refuse overwriting another scope"
+            )
         self.native_module.checkpoint = self.original
         self.original = None
 
@@ -78,7 +99,10 @@ class LiberoDiTHalf(Callback):
     def on_fit_start(self, trainer, module):
         if self.scope is not None:
             raise ValueError("callback already active")
-        self.scope = HalfCheckpointScope(__import__("egomimic.models.unite_dit", fromlist=["checkpoint"]), resolve_backbones(module))
+        self.scope = HalfCheckpointScope(
+            __import__("egomimic.models.unite_dit", fromlist=["checkpoint"]),
+            resolve_backbones(module),
+        )
         self.scope.install()
 
     def on_train_batch_start(self, trainer, module, batch, batch_idx):
@@ -90,7 +114,12 @@ class LiberoDiTHalf(Callback):
         for name, count in self.scope.counts.items():
             if count <= self.before[name]:
                 raise ValueError(("DiT-half inactive in actual update", name))
-            module.log("Train/Execution/DiTHalf/" + name, float(count), on_step=True, on_epoch=False)
+            module.log(
+                "Train/Execution/DiTHalf/" + name,
+                float(count),
+                on_step=True,
+                on_epoch=False,
+            )
 
     def state_dict(self):
         return {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}

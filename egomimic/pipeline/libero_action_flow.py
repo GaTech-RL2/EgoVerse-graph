@@ -44,8 +44,12 @@ class LiberoActionFlowObservationAdapter(Stage):
             return value[:, -1].float()
 
         state = torch.cat(
-            (latest("robot0_eef_pos", 3), latest("robot0_eef_quat", 4),
-             latest("robot0_gripper_qpos", 2)), dim=-1
+            (
+                latest("robot0_eef_pos", 3),
+                latest("robot0_eef_quat", 4),
+                latest("robot0_gripper_qpos", 2),
+            ),
+            dim=-1,
         )
         task = batch["task_uid"]
         if task.ndim == 3 and task.shape[-1] == 1:
@@ -71,8 +75,10 @@ class LiberoActionFlowObservationAdapter(Stage):
             image = image[:, -1].permute(0, 3, 1, 2).float()
             if image.shape[-2:] != (self.image_size, self.image_size):
                 image = F.interpolate(
-                    image, size=(self.image_size, self.image_size),
-                    mode="bilinear", align_corners=False,
+                    image,
+                    size=(self.image_size, self.image_size),
+                    mode="bilinear",
+                    align_corners=False,
                 )
             batch[dest] = image.contiguous()
         return batch

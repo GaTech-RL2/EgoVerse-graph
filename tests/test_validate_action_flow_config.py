@@ -153,12 +153,10 @@ def test_unite_h384_deterministic_profile_keeps_the_parity_recipe():
     assert config["trainer"]["deterministic"] is True
     assert config["model"]["_target_"] == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert config["model"]["training_behavior"]["_target_"] == (
-        "egomimic.pl_utils.training_behavior_action_flow."
-        "ActionFlowTrainingBehavior"
+        "egomimic.pl_utils.training_behavior_action_flow." "ActionFlowTrainingBehavior"
     )
     assert config["model"]["diagnostic_provider"]["_target_"] == (
-        "egomimic.eval.pipeline_diagnostics."
-        "ActionFlowDiagnosticProvider"
+        "egomimic.eval.pipeline_diagnostics." "ActionFlowDiagnosticProvider"
     )
     dataset = config["data"]["train_datasets"]["pushshapes_sim_u_socket"]
     assert dataset["bounds_check"] is True

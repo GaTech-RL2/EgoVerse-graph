@@ -5,6 +5,7 @@ contributions without repeated-index scatter accumulation. This changes numeric
 addition order, not the mathematical derivative, and is not a global CUDA
 determinism guarantee.
 """
+
 import torch
 
 
@@ -13,10 +14,16 @@ class _GroupedIndexSelect(torch.autograd.Function):
     def forward(ctx, value, index, count):
         count = int(count)
         if count <= 0 or value.ndim < 1 or value.shape[0] <= 0:
-            raise ValueError("grouped gather requires nonempty input and positive count")
-        expected = torch.arange(value.shape[0], device=value.device).repeat_interleave(count)
+            raise ValueError(
+                "grouped gather requires nonempty input and positive count"
+            )
+        expected = torch.arange(value.shape[0], device=value.device).repeat_interleave(
+            count
+        )
         if index.dtype != torch.long or not torch.equal(index, expected):
-            raise ValueError("grouped gather requires contiguous repeat_interleave indices")
+            raise ValueError(
+                "grouped gather requires contiguous repeat_interleave indices"
+            )
         ctx.shape = tuple(value.shape)
         ctx.count = count
         return value.index_select(0, index)

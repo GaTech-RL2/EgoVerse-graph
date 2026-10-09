@@ -62,11 +62,7 @@ class ActionFlowModelWrapper(ModelWrapper):
         effective_warmup_steps = (
             reconstruction_only_warmup_steps
             if reconstruction_only_warmup_steps is not None
-            else (
-                0
-                if configured_warmup_steps is None
-                else configured_warmup_steps
-            )
+            else (0 if configured_warmup_steps is None else configured_warmup_steps)
         )
         if (
             isinstance(effective_warmup_steps, bool)
@@ -78,11 +74,7 @@ class ActionFlowModelWrapper(ModelWrapper):
             )
         self.reconstruction_only_warmup_steps = effective_warmup_steps
         self.save_hyperparameters(
-            {
-                "reconstruction_only_warmup_steps": (
-                    effective_warmup_steps
-                )
-            }
+            {"reconstruction_only_warmup_steps": (effective_warmup_steps)}
         )
         configured = None
         if config_tree is not None:
@@ -482,7 +474,10 @@ class ActionFlowModelWrapper(ModelWrapper):
         for label, component_name in self._gradient_components:
             # An exact-section codec still reports its reconstruction error,
             # but that diagnostic is not a trained objective.
-            if label == "Reconstruction" and self._objective_reconstruction_weight() == 0:
+            if (
+                label == "Reconstruction"
+                and self._objective_reconstruction_weight() == 0
+            ):
                 continue
             active = self._component_gradients(components[component_name], named, label)
             gradients[label] = active
@@ -514,7 +509,10 @@ class ActionFlowModelWrapper(ModelWrapper):
             if not shared:
                 # FM-only endpoint detachment deliberately separates FM from
                 # clean reconstruction. Do not invent a cosine for that pair.
-                if {left, right} != {"FM", "Reconstruction"} or not self._fm_endpoint_detached():
+                if {left, right} != {
+                    "FM",
+                    "Reconstruction",
+                } or not self._fm_endpoint_detached():
                     raise RuntimeError(
                         f"Action Flow {left} and {right} have no shared gradient path"
                     )
@@ -567,9 +565,7 @@ class ActionFlowModelWrapper(ModelWrapper):
         for left, right in combinations(routes, 2):
             right_names = {entry["name"] for entry in routes[right]}
             intersection_names[f"{left}__{right}"] = [
-                entry["name"]
-                for entry in routes[left]
-                if entry["name"] in right_names
+                entry["name"] for entry in routes[left] if entry["name"] in right_names
             ]
         manifest_core = {
             "routes": routes,
@@ -685,9 +681,7 @@ class ActionFlowModelWrapper(ModelWrapper):
         self._log_extra_metrics(predictions, optimizer_loss)
         self._log_compute_contract()
         self._log_composite_optimizer_learning_rates()
-        self._log_telemetry(
-            "Schedule/ReconstructionOnly", float(reconstruction_only)
-        )
+        self._log_telemetry("Schedule/ReconstructionOnly", float(reconstruction_only))
         self._log_telemetry(
             "Schedule/EffectiveFlowWeight",
             0.0
@@ -724,9 +718,7 @@ class ActionFlowModelWrapper(ModelWrapper):
             "reconstruction_only_optimizer_steps": (
                 self.reconstruction_only_warmup_steps
             ),
-            "joint_flow_weight": self._objective_weight(
-                "flow_weight", default=1.0
-            ),
+            "joint_flow_weight": self._objective_weight("flow_weight", default=1.0),
             "joint_reconstruction_weight": self._objective_weight(
                 "reconstruction_weight"
             ),

@@ -1,17 +1,18 @@
 """Historical behavior contracts, not a claim of full training equivalence."""
+
 import ast
 import os
 import random
 from pathlib import Path
 
-import pytest
 import numpy as np
+import pytest
 import torch
 
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper
 from egomimic.rldb.zarr import zarr_dataset_multi as dm
-from test_bounds_check_gate import _dataset
+from tests.test_bounds_check_gate import _dataset
 
 
 def module(mode):
@@ -19,8 +20,11 @@ def module(mode):
 
 
 def test_invalid_mode_fails_closed():
-    for make in (module, lambda mode: PipelineAlgo([], device="cpu", compatibility_mode=mode),
-                 lambda mode: dm.MultiDataset(state={}, compatibility_mode=mode)):
+    for make in (
+        module,
+        lambda mode: PipelineAlgo([], device="cpu", compatibility_mode=mode),
+        lambda mode: dm.MultiDataset(state={}, compatibility_mode=mode),
+    ):
         with pytest.raises(ValueError, match="compatibility_mode"):
             make("typo")
 
@@ -37,8 +41,15 @@ def test_bounds_false_is_explicitly_overridden_only_in_legacy_mode():
 def test_legacy_filter_rejects_nonfinite_and_strict_outliers(bad_value):
     ds, leaf = _dataset(bounds_check=False, bad_value=bad_value)
     # Constructor-derived settings, transplanted onto a tiny normalized fixture.
-    settings = dm.MultiDataset(state={}, bounds_check=False, compatibility_mode="legacy_c12")
-    for key in ("bounds_check", "bounds_semantics", "fallback_policy", "compatibility_mode"):
+    settings = dm.MultiDataset(
+        state={}, bounds_check=False, compatibility_mode="legacy_c12"
+    )
+    for key in (
+        "bounds_check",
+        "bounds_semantics",
+        "fallback_policy",
+        "compatibility_mode",
+    ):
         setattr(ds, key, getattr(settings, key))
     ds[1]
     assert leaf.served == [1, 0]
@@ -50,8 +61,13 @@ def test_loader_matches_default_shuffle_worker_seed_and_global_rng():
         results = []
         for generator in (None, legacy._loader_generator("train", "source")):
             torch.manual_seed(42)
-            loader = torch.utils.data.DataLoader(torch.arange(64), batch_size=8,
-                shuffle=True, num_workers=workers, generator=generator)
+            loader = torch.utils.data.DataLoader(
+                torch.arange(64),
+                batch_size=8,
+                shuffle=True,
+                num_workers=workers,
+                generator=generator,
+            )
             iterator = iter(loader)
             worker_seed = iterator._base_seed
             batches = torch.cat(list(iterator))
@@ -87,11 +103,24 @@ def test_retry_against_pinned_historical_source():
     if not path:
         pytest.skip("set C12_DATASET_SOURCE to the pinned historical dataset module")
     tree = ast.parse(Path(path).read_text())
-    helper = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_fallback_idx")
-    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "MultiDataset")
-    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_next_after_failure")
+    helper = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "get_fallback_idx"
+    )
+    cls = next(
+        n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "MultiDataset"
+    )
+    method = next(
+        n
+        for n in cls.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_next_after_failure"
+    )
     ns = dict(vars(dm))
-    exec(compile(ast.Module(body=[helper, method], type_ignores=[]), str(path), "exec"), ns)
+    exec(
+        compile(ast.Module(body=[helper, method], type_ignores=[]), str(path), "exec"),
+        ns,
+    )
     ds = dm.MultiDataset(state={}, compatibility_mode="legacy_c12")
     ds.index_map = [("a", i) for i in range(64)] + [("b", i) for i in range(4)]
     ds._global_indices_by_dataset = {"a": list(range(64)), "b": list(range(64, 68))}
@@ -100,7 +129,10 @@ def test_retry_against_pinned_historical_source():
         for seed in (0, 42, 999):
             for attempt in (None, 0, 24, 25, 26, 62, 63, 999):
                 results = []
-                for method in (ns["_next_after_failure"], dm.MultiDataset._next_after_failure):
+                for method in (
+                    ns["_next_after_failure"],
+                    dm.MultiDataset._next_after_failure,
+                ):
                     random.seed(seed)
                     try:
                         result = method(ds, 0, "a", attempt, reason="fixture")
@@ -114,10 +146,15 @@ def test_retry_against_pinned_historical_source():
 
 def test_recipe_keeps_composed_wrapper_and_wires_all_boundaries():
     from hydra import compose, initialize_config_dir
+
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(config_dir=str(root), version_base=None):
-        cfg = compose(config_name="train_zarr_cartesian", overrides=[
-            "+experiment=pusht/action_flow_usocket_refactored_c12_compat_s42"])
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/action_flow_usocket_refactored_c12_compat_s42"
+            ],
+        )
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert cfg.model.pipeline.compatibility_mode == "legacy_c12"
     assert cfg.normalizer.compatibility_mode == "legacy_c12"
@@ -140,28 +177,45 @@ def test_recipe_keeps_composed_wrapper_and_wires_all_boundaries():
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64, torch.bfloat16])
 def test_metric_dtype_matches_historical_reducer_without_changing_gradient(dtype):
     from collections import OrderedDict
+
+    from egomimic.pl_utils.training_behavior_action_flow import (
+        ActionFlowTrainingBehavior,
+    )
     from egomimic.pl_utils.training_metrics import reduce_component_means
-    from egomimic.pl_utils.training_behavior_action_flow import ActionFlowTrainingBehavior
+
     path = os.environ.get("C12_DATASET_SOURCE")
     if not path:
         pytest.skip("set C12_DATASET_SOURCE to the pinned historical dataset module")
     source = Path(path).parents[2] / "pl_utils/pl_model_action_flow.py"
     tree = ast.parse(source.read_text())
-    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "ActionFlowModelWrapper")
-    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_reduce_component_means")
+    cls = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.ClassDef) and n.name == "ActionFlowModelWrapper"
+    )
+    method = next(
+        n
+        for n in cls.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_reduce_component_means"
+    )
     method.decorator_list = []
     ns = {"torch": torch, "OrderedDict": OrderedDict, "Mapping": dict}
     exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), "exec"), ns)
     value = torch.tensor(0.123456789, dtype=dtype, requires_grad=True)
     state = torch.get_rng_state().clone()
     expected, count = ns["_reduce_component_means"]({"loss": value}, 17)
-    actual, actual_count = reduce_component_means({"loss": value}, 17, label="fixture", preserve_input_dtype=True)
+    actual, actual_count = reduce_component_means(
+        {"loss": value}, 17, label="fixture", preserve_input_dtype=True
+    )
     assert count == actual_count
     assert actual["loss"].dtype == expected["loss"].dtype
     assert torch.equal(actual["loss"], expected["loss"])
     assert value.grad is None and not actual["loss"].requires_grad
     assert torch.equal(state, torch.get_rng_state())
-    assert ActionFlowTrainingBehavior(compatibility_mode="legacy_c12").compatibility_mode == "legacy_c12"
+    assert (
+        ActionFlowTrainingBehavior(compatibility_mode="legacy_c12").compatibility_mode
+        == "legacy_c12"
+    )
     with pytest.raises(ValueError, match="compatibility_mode"):
         ActionFlowTrainingBehavior(compatibility_mode="invalid")
 
@@ -171,12 +225,20 @@ def test_normalization_collection_matches_historical_precision():
     if not path:
         pytest.skip("set C12_DATASET_SOURCE to the pinned historical dataset module")
     tree = ast.parse(Path(path).read_text())
-    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "MultiDataset")
-    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_collect_norm_samples")
+    cls = next(
+        n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "MultiDataset"
+    )
+    method = next(
+        n
+        for n in cls.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_collect_norm_samples"
+    )
     ns = dict(vars(dm))
     exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), "exec"), ns)
     for dtype in (torch.float32, torch.float64):
-        samples = torch.tensor([[1.0000000001], [1.0000000003], [1.0000000009]], dtype=dtype)
+        samples = torch.tensor(
+            [[1.0000000001], [1.0000000003], [1.0000000009]], dtype=dtype
+        )
         ds = dm.MultiDataset(state={}, compatibility_mode="legacy_c12")
         ds.keyname_to_zarr_key = lambda key, embodiment: key
         args = ([{"action": samples}], ["action"], "fixture", 2, 3, 0)
@@ -185,6 +247,8 @@ def test_normalization_collection_matches_historical_precision():
         assert actual.dtype == expected.dtype
         np.testing.assert_array_equal(actual, expected)
         for key, value in ds._compute_stats_for_array(expected).items():
-            np.testing.assert_array_equal(ds._compute_stats_for_array(actual)[key], value)
+            np.testing.assert_array_equal(
+                ds._compute_stats_for_array(actual)[key], value
+            )
         ds.compatibility_mode = "current"
         assert ds._collect_norm_samples(*args)["action"][0].dtype == np.float32

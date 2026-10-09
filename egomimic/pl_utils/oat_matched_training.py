@@ -12,3 +12,16 @@ class OATObservationActionFlowTrainingBehavior(ActionFlowTrainingBehavior):
     def on_load_checkpoint(self, checkpoint):
         super().on_load_checkpoint(checkpoint)
         OATTrainingBehavior.on_load_checkpoint(self, checkpoint)
+
+
+from egomimic.utils.ema_callback import EMACallback
+from egomimic.pl_utils.oat_training import OATEMACallback
+
+
+class ActionFlowFixedEMACallback(EMACallback):
+    """Original AF EMA counter, with the shared terminal-checkpoint hook."""
+    def __init__(self, final_checkpoint_path=None, **kwargs):
+        super().__init__(**kwargs)
+        self.final_checkpoint_path = final_checkpoint_path
+
+    on_train_end = OATEMACallback.on_train_end

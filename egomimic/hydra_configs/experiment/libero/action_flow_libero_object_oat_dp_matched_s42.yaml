@@ -18,6 +18,7 @@ trainer:
   gradient_clip_val: 3.0
 callbacks:
   ema:
+    _target_: egomimic.pl_utils.oat_matched_training.ActionFlowFixedEMACallback
     decay: 0.9978
     use_warmup: false
   batch_budget:

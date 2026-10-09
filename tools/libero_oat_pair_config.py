@@ -33,6 +33,7 @@ def validate(cfg, family, suite):
     if family == 'action_flow':
         assert batch == 32 and cfg['trainer']['max_steps'] == 80000
         assert cfg['trainer']['gradient_clip_val'] == 3.0
+        assert cfg['callbacks']['ema']['_target_'].endswith('ActionFlowFixedEMACallback')
         assert cfg['callbacks']['ema']['decay'] == .9978
         assert cfg['callbacks']['ema']['use_warmup'] is False
         assert cfg['model']['optimizer_named_parameters'] is True

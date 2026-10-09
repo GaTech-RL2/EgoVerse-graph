@@ -18,7 +18,7 @@ def write(path, value):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--source-commit',required=True);p.add_argument('--index',type=int,required=True)
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--source-commit',required=True);p.add_argument('--index',type=int,required=True);p.add_argument('--phase',choices=('smoke','full'),default='smoke')
     a=p.parse_args()
     assert os.environ.get('SLURM_STEP_ID'), 'scheduled srun only'
     source=Path(__file__).resolve().parents[1]
@@ -26,9 +26,19 @@ def main():
     assert actual == a.source_commit
     assert not subprocess.check_output(['git','status','--porcelain'],cwd=source,text=True).strip()
     suite=SUITES[a.index//2];family=('dp','action_flow')[a.index%2]
-    out=a.root/'proof-v5'/f'{family}-{suite}'
-    out.mkdir(parents=True,exist_ok=True)
+    out=a.root/('proof-v6' if a.phase=='smoke' else 'full-v6')/f'{family}-{suite}'
+    assert not out.exists(), 'Fresh proof/full identity required; never overwrite a previous attempt'
+    out.mkdir(parents=True,exist_ok=False)
     assert not (out/'RESULT.json').exists()
+    if a.phase == 'full':
+        gate=json.loads((a.root/'FULL_READY_V6.json').read_text())
+        assert gate['status']=='READY_ALL_EIGHT_REAL_PROOFS_AND_PAIRED_ROLLOUT_PROTOCOL'
+        assert gate['source_commit']==actual
+        smoke_path=a.root/'proof-v6'/f'{family}-{suite}'/'RESULT.json'
+        smoke=json.loads(smoke_path.read_text())
+        assert smoke['status']=='PASS_REAL_DATA_OPTIMIZER_VALIDATION_EMA_RELOAD'
+        assert smoke['source_commit']==actual
+        assert hashlib.sha256(smoke_path.read_bytes()).hexdigest()==gate['smoke_result_sha256'][f'{family}-{suite}']
     def progress(stage, **values):
         record={'stage':stage,'family':family,'suite':suite,**values}
         print(json.dumps(record),flush=True);write(out/'PROGRESS.json',record)
@@ -46,23 +56,32 @@ def main():
     write(out/'FULL_CONFIG.json',full)
     assert Path(full['benchmark']['dataset']).is_dir()
     # Phase overrides preserve microbatch, accumulation, model, objective, and optimizer.
-    with open_dict(cfg):
-        cfg.trainer.max_steps=2;cfg.trainer.max_epochs=-1
-        cfg.trainer.log_every_n_steps=1
-        cfg.trainer.limit_val_batches=1;cfg.trainer.num_sanity_val_steps=0
-        cfg.trainer.check_val_every_n_epoch=10
-        cfg.val_at_end=True
-        cfg.callbacks.model_checkpoint.every_n_epochs=None
-        cfg.callbacks.model_checkpoint.every_n_train_steps=2
-        cfg.callbacks.model_checkpoint.save_on_train_epoch_end=False
-        cfg.callbacks.model_checkpoint.filename='epoch-{epoch:04d}-step-{step:09d}'
-        cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-step000000002.ckpt')
-        cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-v5'
-        cfg.logger.wandb.name=cfg.logger.wandb.id
-        cfg.logger.wandb.entity='rl2-group'
-        cfg.logger.wandb.project='pushshapes-action-flow'
-        cfg.logger.wandb.group='libero-four-suite-oat-dp-matched-20261008'
-        cfg.logger.wandb.resume='never'
+    if a.phase == 'smoke':
+      with open_dict(cfg):
+          cfg.trainer.max_steps=2;cfg.trainer.max_epochs=-1
+          cfg.trainer.log_every_n_steps=1
+          cfg.trainer.limit_val_batches=1;cfg.trainer.num_sanity_val_steps=0
+          cfg.trainer.check_val_every_n_epoch=10
+          cfg.val_at_end=True
+          cfg.callbacks.model_checkpoint.every_n_epochs=None
+          cfg.callbacks.model_checkpoint.every_n_train_steps=2
+          cfg.callbacks.model_checkpoint.save_on_train_epoch_end=False
+          cfg.callbacks.model_checkpoint.filename='epoch-{epoch:04d}-step-{step:09d}'
+          cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-step000000002.ckpt')
+          cfg.logger.wandb.id=f'{family}-{suite}-oat-pair-proof-s42-20261008-v6'
+          cfg.logger.wandb.name=cfg.logger.wandb.id
+          cfg.logger.wandb.entity='rl2-group'
+          cfg.logger.wandb.project='pushshapes-action-flow'
+          cfg.logger.wandb.group='libero-four-suite-oat-dp-matched-20261008'
+          cfg.logger.wandb.resume='never'
+    if a.phase == 'full':
+        with open_dict(cfg):
+            cfg.val_at_end=True
+            cfg.callbacks.ema.final_checkpoint_path=str(out/'checkpoints/terminal-epoch-{epoch:04d}-step-{step:09d}.ckpt')
+            cfg.logger.wandb.id=f'{family}-{suite}-oat-matched-latent16-s42-20261008-full-v6'
+            cfg.logger.wandb.name=cfg.logger.wandb.id
+            cfg.logger.wandb.entity='rl2-group';cfg.logger.wandb.project='pushshapes-action-flow'
+            cfg.logger.wandb.group='libero-four-suite-oat-dp-matched-20261008';cfg.logger.wandb.resume='never'
     job=OmegaConf.masked_copy(cfg,[k for k in cfg if k!='hydra'])
     encoded=OmegaConf.to_yaml(job,resolve=True)
     config_sha=hashlib.sha256(encoded.encode()).hexdigest()
@@ -128,15 +147,18 @@ def main():
     progress('REAL_OPTIMIZER_AND_VALIDATION')
     metrics,objects=train(cfg)
     trainer=objects['trainer'];model=objects['model'];data=objects['datamodule']
+    if a.phase == 'full':
+        write(out/'TRAINING_COMPLETED.json',{'status':'TRAINER_RETURNED','global_step':trainer.global_step,'source_commit':actual})
+        return
     assert trainer.global_step==2
     values={k:float(v.detach().cpu()) if torch.is_tensor(v) else float(v) for k,v in metrics.items() if torch.is_tensor(v) or isinstance(v,(int,float))}
     required=['Valid/normalized_reconst_mse','Valid/reconst_mse','Valid/energy_score32','Valid/energy_accuracy32','Valid/energy_diversity32']
     if family == 'action_flow':
         required += ['Train/MSE','Optimizer/LR/Muon','Optimizer/LR/AdamW']
-        assert any(key.startswith('Valid/DenoisingTrajectory/') for key in values)
-        assert any(key.startswith('Valid/Alignment/CKA/') for key in values)
-        assert any(key.startswith('Valid/Alignment/CKNNA/') for key in values)
-        assert any(key.startswith('Valid/Alignment/FinalLatentCosine/') for key in values)
+        assert any(key.startswith('Valid/ActionFlow/DenoisingTrajectory/') for key in values)
+        assert any(key.startswith('Valid/ActionFlow/Alignment/CKA/') for key in values)
+        assert any(key.startswith('Valid/ActionFlow/Alignment/CKNNA/') for key in values)
+        assert any(key.startswith('Valid/ActionFlow/Alignment/FinalLatentCosine/') for key in values)
     for key in required: assert key in values and torch.isfinite(torch.tensor(values[key])),(key,values)
     train_ds=data.train_datasets['libero_panda']
     valid_ds=data.valid_datasets['libero_panda']

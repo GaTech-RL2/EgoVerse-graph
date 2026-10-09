@@ -206,4 +206,4 @@ class OATEMACallback(EMACallback):
         # The released budget (5001 epochs) is not divisible by the ten-epoch
         # checkpoint cadence. Persist the actual final optimizer/EMA state.
         if self.final_checkpoint_path is not None:
-            trainer.save_checkpoint(self.final_checkpoint_path)
+            trainer.save_checkpoint(self.final_checkpoint_path.format(epoch=trainer.current_epoch, step=trainer.global_step))

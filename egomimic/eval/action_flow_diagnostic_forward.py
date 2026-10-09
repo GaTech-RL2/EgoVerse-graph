@@ -110,7 +110,9 @@ def _decoder_singular_values(
                 ).reshape(-1, *value.shape)
 
                 def direction(tangent: torch.Tensor) -> torch.Tensor:
-                    return torch.func.jvp(decode_one, (value,), (tangent,))[1]
+                    # Diagnostic columns do not need parameter gradients.
+                    # Release each chunk's graph before vmap retains its output.
+                    return torch.func.jvp(decode_one, (value,), (tangent,))[1].detach()
 
                 with sdpa_kernel([SDPBackend.MATH]):
                     columns = torch.func.vmap(direction, chunk_size=4)(basis)

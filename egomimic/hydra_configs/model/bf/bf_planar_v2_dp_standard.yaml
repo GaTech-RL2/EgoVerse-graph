@@ -36,6 +36,7 @@ pipeline:
           kernel_size: 3
         noise_scheduler: *standard_dp_scheduler
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+      active_action_dims_by_embodiment: ${oc.select:planar.active_action_dims,null}
 
 enable_grad_norm: false
 optimizer:

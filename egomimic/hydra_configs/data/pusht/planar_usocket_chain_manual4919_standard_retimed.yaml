@@ -1,0 +1,12 @@
+defaults:
+  - /data/pusht/planar_v2_usocket@_here_
+  - /data/pusht/planar_chain_manual4919_standard_retimed@_here_
+  - _self_
+train_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:DP_U_DATASET_DIR}
+valid_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:DP_U_DATASET_DIR}

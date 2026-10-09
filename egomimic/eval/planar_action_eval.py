@@ -26,6 +26,7 @@ from egomimic.eval.energy_score import (
     usocket_xy_theta_chunk_distance,
 )
 from egomimic.eval.eval import Eval
+from egomimic.pipeline.action_dimensions import active_action_prefix, normalize_active_action_dimensions
 from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -93,6 +94,7 @@ class PlanarActionEval(Eval):
         action_key: str = "actions",
         native_decoder=None,
         native_decoders=None,
+        active_action_dims_by_embodiment: Mapping | None = None,
         deterministic_seed: int = _DEFAULT_DETERMINISTIC_SEED,
         energy_score_max_batches_per_rank: int | None = None,
         energy_score_validation_view: Mapping | None = None,
@@ -111,6 +113,7 @@ class PlanarActionEval(Eval):
             raise ValueError("configure native_decoder or native_decoders, not both")
         self.native_decoder = native_decoder
         self.native_decoders = dict(native_decoders or {})
+        self.active_action_dims = normalize_active_action_dimensions(active_action_dims_by_embodiment)
         self.blocks = tuple(tuple(map(int, block)) for block in semantic_blocks)
         # Per-embodiment partitions for cotraining across unequal action widths
         # (e.g. U-Socket rotvec4 next to ChainGripper points6); keyed by the
@@ -140,6 +143,7 @@ class PlanarActionEval(Eval):
                 "space": "normalized_action_chunk",
                 "formula": "mean_equal_weight_semantic_block_rms",
                 "semantic_blocks": self.blocks,
+                **({"active_action_dims_by_embodiment": dict(self.active_action_dims)} if self.active_action_dims else {}),
                 **(
                     {"semantic_blocks_by_embodiment": dict(self.blocks_by_embodiment)}
                     if self.blocks_by_embodiment
@@ -772,6 +776,13 @@ class PlanarActionEval(Eval):
                     config=self.energy_score_distance,
                 )
 
+        if self.active_action_dims:
+            if label is None:
+                label = get_embodiment(embodiment_id).lower()
+            if self.energy_score_distance is not None:
+                raise ValueError("Active-prefix masking requires normalized semantic-block EnergyScore")
+            samples = active_action_prefix(samples, label, self.active_action_dims)
+            target = active_action_prefix(target, label, self.active_action_dims)
         values = {
             name: value.detach()
             for name, value in energy_score(
@@ -1062,6 +1073,7 @@ class PlanarActionEval(Eval):
             if (
                 self.energy_score_distance is not None
                 or self.native_decoder is not None
+                or bool(self.native_decoders)
             ):
                 decoder = self._native_decoder(embodiment_id)
                 if self.energy_score_distance is not None:
@@ -1102,7 +1114,7 @@ class PlanarActionEval(Eval):
             "provenance": self.energy_score_provenance,
             "domains": domains,
         }
-        if self.energy_score_distance is not None or self.native_decoder is not None:
+        if self.energy_score_distance is not None or self.native_decoder is not None or self.native_decoders:
             payload["schema_version"] = 2
             identity = self._typed_artifact_identity(
                 domains=domains,
@@ -1170,7 +1182,9 @@ class PlanarActionEval(Eval):
             labels.add(label)
             prediction = result[source_id]["pred_action"]
             target = source_batch[self.action_key]
-            normalized_mse = (prediction - target).square().mean()
+            metric_prediction = active_action_prefix(prediction, label, self.active_action_dims)
+            metric_target = active_action_prefix(target, label, self.active_action_dims)
+            normalized_mse = (metric_prediction - metric_target).square().mean()
             decoder = self._native_decoder(embodiment_id)
             native_mse = self._native_mse(
                 self._native(prediction, embodiment_id, decoder),

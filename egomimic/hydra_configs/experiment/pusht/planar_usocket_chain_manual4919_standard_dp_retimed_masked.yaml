@@ -1,0 +1,34 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_cotrain_clean_dp_standard
+  - override /data: pusht/planar_usocket_chain_manual4919_standard_retimed
+  - _self_
+name: planar_usocket_chain_manual4919_standard_dp_retimed_masked_h16
+description: U_Socket1x_ChainGripper_uniform_five_rate_StandardDP_common5_U4_mask
+planar:
+  retiming_rates: [1.0, 1.25, 1.5, 1.75, 2.0]
+  active_action_dims:
+    pushshapes_sim_u_socket: 4
+    pushshapes_sim_chain_gripper: 5
+evaluator:
+  active_action_dims_by_embodiment: ${planar.active_action_dims}
+  semantic_blocks_by_embodiment:
+    pushshapes_sim_u_socket: [[0, 2], [2, 4]]
+    pushshapes_sim_chain_gripper: [[0, 2], [2, 4], [4, 5]]
+run_provenance:
+  split_manifest_path: ${oc.env:DP_SPLIT_MANIFEST}
+  split_manifest_sha256: ${oc.env:DP_SPLIT_SHA256}
+  domains:
+    pushshapes_sim_chain_gripper:
+      split_manifest_path: ${oc.env:DP_CHAIN_SPLIT_MANIFEST}
+      split_manifest_sha256: ${oc.env:DP_CHAIN_SPLIT_SHA256}
+      train_episode_count: 4870
+      valid_episode_count: 49
+      union_episode_count: 4919
+  retiming_contract: NON_PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC
+  retiming_probabilities: [0.2, 0.2, 0.2, 0.2, 0.2]
+  scalar_speed_conditioning: false
+  homogeneous_optimization: unsupported_DP_encoder_native_two_source_batches
+model:
+  scheduler:
+    max_steps: 80000

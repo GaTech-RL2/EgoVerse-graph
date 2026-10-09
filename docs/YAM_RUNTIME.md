@@ -122,6 +122,18 @@ Recording streams to disk, avoiding an episode-sized camera buffer in RAM.
 
 ### USB/Dynamixel GELLO collection
 
+GELLO recording has no automatic frame cap by default
+(`recording.episode_length: null`). The dashboard's **Episode limit** checkbox
+enables/disables automatic saving; enter a positive frame count and press
+**Apply** to change it live. The applied limit and recorded-frame count appear
+below the cameras. Lowering the limit to or below an active take's current
+count saves that take. With the limit off, use the normal start/save control.
+After deploying this feature into another checkout, finish the current take
+and restart teleop normally to load the backend; source edits alone do not
+change a running collector. The controls stay disabled until the collector
+confirms that it supports episode limits. Recording still streams to disk,
+and motion/input safety checks are unchanged.
+
 The GELLO path is self-contained in EgoVerse and does not require another GELLO
 checkout or Dynamixel Wizard at runtime. Wizard may still be used separately to
 provision servo IDs, baudrate, and operating mode. The checked-in profile is

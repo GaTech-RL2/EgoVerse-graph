@@ -1225,3 +1225,76 @@ def test_a_new_browser_tab_supersedes_the_stale_dashboard_tab(tmp_path):
         assert asyncio.run(two_tabs()) == SUPERSEDED_CLOSE_CODE
     finally:
         dashboard.close()
+
+
+def test_failed_model_selection_locks_rollout_and_never_runs_old_policy(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    checkpoint = tmp_path / "broken.ckpt"
+    checkpoint.write_bytes(b"weights")
+    training_config = tmp_path / "resolved-config.yaml"
+    training_config.write_text("model: {}\n")
+    normalizer = tmp_path / "norm_stats.json"
+    normalizer.write_text("{}\n")
+    bundle = CheckpointBrowser(tmp_path).resolve_bundle("broken.ckpt")
+    robot = FakeRobot()
+    view = ModelSelectionView([None, "c", "q"], bundle)
+
+    def fail_load(_config):
+        raise RuntimeError("checkpoint restore failed")
+
+    monkeypatch.setattr("egomimic.robot.rollout.load_policy", fail_load)
+    steps = run_rollout(
+        robot,
+        SimpleNamespace(
+            action_type="joints",
+            predict=lambda _obs: pytest.fail("previous model must remain disarmed"),
+        ),
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False, "wait_for_start": True},
+            "policy": {
+                "kind": "graph",
+                "checkpoint": "/old/model.ckpt",
+                "training_config": "/old/resolved-config.yaml",
+                "normalizer_path": "/old/norm_stats.json",
+                "inference_config": "/old/inference-config.yaml",
+            },
+        },
+        view=view,
+    )
+
+    assert steps == 0
+    assert any("MODEL LOAD FAILED" in status for status in view.statuses)
+    assert any("rollout locked" in status for status in view.statuses)
+
+
+@pytest.mark.parametrize("max_steps", [0, -1, True, 1.5, "3000"])
+def test_rollout_rejects_invalid_session_limits(max_steps):
+    with pytest.raises(ValueError, match="positive integer or null"):
+        run_rollout(
+            FakeRobot(),
+            SimpleNamespace(action_type="joints"),
+            {"frequency": 30, "max_steps": max_steps, "max_joint_velocity": 1.0},
+        )
+
+
+def test_unlimited_rollout_exits_on_operator_quit():
+    view = SimpleNamespace(update=lambda _obs: "q", close=lambda: None)
+    assert (
+        run_rollout(
+            FakeRobot(),
+            SimpleNamespace(action_type="joints"),
+            {
+                "frequency": 30,
+                "max_steps": None,
+                "max_joint_velocity": 1.0,
+                "preview": {"enabled": False, "wait_for_start": True},
+            },
+            view=view,
+        )
+        == 0
+    )

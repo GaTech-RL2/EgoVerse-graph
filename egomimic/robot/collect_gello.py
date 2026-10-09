@@ -13,7 +13,11 @@ from omegaconf import OmegaConf
 from egomimic.robot.cameras import validate_camera_devices
 from egomimic.robot.collect_demo import EpisodeWriter, next_episode_path
 from egomimic.robot.interface import ARM_OFFSET, create_robot, joint_vector
-from egomimic.robot.teleop_dashboard import TeleopDashboard, validate_dashboard_config
+from egomimic.robot.teleop_dashboard import (
+    TeleopDashboard,
+    validate_dashboard_config,
+    validate_episode_length,
+)
 from egomimic.robot.yam.gello import (
     BimanualGelloReader,
     GelloInputError,
@@ -170,8 +174,7 @@ def validate_gello_config(config, require_calibrated: bool = False) -> dict:
     if not 0 < trigger_threshold < 1:
         raise ValueError("gello.activation_gripper_threshold must be in (0, 1)")
     recording = dict(config.get("recording", {}))
-    if int(recording.get("episode_length", 0)) <= 0:
-        raise ValueError("recording.episode_length must be positive")
+    validate_episode_length(recording.get("episode_length"))
     record_rate = _positive(recording.get("rate_hz", frequency), "recording.rate_hz")
     if record_rate > frequency:
         raise ValueError("Recording cannot be faster than GELLO control")
@@ -275,6 +278,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
     config = validate_gello_config(config)
     frequency = float(config["frequency"])
     recording = config["recording"]
+    episode_length = validate_episode_length(recording.get("episode_length"))
     record_rate = float(recording.get("rate_hz", frequency))
     control = _control(robot, config)
     if view is None:
@@ -283,6 +287,9 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 robot.camera_res,
                 config["keys"],
                 recording["directory"],
+                gripper_force_limits={
+                    arm: config["robot"]["gripper_force_limit"] for arm in robot.arms
+                },
                 **config["preview"],
             )
             if config["preview"]["enabled"]
@@ -334,7 +341,15 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
         path = Path(recording["directory"]) / f"demo_{episode_id}.hdf5"
         return EpisodeWriter(path, robot.camera_res)
 
+    def update_dashboard_limit():
+        set_limit = getattr(view, "set_episode_length", None)
+        if callable(set_limit):
+            set_limit(
+                episode_length, writer.frames if writer is not None else 0, record_rate
+            )
+
     update_dashboard_episode()
+    update_dashboard_limit()
     try:
         while max_steps is None or steps < max_steps:
             tick = time.monotonic()
@@ -351,6 +366,7 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     print(f"GELLO input unavailable; followers hold position: {error}")
                     last_warning = tick
             update_dashboard_status()
+            update_dashboard_limit()
             view_event = view.update(obs, recording=writer is not None)
             if _take_camera_reconnect_request(view):
                 # A camera recovery never commands or closes the follower. Hold
@@ -408,6 +424,36 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                     episode_id = requested_episode
                     print(f"Next recording will use demo_{episode_id}.hdf5")
                 update_dashboard_episode()
+                view_event = None
+            if isinstance(view_event, dict) and "episode_length" in view_event:
+                try:
+                    episode_length = validate_episode_length(
+                        view_event["episode_length"]
+                    )
+                except ValueError as error:
+                    print(f"Episode limit unchanged: {error}")
+                else:
+                    print(
+                        "Episode limit disabled; save recording manually."
+                        if episode_length is None
+                        else f"Episode auto-save limit: {episode_length} frames."
+                    )
+                update_dashboard_limit()
+                view_event = None
+            if isinstance(view_event, dict) and "gripper_force" in view_event:
+                request = view_event["gripper_force"]
+                try:
+                    limits = robot.set_gripper_force_limit(
+                        request["value"], arm=request["arm"]
+                    )
+                    set_limits = getattr(view, "set_gripper_force_limits", None)
+                    if callable(set_limits):
+                        set_limits(limits)
+                    print(
+                        f"Updated {request['arm']} gripper force limit to {request['value']:g} N"
+                    )
+                except (KeyError, TypeError, ValueError, RuntimeError) as error:
+                    print(f"Could not update gripper force limit: {error}")
                 view_event = None
             event = key_edge.update(view_event)
             if event in (keys["quit"], "\x1b"):
@@ -522,12 +568,18 @@ def run_collection(robot, reader, config, view=None, max_steps=None):
                 if writer.frames == 0 or record_phase >= 1.0:
                     writer.append(obs, command.joints, command.ee_poses)
                     record_phase = max(0.0, record_phase - 1.0)
-                    if writer.frames >= int(recording["episode_length"]):
-                        writer.close()
-                        print(f"Saved {writer.path} ({writer.frames} frames)")
-                        writer = None
-                        record_phase = 0.0
-                        advance_episode()
+            # Also apply a newly lowered limit when no new camera row arrived.
+            if (
+                writer is not None
+                and episode_length is not None
+                and writer.frames >= episode_length
+            ):
+                writer.close()
+                print(f"Saved {writer.path} ({writer.frames} frames)")
+                writer = None
+                record_phase = 0.0
+                advance_episode()
+            update_dashboard_limit()
             steps += 1
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
     finally:
@@ -614,6 +666,10 @@ def main(argv=None) -> int:
             camera_names,
             config["keys"],
             config["recording"]["directory"],
+            gripper_force_limits={
+                arm: config["robot"]["gripper_force_limit"]
+                for arm in config["robot"]["arms"]
+            },
             **config["preview"],
         )
         dashboard.set_status("Starting: checking USB GELLO paths")

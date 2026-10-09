@@ -51,7 +51,8 @@ frequency: 30
 max_joint_velocity: 12.0
 # A rejected Cartesian plan sends neither arm and asks HPT-Flow for a fresh one.
 max_velocity_replans: 8
-max_steps: 3000
+# Run until the operator stops; use a positive integer for a bounded session.
+max_steps: null
 camera_timeout: 30.0
 # The dashboard records an operator-started, synchronized three-camera MP4.
 # It observes existing RGB frames only and never participates in robot control.

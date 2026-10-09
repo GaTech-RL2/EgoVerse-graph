@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM GELLO Teleop</title>
-    <link rel="stylesheet" href="/style.css?v=11">
+    <link rel="stylesheet" href="/style.css?v=14">
   </head>
   <body>
     <main>
@@ -23,8 +23,29 @@
         <button id="reconnect-cameras">Reconnect RGB cameras</button>
         <div id="controls" class="controls"></div>
       </section>
+      <section id="gripper-settings" class="gripper-settings" aria-label="Gripper force settings" hidden>
+        <strong>Gripper force limit</strong>
+        <div id="gripper-controls"></div>
+        <small>Applied dynamically when resistance is detected (1–100 N).</small>
+      </section>
       <section id="cameras" class="cameras" aria-label="Live RGB cameras"></section>
       <section class="bottom-bar" aria-label="Episode and collected demo controls">
+        <div class="episode-limit-control">
+          <form id="episode-length-form" novalidate>
+            <label class="limit-toggle" for="episode-limit-enabled">
+              <input id="episode-limit-enabled" type="checkbox" disabled>
+              Episode limit
+            </label>
+            <div class="limit-fields">
+              <label for="episode-length">Auto-save after</label>
+              <input id="episode-length" type="number" min="1" step="1" value="3000" inputmode="numeric" aria-describedby="episode-length-hint" disabled>
+              <span>frames</span>
+              <button id="set-episode-length" type="submit" disabled>Apply</button>
+            </div>
+          </form>
+          <small id="episode-length-status" aria-live="polite">Waiting for collector…</small>
+          <small id="episode-length-hint">Waiting for collector support. Restart teleop after finishing the current take if needed.</small>
+        </div>
         <div class="demo-launch">
           <button id="open-demos" class="demo-button">Collected demos</button>
         </div>
@@ -79,6 +100,6 @@
         </section>
       </div>
     </dialog>
-    <script type="module" src="/app.js?v=12"></script>
+    <script type="module" src="/app.js?v=14"></script>
   </body>
 </html>

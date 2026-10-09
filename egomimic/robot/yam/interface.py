@@ -4,6 +4,7 @@ import copy
 import inspect
 import threading
 import time
+from functools import partial
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -106,7 +107,28 @@ class YamInterface:
                 # value after construction instead of mutating private state.
                 if "limit_gripper_force" in inspect.signature(get_yam_robot).parameters:
                     kwargs["limit_gripper_force"] = self.gripper_force_limit
-                return get_yam_robot(**kwargs)
+                driver = get_yam_robot(**kwargs)
+                if (
+                    "limit_gripper_force"
+                    not in inspect.signature(get_yam_robot).parameters
+                ):
+                    setter = getattr(driver, "set_gripper_force_limit", None)
+                    if self.gripper_force_limit != 50.0:
+                        if callable(setter):
+                            setter(self.gripper_force_limit)
+                        else:
+                            limiter = getattr(driver, "_gripper_force_limiter", None)
+                            if limiter is None:
+                                raise RuntimeError(
+                                    "Installed i2rt driver cannot set gripper force"
+                                )
+                            limiter.max_force = self.gripper_force_limit
+                            limiter.gripper_force_torque_map = partial(
+                                limiter._gripper_force_torque_map,
+                                gripper_force=self.gripper_force_limit,
+                            )
+                            driver._limit_gripper_force = self.gripper_force_limit
+                return driver
 
         solver_factory = solver_factory or MujocoArmKinematics
         try:
@@ -163,6 +185,39 @@ class YamInterface:
             f"YAM startup: {arm} gripper Kp={kp:g}, Kd={kd:g}, "
             f"force limit={force_limit:g} N"
         )
+
+    def set_gripper_force_limit(
+        self, force_limit: float, arm: str | None = None
+    ) -> dict[str, float]:
+        """Update one or all follower gripper limits during teleoperation."""
+        force_limit = float(force_limit)
+        if not np.isfinite(force_limit) or force_limit <= 0 or force_limit > 50:
+            raise ValueError("Gripper force limit must be in (0, 50] N")
+        arms = self.arms if arm is None else [arm]
+        if any(selected not in self.controller for selected in arms):
+            raise ValueError("Unknown Yam arm")
+        for selected in arms:
+            setter = getattr(self.controller[selected], "set_gripper_force_limit", None)
+            if callable(setter):
+                setter(force_limit)
+                continue
+            # Compatibility path for i2rt releases predating the public setter.
+            limiter = getattr(self.controller[selected], "_gripper_force_limiter", None)
+            if limiter is None:
+                raise RuntimeError(f"YAM {selected} driver cannot change gripper force")
+            limiter.max_force = force_limit
+            limiter.gripper_force_torque_map = partial(
+                limiter._gripper_force_torque_map, gripper_force=force_limit
+            )
+            self.controller[selected]._limit_gripper_force = force_limit
+        if arm is None:
+            self.gripper_force_limit = force_limit
+        return {
+            selected: float(
+                self.controller[selected].get_robot_info()["limit_gripper_effort"]
+            )
+            for selected in arms
+        }
 
     def get_joints(self, arm):
         return joint_vector(self.controller[arm].get_joint_pos())

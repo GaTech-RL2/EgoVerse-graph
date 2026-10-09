@@ -118,6 +118,7 @@ def test_real_small_dp_uses_128_condition_and_preserves_u_gripper_mask():
         'pushshapes_sim_u_socket': 4, 'pushshapes_sim_chain_gripper': 5})
     loss = loss_stage({'diffusion/predicted_noise': prediction,
                       'diffusion/noise_target': torch.randn_like(prediction),
+                      'target': torch.zeros_like(prediction),
                       'embodiment': torch.tensor([19, 19])})['loss/diffusion_noise']
     loss.backward()
     assert torch.isfinite(loss) and torch.count_nonzero(prediction.grad[..., 4]) == 0

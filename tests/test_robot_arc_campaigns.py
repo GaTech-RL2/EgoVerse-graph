@@ -5,12 +5,16 @@ import pytest
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 
+from egomimic.rldb.zarr.e1_arc_tokenizer import speed_columns_to_durations
 from egomimic.robot.arc_decoder import ARC_TOKEN_LAYOUTS, BimanualArcDecoder
 
 
 @pytest.mark.parametrize("layout", ARC_TOKEN_LAYOUTS)
 def test_decoder_matches_source_codec(layout):
-    decoder = BimanualArcDecoder(layout, resampled_vector_length=20, action_horizon=40)
+    # Whole-token decode: the codec comparison below is not about chunk termination.
+    decoder = BimanualArcDecoder(
+        layout, resampled_vector_length=20, action_horizon=40, first_stream=0
+    )
     values = np.zeros(decoder.shape)
     t = np.linspace(0, 1, 20)
     values[:20, 0] = 0.3 * t
@@ -28,7 +32,17 @@ def test_decoder_matches_source_codec(layout):
         values[20:, [6, 13]] = 0.0
     elif layout == "cartesian_duration":
         values[20:, [0, 7]] = 1 / 30
-    expected = decoder.codec.detokenize(values, action_horizon=40)
+    source = values
+    if layout in ("e1_profhyb", "e1_proftri"):
+        # Speed columns: the decoder converts them to durations on the whole token
+        # first, and its codec runs in the matching duration mode.
+        source = speed_columns_to_durations(
+            values,
+            tri=layout == "e1_proftri",
+            hold_time=39 / 30,
+            eps=decoder.codec.tokenizer.config.zero_dist_epsilon,
+        )
+    expected = decoder.codec.detokenize(source, action_horizon=40)
     np.testing.assert_array_equal(decoder(values)[0], expected)
     with pytest.raises(ValueError):
         decoder(values[:-1])

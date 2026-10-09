@@ -35,7 +35,7 @@ def test_lab_pw_layouts_decode_with_the_pr193_codec(layout, shape):
         velocity_mode="per_waypoint", velocity_layout=layout)
     token = codec.transform({"actions_cartesian": _chunk()})["actions_cartesian"]
     assert token.shape == shape
-    decoder = BimanualArcDecoder(f"lab_pw_{layout}", 0.4, M, DT, 100)
+    decoder = BimanualArcDecoder(f"lab_pw_{layout}", 0.4, M, DT, 100, first_stream=0)
     assert decoder.shape == shape
     np.testing.assert_array_equal(decoder(token)[0], codec.detokenize(token, action_horizon=100))
 
@@ -61,7 +61,7 @@ def test_lab_pw_rejects_the_other_layout_and_scales_uniformly():
     token = codec.transform({"actions_cartesian": _chunk()})["actions_cartesian"]
     with pytest.raises(ValueError):
         BimanualArcDecoder("lab_pw_stacked", 0.4, M, DT, 100)(token)
-    decoder = BimanualArcDecoder("lab_pw_wide", 0.4, M, DT, 100)
+    decoder = BimanualArcDecoder("lab_pw_wide", 0.4, M, DT, 100, first_stream=0)
     decoder.set_speed(2.0)
     fast = pr193.TokenizeBimanualArcLengthCartesian(
         min_distance_unit=0.4, resampled_vector_length=M, dt=2 * DT,
@@ -123,7 +123,7 @@ def test_hybrid_decoder_shape_and_valid_steps_cover_the_late_turn():
     token[:, 3] = np.linspace(0.0, 1.0, M)
     token[: M - 1, 16] = 1.0 / (M - 1)
     token[M - 1, 16] = 1.0  # turn runs 1.0 .. 2.0 s, translation ends at 0.5 s
-    decoder = BimanualArcDecoder("e1_durhyb", 0.4, M, DT, 100)
+    decoder = BimanualArcDecoder("e1_durhyb", 0.4, M, DT, 100, first_stream=0)
     assert decoder.shape == (M, 18)
     out = decoder(token)
     assert out.shape == (1, 100, 14)

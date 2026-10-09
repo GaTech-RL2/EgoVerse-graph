@@ -62,12 +62,10 @@ from egomimic.rldb.zarr.e1_arc_tokenizer import (
     ARM_LAYOUT,
     E1_HYBRID_DIM,
     E1_TRI_DIM,
-    HYBRID_ROT_EPS,
     TokenizeBimanualArcLengthE1,
-    _geodesic_total,
     speed_columns_to_durations,
 )
-from egomimic.robot.arc_speed import ARC_SPEED_RANGE, validate_arc_speed  # noqa: F401
+from egomimic.robot.arc_speed import validate_arc_speed
 
 E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile",
                     "e1_durhyb": "durhyb", "e1_profhyb": "profhyb",
@@ -205,9 +203,6 @@ class ChunkTermination:
     @execute_percent.setter
     def execute_percent(self, percent):
         self._execute_percent = check_execute_percent(self.M, percent)
-
-    def check_execute_percent(self, percent):
-        return check_execute_percent(self.M, percent)
 
 
 class ReplayTempo:
@@ -466,10 +461,10 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
                 if codec.velocity_mode == "duration":
                     stored = timing[:-1, off]
                 else:
-                    stored = np.divide(travel, np.linalg.norm(timing[:-1, off : off + 3], axis=1),
-                                       out=np.zeros_like(travel), where=travel > 1e-12)
-                rate_ok = (stored > 1e-8) if codec.velocity_mode == "duration" else (
-                    np.linalg.norm(timing[:-1, off : off + 3], axis=1) > 1e-8)
+                    norm = np.linalg.norm(timing[:-1, off : off + 3], axis=1)
+                    stored = np.divide(travel, norm, out=np.zeros_like(travel),
+                                       where=(travel > 1e-12) & (norm > 1e-8))
+                rate_ok = (stored > 1e-8) if codec.velocity_mode == "duration" else (norm > 1e-8)
                 moving = travel > 1e-12
                 clocks.append(np.where(moving & rate_ok, stored, np.where(moving, self.dt * (h + 1), 0.0)))
         return [float(np.sum(clock)) for clock in clocks if np.sum(clock) > 1e-12]
@@ -536,24 +531,16 @@ class FirstStreamArcDecoder(ChunkTermination):
         return self._decode(values[0])[None]
 
     def _stream_durations(self, waypoints, timing):
-        """Seconds each of the four streams takes over the retained prefix. A
-        moving interval with no usable timing costs more than the horizon."""
+        """Seconds each of the four streams takes over the retained prefix, exactly
+        as the codec will execute them: a moving interval with no usable timing
+        costs more than the horizon, except a malformed terminal rotation rate,
+        which the codec finishes in one control step."""
         h = self.action_horizon
-        stalled = self.dt * (h + 1)
-        durations = []
-        for offset in (0, 7):
-            for rotation in (False, True):
-                columns = slice(offset + 3, offset + 6) if rotation else slice(offset, offset + 3)
-                travel = (np.diff(m28.cumulative_rotation_length(waypoints[:, columns])) if rotation
-                          else np.linalg.norm(np.diff(waypoints[:, columns], axis=0), axis=1))
-                if self.velocity_mode == "duration":
-                    rate = timing[:-1, offset + 3 if rotation else offset]
-                else:
-                    rate = np.linalg.norm(timing[:-1, columns], axis=1)
-                invalid = (travel > 1e-12) & ((rate <= 1e-8) | ~np.isfinite(rate))
-                clock = self.codec._arm_durations(waypoints, timing, offset, h, rotation=rotation)
-                durations.append(float(np.sum(np.where(invalid, stalled, clock))))
-        return durations
+        return [
+            float(np.sum(self.codec._arm_durations(waypoints, timing, offset, h, rotation=rotation)))
+            for offset in (0, 7)
+            for rotation in (False, True)
+        ]
 
     def _decode(self, row):
         h = self.action_horizon
@@ -647,9 +634,10 @@ def main():
     parser.add_argument("--arc-hold-threshold", type=float, default=0.05,
                         help="path speed in m/s under which both arms count as holding")
     args = parser.parse_args()
+    # The offline CLI writes the whole decode, as before fastest-stream termination.
     decoder = BimanualArcDecoder(args.arc_token_layout, args.arc_min_distance_unit,
                                 args.arc_resampled_vector_length, args.arc_dt, args.arc_rollout_horizon,
-                                hold_threshold=args.arc_hold_threshold)
+                                hold_threshold=args.arc_hold_threshold, first_stream=0)
     decoder.set_speed(args.arc_speed, args.arc_hold_speed)
     result = decoder(np.load(args.tokens, allow_pickle=False))
     with open(args.output, "xb") as output:

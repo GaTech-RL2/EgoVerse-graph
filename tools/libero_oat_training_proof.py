@@ -24,10 +24,14 @@ def validate_optimizer_coverage(nets, params, family):
     selected = {id(p) for p in params}
     assert active <= selected, 'Optimizer omits trainable parameters'
     assert selected <= set(named), 'Optimizer includes parameters outside the model'
+    from egomimic.models.oat.model.common.normalizer import LinearNormalizer
+    frozen_normalizers = {id(p) for owner in nets.modules()
+                          if type(owner) is LinearNormalizer for p in owner.parameters()}
     for identity in selected - active:
         name, parameter = named[identity]
-        assert family == 'dp' and name.endswith('._dummy_variable')
-        assert not parameter.requires_grad and parameter.numel() == 0
+        assert family == 'dp' and not parameter.requires_grad, (name, parameter.shape)
+        if identity not in frozen_normalizers:
+            assert name.endswith('._dummy_variable') and parameter.numel() == 0, (name, parameter.shape)
     return {'trainable_parameters_covered':len(active),
             'released_frozen_bookkeeping':[named[i][0] for i in sorted(selected-active)]}
 

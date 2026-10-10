@@ -463,6 +463,20 @@ class GraphRobotPolicy:
 
 
 def load_graph_policy(config):
+    legacy = sorted(
+        set(config)
+        & {
+            "inference_graph",
+            "inference_profiles",
+            "auto_inference_config",
+            "num_inference_steps",
+        }
+    )
+    if legacy:
+        raise ValueError(
+            f"Obsolete station inference settings {legacy}; use the model-owned "
+            "checkpoint-bound inference-config.yaml and its typed controls"
+        )
     training = OmegaConf.load(config["training_config"])
     device = validate_graph_device(str(config["device"]))
     inference_config_path = config.get("inference_config")
@@ -507,10 +521,6 @@ def load_graph_policy(config):
     if inference_profiles is not None:
         inference_controls = configure_profile_controls(
             graph, training, inference_profiles, decoder=adapter.decoder
-        )
-    elif "num_inference_steps" in config:
-        raise ValueError(
-            "Move num_inference_steps into the model-owned typed inference controls"
         )
     graph.nets.eval()
     return GraphRobotPolicy(

@@ -53,6 +53,11 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   and resets on Restart. Keep numeric/boolean/enum controls model-owned.
 - `graph_policy.py`: strict PipelineAlgo checkpoint loading, full normalization
   state, camera/proprio mapping and explicit Cartesian action-frame conversion.
+  Station YAML must not contain legacy inline `inference_graph` profiles or
+  inferred sampler defaults. Keep model semantics in the checkpoint-bound
+  model declaration and prefer full `data-context.json` bundle sidecars.
+  Documentation-only inference fragments belong under `docs/examples`, not
+  the selectable Hydra model tree; a fragment is not a complete model recipe.
 - `replay_policy.py`: read-only Zarr joint replay, including split
   `rl2_yam.episode.v1` actions; require completed stores and bound reads by
   `committed_samples`/`total_frames` and EOF.

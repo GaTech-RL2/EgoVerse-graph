@@ -257,6 +257,15 @@ bundle. Rollout discovers either that generic name or the immutable
 the exact resolved `model.pipeline`, inference declaration and data context;
 station
 camera maps, calibration, prompt, and safety limits stay in the rollout YAML.
+Do not put `inference_graph`, inferred family profiles or sampler defaults in
+the station policy. The loader rejects these obsolete settings rather than
+silently ignoring them. The checkpoint picker prefers `data-context.json`
+(including run-prefixed names); a historical `norm_stats.json` filename does
+not exempt its contents from the full-context and checkpoint-binding checks.
+The RL2 template requires explicit bundle paths through
+`YAM_HPTFLOW_TRAINING_CONFIG`, `YAM_HPTFLOW_CHECKPOINT`, and
+`YAM_HPTFLOW_NORMALIZER` (the full data-context file, despite the legacy variable
+name). There is no fallback to an old unbound checkpoint.
 To verify and re-export a sidecar for an already-bound checkpoint:
 
 ```bash
@@ -314,7 +323,7 @@ EEF pose at inference time. `model_frame` instead uses the configured calibratio
 Predictions are unnormalized once before decoding/frame reversion. A generated
 ARC artifact contains the schema-2 model declaration and immutable binding
 hashes; it is generated, not hand-written. The explicit model-owned example
-[`station_arc_duration.yaml`](../egomimic/hydra_configs/model/inference/station_arc_duration.yaml)
+[`station_arc_duration.yaml`](examples/station_arc_duration.yaml)
 declares the decoder, per-interval timing, sampler budget, waypoint cap,
 fastest-stream toggle, replay tempo, and hold tempo. Adapt its frame, observation
 keys, stage identifier, native shape and codec to the exact recipe **before**

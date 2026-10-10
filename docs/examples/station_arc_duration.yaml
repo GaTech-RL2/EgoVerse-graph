@@ -1,5 +1,5 @@
-# @package model.inference
 # Explicit example for a 100-waypoint, 16D E1 duration policy, not a migration.
+# Documentation fragment, not a standalone selectable Hydra model.
 # Compose/copy into the exact model recipe BEFORE training/exporting its bundle.
 # Change sampler stage_id, input keys, frame, shapes and codec to that recipe.
 input:

@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def declared_profile():
     config = training_config(horizon=100, action_dim=16)
     config.model.inference = OmegaConf.load(
-        ROOT / "egomimic/hydra_configs/model/inference/station_arc_duration.yaml"
+        ROOT / "docs/examples/station_arc_duration.yaml"
     )
     return config
 
@@ -62,6 +62,13 @@ def test_yaml_owns_decoder_controls_and_export_stays_schema2():
     )
     assert decoder.speed == 2.0 and decoder.first_stream == 0
     assert controls["arc_speed_percent"].public()["value"] == 200
+
+
+def test_documentation_fragment_is_not_a_selectable_training_model():
+    assert not (
+        ROOT / "egomimic/hydra_configs/model/inference/station_arc_duration.yaml"
+    ).exists()
+    assert (ROOT / "docs/examples/station_arc_duration.yaml").is_file()
 
 
 def test_no_decoder_controls_are_injected_into_models_that_do_not_declare_them():

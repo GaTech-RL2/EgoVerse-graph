@@ -278,6 +278,22 @@ def test_checkpoint_load_applies_flow_euler_override(tmp_path):
     assert policy.execution_plan(np.zeros((2, 14))).shape == (1, 14)
 
 
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "inference_graph",
+        "inference_profiles",
+        "auto_inference_config",
+        "num_inference_steps",
+    ],
+)
+def test_loader_rejects_obsolete_station_inference_before_opening_artifacts(setting):
+    # The old fields must not be silently ignored, re-inferred or migrated.
+    # No training/config/checkpoint path is needed to reject this boundary.
+    with pytest.raises(ValueError, match="Obsolete station inference settings"):
+        load_graph_policy({setting: {}})
+
+
 def test_graph_normalizes_proprio_and_unnormalizes_actions_once():
     stage = EchoStage()
     policy = GraphRobotPolicy(

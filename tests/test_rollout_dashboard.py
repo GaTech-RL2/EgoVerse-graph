@@ -431,6 +431,47 @@ def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
     )
 
 
+@pytest.mark.parametrize("prefixed", [False, True])
+def test_checkpoint_browser_accepts_full_context_without_normalizer_cache(
+    tmp_path, prefixed
+):
+    checkpoint = tmp_path / "run__epoch-0-step-1__sha256-abcd.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (tmp_path / "resolved-config.yaml").write_text("model: {}\n")
+    context = tmp_path / ("run.data-context.json" if prefixed else "data-context.json")
+    context.write_text("{}\n")
+    browser = CheckpointBrowser(tmp_path)
+    bundle = browser.resolve_bundle(checkpoint.name)
+    assert bundle.normalizer_path == context.resolve()
+    assert (
+        browser.validate_policy(
+            {
+                "checkpoint": str(checkpoint),
+                "training_config": str(bundle.training_config),
+                "normalizer_path": str(context),
+            }
+        )
+        == bundle
+    )
+    # Discovery does not claim valid contents; the bound loader checks those.
+
+
+def test_checkpoint_browser_prefers_full_context_over_legacy_stats_filename(tmp_path):
+    checkpoint = tmp_path / "run__epoch-0-step-1__sha256-abcd.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (tmp_path / "resolved-config.yaml").write_text("model: {}\n")
+    for name in ("run.norm_stats.json", "norm_stats.json", "data-context.json"):
+        (tmp_path / name).write_text("{}\n")
+    browser = CheckpointBrowser(tmp_path)
+    assert browser.resolve_bundle(checkpoint.name).normalizer_path.name == (
+        "data-context.json"
+    )
+    (tmp_path / "run.data-context.json").write_text("{}\n")
+    assert browser.resolve_bundle(checkpoint.name).normalizer_path.name == (
+        "run.data-context.json"
+    )
+
+
 def test_dashboard_model_selection_reaches_only_rollout_loop(tmp_path):
     root = tmp_path / "models"
     root.mkdir()
@@ -618,26 +659,9 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
     assert "execute_steps" not in profile
-    inference = profile["policy"]["inference_graph"]
-    assert inference["input"]["history_length"] == 1
-    assert inference["output"] == {
-        "representation": "cartesian",
-        "shape": [100, 14],
-    }
-    profiles = inference["profiles"]
-    assert all(
-        profiles[name]["overrides"]["inference_steps"]["default"] == 10
-        for name in ("flow_time", "flow_arcvel", "flow_arcdur")
-    )
-    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["default"] == 100
-    assert all(
-        model["overrides"]["replan_every"]["default"] == 30
-        for model in profiles.values()
-    )
-    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["target"] == {
-        "kind": "stage_attribute",
-        "attribute_path": "policy.num_inference_steps",
-    }
+    assert "inference_graph" not in profile["policy"]
+    assert profile["policy"]["checkpoint"] == "${oc.env:YAM_HPTFLOW_CHECKPOINT}"
+    assert profile["policy"]["normalizer_path"] == "${oc.env:YAM_HPTFLOW_NORMALIZER}"
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert profile["video_recording"] == {
@@ -653,6 +677,21 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "front_img_1",
         "left_wrist_img",
         "right_wrist_img",
+    }
+
+
+@pytest.mark.parametrize(
+    "name", ["eva_rollout.yaml", "yam_rollout.yaml", "yam_rl2_hptflow_rollout.yaml"]
+)
+def test_station_templates_do_not_declare_model_inference(name):
+    policy = yaml.safe_load((ROOT / "egomimic/hydra_configs/robot" / name).read_text())[
+        "policy"
+    ]
+    assert not set(policy) & {
+        "inference_graph",
+        "inference_profiles",
+        "auto_inference_config",
+        "num_inference_steps",
     }
 
 

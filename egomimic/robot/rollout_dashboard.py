@@ -202,7 +202,15 @@ class CheckpointBrowser:
                 "resolved-config.yaml",
                 "training-config.yaml",
             ),
-            "normalizer_path": (f"{run_prefix}.norm_stats.json", "norm_stats.json"),
+            # Resolve the complete saved context first. Legacy filenames are
+            # discovery aliases only: load_bound_graph still validates contents
+            # and immutable binding, never a statistics-only fallback.
+            "normalizer_path": (
+                f"{run_prefix}.data-context.json",
+                "data-context.json",
+                f"{run_prefix}.norm_stats.json",
+                "norm_stats.json",
+            ),
         }.items():
             for name in names:
                 candidate = path.parent / name

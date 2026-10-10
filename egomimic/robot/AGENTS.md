@@ -45,6 +45,12 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   activation after the open-then-squeeze gate, and validate-both-before-commanding
   guard. Do not add a GELLO repo dependency.
 - `rollout.py`: shared rollout loop. Inference uses only the local graph path.
+  Preserve main's failed-model-selection lockout; never resume the old model
+  implicitly. HDF5 episode capture must enqueue existing observations/commands
+  without adding a motion path or blocking a control tick on disk writes.
+- `rollout_dashboard.py`: the server-owned monotonic timer starts at Continue,
+  excludes explicit pauses and camera/model holds, survives browser reconnects,
+  and resets on Restart. Keep numeric/boolean/enum controls model-owned.
 - `graph_policy.py`: strict PipelineAlgo checkpoint loading, full normalization
   state, camera/proprio mapping and explicit Cartesian action-frame conversion.
 - `replay_policy.py`: read-only Zarr joint replay, including split
@@ -52,6 +58,12 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   `committed_samples`/`total_frames` and EOF.
 - `arc_decoder.py`: decode native ARC predictions before frame conversion and IK.
   E1 timing channels follow all 14 pose channels; they are not interleaved.
+  Decoder settings belong to explicit model YAML `decoder_attribute` controls;
+  never append controls based on a model class or inferred token width. Preserve
+  `arc_codecs/` checkpoint-era copies separately from current training codecs.
+  Generic inference consumes an optional `execution_steps()` capability, not
+  ARC-specific statistics. Keep immutable DataContext/checkpoint binding and
+  schema-2 artifacts; do not restore the legacy inferred exporter/JSON loader.
 - `oculus_reader/`: the pinned RAIL/Yam APK, matching source, and Python reader.
   The bundled app emits tracking-origin/world poses under the established
   `wE9ryARX` tag; the reader is world-only and rejects a head-frame mode. Keep the

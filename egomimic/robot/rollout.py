@@ -11,6 +11,10 @@ from omegaconf import OmegaConf
 
 from egomimic.robot.cameras import CameraView
 from egomimic.robot.interface import ARM_OFFSET, create_robot, joint_vector
+from egomimic.robot.rollout_episode import (
+    RolloutEpisodeRecorder,
+    validate_episode_recording,
+)
 from egomimic.robot.rollout_video import RolloutVideoRecorder, validate_video_recording
 
 
@@ -44,6 +48,7 @@ def validate_rollout_config(config):
         )
     preview = dict(config.get("preview", {}))
     validate_video_recording(config.get("video_recording"))
+    validate_episode_recording(config.get("episode_recording"))
     policy = config.get("policy")
     if not isinstance(policy, dict):
         raise ValueError("Rollout configuration needs a policy mapping")
@@ -70,6 +75,7 @@ def create_preview_view(
     video_recording=None,
     model_browser=None,
     policy=None,
+    episode_recording=None,
 ):
     """Select the legacy OpenCV preview or the local browser dashboard."""
     preview = dict(preview)
@@ -80,6 +86,7 @@ def create_preview_view(
             camera_res,
             inference_controls=inference_controls,
             video_recording=video_recording,
+            episode_recording=episode_recording,
             model_browser=model_browser,
             policy=policy,
             **preview,
@@ -188,6 +195,56 @@ def _set_video_recording(view, recording: bool, saved=None) -> None:
         set_recording(recording, saved=saved)
 
 
+def _take_episode_request(view):
+    """Consume one browser-only episode request: start, save with an outcome, or discard."""
+    take = getattr(view, "take_episode_request", None)
+    request = take() if callable(take) else None
+    return request if isinstance(request, Mapping) else None
+
+
+def _set_episode_recording(view, recording: bool, frames: int = 0, saved=None) -> None:
+    """Publish episode-recorder state without giving the dashboard a write path."""
+    publish = getattr(view, "set_episode_recording", None)
+    if callable(publish):
+        publish(recording, frames=frames, saved=saved)
+
+
+def _episode_actions(robot, commands, row, action_type):
+    """Demo-format action columns for one executed tick.
+
+    As the GELLO collector records: the joint command sent to each arm and the
+    forward kinematics of that command (+ gripper); unselected arms stay zero
+    like ``get_obs``. The policy's own Cartesian target is kept separately.
+    """
+    joints, eepose = np.zeros(14), np.zeros(14)
+    for arm, command in commands.items():
+        offset = ARM_OFFSET[arm]
+        joints[offset : offset + 7] = command
+        pose = np.asarray(robot.forward_kinematics(command[:6], arm), dtype=float)
+        eepose[offset : offset + 7] = np.r_[pose, command[6]]
+    target = (
+        np.asarray(row, dtype=float)
+        if action_type == "cartesian"
+        else np.full(14, np.nan)
+    )
+    return joints, eepose, target
+
+
+def _plan_info(policy) -> dict:
+    """Inference settings and decoder stats that produced one plan, for the episode."""
+    controls = {
+        name: spec.get("value")
+        for name, spec in _policy_inference_controls(policy).items()
+        if isinstance(spec, Mapping)
+    }
+    decoder = getattr(getattr(policy, "adapter", None), "decoder", None)
+    stats = getattr(decoder, "last_stats", None)
+    return {
+        "controls": controls,
+        "decoder": dict(stats) if isinstance(stats, Mapping) else None,
+    }
+
+
 def _reset_policy_state(policy) -> None:
     """Reset inference-owned history without exposing model details to rollout."""
     reset = getattr(policy, "reset", None)
@@ -225,6 +282,7 @@ def run_rollout(robot, policy, config, view=None):
         video_recording=config.get("video_recording"),
         model_browser=config.get("model_browser"),
         policy=policy_config,
+        episode_recording=config.get("episode_recording"),
     )
     video_config = validate_video_recording(config.get("video_recording"))
     video_recorder = (
@@ -233,6 +291,13 @@ def run_rollout(robot, policy, config, view=None):
         else None
     )
     video_recording = False
+    episode_config = validate_episode_recording(config.get("episode_recording"))
+    episode_recorder = (
+        RolloutEpisodeRecorder(robot.camera_res, episode_config)
+        if episode_config["enabled"]
+        else None
+    )
+    episode_end_reason = "stop"
     reset_on_start = config.get("reset_on_start", False)
     reset_home_on_restart = config.get("reset_home_on_restart", False)
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
@@ -281,6 +346,44 @@ def run_rollout(robot, policy, config, view=None):
             )
         return saved
 
+    def finish_episode(outcome="unlabeled", complete=True, end_reason="saved"):
+        """Stop episode capture; the recorder finalizes the file off the control loop."""
+        if episode_recorder is None or not episode_recorder.recording:
+            return None
+        try:
+            episode_id = episode_recorder.close(
+                outcome=outcome, complete=complete, end_reason=end_reason
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"Could not finalize rollout episode: {error}")
+            episode_id = None
+        _set_episode_recording(view, False, frames=episode_recorder.frames)
+        return episode_id
+
+    def publish_finished_episodes():
+        if episode_recorder is None:
+            return
+        for result in episode_recorder.take_finished():
+            saved = result["saved"]
+            if result["error"]:
+                print(
+                    f"Could not save rollout episode {result['id']}: {result['error']}"
+                )
+            elif result["discarded"]:
+                print(f"Discarded rollout episode {result['id']}")
+            elif saved is not None:
+                state = "complete" if saved["complete"] else "incomplete"
+                print(
+                    f"Saved rollout episode {saved['filename']} ({saved['frames']} "
+                    f"frames, {saved['outcome']}, {state}: {saved['end_reason']})"
+                )
+            _set_episode_recording(
+                view,
+                episode_recorder.recording,
+                frames=episode_recorder.frames,
+                saved=saved,
+            )
+
     try:
         _reset_policy_state(policy)
         if reset_on_start:
@@ -300,6 +403,7 @@ def run_rollout(robot, policy, config, view=None):
                 # GPU checkpoint load. Old-model chunks are discarded and the
                 # operator must explicitly start the new model after it loads.
                 finish_video_recording()
+                finish_episode(complete=False, end_reason="model_change")
                 queue.clear()
                 pending_inference_overrides.clear()
                 last = np.asarray(obs["joint_positions"], dtype=float).copy()
@@ -392,6 +496,7 @@ def run_rollout(robot, policy, config, view=None):
                 if callable(clear_plan):
                     clear_plan()
                 finish_video_recording()
+                finish_episode(complete=False, end_reason="camera_reconnect")
                 _set_view_status(
                     view, "Reconnecting RGB cameras — rollout control is paused"
                 )
@@ -412,8 +517,10 @@ def run_rollout(robot, policy, config, view=None):
             if control in ("r", "R"):
                 # Restart never reuses a queued target. The HPT profile also
                 # returns both followers to their configured home before c can
-                # begin the next policy rollout.
+                # begin the next policy rollout. An episode still recording is
+                # kept as a complete, unlabeled take.
                 finish_video_recording()
+                finish_episode(end_reason="restart")
                 reset_to_ready()
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
@@ -460,20 +567,69 @@ def run_rollout(robot, policy, config, view=None):
                 except (OSError, RuntimeError, ValueError) as error:
                     print(f"Rollout video recording stopped: {error}")
                     finish_video_recording()
+            episode_request = _take_episode_request(view)
+            if episode_request is not None and episode_recorder is not None:
+                action = episode_request.get("action")
+                if action == "start" and not episode_recorder.recording:
+                    if not started:
+                        _set_view_status(
+                            view, "Press c to start before recording an episode"
+                        )
+                    elif not callable(getattr(robot, "forward_kinematics", None)):
+                        _set_view_status(
+                            view,
+                            "This robot runtime has no forward kinematics; "
+                            "cannot record a demo-format episode",
+                        )
+                    else:
+                        metadata = {
+                            "checkpoint": (policy_config or {}).get("checkpoint"),
+                            "policy_config": policy_config,
+                            "action_type": policy.action_type,
+                            "frequency": frequency,
+                        }
+                        try:
+                            episode_id = episode_recorder.start(metadata)
+                        except (OSError, RuntimeError, ValueError) as error:
+                            print(f"Could not start rollout episode recording: {error}")
+                            _set_view_status(view, f"Episode not started: {error}")
+                        else:
+                            _set_episode_recording(view, True, frames=0)
+                            print(f"Recording rollout episode {episode_id}.hdf5")
+                elif action == "save":
+                    finish_episode(
+                        outcome=episode_request.get("outcome", "unlabeled"),
+                        end_reason="saved",
+                    )
+                elif action == "discard" and episode_recorder.discard() is not None:
+                    _set_episode_recording(view, False, frames=0)
+            if episode_recorder is not None:
+                if episode_recorder.recording and episode_recorder.failure:
+                    reason = episode_recorder.failure
+                    finish_episode(complete=False, end_reason=reason)
+                    _set_view_status(
+                        view,
+                        "Episode recording stopped: "
+                        + (
+                            "disk space is low"
+                            if reason == "low_disk"
+                            else "writer error"
+                        ),
+                    )
+                publish_finished_episodes()
             if paused:
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue
             if not started:
                 if control in ("c", "C"):
-                    if model_ready:
-                        started = True
-                        _set_view_status(view, "Running")
-                    else:
+                    if not model_ready:
                         _set_view_status(
                             view,
                             "MODEL LOAD FAILED — rollout locked; select a valid model",
                         )
                         continue
+                    started = True
+                    _set_view_status(view, "Running")
                 else:
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
@@ -515,7 +671,12 @@ def run_rollout(robot, policy, config, view=None):
                 # Each policy owns its execution/replanning semantics. Replay
                 # returns the full chunk; graph inference returns the profile's
                 # operator-selected executable prefix.
-                queue.extend(_policy_execution_plan(policy, prediction))
+                plan = _policy_execution_plan(policy, prediction)
+                queue.extend(plan)
+                if episode_recorder is not None and episode_recorder.recording:
+                    episode_recorder.mark_plan(
+                        prediction, len(plan), inference_seconds, _plan_info(policy)
+                    )
             row = queue.popleft()
             commands = {}
             violations = []
@@ -576,6 +737,7 @@ def run_rollout(robot, policy, config, view=None):
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
                 if decision == "restart":
+                    finish_episode(end_reason="restart")
                     reset_to_ready()
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
@@ -607,13 +769,37 @@ def run_rollout(robot, policy, config, view=None):
                 robot.set_joints(command, arm)
                 offset = ARM_OFFSET[arm]
                 last[offset : offset + 7] = command
+            if episode_recorder is not None and episode_recorder.recording:
+                # One demo-format row per executed tick: this tick's observation
+                # and the paired command just sent. Recording never blocks or
+                # interrupts control; a failure only ends the episode.
+                try:
+                    joints, eepose, target = _episode_actions(
+                        robot, commands, row, policy.action_type
+                    )
+                    episode_recorder.append(obs, joints, eepose, target)
+                except (KeyError, TypeError, ValueError) as error:
+                    print(f"Rollout episode recording stopped: {error}")
+                    finish_episode(complete=False, end_reason="writer_error")
+                else:
+                    _set_episode_recording(view, True, frames=episode_recorder.frames)
             velocity_replans = 0
             ik_rejections = 0
             step += 1
             _set_view_status(view, "Running")
             time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+    except KeyboardInterrupt:
+        raise  # an operator Ctrl-C ends the session like q
+    except BaseException:
+        episode_end_reason = "error"
+        raise
     finally:
         finish_video_recording()
+        finish_episode(complete=False, end_reason=episode_end_reason)
+        if episode_recorder is not None:
+            if not episode_recorder.wait(timeout=60):
+                print("Rollout episode is still being written; it will finish on exit")
+            publish_finished_episodes()
         view.close()
         close_policy = getattr(policy, "close", None)
         if callable(close_policy):

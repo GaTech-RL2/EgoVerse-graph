@@ -5,10 +5,10 @@ import pytest
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 
-from egomimic.robot.arc_decoder import ARC_TOKEN_LAYOUTS, BimanualArcDecoder
+from egomimic.robot.arc_decoder import BimanualArcDecoder
 
 
-@pytest.mark.parametrize("layout", ARC_TOKEN_LAYOUTS)
+@pytest.mark.parametrize("layout", ["lab", "e1_dur", "e1_logdur", "e1_profile"])
 def test_decoder_matches_source_codec(layout):
     decoder = BimanualArcDecoder(layout, resampled_vector_length=20, action_horizon=40)
     values = np.zeros(decoder.shape)

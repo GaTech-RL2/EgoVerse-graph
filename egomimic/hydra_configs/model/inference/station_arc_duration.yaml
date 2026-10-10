@@ -1,0 +1,102 @@
+# @package model.inference
+# Explicit example for a 100-waypoint, 16D E1 duration policy, not a migration.
+# Compose/copy into the exact model recipe BEFORE training/exporting its bundle.
+# Change sampler stage_id, input keys, frame, shapes and codec to that recipe.
+input:
+  history_length: 1
+  keys: [observations.images.front_img_1, observations.state.ee_pose, embodiment]
+  history_keys: [observations.images.front_img_1, observations.state.ee_pose]
+  constants: {embodiment: 7}
+native_output:
+  key: pred_action
+  representation: normalized_action
+  frame: eef_frame
+  shape: [100, 16]
+  timing: {kind: per_interval_duration, temporally_resolved: true}
+output:
+  key: actions
+  representation: cartesian
+  frame: eef_frame
+  shape: [100, 14]
+  timing: {kind: control_period, temporally_resolved: true, dt: 0.03333333333333333}
+compatibility:
+  normalizer_schema: {action_key: actions_cartesian, native_shape: [100, 16]}
+  tokenizer:
+    kind: e1_dur
+    source_revision: b1ecba6310fac41e7441a743f756362a7ca65517
+    waypoints: 100
+    distance: 0.4
+    timing: per_interval_duration
+profiles:
+  default:
+    stage_id: sampler
+    native_shape: [100, 16]
+    adapter:
+      _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+      rotation_mode: euler
+      action_frame: eef_frame
+      decoder:
+        _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
+        token_layout: e1_dur
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        dt: 0.03333333333333333
+        action_horizon: 100
+        first_stream: 1
+        execute_percent: 50
+        speed: 1.0
+        hold_speed: 1.0
+    overrides:
+      inference_steps:
+        label: Euler integration steps
+        type: integer
+        min: 1
+        max: 100
+        step: 1
+        default: 20
+        target: {kind: stage_attribute, stage_id: sampler, attribute_path: num_inference_steps}
+      replan_every:
+        label: Repredict every
+        description: Fixed prefix, used only when fastest-stream termination is off.
+        type: integer
+        min: 1
+        max: 100
+        step: 1
+        default: 30
+        target: {kind: policy_attribute, attribute_path: replan_every}
+      multistream_fastest_stream:
+        label: Fastest-stream termination
+        description: 1 ends the chunk when the first moving stream reaches its waypoint cap; 0 uses Repredict every.
+        type: integer
+        min: 0
+        max: 1
+        step: 1
+        default: 1
+        target: {kind: decoder_attribute, attribute_path: first_stream}
+      execute_waypoint_percent:
+        label: Execute first % of waypoints
+        description: Waypoint cap while fastest-stream termination is on.
+        type: integer
+        min: 2
+        max: 100
+        step: 1
+        default: 50
+        target: {kind: decoder_attribute, attribute_path: execute_percent}
+      arc_speed_percent:
+        label: Replay speed (%)
+        description: Decoder replay tempo, not a learned model speed condition.
+        type: integer
+        min: 25
+        max: 400
+        step: 5
+        default: 100
+        target: {kind: decoder_attribute, attribute_path: speed_percent}
+      arc_hold_speed_percent:
+        label: Hold speed (%)
+        description: Preserve grasp/hold time at 100 while changing moving-phase tempo.
+        type: integer
+        min: 25
+        max: 400
+        step: 5
+        default: 100
+        target: {kind: decoder_attribute, attribute_path: hold_speed_percent}

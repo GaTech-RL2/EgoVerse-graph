@@ -3,6 +3,8 @@ target-version = "py311"
 
 exclude = [
   "external",
+  # Checkpoint-era ARC compatibility codecs retain source-pinned bytes.
+  "egomimic/robot/arc_codecs",
   # Vendored released OAT implementations retain their upstream formatting.
   # First-party factory/diffusion/ARC adapters remain linted normally.
   "egomimic/models/oat/common",

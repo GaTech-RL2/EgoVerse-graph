@@ -279,15 +279,15 @@ inference mode is `graph`.
 The rollout loop has one model-independent boundary: it passes the current
 camera/proprio observation to `policy.predict()` and receives a canonical
 Cartesian action trajectory. The selected model's `inference-config.yaml` owns
-the rest of inference: optional observation history, checkpoint-stage matching,
+the rest of inference: optional observation history, stable stage identifiers,
 sampler settings, native output shape, ARC decoding, and the final output
 contract. A model with history keeps and resets that history inside the policy;
 the rollout loop does not branch on model family. Profiles fail closed unless
-exactly one checkpoint-declared stage/variant match is found. This keeps Flow,
+exactly one model-declared deployment profile resolves to its stable stage ID. This keeps Flow,
 ARC-velocity, ARC-duration, and diffusion checkpoints behind the same robot
 interface while preventing a Flow sampler override from being applied to a
-diffusion stage. `policy.inference_graph` remains only as a legacy fallback for
-checkpoint bundles created before the model-owned artifact.
+diffusion stage. Old inferred profiles are not a deployment fallback; retain the
+original runtime or perform a verified migration for unbound bundles.
 
 Each matched profile may expose a bounded `overrides` mapping. Those declarations
 are the sole source of runtime controls shown by the dashboard: the UI does not
@@ -312,66 +312,56 @@ when those frames actually coincide.
 `action_frame: eef_frame` anchors every predicted pose in a chunk to the measured
 EEF pose at inference time. `model_frame` instead uses the configured calibration.
 Predictions are unnormalized once before decoding/frame reversion. A generated
-ARC artifact contains a matching `inference_graph.profiles` entry, for example:
+ARC artifact contains the schema-2 model declaration and immutable binding
+hashes; it is generated, not hand-written. The explicit model-owned example
+[`station_arc_duration.yaml`](../egomimic/hydra_configs/model/inference/station_arc_duration.yaml)
+declares the decoder, per-interval timing, sampler budget, waypoint cap,
+fastest-stream toggle, replay tempo, and hold tempo. Adapt its frame, observation
+keys, stage identifier, native shape and codec to the exact recipe **before**
+training/exporting; this example cannot migrate existing weights by itself.
 
-```yaml
-kind: egomimic.graph-inference
-schema_version: 1
-status: ready
-model_pipeline_sha256: <sha256>
-inference_contract_sha256: <sha256>
-inference_graph_sha256: <sha256>
-inference_graph:
-    input:
-      history_length: 1
-    output:
-      representation: cartesian
-      shape: [100, 14]
-    profiles:
-      flow_arcdur:
-        match:
-          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
-          variant: arcdur
-        native_shape: [100, 16]
-        overrides:
-          inference_steps:
-            label: Euler integration steps
-            description: Number of Flow solver steps used for each prediction.
-            type: integer
-            min: 1
-            max: 100
-            step: 1
-            default: 10
-            target:
-              kind: stage_attribute
-              attribute_path: num_inference_steps
-          replan_every:
-            label: Repredict every
-            description: Execute this many actions before requesting a fresh prediction.
-            type: integer
-            min: 1
-            max: 100
-            step: 1
-            default: 30
-            target:
-              kind: policy_attribute
-              attribute_path: replan_every
-        adapter:
-          decoder:
-            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
-            token_layout: e1_dur
-            min_distance_unit: 0.4
-            resampled_vector_length: 100
-            dt: 0.03333333333333333
-            action_horizon: 100
-```
+A `decoder_attribute` control binds only to that explicitly configured decoder.
+No ARC controls are injected by Python. The generic inference consumers use the
+decoder's optional `execution_steps()` capability for a prefix; otherwise
+`replan_every` remains authoritative. Setting changes are transactional even
+when a property rejects a value. Keep percentage bounds compatible with the
+waypoint count (e.g. step 2 for M=50).
 
-Use the codec and numbers from training. Supported layouts are `lab`, `e1_dur`,
-`e1_logdur` and `e1_profile`. Decoding precedes IK. The inference policy returns
+The compatibility decoders support E1 duration/log-duration/profile, hybrid and
+tri clocks, PR193 wide/stacked tokens, M28 multistream tokens, and explicitly
+selected historical Cartesian layouts. Their checkpoint-era codec copies live
+under `robot/arc_codecs/`; current training tokenizers are unchanged. Duration
+is the decoder default; legacy mean timing is not a new-training default.
+Decoding precedes IK. The inference policy returns
 the profile-selected executable prefix; the rollout loop has no model-specific
 replanning parameter. Both arms' commands must pass the joint step limit before
 either command is sent. Camera loss pauses commands and discards the old plan.
 Quit with q/Escape or Ctrl-C.
+
+### Rollout capture and active time
+
+The dashboard's **Record episode (d)** control captures the same top-level HDF5
+observations/actions/cameras as GELLO collection. It also records policy plans,
+per-row timestamps and inference settings under `rollout/`. Save a take as
+success, failure or unlabeled; discard removes only that take. **Recorded
+episodes** lists finalized takes. MP4 capture remains available independently.
+
+The background writer uses a bounded queue. Slow disk, a full queue or low free
+space ends capture as incomplete without adding robot commands or blocking the
+control loop. Startup/save metadata still requires small filesystem operations;
+continuous image writes and finalization run on the writer thread. The RL2
+profile sets a 20 GB free-space floor. Plan records distinguish the selected
+executable prefix from actual commands; per-row commands are the execution
+evidence. Restart saves an active take as unlabeled; camera/model changes and
+abnormal exit preserve it as incomplete. Never overwrite existing data.
+
+**Rollout time** is active session time since Continue: explicit pause and
+camera/model-load holds freeze it; browser reconnect preserves it; Restart
+resets to zero. This is not a per-action motion-time measurement and does not
+subtract inference latency or safety decision wait time.
+
+After a failed checkpoint selection, execution remains locked until a valid
+model loads. The old loaded model is never resumed implicitly.
 
 ## Zarr replay and upload
 

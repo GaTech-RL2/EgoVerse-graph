@@ -17,9 +17,11 @@ what is placed on the table.
 
 The rollout dashboard server keeps a single websocket client, so connecting
 supersedes its browser tab; when the operator reopens that tab this monitor is
-superseded in turn (close code 4001) and stays disconnected until "Reconnect
-stream" is pressed, so the two never fight.  The monitor never sends a command
-to the rollout dashboard and never opens a camera or a robot.
+superseded in turn (close code 4001).  The monitor connects once when it
+starts and once per "Reconnect stream" press and never retries by itself, so
+the two never fight and a rollout launched later keeps its tab.  The monitor
+never sends a command to the rollout dashboard and never opens a camera or a
+robot.
 
 All per-station state (reference frames, tag reference, snapshots) lives in
 ``--data-dir``; nothing is written inside the repository.
@@ -965,9 +967,10 @@ class Monitor:
                     self.last_error = repr(error)
             with self.lock:
                 self.connected = False
-                if self.close_code == SUPERSEDED_CLOSE_CODE:
-                    self.superseded = True
-            await asyncio.sleep(2.0)
+                # Latch after every attempt, not only when superseded: retrying alone
+                # would take the dashboard's single socket from the operator's tab
+                # within seconds of the next rollout launch.
+                self.superseded = True
 
     # ---- HTTP
     def make_app(self):
@@ -1176,7 +1179,7 @@ const cls=(v,lim)=>v==null?'':(Math.abs(v)<lim?'good':'bad');
 const row=(k,v,c)=>`<tr><td class=k>${k}</td><td class="${c||''}">${v}</td></tr>`;
 function motionTable(m,title){if(!m)return `<h3>${title}</h3><div class=warn>no match</div>`;
  return `<h3>${title}</h3><table>${row('roll (scene turned clockwise +)',f(m.roll_deg)+'°',cls(m.roll_deg,0.15))}${row('tilt (scene down +)',f(m.tilt_deg)+'°  ('+f(m.dy_px,1)+' px)',cls(m.tilt_deg,0.15))}${row('pan (scene right +)',f(m.pan_deg)+'°  ('+f(m.dx_px,1)+' px)',cls(m.pan_deg,0.15))}${row('scale',f(m.scale,4),cls(m.scale-1,0.005))}${row('points / inliers',(m.matches||m.n)+' / '+m.inliers)}</table>`;}
-function render(m){const s=m.stream||{};let st=`<b>stream:</b> ${s.connected?'<span class=good>connected</span>':(s.superseded?'<span class=bad>superseded by the rollout dashboard tab — press Reconnect (this closes that tab)</span>':'<span class=warn>disconnected</span>')} · frames ${s.frames} · ${f(s.fps,1)} fps · analysis ${f(s.analysis_hz,1)} Hz · rollout: ${s.status_text||''}`;
+function render(m){const s=m.stream||{};let st=`<b>stream:</b> ${s.connected?'<span class=good>connected</span>':(s.close_code===4001?'<span class=bad>superseded by the rollout dashboard tab — press Reconnect (this closes that tab)</span>':'<span class=warn>disconnected — press Reconnect stream (this closes the rollout dashboard tab)</span>')} · frames ${s.frames} · ${f(s.fps,1)} fps · analysis ${f(s.analysis_hz,1)} Hz · rollout: ${s.status_text||''}`;
  const r=m.reference;st+=`<div style="color:#9ab;font-size:12px">frame reference: ${r?r.label+' ('+r.image+(r.saved_at?', saved '+r.saved_at:'')+')':'<span class=warn>none saved</span>'}</div>`;
  if(s.last_error)st+=`<div class=warn style="font-size:11px">${s.last_error}</div>`;document.getElementById('status').innerHTML=st;
  const d=m.desk||{};const adv=(m.advice||[]).map(a=>`<div class="${a==='ALIGNED'?'good':'bad'}">${a}</div>`).join('');

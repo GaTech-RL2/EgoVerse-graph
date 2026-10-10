@@ -32,6 +32,8 @@ Four times a second, on the rollout dashboard's own front-camera stream:
 
 **Caveat.** The rollout dashboard server keeps one websocket client. Starting this
 monitor supersedes the rollout dashboard's browser tab; reopening that tab
-supersedes the monitor (it then waits for `Reconnect stream`). The monitor never
+supersedes the monitor. It connects once at start and once per `Reconnect stream`
+press, and never retries by itself: after a rollout exits, press `Reconnect stream`
+when the next one is up. The monitor never
 sends a command to the rollout dashboard and never opens a camera or a robot.
 Stop it before a real rollout.

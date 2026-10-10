@@ -4,6 +4,32 @@
 
 set -Eeuo pipefail
 
+# Explicit extensions must never fall through to the historical clean-3K smoke.
+case "${DP_COTRAIN_STANDARD:-}" in
+  ""|usocket_chain_manual4919_retimed_masked_v1|usocket_chain_manual4919_af_obs_multiplier_261m_v1) ;;
+  *) printf 'Unsupported DP_COTRAIN_STANDARD\n' >&2; exit 64 ;;
+esac
+case "${DP_SINGLE_SOURCE_STANDARD:-}" in
+  ""|chain_manual4919_retimed_v1) ;;
+  *) printf 'Unsupported DP_SINGLE_SOURCE_STANDARD\n' >&2; exit 64 ;;
+esac
+if test -n "${DP_COTRAIN_STANDARD:-}" || test -n "${DP_SINGLE_SOURCE_STANDARD:-}"; then
+  test -z "${DP_COTRAIN_STANDARD:-}" || test -z "${DP_SINGLE_SOURCE_STANDARD:-}" || exit 64
+  : "${DP_REPO:?}" "${DP_PYTHON:?}" "${DP_MODE:?}" "${DP_LAUNCHER:?}" "${DP_EXPECTED_LAUNCHER_SHA:?}" "${DP_EXPECTED_HEAD:?}"
+  case "$DP_MODE" in preflight|normalize|smoke|full|resume-smoke|resume) ;; *) exit 64 ;; esac
+  test "$(sha256sum "$DP_LAUNCHER" | cut -d' ' -f1)" = "$DP_EXPECTED_LAUNCHER_SHA"
+  DP_MIN_NOFILE=${DP_MIN_NOFILE:-65536}
+  [[ "$DP_MIN_NOFILE" =~ ^[1-9][0-9]*$ ]] && test "$DP_MIN_NOFILE" -ge 65536
+  ulimit -Sn "$DP_MIN_NOFILE"
+  test "$(ulimit -Sn)" -ge "$DP_MIN_NOFILE"
+  export PYTHONPATH="$DP_REPO" PYTHONDONTWRITEBYTECODE=1 HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1
+  driver=${DP_DRIVER_REPO:-$DP_REPO}; driver_head=${DP_DRIVER_HEAD:-$DP_EXPECTED_HEAD}
+  test "$(git -C "$driver" rev-parse HEAD)" = "$driver_head"
+  test -z "$(git -C "$driver" status --porcelain --untracked-files=all)"
+  git -C "$driver" diff --quiet "$DP_EXPECTED_HEAD" "$driver_head" -- egomimic
+  exec "$DP_PYTHON" "$driver/scripts/train/standard_dp_launch.py" --mode "$DP_MODE"
+fi
+
 EXPECTED_HEAD=${EXPECTED_HEAD:?set EXPECTED_HEAD}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?set EXPECTED_LAUNCHER_SHA}
 MODE=${MODE:-smoke}

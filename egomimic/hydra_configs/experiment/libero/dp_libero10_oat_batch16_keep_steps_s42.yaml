@@ -1,0 +1,19 @@
+# @package _global_
+# Preserve the selected task-local batch16 recipe; the older global1024 profile stays separate.
+defaults:
+  - /experiment/libero/dp_libero10_oat_dp_matched_s42
+  - _self_
+name: dp_libero10_oat_batch16_keep_steps_s42
+benchmark:
+  batch_size: 16
+  original_optimizer_step_target: 605121
+  batch_contract: human_batch16_keep_original_updates
+trainer:
+  max_epochs: -1
+  max_steps: 605121
+  accumulate_grad_batches: 1
+callbacks:
+  batch_budget:
+    global_batch_size: 16
+norm_stats:
+  precomputed_norm_path: null

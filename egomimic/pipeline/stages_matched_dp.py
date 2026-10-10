@@ -19,6 +19,33 @@ from egomimic.pipeline.stages_diffusion import (
 )
 
 
+def shared_native_transformers(
+    condition_dim=640,
+    hidden_dim=752,
+    depth=10,
+    num_heads=8,
+    dropout=0.1,
+    action_contract="private_native",
+):
+    from egomimic.models.native_diffusion_transformer import NativeDiffusionTransformer
+
+    robot = NativeDiffusionTransformer(
+        14, condition_dim, hidden_dim, depth, num_heads, dropout=dropout
+    )
+    if action_contract == "shared_cartesian14":
+        return {"yam_bimanual": robot, "human_bimanual": robot}
+    if action_contract != "private_native":
+        raise ValueError("Unsupported DP action contract")
+    human = copy(robot)
+    human._modules = robot._modules.copy()
+    human._parameters = robot._parameters.copy()
+    human._buffers = robot._buffers.copy()
+    human.input_dim = 138
+    human.proj_u = nn.Linear(138, hidden_dim)
+    human.proj_d = nn.Linear(hidden_dim, 138)
+    return {"yam_bimanual": robot, "human_bimanual": human}
+
+
 def shared_native_unets(
     condition_dim=256,
     down_dims=(512, 1024, 2048),
@@ -88,20 +115,46 @@ class SharedNativeDPStage(Stage):
         step_embed_dim=128,
         n_groups=8,
         condition_dropout_probability=0.0,
+        denoiser="unet",
+        transformer_width=752,
+        transformer_depth=10,
+        transformer_heads=8,
+        transformer_dropout=0.1,
+        action_contract="private_native",
     ):
         super().__init__()
         if action_horizon != 100:
             raise ValueError("Matched comparison requires100 action steps")
+        if action_contract not in {"private_native", "shared_cartesian14"}:
+            raise ValueError("Unsupported DP action contract")
+        if action_contract == "shared_cartesian14" and denoiser != "transformer":
+            raise ValueError("Shared Cartesian14 mode requires the Transformer")
+        self.action_contract = action_contract
         self.condition_dropout_probability = float(condition_dropout_probability)
         if not 0 <= self.condition_dropout_probability <= 1:
             raise ValueError("Invalid condition dropout")
         self.null_condition = nn.Parameter(torch.randn(condition_dim) * 0.02)
         self.aliases = {"3": "human_bimanual", "7": "yam_bimanual"}
-        models = shared_native_unets(
-            condition_dim, down_dims, kernel_size, step_embed_dim, n_groups
-        )
+        if denoiser == "unet":
+            models = shared_native_unets(
+                condition_dim, down_dims, kernel_size, step_embed_dim, n_groups
+            )
+        elif denoiser == "transformer":
+            models = shared_native_transformers(
+                condition_dim,
+                transformer_width,
+                transformer_depth,
+                transformer_heads,
+                transformer_dropout,
+                action_contract,
+            )
+        else:
+            raise ValueError("Unsupported native DP denoiser")
         graphs = {}
-        for domain, width in (("yam_bimanual", 14), ("human_bimanual", 138)):
+        for domain, width in (
+            ("yam_bimanual", 14),
+            ("human_bimanual", 14 if action_contract == "shared_cartesian14" else 138),
+        ):
             scheduler = DDIMScheduler(
                 num_train_timesteps=100,
                 beta_schedule="squaredcos_cap_v2",
@@ -154,6 +207,12 @@ def build_matched_dp_pipeline(
     dp_down_dims=(512, 1024, 2048),
     flow_inference_method=None,
     dp_condition_dropout_probability=0.0,
+    dp_denoiser="unet",
+    dp_transformer_width=752,
+    dp_transformer_depth=10,
+    dp_transformer_heads=8,
+    dp_transformer_dropout=0.1,
+    dp_action_contract="private_native",
 ):
     from hydra.utils import instantiate
 
@@ -174,6 +233,23 @@ def build_matched_dp_pipeline(
         "EmbodimentActionTargetBuilder",
     ]:
         raise ValueError("Observation and target prefix must match Action Flow")
+    if dp_action_contract == "shared_cartesian14":
+        expected = {
+            "yam_bimanual": "actions_cartesian",
+            "human_bimanual": "actions_cartesian",
+        }
+        if dict(prefix[2].get("action_keys", {})) != expected:
+            raise ValueError(
+                "Shared Cartesian14 requires Cartesian targets for both domains"
+            )
+        human_stems = prefix[0].get("domain_stems", {}).get("human_bimanual", {})
+        if (
+            "observations.state.keypoints" in human_stems
+            or human_stems.get("observations.state.ee_pose", {}).get("input_dim") != 14
+        ):
+            raise ValueError(
+                "Shared Cartesian14 requires the human 14D ee_pose observation stem"
+            )
     modules = [instantiate(x) for x in prefix]
     modules.append(
         SharedNativeDPStage(
@@ -181,6 +257,12 @@ def build_matched_dp_pipeline(
             inference_steps=dp_inference_steps,
             down_dims=dp_down_dims,
             condition_dropout_probability=dp_condition_dropout_probability,
+            denoiser=dp_denoiser,
+            transformer_width=dp_transformer_width,
+            transformer_depth=dp_transformer_depth,
+            transformer_heads=dp_transformer_heads,
+            transformer_dropout=dp_transformer_dropout,
+            action_contract=dp_action_contract,
         )
     )
     return PipelineAlgo(modules, device=device)

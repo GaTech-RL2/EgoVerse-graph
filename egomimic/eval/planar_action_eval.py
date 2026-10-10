@@ -342,6 +342,10 @@ class PlanarActionEval(Eval):
     def on_validation_end(self):
         return None
 
+    def _collect_validation_predictions(self, batch, result):
+        """Optional metrics reuse the predictions already made for MSE."""
+        return None
+
     def _artifact_destination(self, root, batch_idx):
         return artifact_destination(
             root,
@@ -1274,6 +1278,7 @@ class PlanarActionEval(Eval):
             sampled, result = self._seeded_predictions(batch)
         else:
             result = self._forward_with_seed(batch, self.deterministic_seed)
+        self._collect_validation_predictions(batch, result)
         metrics = {}
         if self.unite_diagnostics_enabled and self._unite_diagnostic_batches_done < int(
             self.unite_diagnostics["max_batches_per_rank"]

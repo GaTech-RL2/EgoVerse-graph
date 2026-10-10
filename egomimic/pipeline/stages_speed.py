@@ -17,6 +17,7 @@ def build_speed_conditioned_pipeline(
     compatibility_mode="current",
     conditioning_input=None,
     flow_inference_method=None,
+    dit_checkpoint_policy=None,
 ):
     """Typed Action Flow graph adapter; leave the generic runner unchanged.
 
@@ -62,6 +63,8 @@ def build_speed_conditioned_pipeline(
         if flow_inference_method != "euler":
             raise ValueError("Matched flow uses Euler with fixed evaluation count")
         fields[0]["inference_method"] = flow_inference_method
+    if dit_checkpoint_policy is not None:
+        configure_dit_checkpoint_policy(encoders[0], fields[0], dit_checkpoint_policy)
     # Instantiate the unchanged stages first, preserving all old RNG draws.
     # Diagnostic preprocessing stops at the content encoder: condition must
     # already exist there, even though the encoder itself does not consume it.
@@ -76,6 +79,27 @@ def build_speed_conditioned_pipeline(
         ),
     )
     return PipelineAlgo(modules, device=device, compatibility_mode=compatibility_mode)
+
+
+def configure_dit_checkpoint_policy(encoder, field, policy):
+    """Use native per-backbone checkpointing, without intercepting image execution."""
+    if policy not in {"all", "dit_half"}:
+        raise ValueError("unsupported native DiT checkpoint policy")
+    owners = list(encoder.get("encoders", {}).values()) or [encoder.get("encoder", {})]
+    owners.append(field.get("field", {}))
+    backbones = [owner.get("backbone", {}) for owner in owners]
+    # Validate every owner before changing any configuration.
+    for backbone in backbones:
+        if backbone.get("_target_") != "egomimic.models.unite_dit.UniteDiTBackbone":
+            raise ValueError("native DiT backbone required for checkpoint policy")
+        if policy == "dit_half" and (
+            not backbone.get("gradient_checkpointing")
+            or int(backbone.get("depth", 0)) <= 0
+            or int(backbone["depth"]) % 2
+        ):
+            raise ValueError("dit_half requires checkpointing and positive even depth")
+    for backbone in backbones:
+        backbone["checkpoint_policy"] = policy
 
 
 class SharedSpeedCondition(Stage):

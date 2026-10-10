@@ -31,11 +31,46 @@ def digest(p):
     return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 
 
-def cotrain():
+def multiplier():
     return (
         os.environ.get("DP_COTRAIN_STANDARD")
+        == "usocket_chain_manual4919_af_obs_multiplier_261m_v1"
+    )
+
+
+def cotrain():
+    return (
+        multiplier()
+        or os.environ.get("DP_COTRAIN_STANDARD")
         == "usocket_chain_manual4919_retimed_masked_v1"
     )
+
+
+def recipe():
+    cotrain_profile = os.environ.get("DP_COTRAIN_STANDARD", "")
+    single_profile = os.environ.get("DP_SINGLE_SOURCE_STANDARD", "")
+    if cotrain_profile not in {
+        "",
+        "usocket_chain_manual4919_retimed_masked_v1",
+        "usocket_chain_manual4919_af_obs_multiplier_261m_v1",
+    }:
+        raise ValueError("Unsupported DP_COTRAIN_STANDARD")
+    if single_profile not in {"", "chain_manual4919_retimed_v1"}:
+        raise ValueError("Unsupported DP_SINGLE_SOURCE_STANDARD")
+    if cotrain_profile and single_profile:
+        raise ValueError("Select one DP profile, not both")
+    if multiplier():
+        return "pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier"
+    return (
+        "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
+        if cotrain()
+        else "pusht/planar_chain_manual4919_standard_dp_retimed"
+    )
+
+
+def layout():
+    # Stage indices follow the typed YAML pipeline rather than the old recipe.
+    return (5, 6, 128, 32) if multiplier() else (3, 4, 67, 16)
 
 
 def arguments(phase, output, norm):
@@ -45,11 +80,7 @@ def arguments(phase, output, norm):
     checkpoint = os.environ["DP_RESUME_CHECKPOINT"] if resume else "null"
     a = [
         "--config-name=train_zarr_cartesian",
-        (
-            "+experiment=pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
-            if cotrain()
-            else "+experiment=pusht/planar_chain_manual4919_standard_dp_retimed"
-        ),
+        "+experiment=" + recipe(),
         "mode=train",
         (f"ckpt_path='{checkpoint}'" if resume else "ckpt_path=null"),
         "++model.train_log_on_step=true",
@@ -69,7 +100,7 @@ def arguments(phase, output, norm):
         "trainer.limit_val_batches=1",
         "trainer.num_sanity_val_steps=0",
         "trainer.log_every_n_steps=1",
-        "norm_stats.sample_frac=0.05",
+        f"norm_stats.sample_frac={1.0 if multiplier() else 0.05}",
         "norm_stats.save_cache_dir=null",
         f"norm_stats.precomputed_norm_path={norm}",
         "++callbacks.model_checkpoint.monitor=null",
@@ -151,7 +182,9 @@ def verify_resume_checkpoint():
     expected = os.environ["DP_RESUME_CHECKPOINT_SHA256"]
     assert len(expected) == 64 and all(c in "0123456789abcdef" for c in expected)
     assert digest(path) == expected
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+    checkpoint = torch.load(
+        str(path), map_location="cpu", weights_only=False, mmap=True
+    )
     step = int(checkpoint["global_step"])
     assert 0 < step < 80000
     assert checkpoint["optimizer_states"] and len(checkpoint["lr_schedulers"]) == 1
@@ -236,8 +269,9 @@ def main():
                 == os.environ["DP_DATASET_DIR"]
             )
             assert list(c.planar.retiming_rates) == [1.0, 1.25, 1.5, 1.75, 2.0]
-            assert c.model.pipeline.stages[3].condition_input_dim == 67
-            assert c.planar.batch_size == 16 and c.planar.observation_horizon == 1
+            denoiser, loss, condition, batch = layout()
+            assert c.model.pipeline.stages[denoiser].condition_input_dim == condition
+            assert c.planar.batch_size == batch and c.planar.observation_horizon == 1
             assert (
                 c.data.train_datasets.pushshapes_sim_chain_gripper.expected_train_episode_count
                 == 4870
@@ -262,7 +296,7 @@ def main():
                 )
                 assert dict(c.planar.active_action_dims) == {u: 4, chain: 5}
                 assert dict(
-                    c.model.pipeline.stages[4].active_action_dims_by_embodiment
+                    c.model.pipeline.stages[loss].active_action_dims_by_embodiment
                 ) == {u: 4, chain: 5}
                 assert dict(c.evaluator.active_action_dims_by_embodiment) == {
                     u: 4,
@@ -273,7 +307,7 @@ def main():
                 assert c.run_provenance.domains[chain].union_episode_count == 4919
                 assert c.model.scheduler.max_steps == 80000
                 assert all(
-                    c.data.train_dataloader_params[k].batch_size == 16
+                    c.data.train_dataloader_params[k].batch_size == batch
                     for k in (u, chain)
                 )
             assert c.callbacks.model_checkpoint.save_top_k == -1
@@ -298,6 +332,13 @@ def main():
         model = instantiate(c.model.pipeline)
         count = sum(x.numel() for x in model.nets.parameters())
         records["parameters"] = count
+        if multiplier():
+            assert count == 261382885
+            assert (
+                c.model.pipeline.stages[2].conditioning_input == "retiming_multiplier"
+            )
+            assert c.callbacks.get("ema") is None
+            assert float(c.norm_stats.sample_frac) == 1.0
         # Prove real native schema/virtual sampling before normalization.
         resolver = instantiate(
             c.data.train_datasets.pushshapes_sim_chain_gripper.resolver
@@ -353,7 +394,7 @@ def main():
                 ux["actions"].shape == (16, 5) and torch.isfinite(ux["actions"]).all()
             )
             assert torch.count_nonzero(ux["actions"][..., 4]) == 0
-            assert dict(model.pipeline.stages[4].active_action_dims) == {
+            assert dict(model.pipeline.stages[layout()[1]].active_action_dims) == {
                 "pushshapes_sim_u_socket": 4,
                 "pushshapes_sim_chain_gripper": 5,
             }
@@ -420,7 +461,9 @@ def main():
                 str(records["parameters"]),
                 "--expected-name",
                 (
-                    "planar_usocket_chain_manual4919_standard_dp_retimed_masked_h16"
+                    "planar_uc_manual4919_dp_261m_af_obs_multiplier"
+                    if multiplier()
+                    else "planar_usocket_chain_manual4919_standard_dp_retimed_masked_h16"
                     if cotrain()
                     else "planar_chain_manual4919_standard_dp_retimed_h16"
                 ),

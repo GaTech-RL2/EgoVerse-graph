@@ -938,6 +938,9 @@ else
   )
 fi
 
+if test "$AF_EXPERIMENT" = pusht/action_flow_cotrain_uc_multiplier_interpolation; then
+  BASE_OVERRIDES+=(model.pipeline.stages.6.inference_method=euler model.pipeline.stages.6.num_inference_steps=50 ++run_provenance.validation_inference_sampler=euler ++run_provenance.validation_inference_steps=50)
+fi
 if test "$AF_SPEED_DIAGNOSTIC" = true; then
   # Full-corpus retimed normalization retains shared-memory batch buffers.
   # The gateway's inherited 1024 descriptor limit failed before completion.
@@ -946,7 +949,7 @@ if test "$AF_SPEED_DIAGNOSTIC" = true; then
   printf '[speed-contract] open_file_soft_limit=%s\n' "$(ulimit -Sn)"
   BASE_OVERRIDES+=(
     "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
-    "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE"
+    $([[ "$AF_EXPERIMENT" = pusht/action_flow_cotrain_uc_speed_interpolation ]] && printf "%s" "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE" || true)
     "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
     "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
     "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
@@ -1118,7 +1121,7 @@ elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
     "++run_provenance.validation_inference_sampler=euler"
     "++run_provenance.validation_inference_steps=50"
     "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
-    "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE"
+    $([[ "$AF_EXPERIMENT" = pusht/action_flow_cotrain_uc_speed_interpolation ]] && printf "%s" "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE" || true)
     "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
     "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
     "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
@@ -1642,7 +1645,7 @@ assert payload["normalization_sha256"] == norm_sha
 assert payload["launcher_sha256"] == launcher_sha
 assert payload["content_manifest_sha256"] == content_sha
 assert payload["dataset_content_aggregate_sha256"] == content_aggregate_sha
-if experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
+if experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
     assert payload["speed_encoding"] == speed_encoding
 if cotrain == "true":
     secondary = payload["datasets"]["secondary"]
@@ -1704,14 +1707,18 @@ assert identities["split_manifest_sha256"] == split_sha
 assert identities["normalization_sha256"] == norm_sha
 assert identities["content_manifest_sha256"] == content_sha
 assert identities["dataset_content_aggregate_sha256"] == content_aggregate_sha
-if experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
+if experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
     assert identities["speed_conditioning"]["encoding"] == speed_encoding
-    assert identities["speed_conditioning"]["speed_reference"] == 84.11600368466028
+    if experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation"):
+        assert identities["speed_conditioning"]["conditioning_input"] == "retiming_multiplier"
+        assert identities["speed_conditioning"]["input_key"] == "retiming_rate"
+    else:
+        assert identities["speed_conditioning"]["speed_reference"] == 84.11600368466028
 assert payload["preflight"]["sha256"] == preflight_sha
 assert payload["checkpoint"]["global_step"] == 2
 assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
-if scaled_h512 == "true" or paired_chain == "true" or experiment.endswith("action_flow_cotrain_uc_speed_interpolation"):
+if scaled_h512 == "true" or paired_chain == "true" or experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
     assert payload["checkpoint"]["parameter_count"] == int(expected_parameter_count)
     assert payload["artifacts"]["energy_score"]["sha256"]
     assert payload["artifacts"]["action_flow_diagnostics"]["sha256"]
@@ -1909,9 +1916,12 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
-speed_diagnostic = experiment.endswith("action_flow_cotrain_uc_speed_interpolation")
+speed_diagnostic = experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation"))
 if speed_diagnostic:
-    from validate_speed_config import validate_speed_contract
+    from importlib.util import spec_from_file_location, module_from_spec
+    spec = spec_from_file_location("typed_condition_validator", os.environ["AF_SPEED_CONFIG_VALIDATOR"])
+    typed = module_from_spec(spec); spec.loader.exec_module(typed)
+    validate_speed_contract = typed.validate_speed_contract
     validate_speed_contract(cfg, os.environ["AF_SPEED_ENCODING"])
 assert cfg.name == expected_name
 assert cfg.mode == "train" and cfg.ckpt_path is None and cfg.seed == 42
@@ -2134,7 +2144,7 @@ if scaled_h512:
 elif cotrain:
     stages = tuple(pipeline.pipeline.stages)
     if speed_diagnostic:
-        from validate_speed_config import validate_speed_pipeline
+        validate_speed_pipeline = typed.validate_speed_pipeline
         validate_speed_pipeline(cfg, pipeline)
         encoder_stage = next(s for s in stages if type(s).__name__ == "RoutedContentEncoderStage")
         decoder_stage = next(s for s in stages if type(s).__name__ == "RoutedContentDecoderStage")

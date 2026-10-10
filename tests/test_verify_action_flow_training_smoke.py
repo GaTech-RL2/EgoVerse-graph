@@ -8,10 +8,11 @@ from pathlib import Path
 
 import pytest
 import torch
+from hydra import compose, initialize_config_dir
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf, open_dict
 
-from tools.validate_action_flow_config import compose_experiment
+from tools.validate_action_flow_config import PreflightError, compose_experiment
 
 SCRIPT = (
     Path(__file__).parents[1]
@@ -48,15 +49,7 @@ def _resolved_smoke_config(
 
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
-        cfg.trainer.val_check_interval = (
-            2
-            if experiment
-            in {
-                "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
-                "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
-            }
-            else 1
-        )
+        cfg.trainer.val_check_interval = 1
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.log_every_n_steps = 1
         cfg.trainer.precision = "bf16"
@@ -154,50 +147,38 @@ def test_config_gate_accepts_option_a_200m_adamw_contract(tmp_path, monkeypatch)
     assert config.model.optimizer_named_parameters is False
 
 
-def test_config_gate_accepts_unite_h384_contract(tmp_path, monkeypatch):
-    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
-        tmp_path,
-        experiment="pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
-    )
-    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
+@pytest.mark.parametrize(
+    "experiment",
+    [
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+    ],
+)
+def test_config_gate_rejects_retired_unite_h384_recipes(experiment):
+    with pytest.raises(PreflightError, match="absent or retired"):
+        compose_experiment(experiment)
 
-    config, _ = MODULE._validate_config(
-        config_path=config_path,
-        experiment=experiment,
-        run_dir=run_dir,
-        expected_head=HEAD,
-        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
-        expected_split_sha256=None,
-        expected_normalization_sha256=normalization_hash,
-    )
 
+def test_unite_h384_parent_preserves_component_contract():
+    # Direct component composition is not authorization for a fresh smoke/run.
+    config_dir = MODULE.REPOSITORY_ROOT / "egomimic" / "hydra_configs"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir)):
+        config = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/parents/action_flow_usocket_h384",
+                "++paths.root_dir=.",
+                "model.cfg_scale=4.0",
+                "model.flow_loss_aggregation=sum_samples",
+                "data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size=32",
+            ],
+        )
     assert config.model.latent_dim == 16
     assert config.model.condition_dim == 128
     assert config.model.pipeline.stages[6].field.backbone.hidden_dim == 384
     assert config.model.pipeline.stages[6].field.backbone.depth == 12
     assert config.model.optimizer.lr == pytest.approx(1.0e-4)
     assert config.norm_stats.norm_mode == "minmax"
-
-
-def test_config_gate_accepts_unite_h384_parity_contract(tmp_path, monkeypatch):
-    experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
-        tmp_path,
-        experiment=(
-            "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
-        ),
-    )
-    monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
-
-    config, _ = MODULE._validate_config(
-        config_path=config_path,
-        experiment=experiment,
-        run_dir=run_dir,
-        expected_head=HEAD,
-        expected_config_sha256=hashlib.sha256(config_path.read_bytes()).hexdigest(),
-        expected_split_sha256=None,
-        expected_normalization_sha256=normalization_hash,
-    )
-
     assert config.model.pipeline.stages[6].cfg_scale == pytest.approx(4.0)
     assert config.model.pipeline.stages[8].flow_aggregation == "sum_samples"
     assert config.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size == 32

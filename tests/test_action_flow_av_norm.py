@@ -160,7 +160,7 @@ def test_cotrain_av_norm_is_opt_in_and_hydra_reachable(monkeypatch):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42",
+                "+experiment=pusht/parents/action_flow_cotrain_uc_manual4919",
                 "callbacks=action_flow_avln_cotrain",
                 "++paths.root_dir=.",
             ],

@@ -44,6 +44,7 @@ class WholeLauncher(unittest.TestCase):
             "tools/validate_action_flow_config.py",
             "scripts/ice/validate_planar_dataset.py",
             "egomimic/hydra_configs/experiment/" + PROFILE + ".yaml",
+            "egomimic/hydra_configs/experiment/" + PLANAR + ".yaml",
             "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42.yaml",
             "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42.yaml",
             "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42.yaml",

@@ -13,8 +13,7 @@ from egomimic.pipeline.pushshapes import ChainGripperPointsNativeDecoder
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 ROWS = (
-    "action_flow_chain_manual4919_avln_80k_s42",
-    "action_flow_cotrain_uc_manual4919_avln_80k_s42",
+    "parents/action_flow_cotrain_uc_manual4919",
 )
 
 
@@ -93,7 +92,7 @@ def test_manual4919_cotrain_resolves_per_domain_energy_distance(monkeypatch):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42"
+                "+experiment=pusht/parents/action_flow_cotrain_uc_manual4919"
             ],
         )
     assert cfg.evaluator.energy_score_distance is None

@@ -42,15 +42,16 @@ def test_existing_pusht_recipe_keeps_exact_configuration(recipe, expected):
 
 
 def test_retired_parent_paths_have_no_selectable_config_references():
-    retired = (
-        "action_flow_cotrain_usocket_chain_manual3000_val01_h16",
-        "planar_usocket_chain_manual4919_standard_retimed",
-        "action_flow_cotrain_usocket_chain_points6_frozen4920_val01_h16",
-    )
-    for old in retired:
-        assert not (CONFIGS / "data/pusht" / f"{old}.yaml").exists()
-        for path in CONFIGS.rglob("*.yaml"):
-            assert f"pusht/{old}" not in path.read_text()
+    for group, retired in (
+        ("data", BASELINE["retired_data"]),
+        ("experiment", BASELINE["retired_recipes"]),
+    ):
+        for old in retired:
+            assert not (CONFIGS / group / "pusht" / f"{old}.yaml").exists()
+            for path in CONFIGS.rglob("*.yaml"):
+                assert f"pusht/{old}" not in path.read_text()
+    assert not (CONFIGS / "data/pusht/planar_usocket_chain_manual4919_standard_retimed.yaml").exists()
+
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42
+  - /experiment/pusht/parents/action_flow_cotrain_uc_manual4919
   - _self_
 
 name: action_flow_cotrain_uc_multiplier_interpolation

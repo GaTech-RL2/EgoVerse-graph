@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 import numpy as np
@@ -115,93 +114,6 @@ def test_action_flow_pair_composes_to_exact_shared_contract(
     )
 
 
-def test_action_flow_warmup_flow001_changes_only_requested_objective_weight():
-    cfg = _compose("action_flow_bc_usocket_recon10_warmup10k_flow001_s42")
-
-    assert cfg.model.reconstruction_only_warmup_steps == 10_000
-    assert cfg.model.reconstruction_weight == 10.0
-    assert cfg.model.flow_weight == pytest.approx(0.01)
-    assert cfg.model.pipeline.stages[-1].flow_weight == pytest.approx(0.01)
-    assert cfg.model.pipeline.stages[-1].action_velocity_weight == 1.0
-    assert cfg.run_provenance.objective.flow_weight == pytest.approx(0.01)
-    assert cfg.run_provenance.content_manifest_path == (
-        "egomimic/hydra_configs/data/pusht/manifests/"
-        "usocket_3000_v2_clean_content_v1.json"
-    )
-    assert cfg.run_provenance.content_manifest_sha256 == (
-        "a1c81fb0ce8967aba795383a293180f9ba08a0ecfdd6f4a878afb20b39733761"
-    )
-    assert cfg.run_provenance.dataset_content_aggregate_sha256 == (
-        "80f835ad37c3d5c5b7b2d5c3e1656c307ee567a1f63f51081165bf404b8ceb52"
-    )
-    assert cfg.evaluator.energy_score_distance.type == (
-        "usocket_normalized_xy_wrapped_theta_v1"
-    )
-    assert list(
-        cfg.evaluator.energy_score_distance.complete_normalized_chunk_shape
-    ) == [16, 4]
-    assert cfg.evaluator.energy_score_distance.rotation_scale_radians == pytest.approx(
-        math.pi
-    )
-    assert dict(cfg.evaluator.energy_score_distance.semantic_weights) == {
-        "translation": 0.5,
-        "rotation": 0.5,
-    }
-    assert OmegaConf.to_container(
-        cfg.run_provenance.energy_score_contract.distance, resolve=True
-    ) == OmegaConf.to_container(cfg.evaluator.energy_score_distance, resolve=True)
-    assert OmegaConf.to_container(
-        cfg.evaluator.energy_score_provenance.dataset_content, resolve=True
-    ) == {
-        "manifest_path": cfg.run_provenance.content_manifest_path,
-        "manifest_sha256": cfg.run_provenance.content_manifest_sha256,
-        "aggregate_sha256": cfg.run_provenance.dataset_content_aggregate_sha256,
-    }
-    assert cfg.evaluator.action_flow_diagnostics.native_error.type == (
-        "usocket_native_xy_wrapped_theta_mse_v1"
-    )
-    diagnostic_provenance = cfg.evaluator.action_flow_diagnostics.provenance
-    assert diagnostic_provenance.source_commit == cfg.run_provenance.source_commit
-    assert diagnostic_provenance.normalization_sha256 == (
-        cfg.run_provenance.normalization_sha256
-    )
-    assert diagnostic_provenance.split_manifest_sha256 == (
-        cfg.run_provenance.split_manifest_sha256
-    )
-    assert diagnostic_provenance.dataset_content.manifest_sha256 == (
-        cfg.run_provenance.content_manifest_sha256
-    )
-    assert diagnostic_provenance.dataset_content.aggregate_sha256 == (
-        cfg.run_provenance.dataset_content_aggregate_sha256
-    )
-
-    assert cfg.launch_params.gpus_per_node == 1
-    assert cfg.launch_params.nodes == 1
-    assert cfg.trainer.max_steps == 240000
-    assert cfg.trainer.val_check_interval == 10000
-    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 40000
-    assert cfg.model.optimizer.lr == pytest.approx(3e-5)
-    assert list(cfg.model.optimizer.betas) == [0.9, 0.999]
-    assert cfg.model.optimizer.eps == pytest.approx(1e-8)
-    assert cfg.model.optimizer.weight_decay == pytest.approx(1e-4)
-    assert cfg.model.scheduler.warmup_steps == 8000
-    assert cfg.model.scheduler.warmup_start_factor == pytest.approx(0.1)
-    assert cfg.model.scheduler.eta_min == pytest.approx(3e-6)
-
-    yaml = OmegaConf.to_yaml(cfg.model)
-    forbidden = (
-        "Unite",
-        "UNITE",
-        "CrossTransformer",
-        "DiffusionNoisingStage",
-        "embodiment",
-        "domains:",
-        "ac_keys",
-        "monotonic",
-        "scale_weight",
-        "cfg_scale",
-    )
-    assert not any(token in yaml for token in forbidden)
 
 
 def test_only_reconstruction_weight_differs_across_sweep():

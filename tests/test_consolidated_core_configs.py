@@ -19,10 +19,7 @@ def _compose(row, *extra):
     (
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
         "action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
-        "action_flow_usocket_latent_fm_sg_unite_h384_s42",
-        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
         "action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42",
-        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42",
         "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
     ),
 )

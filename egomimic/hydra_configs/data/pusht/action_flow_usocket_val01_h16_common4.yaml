@@ -1,14 +1,13 @@
+# PushT view; shared resolver/split lives in parents/episode_split.yaml.
+defaults:
+- /data/pusht/parents/episode_split@train_datasets.pushshapes_sim_u_socket
+- /data/pusht/parents/episode_split@valid_datasets.pushshapes_sim_u_socket
+- _self_
 _target_: egomimic.rldb.zarr.data_module.ZarrDataModule
 _recursive_: false
-
-# U-Socket keeps the native normalized [x,y,theta] observation state while
-# exposing actions to the model as [x,y,cos(theta),sin(theta)].  The conversion
-# belongs to this dataset adapter, outside generic PipelineAlgo stages.
 train_datasets:
-  pushshapes_sim_u_socket: &dataset
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+  pushshapes_sim_u_socket: &id001
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
       folder_path: ${oc.env:PUSHSHAPES_DATA_ROOT,/coc/flash7/paphiwetsa3/datasets/Tsim_v2}/u_socket_3000_v2_clean
       embodiment_override: pushshapes_sim_u_socket
       expected_episode_count: 2999
@@ -21,19 +20,15 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_transform_list
     mode: train
-    valid_ratio: 0.01
     split_seed: 42
     expected_train_episode_count: 2970
     expected_train_episode_names_sha256: ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1
     expected_valid_episode_count: 29
     expected_valid_episode_names_sha256: b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93
-    bounds_check: false
-
 valid_datasets:
   pushshapes_sim_u_socket:
-    <<: *dataset
+    <<: *id001
     mode: valid
-
 train_dataloader_params:
   pushshapes_sim_u_socket:
     batch_size: 32
@@ -41,7 +36,6 @@ train_dataloader_params:
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 3
-
 valid_dataloader_params:
   pushshapes_sim_u_socket:
     batch_size: 16

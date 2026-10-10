@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42
-  - override /data: pusht/action_flow_cotrain_usocket_chain_points6_frozen4920_val01_h16
+  - override /data: pusht/parents/action_flow_points6_uc_h16
   - override /model: bf/cotrain_uc_action_flow_latent_fm_sg_unite_h384d12h12
   - _self_
 

@@ -1,5 +1,5 @@
 defaults:
-  - /data/pusht/action_flow_cotrain_usocket_chain_manual3000_val01_h16@_here_
+  - /data/pusht/parents/action_flow_uc_h16@_here_
   - _self_
 
 # U-Socket remains its clean 2,999-episode corpus. ChainGripper uses the

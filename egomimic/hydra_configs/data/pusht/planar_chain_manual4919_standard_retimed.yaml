@@ -1,13 +1,13 @@
+# PushT view; shared resolver/split lives in parents/episode_split.yaml.
+defaults:
+- /data/pusht/parents/episode_split@train_datasets.pushshapes_sim_chain_gripper
+- /data/pusht/parents/episode_split@valid_datasets.pushshapes_sim_chain_gripper
+- _self_
 _target_: egomimic.rldb.zarr.data_module.ZarrDataModule
 _recursive_: false
-
-# Canonical 3,000-episode pre-step ChainGripper corpus. For Hobs=2 Paper DP,
-# action_target_offset=1 aligns [S_t, S_(t+1)] with action a_(t+1).
 train_datasets:
-  pushshapes_sim_chain_gripper: &dataset
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+  pushshapes_sim_chain_gripper: &id001
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
       folder_path: ${oc.env:DP_DATASET_DIR}
       embodiment_override: pushshapes_sim_chain_gripper
       expected_episode_count: 4919
@@ -33,20 +33,16 @@ train_datasets:
         curvature_dense_samples: ${planar.arc_curvature_dense_samples}
         curvature_floor: ${planar.arc_curvature_floor}
     mode: train
-    valid_ratio: 0.01
     split_seed: ${seed}
     expected_train_episode_count: 4870
     expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
     expected_valid_episode_count: 49
     expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
-    bounds_check: false
-
 valid_datasets:
   pushshapes_sim_chain_gripper:
-    <<: *dataset
+    <<: *id001
     mode: valid
-
-train_dataloader_params: &loader
+train_dataloader_params:
   pushshapes_sim_chain_gripper:
     batch_size: ${planar.batch_size}
     num_workers: 6
@@ -54,7 +50,6 @@ train_dataloader_params: &loader
     persistent_workers: true
     prefetch_factor: 3
 valid_dataloader_params:
-  <<: *loader
   pushshapes_sim_chain_gripper:
     batch_size: ${planar.batch_size}
     num_workers: 4

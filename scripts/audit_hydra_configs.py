@@ -22,7 +22,7 @@ EXPERIMENT_CONTEXTS = {
     "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
     "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
     "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_chain_manual4919_standard_dp_retimed",
-    "data/pusht/planar_usocket_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/parents/standard_dp_uc_h16": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
     "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
     "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
     "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
@@ -112,6 +112,13 @@ AUDIT_ENVIRONMENT = {
 
 def audit_context(path):
     name = path.relative_to(CONFIGS).with_suffix("").as_posix()
+    if name == "data/pusht/parents/episode_split":
+        # This is a dataset fragment, not a selectable DataModule. Audit it
+        # in the same nested package used by its real data parents.
+        return "train_zarr_cartesian", [
+            "+experiment=pusht/planar_v2_usocket_dp_standard",
+            "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
+        ]
     group, _, entry = name.partition("/")
     experiment = None
     if group == "experiment":

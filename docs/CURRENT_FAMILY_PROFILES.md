@@ -13,12 +13,16 @@ OAT observations, H32/obs2/execute16, latent16x16, H240, Euler50/CFG4,
 ActionVelocity1, batch32/accum1, clip3, fixed EMA0.9978 without warmup, seed42
 450/50 train/validation split and the released composite optimizer/schedule.
 Keep the native normalizer (`norm_stats.precomputed_norm_path=null`). They are
-the original 80k profiles, not generic older H16/obs1 recipes.
+the active 120k recipes, with `max_steps=120000`,
+`check_val_every_n_epoch=null` and `val_check_interval=20000`. The active
+`libero` directory contains eight recipes: four AF and four batch16 DP.
+Thirteen superseded recipes live under `libero_historical`, including the
+checkpoint-bound original80k and older H16/obs1 selections.
 
 The working 120k continuations additionally bind the original full-state80k
 checkpoint, strict RAW/EMA/optimizer/normalizer restoration, the original W&B ID
-with resume=must, `max_steps=120000`, `check_val_every_n_epoch=null` and
-`val_check_interval=20000`. These bindings must come from the exact continuation
+with resume=must. These continuation bindings are separate from selecting the
+active120k recipe and must come from the exact continuation
 receipt, never from a guessed checkpoint filename. Duplicate final validation
 remains an operational lifecycle issue: do not repeat inference or overwrite
 existing artifacts to bypass it.
@@ -27,7 +31,9 @@ The four new `libero/dp_<suite>_oat_batch16_keep_steps_s42` profiles retain the
 latest requested DP batch16/accum1 and original update targets (605121,270054,
 325065,280056 for10/Spatial/Object/Goal). OAT DP keeps its own optimizer, schedule
 and EMA. This is distinct from stationary/PushShapes DP's EMA-disabled recipe.
-The old global1024 configurations are retained for historical reproducibility.
+Spatial retains its15000-update checkpoint cadence. The old global1024 DP
+configurations are retained explicitly under `libero_historical` for historical
+reproducibility; they are not active batch16 alternatives.
 
 Owner authority: `libero-four-suite-oat-dp-matched-20261008`,
 `LIBERO_COMMON_CODE_COMPATIBILITY_20261010.json`, original source7c253e5 and

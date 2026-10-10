@@ -16,3 +16,16 @@ No existing running source, checkpoint, dataset or split is migrated by this
 configuration cleanup. Dataset paths remain required launch inputs. Equal split
 seed alone does not prove equal raw demonstration membership across reordered
 datasets: use the materialized actual episode lists.
+
+## Contributor style gate
+
+Before submitting recipe or regression-test changes, run the complete CI style
+paths with the CI-pinned Ruff version, including `tools`:
+
+```bash
+uvx ruff@0.8.6 check egomimic tests scripts tools
+uvx ruff@0.8.6 format --check egomimic tests scripts tools
+```
+
+A subset check is not the CI style gate. Formatting failures should be repaired
+without changing the recipe or checkpoint contract.

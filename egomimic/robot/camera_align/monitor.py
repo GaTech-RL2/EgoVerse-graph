@@ -294,11 +294,18 @@ def screen_motion(src, dst, cal: Calibration):
     }
 
 
-def advice_for(m, good_deg=0.15, good_px=1.5):
+def advice_for(m, good_deg=0.15, good_px=1.5, good_scale=0.005):
     """What the image has to do to match the reference, one line per axis."""
     if m is None:
         return ["no measurement"]
     out = []
+    # A camera moved along its viewing axis shifts nothing at the principal point;
+    # only the fitted scale shows it.
+    scale = m.get("scale", 1.0)
+    if abs(scale - 1) >= good_scale:
+        out.append(
+            f"DISTANCE: camera {'closer to' if scale > 1 else 'farther from'} the scene (scale {scale:.4f})"
+        )
     if abs(m["roll_deg"]) >= good_deg:
         turn = "counter-clockwise" if m["roll_deg"] > 0 else "clockwise"
         out.append(f"ROLL: turn the image {turn} by {abs(m['roll_deg']):.2f} deg")
@@ -564,6 +571,17 @@ def desk_compare(ref_desk, desk_live, table_m, bg_m, mm_per_px, threshold_px=2.0
         lines.append(
             f"DESK moved {'right' if d['desk_vs_room_px'] > 0 else 'left'} {abs(d['desk_vs_room_px']):.1f} px = "
             f"{abs(d['desk_vs_room_mm']):.0f} mm relative to the room (table vs background)"
+        )
+    # A desk slid along the camera's depth axis moves its side edges along themselves,
+    # so only the table's vertical shift against the room shows it.
+    # ponytail: needs both fits (12+ matches each), so an empty featureless table has
+    # no depth check; add the far edge's dy once that edge is located sub-pixel.
+    cam_dy = bg_m["dy_px"] if bg_m else None
+    tab_dy = table_m["dy_px"] if table_m else None
+    if None not in (cam_dy, tab_dy) and abs(tab_dy - cam_dy) >= th:
+        lines.append(
+            f"DESK moved {'toward' if tab_dy > cam_dy else 'away from'} the camera: table shifted "
+            f"{'down' if tab_dy > cam_dy else 'up'} {abs(tab_dy - cam_dy):.1f} px relative to the room (table vs background)"
         )
     if cam is not None and abs(cam) >= th and (tab is None or abs(tab) < th):
         lines.append(

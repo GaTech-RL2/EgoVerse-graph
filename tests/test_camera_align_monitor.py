@@ -285,3 +285,39 @@ def test_calibration_loads_the_station_yaml_and_ranges_the_table():
     rng = cal.table_range_m(cal.cx, 200)
     assert 0.5 < rng < 3.0
     assert m.Calibration(K, NO_DIST, "x").table_range_m(320, 200, fallback=1.25) == 1.25
+
+
+def _fit(dy=0.0, scale=1.0):
+    return {
+        "roll_deg": 0.0,
+        "tilt_deg": 0.0,
+        "pan_deg": 0.0,
+        "dx_px": 0.0,
+        "dy_px": dy,
+        "scale": scale,
+        "inliers": 40,
+        "n": 40,
+    }
+
+
+def test_advice_names_a_camera_moved_along_its_viewing_axis():
+    assert m.advice_for(_fit(scale=1.001)) == ["ALIGNED"]
+    assert "closer to" in m.advice_for(_fit(scale=1.016))[0]
+    assert "farther from" in m.advice_for(_fit(scale=0.985))[0]
+
+
+def test_desk_compare_names_a_desk_slid_along_the_camera_axis():
+    desk = {
+        "left": [110.0, 99.0],
+        "right": [518.0, 530.0],
+        "width_px": 419.5,
+        "far": {"y_at_x320": 157.0, "angle_deg": -0.4},
+        "rows": [185, 220],
+    }
+    assert m.desk_compare(desk, desk, _fit(0.5), _fit(), 3.0)["verdict"] == [
+        "desk steady"
+    ]
+    away = m.desk_compare(desk, desk, _fit(-6.0), _fit(), 3.0)["verdict"]
+    assert len(away) == 1 and "away from the camera" in away[0]
+    toward = m.desk_compare(desk, desk, _fit(6.0), _fit(), 3.0)["verdict"]
+    assert len(toward) == 1 and "toward the camera" in toward[0]

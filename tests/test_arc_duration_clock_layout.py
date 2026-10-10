@@ -95,6 +95,107 @@ def test_six_clock_hold_waypoints_are_constant_and_rate_clocks_are_zero():
     )
 
 
+def test_six_log_evaluator_decodes_physical_seconds_exactly_once():
+    raw = np.zeros((400, 14))
+    raw[:, 0] = raw[:, 7] = np.arange(400) * DT * 0.1
+    raw[:, 3] = raw[:, 10] = np.arange(400) * DT * 0.2
+    cod = six_codec()
+    logged = cod.transform({"actions": raw})["actions"]
+    seconds = clock_token_seconds(logged, "log_clock6")
+    ev = evaluator("duration", velocity_layout="log_clock6", gripper_distance_unit=0.3)
+    actual, steps = ev._decode_prediction_with_steps(seconds, max_steps=400)
+    expected = cod.detokenize(logged[:30], steps)
+    np.testing.assert_allclose(actual, expected, atol=1e-9)
+    np.testing.assert_allclose(
+        cod.detokenize(seconds[:30], steps, clocks_in_seconds=True), expected, atol=1e-9
+    )
+    assert actual[-1, 0] == pytest.approx(0.06)
+
+
+def test_six_rate_targets_use_emitted_waypoint_distances():
+    time = np.arange(400) * DT
+    raw = np.zeros((400, 14))
+    for offset in (0, 7):
+        raw[:, offset] = 0.03 * np.sin(time * 8)
+        raw[:, offset + 1] = 0.02 * np.cos(time * 7)
+        raw[:, offset + 3] = 0.1 * np.sin(time * 9)
+        raw[:, offset + 4] = 0.08 * np.cos(time * 6)
+        raw[:, offset + 6] = 0.5 + 0.1 * np.sin(time * 4)
+    rate_codec = six_codec("per_waypoint", "rate_clock")
+    rates = rate_codec.transform({"actions": raw.copy()})["actions"]
+    seconds = clock_token_seconds(
+        six_codec().transform({"actions": raw})["actions"], "log_clock6"
+    )
+    stacked = stack_arc_token(rates)
+    for col, (kind, offset) in enumerate(
+        (kind, offset)
+        for kind in ("translation", "rotation", "gripper")
+        for offset in (0, 7)
+    ):
+        decoded = rate_codec._six_stream_duration(
+            stacked[:100], stacked[100:], offset, kind, 400
+        )
+        np.testing.assert_allclose(decoded, seconds[:-1, 14 + col], atol=1e-9)
+
+
+@pytest.mark.parametrize(
+    "mode,layout", [("duration", "log_clock6"), ("per_waypoint", "rate_clock")]
+)
+def test_event_grippers_preserve_commands_and_event_times(mode, layout):
+    cod = TokenizeBimanualArcLengthCartesian(
+        **OPTIONS,
+        velocity_mode=mode,
+        velocity_layout=layout,
+        gripper_stream_mode="events",
+    )
+    raw = np.zeros((400, 14))
+    raw[30:70, 6] = 1.0
+    raw[70:, 6] = -1.0
+    raw[90:, 13] = 0.75
+    token = cod.transform({"actions": raw})["actions"]
+    # PR #202: initial support, actual command changes, final support, padding.
+    np.testing.assert_array_equal(token[:4, 6], [0, 1, -1, -1])
+    decoded = cod.detokenize(token, 400)
+    np.testing.assert_array_equal(decoded[:, [6, 13]], raw[:, [6, 13]])
+    assert set(decoded[:, 6]) == {-1.0, 0.0, 1.0}
+
+
+@pytest.mark.parametrize(
+    "mode,layout", [("duration", "log_clock6"), ("per_waypoint", "rate_clock")]
+)
+def test_all_six_event_streams_hold_for_400_frames(mode, layout):
+    cod = TokenizeBimanualArcLengthCartesian(
+        **OPTIONS,
+        velocity_mode=mode,
+        velocity_layout=layout,
+        gripper_stream_mode="events",
+    )
+    token = cod.transform({"actions": np.zeros((400, 14))})["actions"]
+    native = clock_token_seconds(token, layout)
+    ev = evaluator(mode, velocity_layout=layout, gripper_stream_mode="events")
+    decoded, steps = ev._decode_prediction_with_steps(native, max_steps=1000)
+    assert steps == 400
+    np.testing.assert_array_equal(decoded, np.zeros((400, 14)))
+
+
+def test_event_keymaps_read_full_window_after_motion_caps():
+    from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.embodiment.yam import Yam
+
+    for embodiment in (Human, Yam):
+        keys = embodiment.get_keymap(
+            "hybrid_arc_tokenizer_cartesian",
+            source_buffer_frames=400,
+            min_distance_unit=0.42,
+            rotation_distance_unit=0.42,
+            arc_chunking_mode="multistream",
+            gripper_stream_mode="events",
+        )
+        for spec in keys.values():
+            if spec.get("key_type") == "action_keys":
+                assert spec["horizon"] == 400
+
+
 def test_gripper_stream_can_end_the_executed_chunk_first():
     raw = np.zeros((400, 14), dtype=np.float64)
     raw[:6, 6] = np.linspace(0.0, 0.3, 6)

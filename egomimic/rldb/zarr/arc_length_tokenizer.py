@@ -1377,6 +1377,7 @@ class TokenizeBimanualArcLengthCartesian:
         min_distance_unit: float = 0.60,
         rotation_distance_unit: float | None = None,
         gripper_distance_unit: float | None = None,
+        gripper_stream_mode: str = "distance",
         resampled_vector_length: int = 20,
         dt: float = 1.0 / 30.0,
         zero_dist_epsilon: float = 1e-6,
@@ -1426,10 +1427,13 @@ class TokenizeBimanualArcLengthCartesian:
         self.gripper_distance_unit = (
             None if gripper_distance_unit is None else float(gripper_distance_unit)
         )
+        if gripper_stream_mode not in ("distance", "events"):
+            raise ValueError("gripper_stream_mode must be 'distance' or 'events'")
+        self.gripper_stream_mode = gripper_stream_mode
         if self.velocity_layout in SIX_CLOCK_LAYOUTS:
             if self.rotation_distance_unit is None:
                 raise ValueError("six-clock ARC requires rotation_distance_unit")
-            if (
+            if self.gripper_stream_mode == "distance" and (
                 self.gripper_distance_unit is None
                 or not np.isfinite(self.gripper_distance_unit)
                 or self.gripper_distance_unit <= 0.0
@@ -1496,7 +1500,7 @@ class TokenizeBimanualArcLengthCartesian:
             batch[self.preserve_action_key] = preserved
         if self.velocity_layout in SIX_CLOCK_LAYOUTS:
             waypoints = self._hybrid_waypoints(raw)
-            clocks = self._hybrid_six_stream_clocks(raw)
+            clocks = self._hybrid_six_stream_clocks(raw, waypoints)
             batch[self.output_action_key] = self._join_token(waypoints, clocks)
             return batch
         if self.rotation_distance_unit is not None and self.velocity_mode in (
@@ -1813,7 +1817,11 @@ class TokenizeBimanualArcLengthCartesian:
             cumulative = np.concatenate(
                 ([0.0], np.cumsum(np.abs(np.diff(raw[:, offset]))))
             )
-            end = min(self.gripper_distance_unit, float(cumulative[-1]))
+            end = (
+                float(cumulative[-1])
+                if self.gripper_stream_mode == "events"
+                else min(self.gripper_distance_unit, float(cumulative[-1]))
+            )
             result.append(
                 (
                     cumulative,
@@ -1823,18 +1831,43 @@ class TokenizeBimanualArcLengthCartesian:
             )
         return result
 
-    def _hybrid_six_stream_clocks(self, raw: np.ndarray) -> np.ndarray:
+    def _gripper_event_frames(self, values: np.ndarray) -> np.ndarray:
+        """PR #202 supports: initial value, command changes, endpoint, padding.
+
+        Gripper values are held commands, not interpolated apertures. A full
+        hold carries the configured source-window duration in duration mode.
+        Like PR #202, rate tokens cannot encode a terminal stationary dwell.
+        """
+        changes = np.flatnonzero(np.abs(np.diff(values)) > 1e-9) + 1
+        endpoint = len(values) - 1 if len(changes) else self.hold_window_frames
+        required = np.unique(np.r_[0, changes, endpoint]).astype(np.float64)
+        if len(required) > self.M:
+            required = required[
+                np.rint(np.linspace(0, len(required) - 1, self.M)).astype(int)
+            ]
+        return np.r_[required, np.repeat(required[-1], self.M - len(required))]
+
+    def _hybrid_six_stream_clocks(
+        self, raw: np.ndarray, waypoints: np.ndarray | None = None
+    ) -> np.ndarray:
         """Return six per-interval rates or elapsed seconds in canonical order."""
         dt = self.tokenizer.config.dt
+        if waypoints is None:
+            waypoints = self._hybrid_waypoints(raw)
         translation, rotation = self._hybrid_source_coordinates(raw)
         gripper = self._hybrid_gripper_coordinates(raw)
         streams = []
-        for (cum, targets, hold), (rot_cum, rot_targets), (
-            grip_cum,
-            grip_targets,
-            grip_hold,
-        ) in zip(translation, rotation, gripper):
-            if hold:
+        for arm, (
+            (cum, targets, hold),
+            (rot_cum, rot_targets),
+            (
+                grip_cum,
+                grip_targets,
+                grip_hold,
+            ),
+        ) in enumerate(zip(translation, rotation, gripper)):
+            offset = 7 * arm
+            if hold is not None:
                 t_times = np.linspace(0.0, self.hold_window_frames * dt, self.M)
                 t_distance = np.zeros(self.M)
             else:
@@ -1846,26 +1879,45 @@ class TokenizeBimanualArcLengthCartesian:
             else:
                 r_times = _source_times_at_targets(rot_cum, rot_targets, dt)
                 r_distance = rot_targets
-            if grip_hold:
+            if self.gripper_stream_mode == "events":
+                g_times = self._gripper_event_frames(raw[:, offset + 6]) * dt
+                g_distance = None
+            elif grip_hold:
                 g_times = np.linspace(0.0, self.hold_window_frames * dt, self.M)
                 g_distance = np.zeros(self.M)
             else:
                 g_times = _source_times_at_targets(grip_cum, grip_targets, dt)
                 g_distance = grip_targets
 
-            for distance, times in (
-                (t_distance, t_times),
-                (r_distance, r_times),
-                (g_distance, g_times),
+            for stream, (distance, times) in enumerate(
+                (
+                    (t_distance, t_times),
+                    (r_distance, r_times),
+                    (g_distance, g_times),
+                )
             ):
                 interval_seconds = np.diff(times)
                 if self.velocity_layout == "rate_clock":
-                    interval_distance = np.diff(distance)
+                    # Rates describe the emitted geometry, not source-path arc
+                    # increments (which can be longer across bends/reversals).
+                    if stream == 0:
+                        interval_distance = np.linalg.norm(
+                            np.diff(waypoints[:, offset : offset + 3], axis=0),
+                            axis=-1,
+                        )
+                    elif stream == 1:
+                        interval_distance = np.diff(
+                            cumulative_rotation_length(
+                                waypoints[:, offset + 3 : offset + 6]
+                            )
+                        )
+                    else:
+                        interval_distance = np.abs(np.diff(waypoints[:, offset + 6]))
                     clock = np.divide(
                         interval_distance,
                         interval_seconds,
                         out=np.zeros_like(interval_distance),
-                        where=interval_seconds > self.zero_dist_epsilon,
+                        where=interval_seconds > 1e-12,
                     )
                 else:
                     clock = interval_seconds
@@ -1904,7 +1956,11 @@ class TokenizeBimanualArcLengthCartesian:
                 xyz = np.repeat(raw[0:1, offset : offset + 3], self.M, axis=0)
             if gripper is not None:
                 grip_cumulative, grip_targets, grip_hold = gripper[offset // 7]
-                if grip_hold:
+                if self.gripper_stream_mode == "events":
+                    frames = self._gripper_event_frames(raw[:, offset + 6])
+                    indices = np.minimum(frames.astype(int), len(raw) - 1)
+                    grip = raw[indices, offset + 6 : offset + 7]
+                elif grip_hold:
                     grip = np.repeat(raw[0:1, offset + 6 : offset + 7], self.M, axis=0)
                 else:
                     grip_index, grip_alpha = _first_crossing_brackets(
@@ -2340,7 +2396,16 @@ class TokenizeBimanualArcLengthCartesian:
                 xyz = waypoints[:, offset : offset + 3]
                 grip = waypoints[:, offset + 6 : offset + 7]
                 xyz_t = xyz[t_lo] + t_alpha[:, None] * (xyz[t_hi] - xyz[t_lo])
-                grip_t = grip[g_lo] + g_alpha[:, None] * (grip[g_hi] - grip[g_lo])
+                if self.gripper_stream_mode == "events":
+                    clock = np.r_[0.0, np.cumsum(gripper_duration)]
+                    queries = self.tokenizer.config.dt * np.arange(action_horizon)
+                    tolerance = 8 * np.finfo(np.float32).eps * max(1.0, clock[-1])
+                    indices = (
+                        np.searchsorted(clock, queries + tolerance, side="right") - 1
+                    )
+                    grip_t = grip[np.clip(indices, 0, len(grip) - 1)]
+                else:
+                    grip_t = grip[g_lo] + g_alpha[:, None] * (grip[g_hi] - grip[g_lo])
                 ypr_t = _slerp_segments_ypr(
                     waypoints[:, offset + 3 : offset + 6], r_lo, r_alpha
                 )
@@ -2386,6 +2451,8 @@ class TokenizeBimanualArcLengthCartesian:
         self,
         arc_actions: np.ndarray,
         action_horizon: int,
+        *,
+        clocks_in_seconds: bool = False,
     ) -> np.ndarray:
         """Decode one arc token to a time-parameterized ``(H, 14)`` chunk.
 
@@ -2414,6 +2481,11 @@ class TokenizeBimanualArcLengthCartesian:
         and by the deploy path in rollout-arc.py.
         """
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
+        if clocks_in_seconds and self.velocity_layout not in (
+            "log_clock",
+            "log_clock6",
+        ):
+            raise ValueError("clocks_in_seconds is only valid for log-clock layouts")
         expected_dim = {
             "stacked": ARC_TOK_BIMANUAL_DIM,
             "wide": 2 * ARC_TOK_BIMANUAL_DIM,
@@ -2451,7 +2523,9 @@ class TokenizeBimanualArcLengthCartesian:
             vel_rows = arc_actions[:, ARC_TOK_BIMANUAL_DIM:]  # (M, 14)
         elif self.velocity_layout in CLOCK_LAYOUTS:
             stacked = stack_arc_token(
-                clock_token_seconds(arc_actions, self.velocity_layout)
+                arc_actions
+                if clocks_in_seconds
+                else clock_token_seconds(arc_actions, self.velocity_layout)
             )
             waypoints, vel_rows = stacked[:M], stacked[M:]
         else:

@@ -435,6 +435,7 @@ def _arc_clock_durations(
     max_steps=None,
     velocity_layout=None,
     gripper_distance_unit=None,
+    gripper_stream_mode="distance",
 ):
     """Use codec clocks, with unbounded invalid intervals for stride inference.
 
@@ -454,6 +455,7 @@ def _arc_clock_durations(
         velocity_mode=velocity_mode,
         arc_chunking_mode=chunking_mode if rotation_distance_unit is not None else None,
         velocity_layout=velocity_layout,
+        gripper_stream_mode=gripper_stream_mode,
     )
     horizon = max_steps if max_steps is not None else 1
     gripper_clock = None
@@ -472,6 +474,33 @@ def _arc_clock_durations(
             codec._six_stream_duration(waypoints, timing, offset, "gripper", horizon)
             for offset in (0, 7)
         ]
+        # Do not overwrite six-stream clocks with the legacy coupled-arm path.
+        invalid = math.inf if max_steps is None else dt * (max_steps + 1)
+        for kind, groups in (
+            ("translation", clocks),
+            ("rotation", rotation_clock),
+            ("gripper", gripper_clock),
+        ):
+            for arm, offset in enumerate((0, 7)):
+                column = offset + {"translation": 0, "rotation": 3, "gripper": 6}[kind]
+                if kind == "translation":
+                    delta = np.linalg.norm(
+                        np.diff(waypoints[:, offset : offset + 3], axis=0), axis=1
+                    )
+                elif kind == "rotation":
+                    delta = np.diff(
+                        cumulative_rotation_length(
+                            waypoints[:, offset + 3 : offset + 6]
+                        )
+                    )
+                else:
+                    delta = np.abs(np.diff(waypoints[:, column]))
+                values = timing[:-1, column]
+                usable = np.isfinite(values) & (
+                    (values if velocity_mode == "duration" else np.abs(values)) > 1e-8
+                )
+                groups[arm] = np.where((delta > 1e-12) & ~usable, invalid, groups[arm])
+        return clocks, rotation_clock, gripper_clock
     elif rotation_distance_unit is not None and chunking_mode == "joint_distance":
         clocks = [
             codec._hybrid_clock_durations(waypoints, timing, action_horizon=horizon)
@@ -831,6 +860,7 @@ def arc_prefix_control_steps(
     max_steps: int | None = None,
     velocity_layout: str | None = None,
     gripper_distance_unit: float | None = None,
+    gripper_stream_mode: str = "distance",
 ) -> int:
     """Recover the control-frame stride for the configured ARC prefix."""
 
@@ -871,10 +901,36 @@ def arc_prefix_control_steps(
         max_steps,
         velocity_layout=velocity_layout,
         gripper_distance_unit=gripper_distance_unit,
+        gripper_stream_mode=gripper_stream_mode,
     )
     durations = [float(np.sum(clock)) for clock in clocks]
     rotation_durations = [float(np.sum(clock)) for clock in rotation_clock or []]
     gripper_durations = [float(np.sum(clock)) for clock in gripper_clock or []]
+    all_six_held = False
+    if velocity_layout in SIX_CLOCK_LAYOUTS:
+        # PR #202's separate-stream contract: constant components are holds,
+        # not racers. Their clock cannot prematurely end another stream.
+        for kind, totals in (
+            ("translation", durations),
+            ("rotation", rotation_durations),
+            ("gripper", gripper_durations),
+        ):
+            for arm, offset in enumerate((0, 7)):
+                if kind == "translation":
+                    delta = np.linalg.norm(
+                        np.diff(waypoints[:, offset : offset + 3], axis=0), axis=1
+                    )
+                elif kind == "rotation":
+                    delta = np.diff(
+                        cumulative_rotation_length(
+                            waypoints[:, offset + 3 : offset + 6]
+                        )
+                    )
+                else:
+                    delta = np.abs(np.diff(waypoints[:, offset + 6]))
+                if not np.any(delta > 1e-12):
+                    totals[arm] = 0.0
+        all_six_held = not any(durations + rotation_durations + gripper_durations)
     if chunking_mode == "multistream":
         # Execute until the FIRST stream runs out of its retained waypoints:
         # either arm's translation or either arm's rotation, each on its own
@@ -885,7 +941,11 @@ def arc_prefix_control_steps(
             d for d in durations + rotation_durations + gripper_durations if d > 1e-9
         ]
         finite = [d for d in moving if math.isfinite(d)]
-        duration = min(finite) if finite else (math.inf if moving else 0.0)
+        duration = (
+            min(finite)
+            if finite
+            else (math.inf if moving else 400 * dt if all_six_held else 0.0)
+        )
     else:
         # The distance prefix already enforces the race endpoint. All retained
         # stream prefixes must finish, including exact M prefixes whose
@@ -939,6 +999,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         velocity_layout: str | None = None,
         log_step: int | None = None,
         gripper_distance_unit: float | None = None,
+        gripper_stream_mode: str = "distance",
         results_path: str | None = None,
         records_dump_path: str | None = None,
         video_overlay_mode: str = "executed_chunk",
@@ -1009,6 +1070,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.gripper_distance_unit = (
             None if gripper_distance_unit is None else float(gripper_distance_unit)
         )
+        if gripper_stream_mode not in ("distance", "events"):
+            raise ValueError("gripper_stream_mode must be 'distance' or 'events'")
+        self.gripper_stream_mode = gripper_stream_mode
+        if gripper_stream_mode == "events":
+            if self.arc_execution_cap_mode != "waypoints":
+                raise ValueError(
+                    "event gripper streams require waypoint-prefix execution"
+                )
+            self.gripper_distance_unit = None
         self.resampled_vector_length = int(resampled_vector_length)
         self.velocity_mode = str(velocity_mode)
         # Only "log_clock" changes decoding: its timing columns are converted
@@ -1853,6 +1923,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     else "stacked"
                 ),
                 gripper_distance_unit=self.gripper_distance_unit,
+                gripper_stream_mode=self.gripper_stream_mode,
             )
         partial = arc_execution_prefix(
             prediction,
@@ -1878,6 +1949,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             max_steps=max_steps,
             gripper_distance_unit=self.gripper_distance_unit,
             velocity_layout=self.velocity_layout,
+            gripper_stream_mode=self.gripper_stream_mode,
         )
         codec_token = partial
         if self.velocity_layout in SIX_CLOCK_LAYOUTS:
@@ -1890,7 +1962,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 axis=-1,
             )
         decoded = self._arc_tokenizer.detokenize(
-            codec_token, action_horizon=steps
+            codec_token,
+            action_horizon=steps,
+            clocks_in_seconds=self._arc_tokenizer.velocity_layout
+            in ("log_clock", "log_clock6"),
         ).astype(np.float64, copy=False)
         return decoded, steps
 

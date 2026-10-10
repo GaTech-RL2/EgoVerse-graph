@@ -1,7 +1,6 @@
 # @package _global_
-# Multistream ARC with four duration clocks: each arm's translation runs to D
-# and each arm's rotation to R on its own clock. The token is (M, 18): 14 pose
-# columns, then the four clocks' per-interval seconds.
+# Six independent clocks: translation, SO(3) rotation and held gripper events
+# per arm. PR #202 grippers use event supports, not aperture-distance caps.
 defaults:
   - /experiment/abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline
   - _self_
@@ -12,7 +11,8 @@ abc:
   human_keymap_mode: hybrid_arc_tokenizer_cartesian
   human_action_mode: hybrid_arc_tokenizer_cartesian
   arc_source_buffer_frames: 400
-  arc_gripper_distance: 0.3
+  arc_gripper_distance: null
+  arc_gripper_stream_mode: events
   arc_velocity_layout: log_clock6
   arc_token_dim: 20
 hpt:
@@ -22,6 +22,26 @@ evaluator:
   action_mode: arc
   ground_truth_action_key: actions_cartesian_untokenized
   velocity_mode: ${abc.arc_velocity_mode}
+  gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+        transform_list:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+    human_bimanual:
+      resolver:
+        key_map:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+        transform_list:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+run_provenance:
+  action_contract:
+    timing_contract: six_clock_waypoint_rates_v2
+    gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+    gripper_reference_commit: 9c36037a5da54d5a84cd753fe57353be91e436a8
 logger:
   wandb:
     tags: [hpt300m, resnet_mlp, rl2, organize_stationary, elmo, cotrain, human_bimanual, multistream, D042, R24deg, M100, duration_clock, open_loop, video]

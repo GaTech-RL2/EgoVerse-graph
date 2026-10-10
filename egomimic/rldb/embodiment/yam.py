@@ -170,6 +170,7 @@ class Yam(Embodiment):
         min_distance_unit: float = 0.40,
         rotation_distance_unit: float | None = None,
         gripper_distance_unit: float | None = None,
+        gripper_stream_mode: str = "distance",
         resampled_vector_length: int = 100,
         preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
@@ -262,6 +263,7 @@ class Yam(Embodiment):
                 min_distance_unit=min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
                 gripper_distance_unit=gripper_distance_unit,
+                gripper_stream_mode=gripper_stream_mode,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 velocity_mode=velocity_mode,
@@ -371,6 +373,7 @@ class Yam(Embodiment):
         task_key: str | None = None,
         task_zarr_key: str = "task_description",
         source_buffer_frames: int | None = None,
+        gripper_stream_mode: str = "distance",
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps.
 
@@ -404,6 +407,10 @@ class Yam(Embodiment):
                 horizon["arc_chunking_mode"] = resolve_arc_chunking_mode(
                     arc_chunking_mode, horizon.get("rotation_distance")
                 )
+            if gripper_stream_mode == "events":
+                # Gripper events and whole-window holds may occur after both
+                # translation/rotation caps; retain the complete source window.
+                spec["horizon"] = int(horizon["source_buffer_frames"])
         return key_map
 
     @classmethod

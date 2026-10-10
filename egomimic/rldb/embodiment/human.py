@@ -237,6 +237,7 @@ class Human(Embodiment):
         arc_chunking_mode: str | None = None,
         action_horizon: int | None = None,
         source_buffer_frames: int | None = None,
+        gripper_stream_mode: str = "distance",
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
@@ -282,7 +283,11 @@ class Human(Embodiment):
                 horizon["rotation_distance"] = float(rotation_distance_unit)
             for spec in key_map.values():
                 if spec.get("key_type") == "action_keys":
-                    spec["horizon"] = horizon
+                    spec["horizon"] = (
+                        horizon["source_buffer_frames"]
+                        if gripper_stream_mode == "events"
+                        else horizon
+                    )
         elif action_horizon is not None:
             for spec in key_map.values():
                 if spec.get("key_type") == "action_keys":
@@ -459,6 +464,7 @@ class Human(Embodiment):
         min_distance_unit: float = 0.60,
         rotation_distance_unit: float | None = None,
         gripper_distance_unit: float | None = None,
+        gripper_stream_mode: str = "distance",
         resampled_vector_length: int = 20,
         preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
@@ -563,6 +569,7 @@ class Human(Embodiment):
                 min_distance_unit=min_distance_unit,
                 rotation_distance_unit=rotation_distance_unit,
                 gripper_distance_unit=gripper_distance_unit,
+                gripper_stream_mode=gripper_stream_mode,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,

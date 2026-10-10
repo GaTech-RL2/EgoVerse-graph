@@ -10,7 +10,7 @@ from pathlib import Path
 
 import hydra
 from hydra.core.hydra_config import HydraConfig
-from libero_oat_pair_config import SUITES, validate
+from libero_oat_pair_config import SUITES, current_experiment, validate
 from omegaconf import OmegaConf, open_dict
 
 
@@ -54,7 +54,8 @@ def main():
     p.add_argument("--source-commit", required=True)
     p.add_argument("--index", type=int, required=True)
     p.add_argument("--phase", choices=("smoke", "full"), default="smoke")
-    p.add_argument("--attempt", default="v7")
+    p.add_argument("--attempt", required=True)
+    p.add_argument("--readiness-receipt", type=Path)
     a = p.parse_args()
     import re
 
@@ -78,10 +79,15 @@ def main():
     assert (
         not out.exists()
     ), "Fresh proof/full identity required; never overwrite a previous attempt"
-    out.mkdir(parents=True, exist_ok=False)
-    assert not (out / "RESULT.json").exists()
     if a.phase == "full":
-        gate = json.loads((a.root / "FULL_READY_V7.json").read_text())
+        if a.readiness_receipt is None:
+            raise ValueError(
+                "full phase requires an explicit current-contract readiness receipt"
+            )
+        gate = json.loads(a.readiness_receipt.read_text())
+        assert (
+            gate.get("recipe_contract") == "current"
+        ), "historical receipts cannot authorize current recipes"
         assert (
             gate["status"] == "READY_ALL_EIGHT_REAL_PROOFS_AND_PAIRED_ROLLOUT_PROTOCOL"
         )
@@ -93,10 +99,13 @@ def main():
         smoke = json.loads(smoke_path.read_text())
         assert smoke["status"] == "PASS_REAL_DATA_OPTIMIZER_VALIDATION_EMA_RELOAD"
         assert smoke["source_commit"] == actual
+        assert smoke.get("recipe_contract") == "current"
         assert (
             hashlib.sha256(smoke_path.read_bytes()).hexdigest()
             == gate["smoke_result_sha256"][f"{family}-{suite}"]
         )
+
+    out.mkdir(parents=True, exist_ok=False)
 
     def progress(stage, **values):
         record = {"stage": stage, "family": family, "suite": suite, **values}
@@ -112,7 +121,7 @@ def main():
             return_hydra_config=True,
             overrides=[
                 "hydra/launcher=basic",
-                f"+experiment={'libero_historical' if family == 'dp' else 'libero'}/{family}_{suite}_oat_dp_matched_s42",
+                f"+experiment={current_experiment(family, suite)}",
                 f"benchmark.dataset={a.root}/data/released/{suite}_N500.zarr",
                 f"paths.output_dir={out}",
                 f"paths.work_dir={source}",
@@ -389,6 +398,7 @@ def main():
             "family": family,
             "suite": suite,
             "source_commit": actual,
+            "recipe_contract": "current",
             "parameters": counts,
             "metrics": values,
             "optimizer_steps": 2,

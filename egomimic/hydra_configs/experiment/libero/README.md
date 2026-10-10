@@ -29,3 +29,21 @@ uvx ruff@0.8.6 format --check egomimic tests scripts tools
 
 A subset check is not the CI style gate. Formatting failures should be repaired
 without changing the recipe or checkpoint contract.
+
+## Config audit and historical tools
+
+`tools/libero_oat_pair_config.py` composes the eight current recipes and validates
+120k AF / batch16 DP contracts. Its config-only result does not establish matching
+raw episode membership: compare materialized episode lists before claiming that.
+The validator's explicit `recipe_contract="historical-v7"` preserves the old
+80k AF / global1024 DP checks for saved historical configs; use the original
+checkpoint-bound source/config for reproducing those runs.
+
+`tools/libero_oat_training_proof.py` selects current recipes and requires an
+explicit attempt identity. Full mode requires `--readiness-receipt` with the
+current recipe contract and matching current-contract smoke receipts. Existing
+historical V7 receipts do not authorize training these current recipes.
+
+The native launch module exposes `HISTORICAL_NATIVE_PROFILES` and
+`historical_profile_for_suite`. The old `PROFILES` / `profile_for_suite` names are
+compatibility aliases for historical callers, never current launch selection.

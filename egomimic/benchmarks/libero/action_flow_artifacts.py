@@ -33,9 +33,11 @@ def canonical_sha(value):
 
 
 def validate_identity(identity):
-    from egomimic.benchmarks.libero.native_launch_profiles import profile_for_suite
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        historical_profile_for_suite,
+    )
 
-    profile = profile_for_suite(identity.get("suite"))
+    profile = historical_profile_for_suite(identity.get("suite"))
     suite = profile.suite
     if type(identity.get("seed")) is not int or identity["seed"] not in (
         {42, 43} if profile.suite in {"libero_goal", "libero_object"} else {42}

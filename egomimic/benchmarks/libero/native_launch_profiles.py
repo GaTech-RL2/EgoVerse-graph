@@ -1,4 +1,7 @@
-"""Explicit native LIBERO suite recipes; shared model/science stays unchanged."""
+"""Historical native LIBERO recipes, not current OAT-matched launch defaults.
+
+Legacy public names remain aliases for checkpoint-bound callers.
+"""
 
 from dataclasses import dataclass
 
@@ -16,7 +19,7 @@ class NativeLaunchProfile:
         return "libero_historical/" + self.name
 
 
-PROFILES = {
+HISTORICAL_NATIVE_PROFILES = {
     "libero10": NativeLaunchProfile(
         "libero10",
         "action_flow_libero10_h240_euler50_dithalf_80k_s42",
@@ -51,19 +54,19 @@ AV0_PROFILES = {
         p.task_uids,
         0.0,
     )
-    for suite, p in PROFILES.items()
+    for suite, p in HISTORICAL_NATIVE_PROFILES.items()
 }
 
 
-def profile_for_suite(suite):
+def historical_profile_for_suite(suite):
     try:
-        return PROFILES[suite]
+        return HISTORICAL_NATIVE_PROFILES[suite]
     except (KeyError, TypeError):
         raise ValueError("unsupported native LIBERO suite: " + str(suite)) from None
 
 
 def profile_for_experiment(experiment):
-    for profile in (*PROFILES.values(), *AV0_PROFILES.values()):
+    for profile in (*HISTORICAL_NATIVE_PROFILES.values(), *AV0_PROFILES.values()):
         if profile.experiment == experiment:
             return profile
     raise ValueError("unsupported native LIBERO experiment: " + str(experiment))
@@ -106,3 +109,8 @@ def profile_for_argv(argv):
     if len(selected) != 1:
         raise ValueError("exactly one native experiment override required")
     return profile_for_experiment(selected[0])
+
+
+# Compatibility aliases preserve historical checkpoint and external launcher callers.
+PROFILES = HISTORICAL_NATIVE_PROFILES
+profile_for_suite = historical_profile_for_suite

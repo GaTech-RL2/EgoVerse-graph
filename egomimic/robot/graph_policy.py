@@ -10,6 +10,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation
 
+from egomimic.pipeline.action_adapter import execution_prefix
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import (
     build_inference_config,
@@ -17,6 +18,9 @@ from egomimic.pipeline.inference_config import (
     load_inference_config,
     validate_inference_config,
     validate_input_constants,
+)
+from egomimic.pipeline.inference_controls import (
+    apply_control_bindings,
 )
 from egomimic.pipeline.inference_controls import (
     configure_profile_controls as configure_profile_controls,
@@ -389,21 +393,15 @@ class GraphRobotPolicy:
             name: self._inference_controls[name].validate(value)
             for name, value in overrides.items()
         }
-        for name, value in validated.items():
-            control = self._inference_controls[name]
-            if control.target_kind == "stage_attribute":
-                setattr(control.owner, control.attribute, value)
-            else:
-                setattr(self, control.attribute_path, value)
-            control.value = value
+        apply_control_bindings(self._inference_controls, validated, policy=self)
         return self.inference_controls()
 
     def execution_plan(self, prediction):
         """Choose the executable prefix; the full prediction remains visualizable."""
         actions = np.asarray(prediction)
-        if self.replan_every is None:
-            return actions
-        return actions[: min(self.replan_every, len(actions))]
+        return execution_prefix(
+            actions, decoder=self.adapter.decoder, replan_every=self.replan_every
+        )
 
     def _observation(self, obs):
         values = self.adapter.observation(obs)
@@ -508,7 +506,7 @@ def load_graph_policy(config):
     inference_controls = ()
     if inference_profiles is not None:
         inference_controls = configure_profile_controls(
-            graph, training, inference_profiles
+            graph, training, inference_profiles, decoder=adapter.decoder
         )
     elif "num_inference_steps" in config:
         raise ValueError(

@@ -60,6 +60,13 @@ video_recording:
   enabled: true
   directory: /home/rohan/rollouts/yam_hptflow
   fps: 12
+# Demo-format observations/actions plus rollout plans and outcome labels.
+# The low-disk guard ends capture without changing robot execution.
+episode_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_hptflow/episodes
+  min_free_gb: 20.0
+  max_queued_rows: 60
 # Browser-only checkpoint picker. It can browse only under this root, and a
 # chosen .ckpt is strictly loaded before the robot executes a fresh plan.
 model_browser:

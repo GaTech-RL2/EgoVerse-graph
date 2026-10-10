@@ -1,0 +1,228 @@
+"""Hardware-free checks for the ARC decoder's replay tempo (speed / hold_speed)."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from egomimic.robot.arc_codecs.e1 import ARM_LAYOUT
+from egomimic.robot.arc_decoder import BimanualArcDecoder
+from egomimic.robot.arc_speed import ARC_SPEED_RANGE
+
+M, H, DT = 100, 100, 1 / 30
+STEP_M = 0.4 / (M - 1)  # waypoint spacing
+MOVE_S = 0.02  # s per waypoint interval while moving -> 0.20 m/s
+HOLD_S = 0.20  # s per interval inside a hold        -> 0.02 m/s, under the threshold
+HOLD = slice(40, 45)  # five slow intervals = a 1.0 s hold in the middle of the path
+
+
+def dur_token(left_hold=True, right_hold=True):
+    """A straight 0.4 m path per arm as an e1_dur (M, 16) token, optionally holding."""
+    token = np.zeros((M, 16))
+    for k, (xyz, _ypr, grip, _vsl) in enumerate(ARM_LAYOUT):
+        token[:, xyz + k] = STEP_M * np.arange(M)  # left along x, right along y
+        token[:, grip] = np.linspace(0.0, 1.0, M)
+        token[:, 14 + k] = MOVE_S
+        if (left_hold, right_hold)[k]:
+            token[HOLD, 14 + k] = HOLD_S
+    return token
+
+
+def decoder(**kwargs):
+    # Tempo acts on the whole token here; the execution cap is tested separately.
+    kwargs.setdefault("execute_percent", 100)
+    return BimanualArcDecoder("e1_dur", 0.4, M, DT, H, **kwargs)
+
+
+def progress(plan, k=0):
+    """Path length reached by arm k at each decoded step."""
+    xyz = ARM_LAYOUT[k][0]
+    return np.linalg.norm(plan[:, xyz : xyz + 3] - plan[0, xyz : xyz + 3], axis=1)
+
+
+def steps_inside(plan, lo, hi):
+    reached = progress(plan)
+    return int(((reached > lo) & (reached < hi)).sum())
+
+
+def test_demonstrated_tempo_is_the_unmodified_decode():
+    token = dur_token()
+    unit = decoder()
+    expected = unit.codec.detokenize(token, action_horizon=H)
+    np.testing.assert_array_equal(unit(token)[0], expected)
+    # ... and the warp itself is the identity there, not merely bypassed.
+    cums = [STEP_M * np.arange(M)] * 2
+    times, _ = unit._warp(unit.codec.clock_at_waypoints(token), cums)
+    np.testing.assert_allclose(times, DT * np.arange(H), atol=1e-12)
+
+
+def test_uniform_speedup_replays_the_same_path_twice_as_fast():
+    token = dur_token()
+    slow = decoder()(token)[0]
+    fast_decoder = decoder(speed=2.0, hold_speed=2.0)
+    fast = fast_decoder(token)[0]
+    # Step j at 2x is step 2j at 1x, for both arms: geometry, rotation and
+    # gripper untouched, and the two arms still in step with each other.
+    np.testing.assert_allclose(fast[: H // 2], slow[::2], atol=1e-9)
+    assert fast_decoder.last_stats["valid_steps"] == pytest.approx(
+        decoder_valid_steps(token) / 2, abs=1
+    )
+
+
+def decoder_valid_steps(token):
+    unit = decoder()
+    unit(token)
+    return unit.last_stats["valid_steps"]
+
+
+def test_hold_keeps_its_duration_when_only_moving_phases_speed_up():
+    token = dur_token()
+    hold_at = STEP_M * HOLD.start
+    lo, hi = hold_at + 1e-4, STEP_M * HOLD.stop - 1e-4
+    baseline = steps_inside(decoder()(token)[0], lo, hi)
+    assert baseline == pytest.approx(1.0 / DT, abs=2)  # the 1.0 s hold, at 30 Hz
+
+    selective = decoder(speed=2.0, hold_speed=1.0)
+    plan = selective(token)[0]
+    uniform = decoder(speed=2.0, hold_speed=2.0)(token)[0]
+    # Tempo eases over RATE_RAMP_S at each edge, so allow a few steps either way.
+    assert steps_inside(plan, lo, hi) == pytest.approx(baseline, abs=5)
+    assert steps_inside(uniform, lo, hi) == pytest.approx(baseline / 2, abs=2)
+    # The approach before the hold did get faster.
+    assert np.argmax(progress(plan) > lo) < 0.65 * np.argmax(
+        progress(decoder()(token)[0]) > lo
+    )
+    assert 0.2 < selective.last_stats["hold_fraction"] < 0.6
+
+
+def test_one_arm_holding_while_the_other_moves_is_not_a_hold():
+    # Bimanual timing comes first: a lone arm's hold rides the pair's clock, so
+    # the arms stay exactly as coordinated as the token encoded.
+    unit = decoder(speed=2.0, hold_speed=1.0)
+    plan = unit(dur_token(left_hold=True, right_hold=False))[0]
+    assert (
+        unit.last_stats["hold_fraction"] < 0.35
+    )  # only the span after the right arm's path ends
+    reference = decoder()(dur_token(left_hold=True, right_hold=False))[0]
+    np.testing.assert_allclose(plan[:20], reference[:40:2], atol=1e-6)
+
+
+def test_path_is_never_left_at_any_speed():
+    token = dur_token()
+    for speed, hold in [(0.5, 0.5), (1.5, 1.0), (3.0, 1.0), (4.0, 4.0)]:
+        plan = decoder(speed=speed, hold_speed=hold)(token)[0]
+        assert np.isfinite(plan).all()
+        for k, (xyz, *_rest) in enumerate(ARM_LAYOUT):
+            reached = progress(plan, k)
+            assert (np.diff(reached) >= -1e-12).all() and reached[-1] <= 0.4 + 1e-9
+            off_axis = np.delete(plan[:, xyz : xyz + 3], k, axis=1)
+            np.testing.assert_allclose(off_axis, 0.0, atol=1e-12)
+
+
+def test_speed_is_validated_and_a_rejected_change_leaves_the_tempo_alone():
+    unit = decoder(speed=1.5)
+    assert (unit.speed, unit.hold_speed) == (1.5, 1.0)
+    for bad in (
+        True,
+        "2",
+        float("nan"),
+        float("inf"),
+        ARC_SPEED_RANGE[0] / 2,
+        ARC_SPEED_RANGE[1] * 2,
+    ):
+        with pytest.raises(ValueError):
+            unit.set_speed(bad)
+        with pytest.raises(ValueError):
+            unit.set_speed(2.0, bad)
+        assert (unit.speed, unit.hold_speed) == (1.5, 1.0)
+    unit.set_speed(2.0)  # hold_speed=None -> a uniform speed-up
+    assert (unit.speed, unit.hold_speed) == (2.0, 2.0)
+    with pytest.raises(ValueError):
+        decoder(hold_threshold=-0.1)
+
+
+def test_lab_tokens_take_a_uniform_speed():
+    token = np.zeros((M + 1, 14))
+    for k, (xyz, _ypr, grip, vsl) in enumerate(ARM_LAYOUT):
+        token[:M, xyz + k] = STEP_M * np.arange(M)
+        token[:M, grip] = np.linspace(0.0, 1.0, M)
+        token[M, vsl] = np.eye(3)[k] * 0.2  # 0.2 m/s along the path
+    slow = BimanualArcDecoder("lab", 0.4, M, DT, H)(token)[0]
+    unit = BimanualArcDecoder("lab", 0.4, M, DT, H, speed=2.0)
+    np.testing.assert_allclose(unit(token)[0][: H // 2], slow[::2], atol=1e-9)
+    assert unit.last_stats["hold_speed"] is None
+
+
+def test_cartesian_per_waypoint_tokens_take_a_uniform_speed():
+    # The (2M, 14) per-waypoint velocity token has no per-waypoint clock to warp,
+    # so it gets the lab treatment: the whole replay runs at one faster tempo.
+    t = np.arange(H) / H
+    chunk = np.zeros((H, 14))
+    for k, (xyz, _ypr, grip, _vsl) in enumerate(ARM_LAYOUT):
+        chunk[:, xyz + k] = 0.3 * t  # 0.3 m over the chunk, left along x, right along y
+        chunk[:, grip] = t
+    unit = BimanualArcDecoder("cartesian_per_waypoint", 0.4, M, DT, H)
+    token = unit.codec.transform({"actions_cartesian": chunk.copy()})[
+        "actions_cartesian"
+    ]
+    slow = unit(token)[0]
+    unit.set_speed(2.0)
+    fast = unit(token)[0]
+    np.testing.assert_allclose(fast[: H // 2 - 1], slow[: H - 2 : 2], atol=2e-3)
+    assert unit.last_stats["hold_speed"] is None
+
+
+def time_chunk():
+    """A (H, 14) Euler chunk: both arms move 0.3 m, yaw through 1 rad, close the gripper."""
+    t = np.linspace(0.0, 1.0, H)
+    chunk = np.zeros((H, 14))
+    for k, (xyz, ypr, grip, _vsl) in enumerate(ARM_LAYOUT):
+        chunk[:, xyz + k] = 0.3 * t
+        chunk[:, ypr] = 1.0 * t  # yaw (intrinsic ZYX: the first angle)
+        chunk[:, ypr + 1] = 0.2
+        chunk[:, grip] = t
+    return chunk
+
+
+def test_time_chunk_naive_speedup_replays_every_other_row_then_holds():
+    from scipy.spatial.transform import Rotation
+
+    from egomimic.robot.arc_decoder import TimeChunkRetimer
+
+    chunk = time_chunk()
+    unit = TimeChunkRetimer(H, DT)
+    assert unit(chunk) is chunk  # 100 % is the unmodified path
+    unit.set_speed(2.0, 2.0)
+    fast = unit(chunk)[0]
+    half = H // 2
+    for xyz, ypr, grip, _vsl in ARM_LAYOUT:
+        cols = [xyz, xyz + 1, xyz + 2, grip]
+        np.testing.assert_allclose(fast[:half, cols], chunk[::2][:, cols], atol=1e-12)
+        np.testing.assert_allclose(
+            Rotation.from_euler("ZYX", fast[:half, ypr : ypr + 3]).as_matrix(),
+            Rotation.from_euler("ZYX", chunk[::2, ypr : ypr + 3]).as_matrix(),
+            atol=1e-9,
+        )
+        np.testing.assert_allclose(
+            fast[half:, cols], np.repeat(chunk[-1:, cols], H - half, 0), atol=1e-12
+        )
+    assert unit.last_stats["valid_steps"] == half
+
+
+def test_time_chunk_hold_keeps_its_duration_with_selective_retiming():
+    from egomimic.robot.arc_decoder import TimeChunkRetimer
+
+    # Move 0.2 m in 1/3 s, hold still for 1 s, move again: a time chunk with a real hold.
+    clock = DT * np.arange(H)
+    x = np.interp(clock, [0, 1 / 3, 4 / 3, H * DT], [0.0, 0.2, 0.2, 0.4])
+    chunk = np.zeros((H, 14))
+    chunk[:, 0] = chunk[:, 7] = x
+    lo, hi = 0.2 - 1e-6, 0.2 + 1e-6
+
+    def held(plan):
+        return int(((plan[:, 0] > lo) & (plan[:, 0] < hi)).sum())
+
+    selective = TimeChunkRetimer(H, DT, speed=2.0, hold_speed=1.0)
+    uniform = TimeChunkRetimer(H, DT, speed=2.0, hold_speed=2.0)
+    assert held(selective(chunk)[0]) == pytest.approx(held(chunk), abs=4)
+    assert held(uniform(chunk)[0]) == pytest.approx(held(chunk) / 2, abs=2)

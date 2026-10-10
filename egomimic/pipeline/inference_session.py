@@ -7,7 +7,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
-from egomimic.pipeline.action_adapter import CanonicalSequenceAdapter
+from egomimic.pipeline.action_adapter import CanonicalSequenceAdapter, execution_prefix
 from egomimic.pipeline.checkpoint_binding import validate_artifact_binding
 from egomimic.pipeline.construction import checkpoint_construction
 from egomimic.pipeline.core import resolve_homogeneous_scalar
@@ -16,7 +16,10 @@ from egomimic.pipeline.inference_config import (
     validate_inference_config,
     validate_model_data_context,
 )
-from egomimic.pipeline.inference_controls import configure_profile_controls
+from egomimic.pipeline.inference_controls import (
+    apply_control_bindings,
+    configure_profile_controls,
+)
 from egomimic.pl_utils.data_context import DataContext
 
 
@@ -105,7 +108,7 @@ class InferenceSession:
         self._controls = {
             control.name: control
             for control in configure_profile_controls(
-                graph, training, declaration["profiles"]
+                graph, training, declaration["profiles"], decoder=decoder
             )
         }
         self.replan_every = None
@@ -142,13 +145,7 @@ class InferenceSession:
         checked = {
             name: self._controls[name].validate(value) for name, value in values.items()
         }
-        for name, value in checked.items():
-            control = self._controls[name]
-            if control.target_kind == "stage_attribute":
-                setattr(control.owner, control.attribute, value)
-            else:
-                setattr(self, control.attribute_path, value)
-            control.value = value
+        apply_control_bindings(self._controls, checked, policy=self)
         return self.inference_controls()
 
     @torch.no_grad()
@@ -187,8 +184,9 @@ class InferenceSession:
         return self.adapter(native)
 
     def execution_plan(self, prediction):
-        return (
-            prediction
-            if self.replan_every is None
-            else prediction[:, : self.replan_every]
+        return execution_prefix(
+            prediction,
+            decoder=self.adapter.decoder,
+            replan_every=self.replan_every,
+            time_axis=1,
         )

@@ -1,4 +1,4 @@
-"""Pure-function tests for the camera alignment monitor: no camera, no network."""
+"""Tests for the camera alignment monitor: no camera, nothing beyond loopback."""
 
 import json
 import math
@@ -342,6 +342,10 @@ def test_stale_verdict_is_withdrawn_and_a_failed_save_keeps_the_reference(
     monitor.latest_bgr = np.zeros((480, 640, 3), np.uint8)
     cfg.reference_pointer.write_text('{"image": "old.png"}')
 
+    async def latched():
+        while not monitor.superseded:
+            await asyncio.sleep(0.01)
+
     async def scenario():
         async with TestClient(TestServer(monitor.make_app())) as client:
 
@@ -351,6 +355,8 @@ def test_stale_verdict_is_withdrawn_and_a_failed_save_keeps_the_reference(
             async def save():
                 return await (await client.post("/api/frame_reference")).json()
 
+            # One refused attempt, then it waits for "Reconnect stream".
+            await asyncio.wait_for(latched(), 5)
             disconnected = await get_metrics(), await save()
             monitor.connected = True
             live = await get_metrics()

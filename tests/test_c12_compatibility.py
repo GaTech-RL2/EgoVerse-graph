@@ -144,8 +144,6 @@ def test_retry_against_pinned_historical_source():
         random.setstate(original_rng)
 
 
-
-
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64, torch.bfloat16])
 def test_metric_dtype_matches_historical_reducer_without_changing_gradient(dtype):
     from collections import OrderedDict

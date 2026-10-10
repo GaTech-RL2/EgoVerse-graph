@@ -50,8 +50,9 @@ def test_retired_parent_paths_have_no_selectable_config_references():
             assert not (CONFIGS / group / "pusht" / f"{old}.yaml").exists()
             for path in CONFIGS.rglob("*.yaml"):
                 assert f"pusht/{old}" not in path.read_text()
-    assert not (CONFIGS / "data/pusht/planar_usocket_chain_manual4919_standard_retimed.yaml").exists()
-
+    assert not (
+        CONFIGS / "data/pusht/planar_usocket_chain_manual4919_standard_retimed.yaml"
+    ).exists()
 
 
 @pytest.mark.parametrize(

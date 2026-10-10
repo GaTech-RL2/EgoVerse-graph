@@ -114,8 +114,6 @@ def test_action_flow_pair_composes_to_exact_shared_contract(
     )
 
 
-
-
 def test_only_reconstruction_weight_differs_across_sweep():
     reference = OmegaConf.to_container(
         _compose("action_flow_bc_usocket_recon1_s42").model, resolve=True

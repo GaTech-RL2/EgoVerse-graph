@@ -77,16 +77,6 @@ def test_real_action_flow_config_instantiates_and_passes_full_preflight():
     )
 
 
-
-
-
-
-
-
-
-
-
-
 def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",

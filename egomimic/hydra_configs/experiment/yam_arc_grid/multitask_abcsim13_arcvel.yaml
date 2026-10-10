@@ -1,0 +1,32 @@
+# @package _global_
+# ABC sim multitask (13 single-prompt tasks, 37k episodes), codec arcvel, robot-only BC from scratch
+# with the shared E1 stationery recipe and open-loop validation; only data, codec and identity differ.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_openloop
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/abcsim13
+- _self_
+name: multitask_abcsim13_arcvel
+description: h640t8_d384x10_cos10k_240k_s42_multitask_abcsim13_arcvel
+logger:
+  wandb:
+    id: multitask_abcsim13_arcvel_20261009_s42
+    tags:
+    - abc_sim
+    - multitask
+    - abcsim13
+    - scratch
+    - arcvel
+    - openloop_val
+# 33 M training frames: 0.2 would push 6.6 M samples through the codec for the stats.
+norm_stats:
+  sample_frac: 0.002
+e1:
+  spread: abc_sim
+  variant: arcvel
+  action_dim: 16
+hpt:
+  action_dim: 16
+evaluator:
+  action_mode: arc
+  token_layout: e1_profile

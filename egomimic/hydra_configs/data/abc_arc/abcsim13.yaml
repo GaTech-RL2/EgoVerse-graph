@@ -1,0 +1,82 @@
+# ABC sim_224 multitask pool: the 13 tasks whose prompt is constant within the task and whose
+# scene identifies the task (no language input needed). Zarrs from
+# egomimic/scripts/abc_sim/convert_sim_to_zarr.py; train_all / val_subset are flat symlink
+# folders (val_subset = the first 2 ABC-val episodes of every task, 26 in all).
+# Images stay at the sim's native 168x224. Codec follows ${e1.variant}.
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+source_fps: 30.0
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/agao81/abc_sim/zarr/train_all
+      embodiment_override: yam_bimanual
+      image_hw:
+      - 168
+      - 224
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+        yam_source_frames: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        progress_smooth_hz: null
+        fixed_spacing: false
+        variant: ${e1.variant}
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/agao81/abc_sim/zarr/val_subset
+      embodiment_override: yam_bimanual
+      image_hw:
+      - 168
+      - 224
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+        yam_source_frames: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        progress_smooth_hz: null
+        fixed_spacing: false
+        variant: ${e1.variant}
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 7
+    persistent_workers: true

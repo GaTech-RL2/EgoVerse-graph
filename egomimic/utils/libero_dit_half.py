@@ -16,7 +16,7 @@ def resolve_backbones(module):
         and names[4] == "ContentEncoderStage"
         and names[6] == "ConditionalVelocityStage"
     )
-    oat = names == (
+    oat_topology = (
         "OATObservationStage",
         "ActionTargetBuilder",
         "GaussianLatentNoise",
@@ -26,6 +26,10 @@ def resolve_backbones(module):
         "ContentDecoderStage",
         "ActionFlowObjectiveStage",
     )
+    diffusion_topology = oat_topology[:4] + (
+        "LatentDiffusionBridgeStage", "ConditionalEpsilonDDIMStage"
+    ) + oat_topology[6:]
+    oat = names in (oat_topology, diffusion_topology)
     if native:
         encoder, velocity = stages[4], stages[6]
     elif oat:

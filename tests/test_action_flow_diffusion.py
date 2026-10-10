@@ -1,6 +1,8 @@
 """Latent epsilon/DDIM contract, sampling identity and coupled gradient regressions."""
 import torch
 from torch import nn
+from types import SimpleNamespace
+import pytest
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from egomimic.pipeline.stages_action_flow import (
     LatentDiffusionSchedule, LatentDiffusionBridgeStage, ConditionalEpsilonDDIMStage,
@@ -94,3 +96,19 @@ def test_oracle_epsilon_ddim_recovers_clean_latent():
     b = {'sampler/noise': torch.randn_like(clean), 'condition': torch.zeros(2, 5)}
     stage.execute(b, mode='inference')
     torch.testing.assert_close(b['action_flow/generated_latent'], clean, atol=2e-4, rtol=2e-4)
+
+
+def test_dit_half_accepts_exact_diffusion_pair_but_rejects_mixed_topology():
+    from egomimic.utils.libero_dit_half import resolve_backbones
+    names = ['OATObservationStage', 'ActionTargetBuilder', 'GaussianLatentNoise',
+             'ContentEncoderStage', 'LatentDiffusionBridgeStage',
+             'ConditionalEpsilonDDIMStage', 'ContentDecoderStage', 'ActionFlowObjectiveStage']
+    stages = [type(name, (), {})() for name in names]
+    encoder, field = object(), object()
+    stages[3].encoder = SimpleNamespace(backbone=encoder)
+    stages[5].field = SimpleNamespace(backbone=field)
+    module = SimpleNamespace(model=SimpleNamespace(pipeline=SimpleNamespace(stages=stages)))
+    assert resolve_backbones(module) == {'encoder': encoder, 'velocity': field}
+    stages[4] = type('LatentBridgeStage', (), {})()
+    with pytest.raises(ValueError, match='topology'):
+        resolve_backbones(module)

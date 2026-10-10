@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 
-PROFILE = "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"
+PROFILE = "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
 PARAMETER_COUNT = 39750391
 SOURCE = "libero_panda"
 

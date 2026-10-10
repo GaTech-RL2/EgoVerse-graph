@@ -1,13 +1,13 @@
 # @package _global_
 # Shared native noaug model/optimizer/diagnostics; only suite/data identity differs.
 defaults:
-  - /experiment/libero/action_flow_libero10_h240_euler50_dithalf_80k_s42
+  - /experiment/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42
   - _self_
-name: action_flow_libero_object_h240_euler50_dithalf_80k_s42
-description: "LIBERO-Object native7D H240/H16 B32 seed42 Euler50 DiT-half noaug"
+name: action_flow_libero_goal_h240_euler50_dithalf_80k_s42
+description: "LIBERO-Goal native7D H240/H16 B32 seed42 Euler50 DiT-half noaug"
 benchmark:
-  suite: libero_object
-  dataset: ${oc.env:LIBERO_OBJECT_REPLAY_ROOT}
+  suite: libero_goal
+  dataset: ${oc.env:LIBERO_GOAL_REPLAY_ROOT}
 
 # Training RNG may differ; the immutable episode split stays seed42.
 data:

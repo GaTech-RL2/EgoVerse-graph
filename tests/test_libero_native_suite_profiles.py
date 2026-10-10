@@ -88,7 +88,7 @@ def test_typed_suite_and_receipt_isolation(suite):
 def test_recipe_only_changes_suite_identity(suite):
     text = (
         ROOT
-        / "egomimic/hydra_configs/experiment/libero"
+        / "egomimic/hydra_configs/experiment/libero_historical"
         / (PROFILES[suite].name + ".yaml")
     ).read_text()
     assert "action_flow_libero10_h240_euler50_dithalf_80k_s42" in text

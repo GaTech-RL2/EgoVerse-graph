@@ -31,7 +31,7 @@ def test_libero_current_and_historical_profiles_remain_distinct(suite, steps):
         )
         old = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/dp_{suite}_oat_dp_matched_s42"],
+            overrides=[f"+experiment=libero_historical/dp_{suite}_oat_dp_matched_s42"],
         )
     assert (
         af.model.action_horizon,
@@ -132,3 +132,89 @@ def test_unrecognized_or_conflicting_profiles_fail_before_launch(
         capture_output=True,
     )
     assert result.returncode == 64
+
+
+def test_current_pair_helper_composes_all_eight_without_claiming_split_proof(tmp_path):
+    api = runpy.run_path(str(ROOT / "tools/libero_oat_pair_config.py"))
+    result = api["compose_all"](ROOT, tmp_path)
+    assert len(result["rows"]) == 8
+    assert result["recipe_contract"] == "current"
+    assert (
+        result["episode_split_match"]
+        == "UNVERIFIED_REQUIRES_MATERIALIZED_EPISODE_LISTS"
+    )
+    assert result["full_training_ready"] is False
+    import json
+
+    for suite, steps in SUITES:
+        af = json.loads((tmp_path / f"action_flow-{suite}.json").read_text())
+        dp = json.loads((tmp_path / f"dp-{suite}.json").read_text())
+        assert af["trainer"]["max_steps"] == 120000
+        assert dp["trainer"]["max_steps"] == steps
+        assert api["validate"](dp, "dp", suite) == 16
+        with pytest.raises(AssertionError):
+            api["validate"](dp, "dp", suite, recipe_contract="historical-v7")
+        af["trainer"]["max_steps"] = 80000
+        with pytest.raises(AssertionError):
+            api["validate"](af, "action_flow", suite)
+        assert (
+            api["validate"](af, "action_flow", suite, recipe_contract="historical-v7")
+            == 32
+        )
+
+
+def test_historical_native_names_preserve_aliases_and_reject_current_recipe():
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        HISTORICAL_NATIVE_PROFILES,
+        PROFILES,
+        historical_profile_for_suite,
+        profile_for_experiment,
+        profile_for_suite,
+    )
+
+    assert PROFILES is HISTORICAL_NATIVE_PROFILES
+    assert profile_for_suite is historical_profile_for_suite
+    for suite, _ in SUITES:
+        assert historical_profile_for_suite(suite).experiment.startswith(
+            "libero_historical/"
+        )
+        with pytest.raises(ValueError):
+            profile_for_experiment(f"libero/action_flow_{suite}_oat_dp_matched_s42")
+
+
+@pytest.mark.parametrize("receipt", [None, {"recipe_contract": "historical-v7"}])
+def test_current_full_proof_rejects_legacy_gate_before_creating_output(
+    monkeypatch, tmp_path, receipt
+):
+    import json
+    import sys
+
+    monkeypatch.syspath_prepend(str(ROOT / "tools"))
+    api = runpy.run_path(str(ROOT / "tools/libero_oat_training_proof.py"))
+    monkeypatch.setenv("SLURM_STEP_ID", "fixture")
+    monkeypatch.setattr(
+        api["subprocess"],
+        "check_output",
+        lambda argv, **kwargs: "a" * 40 if argv[1] == "rev-parse" else "",
+    )
+    argv = [
+        "proof",
+        "--root",
+        str(tmp_path),
+        "--source-commit",
+        "a" * 40,
+        "--index",
+        "0",
+        "--phase",
+        "full",
+        "--attempt",
+        "v1",
+    ]
+    if receipt is not None:
+        path = tmp_path / "legacy.json"
+        path.write_text(json.dumps(receipt))
+        argv += ["--readiness-receipt", str(path)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises((ValueError, AssertionError)):
+        api["main"]()
+    assert not (tmp_path / "full-v1").exists()

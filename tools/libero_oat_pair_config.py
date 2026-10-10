@@ -11,7 +11,21 @@ from omegaconf import OmegaConf
 SUITES = ("libero10", "libero_spatial", "libero_object", "libero_goal")
 
 
-def validate(cfg, family, suite):
+STEP_TARGETS = dict(zip(SUITES, (605121, 270054, 325065, 280056)))
+
+
+def current_experiment(family, suite):
+    if suite not in SUITES or family not in ("dp", "action_flow"):
+        raise ValueError("unsupported current LIBERO family/suite")
+    suffix = "oat_batch16_keep_steps_s42" if family == "dp" else "oat_dp_matched_s42"
+    return f"libero/{family}_{suite}_{suffix}"
+
+
+def validate(cfg, family, suite, *, recipe_contract="current"):
+    if recipe_contract not in ("current", "historical-v7"):
+        raise ValueError("unsupported LIBERO recipe contract")
+    if suite not in SUITES or family not in ("dp", "action_flow"):
+        raise ValueError("unsupported LIBERO family/suite")
     assert cfg["benchmark"]["suite"] == suite
     assert cfg["benchmark"]["horizon"] == 32
     stages = cfg["model"]["pipeline"]["stages"]
@@ -36,7 +50,13 @@ def validate(cfg, family, suite):
     batch = cfg["benchmark"]["batch_size"] * cfg["trainer"]["accumulate_grad_batches"]
     assert cfg["callbacks"]["batch_budget"]["global_batch_size"] == batch
     if family == "action_flow":
-        assert batch == 32 and cfg["trainer"]["max_steps"] == 80000
+        assert batch == 32
+        assert cfg["trainer"]["max_steps"] == (
+            120000 if recipe_contract == "current" else 80000
+        )
+        if recipe_contract == "current":
+            assert cfg["trainer"]["check_val_every_n_epoch"] is None
+            assert cfg["trainer"]["val_check_interval"] == 20000
         assert cfg["trainer"]["gradient_clip_val"] == 3.0
         assert cfg["callbacks"]["ema"]["_target_"].endswith(
             "ActionFlowFixedEMACallback"
@@ -54,7 +74,21 @@ def validate(cfg, family, suite):
         )
         assert cfg["model"]["pipeline"]["stages"][-1]["action_velocity_weight"] == 1.0
     else:
-        assert batch == 1024 and cfg["trainer"]["max_epochs"] == 5001
+        if recipe_contract == "current":
+            assert cfg["benchmark"]["batch_size"] == 16
+            assert cfg["trainer"]["accumulate_grad_batches"] == 1
+            assert batch == 16 and cfg["trainer"]["max_steps"] == STEP_TARGETS[suite]
+            assert (
+                cfg["benchmark"]["original_optimizer_step_target"]
+                == STEP_TARGETS[suite]
+            )
+            assert cfg["norm_stats"]["precomputed_norm_path"] is None
+            if suite == "libero_spatial":
+                assert (
+                    cfg["callbacks"]["model_checkpoint"]["every_n_train_steps"] == 15000
+                )
+        else:
+            assert batch == 1024 and cfg["trainer"]["max_epochs"] == 5001
         assert cfg["trainer"]["gradient_clip_val"] == 1.0
         assert cfg["callbacks"]["ema"]["decay"] == 0.9999
         assert cfg["callbacks"]["ema"]["use_warmup"] is True
@@ -77,7 +111,7 @@ def compose_all(source, output):
                     return_hydra_config=True,
                     overrides=[
                         "hydra/launcher=basic",
-                        f"+experiment=libero/{family}_{suite}_oat_dp_matched_s42",
+                        f"+experiment={current_experiment(family, suite)}",
                         "benchmark.dataset=/NEVER_LAUNCH_UNBOUND_DATA",
                         "paths.output_dir=/NEVER_LAUNCH_UNBOUND_OUTPUT",
                         f"paths.work_dir={source}",
@@ -120,7 +154,9 @@ def compose_all(source, output):
                 )
     return {
         "status": "PASS_CONFIG_ONLY",
-        "fairness": "FAIR WITH CAVEATS: matched episode split, intentionally different family optimizers and training budgets",
+        "recipe_contract": "current",
+        "fairness": "CONFIG_ONLY: matching split settings; actual episode membership unverified; family optimizers and budgets differ",
+        "episode_split_match": "UNVERIFIED_REQUIRES_MATERIALIZED_EPISODE_LISTS",
         "full_training_ready": False,
         "rows": results,
     }

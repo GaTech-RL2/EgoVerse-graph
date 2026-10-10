@@ -14,7 +14,7 @@ from egomimic.benchmarks.libero.native_launch_profiles import (
     profile_for_experiment,
 )
 
-PROFILE = "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"
+PROFILE = "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
 SOURCE = "libero_panda"
 EXPECTED_PARAMETER_COUNT = 39750391
 SEED_BANK_SHA = "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"

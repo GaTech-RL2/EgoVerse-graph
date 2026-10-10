@@ -1,7 +1,7 @@
 # @package _global_
 # Candidate only: maintained launcher whitelist/source audit/smoke still required.
 defaults:
-  - /experiment/libero/action_flow_libero10_avln_80k_s42
+  - /experiment/libero_historical/action_flow_libero10_avln_80k_s42
   - override /model: bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf
   - override /callbacks: action_flow_avln_libero_dit_half
   - _self_

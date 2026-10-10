@@ -321,3 +321,49 @@ def test_desk_compare_names_a_desk_slid_along_the_camera_axis():
     assert len(away) == 1 and "away from the camera" in away[0]
     toward = m.desk_compare(desk, desk, _fit(6.0), _fit(), 3.0)["verdict"]
     assert len(toward) == 1 and "toward the camera" in toward[0]
+
+
+def test_stale_verdict_is_withdrawn_and_a_failed_save_keeps_the_reference(
+    tmp_path, monkeypatch
+):
+    import asyncio
+    import time
+
+    from aiohttp.test_utils import TestClient, TestServer
+
+    # Nothing listens on the discard port, so the stream never connects.
+    cfg = m.MonitorConfig(data_dir=tmp_path, rollout_ws="ws://127.0.0.1:9/ws")
+    monitor = m.Monitor(cfg, CAL)
+    monitor.metrics = {
+        "ts": time.time(),
+        "advice": ["ALIGNED"],
+        "desk": {"verdict": ["desk steady"]},
+    }
+    monitor.latest_bgr = np.zeros((480, 640, 3), np.uint8)
+    cfg.reference_pointer.write_text('{"image": "old.png"}')
+
+    async def scenario():
+        async with TestClient(TestServer(monitor.make_app())) as client:
+
+            async def get_metrics():
+                return await (await client.get("/metrics.json")).json()
+
+            async def save():
+                return await (await client.post("/api/frame_reference")).json()
+
+            disconnected = await get_metrics(), await save()
+            monitor.connected = True
+            live = await get_metrics()
+            monitor.age_ms = 6000  # the dashboard re-sending an old frame
+            resent = await get_metrics()
+            monitor.age_ms = 0
+            monkeypatch.setattr(m.cv2, "imwrite", lambda *_: False)
+            return disconnected, live, resent, await save()
+
+    (stale, refused), live, resent, failed = asyncio.run(scenario())
+    assert stale["advice"] == stale["desk"]["verdict"] == ["STALE: no live measurement"]
+    assert stale["stream"]["stale"] and "error" in refused
+    assert live["advice"] == ["ALIGNED"] and live["desk"]["verdict"] == ["desk steady"]
+    assert resent["advice"] == ["STALE: no live measurement"]
+    assert "error" in failed
+    assert json.loads(cfg.reference_pointer.read_text()) == {"image": "old.png"}

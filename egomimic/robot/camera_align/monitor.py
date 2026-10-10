@@ -46,6 +46,7 @@ import yaml
 from aiohttp import web
 
 SUPERSEDED_CLOSE_CODE = 4001
+STALE_S = 2.0  # a verdict older than this, or made on an older frame, is withdrawn
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 DEFAULT_INTRINSICS = (
     Path(__file__).resolve().parents[2]
@@ -734,6 +735,17 @@ class Monitor:
                 traceback.print_exc()
         return None
 
+    def _stale(self):
+        """Whether the last verdict no longer describes a live frame (lock held)."""
+        ts = self.metrics.get("ts")
+        return (
+            not self.connected
+            or ts is None
+            or time.time() - ts > STALE_S
+            # the dashboard re-sends its last frame while the rollout loop is busy
+            or (self.age_ms or 0) > STALE_S * 1000
+        )
+
     # ---- analysis thread
     def analysis_loop(self):
         period = 1.0 / self.cfg.analysis_hz
@@ -755,6 +767,7 @@ class Monitor:
                     now = time.time()
                     with self.lock:
                         self.analysis_hz = 1.0 / max(1e-3, now - t_prev)
+                        self.last_error = None
                     t_prev = now
                 except Exception:
                     with self.lock:
@@ -978,7 +991,13 @@ class Monitor:
         async def metrics(_request):
             with self.lock:
                 m = dict(self.metrics)
+                stale = self._stale()
+                if stale:
+                    m["advice"] = ["STALE: no live measurement"]
+                    if m.get("desk"):
+                        m["desk"] = {**m["desk"], "verdict": m["advice"]}
                 m["stream"] = {
+                    "stale": stale,
                     "connected": self.connected,
                     "superseded": self.superseded,
                     "close_code": self.close_code,
@@ -1005,26 +1024,35 @@ class Monitor:
 
         def latest_frame():
             with self.lock:
-                return None if self.latest_bgr is None else self.latest_bgr.copy()
+                if self.latest_bgr is None or self._stale():
+                    return None
+                return self.latest_bgr.copy()
 
         def retire(path: Path, stamp):
             if path.exists():
                 os.replace(path, path.with_name(f"{path.name}.{stamp}.bak"))
 
+        def replace_json(path: Path, data, stamp):
+            """Swap data in for path; a failed write leaves the current file in place."""
+            tmp = path.with_name(f"{path.name}.tmp")
+            with open(tmp, "w") as f:
+                json.dump(data, f, indent=1)
+            retire(path, stamp)
+            os.replace(tmp, path)
+
         async def save_frame_reference(_request):
             bgr = latest_frame()
             if bgr is None:
-                return web.json_response({"error": "no frame yet"})
+                return web.json_response({"error": "no live frame"})
             stamp = time.strftime("%Y%m%d_%H%M%S")
             name = f"reference_{stamp}.png"
-            cv2.imwrite(str(cfg.data_dir / name), bgr)
+            if not cv2.imwrite(str(cfg.data_dir / name), bgr):
+                return web.json_response({"error": f"could not write {name}"})
             pointer = {
                 "image": name,
                 "label": f"frame reference {stamp}",
                 "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
-            retire(cfg.reference_pointer, stamp)
-            json.dump(pointer, open(cfg.reference_pointer, "w"), indent=1)
             ref = Reference(
                 cfg.data_dir / name,
                 pointer["label"],
@@ -1032,6 +1060,7 @@ class Monitor:
                 cfg,
                 pointer["saved_at"],
             )
+            replace_json(cfg.reference_pointer, pointer, stamp)
             with self.lock:
                 self.ref = ref
                 self.history.clear()
@@ -1040,7 +1069,7 @@ class Monitor:
         async def save_tag_reference(_request):
             bgr = latest_frame()
             if bgr is None:
-                return web.json_response({"error": "no frame yet"})
+                return web.json_response({"error": "no live frame"})
             tags = self.detector.detect(bgr)
             if not tags:
                 return web.json_response(
@@ -1055,8 +1084,7 @@ class Monitor:
                 "aruco_dict": cfg.aruco_dict,
                 "tags": tags,
             }
-            retire(cfg.tag_reference, stamp)
-            json.dump(ref, open(cfg.tag_reference, "w"), indent=1)
+            replace_json(cfg.tag_reference, ref, stamp)
             cfg.snapshot_dir.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(str(cfg.snapshot_dir / "tag_reference_frame.png"), bgr)
             with self.lock:

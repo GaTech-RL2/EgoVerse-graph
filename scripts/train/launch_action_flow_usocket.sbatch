@@ -61,6 +61,16 @@ for variable in \
   required "$variable"
 done
 
+# Select only an existing current recipe in the exact bound source checkout.
+# Parent templates and historical recipes are not fresh-launch entry points.
+case "$AF_EXPERIMENT" in
+  pusht/parents/*|pusht_historical/*) die "select a current PushT recipe, not a parent or historical config" ;;
+  *..*|/*) die "invalid experiment selector" ;;
+esac
+case "$AF_EXPERIMENT" in
+  pusht/*) test -f "$AF_REPO/egomimic/hydra_configs/experiment/$AF_EXPERIMENT.yaml" || die "recipe is absent or retired in the selected source: $AF_EXPERIMENT" ;;
+esac
+
 AF_LAUNCH_MODE=${AF_LAUNCH_MODE:-preflight}
 AF_RUN_KIND=${AF_RUN_KIND:-smoke}
 AF_MAX_RESTARTS=${AF_MAX_RESTARTS:-4}
@@ -138,31 +148,6 @@ case "$AF_EXPERIMENT" in
     ;;
 esac
 case "$AF_NATIVE_RECIPE_BASE" in
-  pusht/action_flow_cotrain_uc_manual4919_avln_80k_s42)
-    test "${AF_RESUME_TYPED_MODEL:-}" = noaug && test -n "${AF_INITIAL_CHECKPOINT:-}" || die "noaug route is checkpoint continuation only"
-    test "$AF_EXPECTED_HEAD" = fb397446056a73ebcc2cf546217a6284d582727a || die "H696 Euler source mismatch"
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_manual4919_avln_80k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=80000
-    AF_FULL_VALIDATE_EVERY=15000
-    AF_FULL_CHECKPOINT_EVERY=5000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_COTRAIN=true
-    AF_H696_EULER=true
-    required AF_SAMPLER_AUDITOR
-    required AF_SAMPLER_AUDITOR_SHA256
-    test "$(sha256 "$AF_SAMPLER_AUDITOR")" = "$AF_SAMPLER_AUDITOR_SHA256" || die "sampler auditor hash mismatch"
-    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    AF_EXPECTED_PARAMETER_COUNT=471545114
-    AF_EXPECTED_SMOKE_PARAMETER_COUNT=471545114
-    AF_SMOKE_VERIFIER=${AF_H696_SMOKE_VERIFIER:?}
-    test "$(sha256 "$AF_SMOKE_VERIFIER")" = "${AF_H696_SMOKE_VERIFIER_SHA256:?}" || die "H696 smoke verifier SHA mismatch"
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,manual4919,cotrain,h696,euler50,bf16,fresh,single-gpu,$AF_RUN_KIND]"
-    ;;
   libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42|libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42|libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42|libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
     AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
@@ -201,118 +186,6 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_SMOKE_VERIFIER=$AF_NATIVE_SMOKE_VERIFIER
     ;;
 
-  pusht/action_flow_cotrain_uc_speed_interpolation)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_speed_interpolation
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=80000
-    AF_FULL_VALIDATE_EVERY=15000
-    AF_FULL_CHECKPOINT_EVERY=5000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_COTRAIN=true
-    AF_SPEED_DIAGNOSTIC=true
-    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    required AF_SPEED_ENCODING
-    required AF_SPEED_REFERENCE
-    case "$AF_SPEED_ENCODING" in
-      scalar) AF_EXPECTED_PARAMETER_COUNT=471549402 ;;
-      fourier) AF_EXPECTED_PARAMETER_COUNT=471549530 ;;
-      *) die "speed encoding must be scalar or fourier" ;;
-    esac
-    test "$AF_SPEED_REFERENCE" = 84.11600368466028 || die "unapproved speed reference"
-    required AF_SPEED_CONFIG_VALIDATOR
-    required AF_SPEED_SMOKE_VERIFIER
-    required AF_SPEED_CONFIG_VALIDATOR_SHA256
-    required AF_SPEED_SMOKE_VERIFIER_SHA256
-    test "$AF_EXPECTED_HEAD" = 344dd3baf5ba942d947e0a0e136c8990025d91e5 || die "unapproved speed diagnostic source"
-    test "$(sha256 "$AF_SPEED_CONFIG_VALIDATOR")" = "$AF_SPEED_CONFIG_VALIDATOR_SHA256" || die "speed config validator hash mismatch"
-    test "$(sha256 "$AF_SPEED_SMOKE_VERIFIER")" = "$AF_SPEED_SMOKE_VERIFIER_SHA256" || die "speed smoke verifier hash mismatch"
-    AF_CONFIG_VALIDATOR=$AF_SPEED_CONFIG_VALIDATOR
-    AF_SMOKE_VERIFIER=$AF_SPEED_SMOKE_VERIFIER
-    export AF_SPEED_ENCODING AF_SPEED_REFERENCE
-    AF_WANDB_TAGS="[pushshapes,cotrain,speed-$AF_SPEED_ENCODING,NON-PROTOCOL_INTERPOLATION_ONLY_DIAGNOSTIC,h696d12h12,bf16,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_usocket_refactored_c12_compat_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_refactored_c12_compat_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=30000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=5000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    ;;
-  pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_EXPECTED_PARAMETER_COUNT=190208924
-    AF_SCALED_H512=true
-    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_SOURCE=pushshapes_sim_chain_gripper
-    AF_ACTION_DIM=6
-    AF_EXPECTED_PARAMETER_COUNT=190210206
-    AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
-    AF_WANDB_TAGS="[pushshapes,chain-gripper,points6,frozen4920,action-flow,unite-h512d14h16,sum14,cfg4,val8x32,h16,z8x16,k14,dopri5,muon-adamw,single-gpu,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_EXPECTED_PARAMETER_COUNT=301792030
-    AF_COTRAIN=true
-    AF_SCALED_H512=true
-    AF_FROZEN_CHAIN_4920=true
-    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,points6,frozen4920,cotrain,action-flow,private-codecs,shared-field,unite-h512d14h16,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_COTRAIN=true
-    AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
-    AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,frozen4920,cotrain,action-flow,private-codecs,shared-field,h384d12h12,h16,z8x16,k14,dopri5,cfg4,muon-adamw,single-gpu,$AF_RUN_KIND]"
-    ;;
   pusht/action_flow_chain_native4_points6_manual4919_h384_150k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -364,32 +237,6 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=97956613
     AF_WANDB_TAGS="[pushshapes,chain-gripper,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
     ;;
-  pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
-    ;;
-  pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=10000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_FULL_LIMIT_VAL_BATCHES=8
-    AF_VALID_BATCH_SIZE=32
-    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,deterministic-data,legacy-bounds,single-gpu,$AF_RUN_KIND]"
-    ;;
   pusht/action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
@@ -434,29 +281,11 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=155627445
     AF_WANDB_TAGS="[pushshapes,chain-gripper,action-flow,unite-denoiser90m,codec-h384,sum14,cfg4,smoke-val1x32,full-no-val,ckpt20k,h16,z8x16,k14,no-checkpointing,single-gpu,$AF_RUN_KIND]"
     ;;
-  pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42)
-    AF_METHOD=latent_fm_stopgrad_unite
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_usocket_latent_fm_sg_unite_h384_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    AF_FULL_MAX_STEPS=150000
-    AF_FULL_VALIDATE_EVERY=30000
-    AF_FULL_CHECKPOINT_EVERY=30000
-    AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-h384,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
-    ;;
   pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42)
     AF_METHOD=latent_fm_stopgrad
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
-    ;;
-  pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42)
-    AF_METHOD=latent_fm_stopgrad
-    AF_RECONSTRUCTION_WEIGHT=1
-    AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
   pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42)
@@ -504,12 +333,6 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_RECONSTRUCTION_WEIGHT=10
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_s42
-    AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
-    ;;
-  pusht/action_flow_bc_usocket_recon10_warmup10k_flow001_s42)
-    AF_RECONSTRUCTION_WEIGHT=10
-    AF_FLOW_WEIGHT=0.01
-    AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_flow001_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
     ;;
   pusht/action_flow_bc_usocket_recon100_s42)
@@ -949,7 +772,6 @@ if test "$AF_SPEED_DIAGNOSTIC" = true; then
   printf '[speed-contract] open_file_soft_limit=%s\n' "$(ulimit -Sn)"
   BASE_OVERRIDES+=(
     "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
-    $([[ "$AF_EXPERIMENT" = pusht/action_flow_cotrain_uc_speed_interpolation ]] && printf "%s" "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE" || true)
     "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
     "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
     "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
@@ -1121,7 +943,6 @@ elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
     "++run_provenance.validation_inference_sampler=euler"
     "++run_provenance.validation_inference_steps=50"
     "speed_diagnostic.encoding=$AF_SPEED_ENCODING"
-    $([[ "$AF_EXPERIMENT" = pusht/action_flow_cotrain_uc_speed_interpolation ]] && printf "%s" "speed_diagnostic.speed_reference=$AF_SPEED_REFERENCE" || true)
     "run_provenance.architecture.family=action_flow_private_codecs_shared_field_h696d12h12"
     "run_provenance.architecture.tokenizer=two_private_UniteDiTBackbone_h696_d12_h12"
     "run_provenance.architecture.denoiser=one_shared_UniteDiTBackbone_h696_d12_h12"
@@ -1645,7 +1466,7 @@ assert payload["normalization_sha256"] == norm_sha
 assert payload["launcher_sha256"] == launcher_sha
 assert payload["content_manifest_sha256"] == content_sha
 assert payload["dataset_content_aggregate_sha256"] == content_aggregate_sha
-if experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
+if experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation"):
     assert payload["speed_encoding"] == speed_encoding
 if cotrain == "true":
     secondary = payload["datasets"]["secondary"]
@@ -1707,7 +1528,7 @@ assert identities["split_manifest_sha256"] == split_sha
 assert identities["normalization_sha256"] == norm_sha
 assert identities["content_manifest_sha256"] == content_sha
 assert identities["dataset_content_aggregate_sha256"] == content_aggregate_sha
-if experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
+if experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation"):
     assert identities["speed_conditioning"]["encoding"] == speed_encoding
     if experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation"):
         assert identities["speed_conditioning"]["conditioning_input"] == "retiming_multiplier"
@@ -1718,7 +1539,7 @@ assert payload["preflight"]["sha256"] == preflight_sha
 assert payload["checkpoint"]["global_step"] == 2
 assert payload["checkpoint"]["file_size_bytes"] > 0
 assert payload["checkpoint"]["gradient_routes"]["manifest_sha256"]
-if scaled_h512 == "true" or paired_chain == "true" or experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation")):
+if scaled_h512 == "true" or paired_chain == "true" or experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation"):
     assert payload["checkpoint"]["parameter_count"] == int(expected_parameter_count)
     assert payload["artifacts"]["energy_score"]["sha256"]
     assert payload["artifacts"]["action_flow_diagnostics"]["sha256"]
@@ -1916,7 +1737,7 @@ action_dim = int(action_dim)
 expected_parameter_count = int(expected_parameter_count)
 cotrain = cotrain == "true"
 scaled_h512 = scaled_h512 == "true"
-speed_diagnostic = experiment.endswith(("action_flow_cotrain_uc_speed_interpolation", "action_flow_cotrain_uc_multiplier_interpolation"))
+speed_diagnostic = experiment.endswith("action_flow_cotrain_uc_multiplier_interpolation")
 if speed_diagnostic:
     from importlib.util import spec_from_file_location, module_from_spec
     spec = spec_from_file_location("typed_condition_validator", os.environ["AF_SPEED_CONFIG_VALIDATOR"])

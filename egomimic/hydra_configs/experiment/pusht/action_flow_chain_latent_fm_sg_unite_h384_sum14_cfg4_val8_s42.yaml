@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
+  - /experiment/pusht/parents/action_flow_usocket_h384_sum14
   - override /data: pusht/action_flow_unite_chain_val01_h16
   - _self_
 

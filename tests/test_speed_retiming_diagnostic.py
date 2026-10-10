@@ -16,7 +16,8 @@ def test_constant_speed_native_retiming(view, rate):
     b = t.transform({"actions": native, "_retiming_view": view, "obs": obs})
     np.testing.assert_allclose(b["actions"][:, 0], np.arange(16) * rate)
     np.testing.assert_allclose(b["actions"][:, 3], np.arange(16) * rate / 30)
-    np.testing.assert_allclose(b["requested_speed"], [rate * 30])
+    np.testing.assert_allclose(b["retiming_rate"], [rate])
+    assert "requested_speed" not in b
     assert b["obs"] is obs
     assert np.array_equal(native[:, 0], np.arange(31))
 
@@ -27,7 +28,8 @@ def test_wrap_stationary_and_tail_rejection():
     a[:, 2] = [3.0, 3.1, -3.1, -3.0]
     b = t.transform({"actions": a, "_retiming_view": 0})
     assert abs(abs(b["actions"][1, 2]) - np.pi) < 1e-6
-    assert b["requested_speed"].item() == 0
+    assert b["retiming_rate"].item() == 1.5
+    assert "requested_speed" not in b
     with pytest.raises(ValueError, match="unpadded"):
         t.transform({"actions": a[:3], "_retiming_view": 0})
 

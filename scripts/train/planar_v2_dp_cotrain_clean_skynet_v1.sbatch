@@ -10,8 +10,8 @@ case "${DP_COTRAIN_STANDARD:-}" in
   *) printf 'Unsupported DP_COTRAIN_STANDARD\n' >&2; exit 64 ;;
 esac
 case "${DP_SINGLE_SOURCE_STANDARD:-}" in
-  ""|chain_manual4919_retimed_v1) ;;
-  *) printf 'Unsupported DP_SINGLE_SOURCE_STANDARD\n' >&2; exit 64 ;;
+  "") ;;
+  *) printf 'Chain-only Standard DP is retired; select an explicit DP_COTRAIN_STANDARD profile\n' >&2; exit 64 ;;
 esac
 if test -n "${DP_COTRAIN_STANDARD:-}" || test -n "${DP_SINGLE_SOURCE_STANDARD:-}"; then
   test -z "${DP_COTRAIN_STANDARD:-}" || test -z "${DP_SINGLE_SOURCE_STANDARD:-}" || exit 64

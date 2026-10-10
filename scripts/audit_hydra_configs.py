@@ -21,8 +21,8 @@ CONFIGS = ROOT / "egomimic/hydra_configs"
 EXPERIMENT_CONTEXTS = {
     "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
     "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
-    "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_chain_manual4919_standard_dp_retimed",
-    "data/pusht/planar_usocket_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/parents/standard_dp_uc_h16": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
     "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
     "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
     "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
@@ -32,7 +32,7 @@ EXPERIMENT_CONTEXTS = {
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
     "model/abc_arc/yam_bimanual_dp_arc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
-    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
+    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
     "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
     "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
@@ -112,6 +112,13 @@ AUDIT_ENVIRONMENT = {
 
 def audit_context(path):
     name = path.relative_to(CONFIGS).with_suffix("").as_posix()
+    if name == "data/pusht/parents/episode_split":
+        # This is a dataset fragment, not a selectable DataModule. Audit it
+        # in the same nested package used by its real data parents.
+        return "train_zarr_cartesian", [
+            "+experiment=pusht/planar_v2_usocket_dp_standard",
+            "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
+        ]
     group, _, entry = name.partition("/")
     experiment = None
     if group == "experiment":

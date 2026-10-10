@@ -30,7 +30,7 @@ def validate_speed_contract(cfg, encoding):
     assert list(cfg.speed_diagnostic.rates_chain) == [1, 1.25, 1.5, 1.75, 2]
     assert (
         cfg.model.pipeline._target_
-        == "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
+        == "egomimic.pipeline.stages_speed.build_multiplier_conditioned_pipeline"
     )
     assert cfg.model.pipeline._recursive_ is False
     assert cfg.model.pipeline.encoding == encoding

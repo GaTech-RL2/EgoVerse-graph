@@ -1,0 +1,6 @@
+# Shared PushT resolver and episode split. Split seed stays owned by each recipe.
+_target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+resolver:
+  _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+valid_ratio: 0.01
+bounds_check: false

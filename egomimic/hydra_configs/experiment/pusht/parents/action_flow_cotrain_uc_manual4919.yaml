@@ -1,0 +1,154 @@
+# @package _global_
+defaults:
+- /experiment/pusht/parents/action_flow_usocket_h384
+- override /data: pusht/parents/action_flow_uc_h16
+- override /model: bf/cotrain_uc_action_flow_latent_fm_sg_unite_h384d12h12
+- override /callbacks: action_flow_avln_cotrain
+- _self_
+model:
+  flow_loss_aggregation: sum_samples
+  cfg_scale: 4.0
+  cfg_interval:
+  - 0.0
+  - 1.0
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  training_behavior:
+    _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+  diagnostic_provider:
+    _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
+trainer:
+  val_check_interval: 15000
+  limit_val_batches: 8
+  max_steps: 80000
+planar:
+  batch_size: 32
+  action_dims:
+    pushshapes_sim_u_socket: 4
+    pushshapes_sim_chain_gripper: 6
+  eval_native_decoder: null
+data:
+  valid_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 32
+    pushshapes_sim_chain_gripper:
+      batch_size: 32
+evaluator:
+  native_decoder: null
+  native_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+  semantic_blocks_by_embodiment:
+    pushshapes_sim_u_socket:
+    - - 0
+      - 2
+    - - 2
+      - 4
+    pushshapes_sim_chain_gripper:
+    - - 0
+      - 2
+    - - 2
+      - 4
+    - - 4
+      - 6
+  energy_score_validation_view:
+    per_rank_batch_size: 32
+  action_flow_diagnostics:
+    validation_view:
+      per_rank_batch_size: 32
+    native_error: null
+  energy_score_distance: null
+  energy_score_distances_by_embodiment:
+    pushshapes_sim_u_socket:
+      type: usocket_normalized_xy_wrapped_theta_v1
+      complete_normalized_chunk_shape:
+      - 16
+      - 4
+      normalized_translation_indices:
+      - 0
+      - 1
+      native_theta_index: 2
+      rotation_scale_radians: 3.141592653589793
+      semantic_weights:
+        translation: 0.5
+        rotation: 0.5
+      native_decoder: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper: null
+  energy_score_provenance:
+    distance_contract: ${evaluator.energy_score_distances_by_embodiment}
+    action_representation:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
+run_provenance:
+  normalization_sha256: null
+  content_manifest_path: null
+  content_manifest_sha256: null
+  dataset_content_aggregate_sha256: null
+  split_manifest_path: null
+  split_manifest_sha256: null
+  train_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2970
+    pushshapes_sim_chain_gripper: 4870
+  valid_episode_count_per_domain:
+    pushshapes_sim_u_socket: 29
+    pushshapes_sim_chain_gripper: 49
+  union_episode_count_per_domain:
+    pushshapes_sim_u_socket: 2999
+    pushshapes_sim_chain_gripper: 4919
+  architecture:
+    family: action_flow_private_codecs_shared_field_h384d12h12
+    tokenizer: two_private_UniteDiTBackbone_h384_d12_h12
+    denoiser: one_shared_UniteDiTBackbone_h384_d12_h12
+    decoder: two_private_UniteActionDecoder_h384_d12_h12
+    action_shapes:
+      pushshapes_sim_u_socket:
+      - 16
+      - 4
+      pushshapes_sim_chain_gripper:
+      - 16
+      - 6
+  objective:
+    flow_aggregation: sum_of_14_per_sample_means
+    domain_aggregation: equal_mean_from_one_batch32_per_domain
+  action_contract:
+    representations:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: left_xy_center_xy_right_xy_points6
+    prediction_horizon: 16
+  inference:
+    classifier_free_guidance: true
+    cfg_scale: 4.0
+    cfg_interval:
+    - 0.0
+    - 1.0
+  validation:
+    interval_optimizer_steps: 10000
+    limit_batches: 8
+    per_rank_batch_size: 32
+  energy_score_contract:
+    distance: ${evaluator.energy_score_distances_by_embodiment}
+  chain_collection:
+    standard_manual_episodes: 3000
+    standard_per_file_manifest_sha256: 05f590222bd954af7a5f01f64c9554865afe36e40845fcd336d5a134bb00b10b
+    obstacle_gen_manual_episodes: 1919
+    obstacle_gen_per_file_manifest_sha256: 3240098b09b8456b6fda0f44984f3b2e74343feaaac8edb972993ecfbf24e32d
+    combined_content_manifest_sha256: 9920658e35a6cffc3dd4dde82129b7d1ae08f77664f0cbb06498ebc13ca3eaa1
+    combined_split_manifest_sha256: 1fe77d9c0320965fd973711c4b2803938bb9a59ce5e842eb18316b9e71730ecc
+    excluded_frozen_mixed_view: true
+deployment:
+  observation_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperModelStateObservationAdapter
+  action_decoders:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointsNativeDecoder
+val_at_end: true
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 5000
+    save_top_k: -1

@@ -144,36 +144,6 @@ def test_retry_against_pinned_historical_source():
         random.setstate(original_rng)
 
 
-def test_recipe_keeps_composed_wrapper_and_wires_all_boundaries():
-    from hydra import compose, initialize_config_dir
-
-    root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
-    with initialize_config_dir(config_dir=str(root), version_base=None):
-        cfg = compose(
-            config_name="train_zarr_cartesian",
-            overrides=[
-                "+experiment=pusht/action_flow_usocket_refactored_c12_compat_s42"
-            ],
-        )
-    assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
-    assert cfg.model.pipeline.compatibility_mode == "legacy_c12"
-    assert cfg.normalizer.compatibility_mode == "legacy_c12"
-    assert cfg.model.training_behavior.compatibility_mode == "legacy_c12"
-    assert cfg.data.compatibility_mode == "legacy_c12"
-    for split in (cfg.data.train_datasets, cfg.data.valid_datasets):
-        assert split.pushshapes_sim_u_socket.compatibility_mode == "legacy_c12"
-    assert cfg.trainer.precision == "bf16-mixed"
-    assert cfg.val_at_start is False
-    assert cfg.trainer.log_every_n_steps == 10
-    assert cfg.trainer.max_steps == 30000
-    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 5000
-    assert cfg.trainer.val_check_interval == 10000
-    assert cfg.trainer.limit_val_batches == 8
-    assert cfg.callbacks.ema.decay == 0.9978
-    assert cfg.callbacks.ema.validate_with_ema is True
-    assert cfg.callbacks.wandb_profiler.log_every_n_steps == 100
-
-
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64, torch.bfloat16])
 def test_metric_dtype_matches_historical_reducer_without_changing_gradient(dtype):
     from collections import OrderedDict

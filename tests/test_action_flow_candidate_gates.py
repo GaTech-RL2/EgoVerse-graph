@@ -11,7 +11,8 @@ from omegaconf import OmegaConf, open_dict
 
 from tests.test_verify_action_flow_training_smoke import HEAD, MODULE, _history_row
 from tools.validate_action_flow_config import (
-    CANDIDATE_METHODS,
+    CHECKPOINT_METHOD_CONTRACTS,
+    DEFAULT_CONFIG_ROOT,
     GRAPH_METHOD,
     LIKELIHOOD_METHOD,
     STOPGRAD_METHOD,
@@ -22,6 +23,21 @@ from tools.validate_action_flow_config import (
     validate_method_contract,
 )
 
+# Historical method identities are not selectable recipes. Exercise every current
+# recipe with the full gates, and require explicit rejection for removed ones.
+CURRENT_RECIPE_METHODS = {
+    recipe: method
+    for recipe, method in CHECKPOINT_METHOD_CONTRACTS.items()
+    if (DEFAULT_CONFIG_ROOT / "experiment" / f"{recipe}.yaml").is_file()
+}
+RETIRED_METHOD_RECIPES = set(CHECKPOINT_METHOD_CONTRACTS) - set(CURRENT_RECIPE_METHODS)
+
+
+@pytest.mark.parametrize("experiment", sorted(RETIRED_METHOD_RECIPES))
+def test_retired_method_identity_cannot_select_a_training_recipe(experiment):
+    with pytest.raises(PreflightError, match="absent or retired"):
+        compose_experiment(experiment)
+
 
 @pytest.fixture(autouse=True)
 def offline_campaign_roots(monkeypatch, tmp_path):
@@ -30,7 +46,7 @@ def offline_campaign_roots(monkeypatch, tmp_path):
     monkeypatch.setenv("PUSHSHAPES_CHAIN_GRIPPER_ROOT", str(tmp_path / "chain"))
 
 
-@pytest.mark.parametrize("experiment", CANDIDATE_METHODS)
+@pytest.mark.parametrize("experiment", CURRENT_RECIPE_METHODS)
 def test_real_candidate_config_and_parameter_manifest(experiment):
     if (
         "chain_points6_latent_fm_sg_unite_h512" in experiment
@@ -43,7 +59,7 @@ def test_real_candidate_config_and_parameter_manifest(experiment):
         return
     report, _ = validate_experiment(experiment)
     assert report["status"] == "PASS"
-    assert report["action_flow_method"] == CANDIDATE_METHODS[experiment]
+    assert report["action_flow_method"] == CURRENT_RECIPE_METHODS[experiment]
     assert report["topology"]["shared_field_instance"]
     topology = report["topology"]
     if "private_codec_routes" in topology:
@@ -53,7 +69,9 @@ def test_real_candidate_config_and_parameter_manifest(experiment):
         assert "shared_decoder_instance" not in topology
     else:
         assert topology["shared_decoder_instance"]
-    expected_stages = 9 if CANDIDATE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 8
+    expected_stages = (
+        9 if CURRENT_RECIPE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 8
+    )
     assert len(topology["train_order"]) == expected_stages
     assert (
         sum(
@@ -63,7 +81,7 @@ def test_real_candidate_config_and_parameter_manifest(experiment):
     )
 
 
-@pytest.mark.parametrize("experiment", CANDIDATE_METHODS)
+@pytest.mark.parametrize("experiment", CURRENT_RECIPE_METHODS)
 def test_candidate_two_optimizer_update_config_gate(experiment, tmp_path, monkeypatch):
     if experiment not in MODULE.APPROVED_EXPERIMENTS:
         # A shipped candidate config is not automatically an approved smoke recipe.
@@ -87,7 +105,7 @@ def test_candidate_two_optimizer_update_config_gate(experiment, tmp_path, monkey
     with open_dict(cfg):
         cfg.trainer.max_steps = 2
         cfg.trainer.val_check_interval = (
-            2 if CANDIDATE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 1
+            2 if CURRENT_RECIPE_METHODS[experiment] == STOPGRAD_UNITE_METHOD else 1
         )
         cfg.trainer.limit_val_batches = 1
         cfg.trainer.precision = "bf16"
@@ -97,7 +115,7 @@ def test_candidate_two_optimizer_update_config_gate(experiment, tmp_path, monkey
         cfg.run_provenance.source_commit = HEAD
         cfg.run_provenance.normalization_sha256 = norm_hash
         cfg.evaluator.artifact_root = str(tmp_path / "energy")
-        if CANDIDATE_METHODS[experiment] != LIKELIHOOD_METHOD:
+        if CURRENT_RECIPE_METHODS[experiment] != LIKELIHOOD_METHOD:
             cfg.evaluator.action_flow_diagnostics.artifact_root = str(
                 tmp_path / "diagnostics"
             )

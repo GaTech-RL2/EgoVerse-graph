@@ -77,123 +77,6 @@ def test_real_action_flow_config_instantiates_and_passes_full_preflight():
     )
 
 
-def test_unite_h384_action_flow_config_has_exact_architecture_and_recipe():
-    report, _ = preflight.validate_experiment(
-        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42",
-        config_root=CONFIG_ROOT,
-    )
-
-    assert report["status"] == "PASS"
-    assert report["dimensions"] == {
-        "action": [16, 4],
-        "condition": 128,
-        "image_feature": 64,
-        "latent": [8, 16],
-        "normalized_state": 4,
-    }
-    expected_counts = {
-        "decoder_g": 21_303_556,
-        "encoder_e": 32_725_808,
-        "field_v": 32_725_168,
-        "observation_encoder": 11_197_088,
-        "state_projection": 4_480,
-        "pipeline_total": 97_956_100,
-    }
-    assert {
-        name: report["parameters"][name]["total"] for name in expected_counts
-    } == expected_counts
-    assert report["optimization"]["max_steps"] == 150_000
-    assert report["optimization"]["validation_every_steps"] == 30_000
-    assert report["optimization"]["checkpoint_every_steps"] == 30_000
-    assert report["optimization"]["optimizer"]["lr"] == pytest.approx(1.0e-4)
-    assert report["optimization"]["parameter_groups"]["complete"] is True
-    assert report["optimization"]["parameter_groups"]["disjoint"] is True
-    assert report["topology"]["inference_order"] == [
-        "KeyedFeatureProjection",
-        "FusedObsEncoder",
-        "GaussianLatentNoise",
-        "ConditionalVelocityStage",
-        "ContentDecoderStage",
-    ]
-
-
-def test_unite_h384_parity_config_pins_sum_cfg_and_validation_contract():
-    report, _ = preflight.validate_experiment(
-        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
-        config_root=CONFIG_ROOT,
-    )
-    assert report["status"] == "PASS"
-    assert report["optimization"]["validation_every_steps"] == 10_000
-    assert report["optimization"]["checkpoint_every_steps"] == 30_000
-    assert report["topology"]["inference_order"] == [
-        "KeyedFeatureProjection",
-        "FusedObsEncoder",
-        "GaussianLatentNoise",
-        "ConditionalVelocityStage",
-        "ContentDecoderStage",
-    ]
-
-
-def test_unite_h384_deterministic_profile_keeps_the_parity_recipe():
-    experiment = (
-        "pusht/"
-        "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_"
-        "val8_deterministic_s42"
-    )
-    report, config = preflight.validate_experiment(
-        experiment,
-        config_root=CONFIG_ROOT,
-    )
-
-    assert report["status"] == "PASS"
-    assert report["action_flow_method"] == preflight.STOPGRAD_UNITE_METHOD
-    assert report["parameters"]["pipeline_total"]["total"] == 97_956_100
-    assert report["optimization"]["validation_every_steps"] == 10_000
-    assert report["optimization"]["checkpoint_every_steps"] == 30_000
-    assert config["trainer"]["deterministic"] is True
-    assert config["model"]["_target_"] == "egomimic.pl_utils.pl_model.ModelWrapper"
-    assert config["model"]["training_behavior"]["_target_"] == (
-        "egomimic.pl_utils.training_behavior_action_flow." "ActionFlowTrainingBehavior"
-    )
-    assert config["model"]["diagnostic_provider"]["_target_"] == (
-        "egomimic.eval.pipeline_diagnostics." "ActionFlowDiagnosticProvider"
-    )
-    dataset = config["data"]["train_datasets"]["pushshapes_sim_u_socket"]
-    assert dataset["bounds_check"] is True
-    assert dataset["bounds_semantics"] == "legacy_full_vector"
-    assert dataset["fallback_policy"] == "deterministic_hash"
-    assert int(dataset["fallback_seed"]) == 42
-
-
-def test_scaled_h512_usocket_config_passes_the_dedicated_contract():
-    report, _ = preflight.validate_experiment(
-        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42",
-        config_root=CONFIG_ROOT,
-    )
-
-    assert report["status"] == "PASS"
-    assert report["dimensions"]["actions"] == {"pushshapes_sim_u_socket": [16, 4]}
-    assert report["parameters"]["pipeline_total"]["total"] == 190_208_924
-    assert report["optimization"]["validation_every_steps"] == 10_000
-    assert report["optimization"]["checkpoint_every_steps"] == 30_000
-    assert report["optimization"]["parameter_groups"]["complete"] is True
-
-
-def test_codec98k_config_changes_only_the_typed_reconstruction_capacity():
-    report, _ = preflight.validate_experiment(
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42",
-        config_root=CONFIG_ROOT,
-    )
-
-    assert report["status"] == "PASS"
-    assert report["config_name"] == (
-        "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
-    )
-    assert report["parameters"]["encoder_e"]["total"] == 48_980
-    assert report["parameters"]["decoder_g"]["total"] == 48_976
-    assert report["parameters"]["pipeline_total"]["total"] == 50_801_685
-
-
 def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
     report, _ = preflight.validate_experiment(
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
@@ -523,3 +406,16 @@ def test_direct_script_cli_resolves_repository_package(tmp_path):
     payload = json.loads(output.read_text())
     assert payload["status"] == "PASS"
     assert payload["parameters"]["field_v"]["total"] == 39_506_641
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "pusht/action_flow_chain_manual4919_avln_80k_s42",
+        "pusht/parents/action_flow_usocket_h384",
+        "pusht_historical/action_flow_cotrain_uc_speed_interpolation",
+    ],
+)
+def test_fresh_composition_rejects_retired_or_non_recipe_selectors(selector):
+    with pytest.raises(preflight.PreflightError, match="retired|historical"):
+        preflight.compose_experiment(selector, config_root=CONFIG_ROOT)

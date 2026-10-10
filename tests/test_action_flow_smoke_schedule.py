@@ -104,10 +104,9 @@ def test_every_schedule_field_remains_checked(key):
 
 @pytest.mark.parametrize("flow_weight", (1.0, 0.01))
 def test_actual_warmup_smoke_still_requires_configured_step_one(flow_weight):
-    suffix = "" if flow_weight == 1.0 else "_flow001"
-    config = compose_experiment(
-        f"pusht/action_flow_bc_usocket_recon10_warmup10k{suffix}_s42"
-    )
+    config = compose_experiment("pusht/action_flow_bc_usocket_recon10_warmup10k_s42")
+    # Exercise both verifier weights without reviving the retired flow001 leaf.
+    OmegaConf.update(config, "model.flow_weight", flow_weight)
     # The maintained launcher reduces this experiment's full 10k warmup to one
     # update for the real two-update warmup smoke.
     OmegaConf.update(config, "model.reconstruction_only_warmup_steps", 1)

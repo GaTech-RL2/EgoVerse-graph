@@ -67,16 +67,35 @@ def test_strict_reload_cannot_reinterpret_native_speed_checkpoint():
     new.load_state_dict(new.state_dict(), strict=True)
 
 
-def test_historical_speed_mode_is_preserved_but_not_reinterpreted():
-    historical = SharedSpeedCondition(100.0, conditioning_input="native_speed")
-    multiplier = SharedSpeedCondition(None, conditioning_input="retiming_multiplier")
-    assert historical.conditioning_input == "native_speed"
-    with pytest.raises(RuntimeError):
-        multiplier.load_state_dict(historical.state_dict(), strict=True)
-    with pytest.raises(RuntimeError):
-        historical.load_state_dict(multiplier.state_dict(), strict=True)
-    root = Path(__file__).parents[1] / "egomimic/hydra_configs/experiment/pusht"
-    assert (root / "action_flow_cotrain_uc_speed_interpolation.yaml").is_file()
+def test_pusht_adapter_rejects_physical_speed_configuration():
+    from egomimic.pipeline.stages_speed import build_multiplier_conditioned_pipeline
+
+    with pytest.raises(ValueError, match="raw retiming_multiplier"):
+        build_multiplier_conditioned_pipeline([], conditioning_input="native_speed")
+    with pytest.raises(TypeError, match="speed_reference"):
+        build_multiplier_conditioned_pipeline([], speed_reference=100.0)
+    root = Path(__file__).parents[1] / "egomimic/hydra_configs/experiment"
+    assert not (root / "pusht/action_flow_cotrain_uc_speed_interpolation.yaml").exists()
+    assert not (
+        root / "pusht_historical/action_flow_cotrain_uc_speed_interpolation.yaml"
+    ).exists()
+
+
+def test_pusht_retiming_does_not_compute_physical_speed(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("PushT must not calculate a velocity-derived condition")
+
+    monkeypatch.setattr(np.linalg, "norm", forbidden)
+    result = PlanarCommandRetiming((2.0,)).transform(
+        {
+            "actions": np.zeros((31, 3)),
+            "_retiming_view": 0,
+            "requested_speed": np.asarray([999.0]),
+            "requested_speed_value": np.asarray(999.0),
+        }
+    )
+    assert "requested_speed" not in result and "requested_speed_value" not in result
+    np.testing.assert_array_equal(result["retiming_rate"], [2.0])
 
 
 def test_multiplier_reaches_shared_field_in_train_and_inference():

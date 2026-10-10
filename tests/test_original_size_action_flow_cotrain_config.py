@@ -4,7 +4,7 @@ import pytest
 from hydra import compose, initialize_config_dir
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
-ROW = "action_flow_cotrain_uc_latent_fm_sg_unite_h384d12h12_sum14_cfg4_val10k_s42"
+ROW = "parents/action_flow_cotrain_uc_manual4919"
 
 
 def test_original_size_cotrain_contract(monkeypatch):
@@ -13,7 +13,15 @@ def test_original_size_cotrain_contract(monkeypatch):
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_DIR.resolve())):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=pusht/{ROW}", "++paths.root_dir=."],
+            # Component compatibility fixture, not a selectable training recipe.
+            # Keep the historical schedule assertions explicit after leaf retirement.
+            overrides=[
+                f"+experiment=pusht/{ROW}",
+                "++paths.root_dir=.",
+                "trainer.max_steps=150000",
+                "trainer.val_check_interval=10000",
+                "callbacks.model_checkpoint.every_n_train_steps=30000",
+            ],
         )
 
     stages = cfg.model.pipeline.stages

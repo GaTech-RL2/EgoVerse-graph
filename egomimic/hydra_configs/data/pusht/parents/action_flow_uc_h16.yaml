@@ -1,0 +1,61 @@
+_target_: egomimic.rldb.zarr.data_module.ZarrDataModule
+_recursive_: false
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_CHAIN_GRIPPER_ROOT}
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4919
+      expected_episode_names_sha256: aec6051fcf76b941f480c52b71fc9a38e192caa3ff49d93929b6607daa9e0002
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: train
+    split_seed: 42
+    expected_train_episode_count: 4870
+    expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_USOCKET_ROOT}
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_CHAIN_GRIPPER_ROOT}
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 4919
+      expected_episode_names_sha256: aec6051fcf76b941f480c52b71fc9a38e192caa3ff49d93929b6607daa9e0002
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_keymap_per_source_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_points_action_state_transform_list
+    mode: valid
+    split_seed: 42
+    expected_train_episode_count: 4870
+    expected_train_episode_names_sha256: 3f5d78892b8efa0b312869c1638753d9795611d7680c64db0080fd62b07f91e7
+    expected_valid_episode_count: 49
+    expected_valid_episode_names_sha256: 4a10302d2bdad7f0b09b435ed1f865c98303e7488c726bedd71e1cc6803749b3
+  pushshapes_sim_u_socket:
+    resolver:
+      folder_path: ${oc.env:PUSHSHAPES_USOCKET_ROOT}
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+defaults:
+- /data/pusht/action_flow_unite_usocket_val01_h16@_here_
+- /data/pusht/parents/episode_split@train_datasets.pushshapes_sim_chain_gripper
+- /data/pusht/parents/episode_split@valid_datasets.pushshapes_sim_chain_gripper
+- _self_

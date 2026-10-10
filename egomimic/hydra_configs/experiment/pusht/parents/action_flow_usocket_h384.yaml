@@ -1,15 +1,11 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/action_flow_usocket_candidate_common
-  - override /data: pusht/action_flow_unite_usocket_val01_h16
-  - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
-  - _self_
-
-name: action_flow_usocket_latent_fm_sg_unite_h384_s42
-description: "Action Flow stopgrad/JVP objective on separate released-UNITE H384 modules"
+- /experiment/pusht/action_flow_usocket_candidate_common
+- override /data: pusht/action_flow_unite_usocket_val01_h16
+- override /model: bf/us_action_flow_latent_fm_sg_unite_h384
+- _self_
 train:
   action_flow_method: latent_fm_stopgrad_unite
-
 trainer:
   max_steps: 150000
   val_check_interval: 30000
@@ -17,16 +13,14 @@ trainer:
   precision: bf16-mixed
   gradient_clip_val: 3.0
   gradient_clip_algorithm: norm
-
 norm_stats:
   norm_mode: minmax
   reduce_all_but_last: true
   sample_frac: 1.0
   precomputed_norm_path: null
-
 callbacks:
   model_checkpoint:
-    filename: "epoch-{epoch}-step-{step}"
+    filename: epoch-{epoch}-step-{step}
     save_last: link
     save_top_k: -1
     every_n_train_steps: 30000
@@ -35,10 +29,8 @@ callbacks:
     _target_: egomimic.utils.ema_callback.EMACallback
     decay: 0.9978
     validate_with_ema: true
-
 eval_checkpoint:
   use_ema: true
-
 evaluator:
   energy_score_provenance:
     action_representation: x_y_cos_theta_sin_theta
@@ -50,12 +42,19 @@ evaluator:
     enabled: true
     noise_seed_bank_path: ${hydra:runtime.cwd}/egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
     noise_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
-    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    raw_noise_levels:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 0.75
+    - 1.0
     max_batches_per_rank: 1
     max_samples: 16
     jacobian_samples: 2
     capture_activations: true
-    activation_layer_map: {0: 0, 1: 11}
+    activation_layer_map:
+      0: 0
+      1: 11
     cknna_k: 10
     native_error:
       enabled: true
@@ -82,7 +81,9 @@ evaluator:
       action_representation: x_y_cos_theta_sin_theta
       clean_endpoint: t0
       gaussian_endpoint: t1
-      latent_shape: [8, 16]
+      latent_shape:
+      - 8
+      - 16
       flow_samples_per_content: ${model.flow_samples_per_content}
       condition_dropout_probability: ${model.condition_dropout_probability}
       sampler: dopri5
@@ -92,7 +93,6 @@ evaluator:
       fixed_level_coupling: one_clean_latent_and_one_gaussian_per_condition
       decoder_jacobian_evaluation: declared_bridge_state_at_each_fixed_noise_level
       activation_capture: real_forward_hooks_without_replay_or_replacement
-
 run_provenance:
   architecture:
     family: action_flow_with_separate_released_unite_modules
@@ -100,8 +100,12 @@ run_provenance:
     denoiser: UniteDiTBackbone_h384_d12_h12
     decoder: UniteActionDecoder_h384_d12_h12
     tokenizer_denoiser_weight_sharing: false
-    action_shape: [16, 4]
-    latent_shape: [8, 16]
+    action_shape:
+    - 16
+    - 4
+    latent_shape:
+    - 8
+    - 16
     observation_condition_dim: 128
   objective:
     method: latent_fm_stopgrad_unite
@@ -123,8 +127,8 @@ run_provenance:
     sampler: dopri5
     steps: 50
     timestep_shift_alpha: 0.5
-    atol: 1.0e-6
-    rtol: 1.0e-3
+    atol: 1.0e-06
+    rtol: 0.001
     classifier_free_guidance: false
   requirements:
     r1_full_conditional_distribution: PASS_design_under_fixed_endpoint_cfm_assumptions
@@ -137,7 +141,6 @@ run_provenance:
     r8_no_required_action_path: PASS_optional_action_velocity_bias_disclosed
     r9_collapse_and_decoder_sensitivity: OPEN_requires_training_diagnostics
     r10_baseline_quality_and_compute: OPEN_requires_torus_controls_and_gpu_smoke
-
 deployment:
   observation_adapter:
     _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter

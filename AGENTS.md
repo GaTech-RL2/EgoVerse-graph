@@ -36,6 +36,15 @@ whole scratch/project root. Candidate inventory alone does not authorize deletio
 Publish source from the authenticated Skynet account with Graphite `gt submit`,
 preserving branch parents. Do not merge without an explicit user request.
 
+## Current PushT recipes
+
+Read the current selection section in `docs/cluster-pipeline.md` before choosing
+PushT configuration. Use normal per-source images with 32 U-Socket plus 32
+ChainGripper per optimizer update; the older grouped64 preference is superseded.
+Parents are shared defaults, not standalone recipes. Historical physical-speed
+configs and serialized checkpoint method names are not fresh-launch menus.
+Preserve recorded source/config identities for historical reloads.
+
 ## Find the implementation
 
 This is the EgoVerse graph runtime. Start with the file for the component's

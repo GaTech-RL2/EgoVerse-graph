@@ -8,7 +8,7 @@ spec = importlib.util.spec_from_file_location(
 )
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
-PROFILE = "libero/action_flow_libero10_h240_euler50_dithalf_80k_s42"
+PROFILE = "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
 
 
 def inputs():

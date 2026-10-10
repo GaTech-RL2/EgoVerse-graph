@@ -1,7 +1,7 @@
 # @package _global_
 # Preserve the selected task-local batch16 recipe; the older global1024 profile stays separate.
 defaults:
-  - /experiment/libero/dp_libero_object_oat_dp_matched_s42
+  - /experiment/libero_historical/dp_libero_object_oat_dp_matched_s42
   - _self_
 name: dp_libero_object_oat_batch16_keep_steps_s42
 benchmark:

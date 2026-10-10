@@ -112,7 +112,7 @@ def main():
             return_hydra_config=True,
             overrides=[
                 "hydra/launcher=basic",
-                f"+experiment=libero/{family}_{suite}_oat_dp_matched_s42",
+                f"+experiment={'libero_historical' if family == 'dp' else 'libero'}/{family}_{suite}_oat_dp_matched_s42",
                 f"benchmark.dataset={a.root}/data/released/{suite}_N500.zarr",
                 f"paths.output_dir={out}",
                 f"paths.work_dir={source}",

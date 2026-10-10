@@ -77,7 +77,7 @@ def compose_all(source, output):
                     return_hydra_config=True,
                     overrides=[
                         "hydra/launcher=basic",
-                        f"+experiment=libero/{family}_{suite}_oat_dp_matched_s42",
+                        f"+experiment={'libero_historical' if family == 'dp' else 'libero'}/{family}_{suite}_oat_dp_matched_s42",
                         "benchmark.dataset=/NEVER_LAUNCH_UNBOUND_DATA",
                         "paths.output_dir=/NEVER_LAUNCH_UNBOUND_OUTPUT",
                         f"paths.work_dir={source}",

@@ -58,7 +58,7 @@ def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(
     with initialize_config_dir(config_dir=str(config_dir), version_base="1.3"):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=["+experiment=libero/action_flow_libero10_avln_80k_s42"],
+            overrides=["+experiment=libero_historical/action_flow_libero10_avln_80k_s42"],
         )
     assert "data" not in cfg.data
     assert cfg.data.train_datasets.libero_panda._target_.endswith(

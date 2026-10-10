@@ -1,9 +1,9 @@
 # @package _global_
 # Matched native noaug ablation: disable only decoded-action velocity loss.
 defaults:
-  - /experiment/libero/action_flow_libero10_h240_euler50_dithalf_80k_s42
+  - /experiment/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42
   - _self_
-name: action_flow_libero10_h240_euler50_dithalf_80k_av0_s42
+name: action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42
 run_provenance:
   ablation: action_velocity_off
   objective:

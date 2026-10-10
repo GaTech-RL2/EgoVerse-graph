@@ -31,7 +31,7 @@ def test_libero_current_and_historical_profiles_remain_distinct(suite, steps):
         )
         old = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/dp_{suite}_oat_dp_matched_s42"],
+            overrides=[f"+experiment=libero_historical/dp_{suite}_oat_dp_matched_s42"],
         )
     assert (
         af.model.action_horizon,

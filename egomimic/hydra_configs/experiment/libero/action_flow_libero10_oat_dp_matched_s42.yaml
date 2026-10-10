@@ -5,7 +5,7 @@ defaults:
 - override /logger: wandb
 - _self_
 name: action_flow_libero10_oat_dp_matched_s42
-description: Fresh original-OAT-DP matched comparison; launch gates pending
+description: Current Action Flow recipe; 120k updates, original optimizer and velocity loss enabled
 benchmark:
   suite: libero10
   dataset: ???
@@ -13,7 +13,9 @@ benchmark:
   batch_size: 32
 trainer:
   max_epochs: -1
-  max_steps: 80000
+  max_steps: 120000
+  check_val_every_n_epoch: null
+  val_check_interval: 20000
   accumulate_grad_batches: 1
   gradient_clip_val: 3.0
 callbacks:
@@ -39,3 +41,5 @@ data:
   valid_datasets:
     libero_panda:
       valid_ratio: 0.1
+
+val_at_end: true

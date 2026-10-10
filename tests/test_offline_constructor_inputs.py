@@ -19,7 +19,7 @@ def test_native_fixture_is_explicit_and_does_not_read_runtime_snapshot(monkeypat
     )
     path = (
         CONFIGS
-        / "experiment/libero/action_flow_libero10_h240_euler50_dithalf_80k_s42.yaml"
+        / "experiment/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42.yaml"
     )
     with compose_for_audit(path) as cfg:
         before = OmegaConf.to_container(cfg.evaluator, resolve=True)

@@ -1,7 +1,7 @@
 # @package _global_
 # Preserve the selected task-local batch16 recipe; the older global1024 profile stays separate.
 defaults:
-  - /experiment/libero/dp_libero_spatial_oat_dp_matched_s42
+  - /experiment/libero_historical/dp_libero_spatial_oat_dp_matched_s42
   - _self_
 name: dp_libero_spatial_oat_batch16_keep_steps_s42
 benchmark:
@@ -15,5 +15,9 @@ trainer:
 callbacks:
   batch_budget:
     global_batch_size: 16
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: 15000
+    save_on_train_epoch_end: false
 norm_stats:
   precomputed_norm_path: null

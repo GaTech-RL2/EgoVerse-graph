@@ -13,7 +13,7 @@ class NativeLaunchProfile:
 
     @property
     def experiment(self):
-        return "libero/" + self.name
+        return "libero_historical/" + self.name
 
 
 PROFILES = {
@@ -70,7 +70,7 @@ def profile_for_experiment(experiment):
 
 
 def profile_for_config(config):
-    profile = profile_for_experiment("libero/" + str(config.get("name")))
+    profile = profile_for_experiment("libero_historical/" + str(config.get("name")))
     if config["benchmark"]["suite"] != profile.suite:
         raise ValueError("native suite/recipe identity mismatch")
     expected_ablation = (

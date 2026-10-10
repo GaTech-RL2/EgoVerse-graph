@@ -147,6 +147,7 @@ def test_event_grippers_preserve_commands_and_event_times(mode, layout):
         velocity_mode=mode,
         velocity_layout=layout,
         gripper_stream_mode="events",
+        arc_chunking_mode="multistream",
     )
     raw = np.zeros((400, 14))
     raw[30:70, 6] = 1.0
@@ -169,6 +170,7 @@ def test_all_six_event_streams_hold_for_400_frames(mode, layout):
         velocity_mode=mode,
         velocity_layout=layout,
         gripper_stream_mode="events",
+        arc_chunking_mode="multistream",
     )
     token = cod.transform({"actions": np.zeros((400, 14))})["actions"]
     native = clock_token_seconds(token, layout)
@@ -452,7 +454,10 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
     train = cfg.data.train_datasets
     assert set(train) == {"yam_bimanual", "human_bimanual"}
     human = train.human_bimanual.resolver.key_map
-    assert (human.action_horizon, human.source_buffer_frames) == (100, 400)
+    assert (human.action_horizon, human.source_buffer_frames) == (
+        100,
+        200 if evaluator_mode == "baseline" else 400,
+    )
     robot_keymap = train.yam_bimanual.resolver.key_map
     assert robot_keymap.source_buffer_frames == 400
     assert train.human_bimanual.resolver.transform_list.stride == 1

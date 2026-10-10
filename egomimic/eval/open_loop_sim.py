@@ -1893,6 +1893,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             return prediction[:steps].copy(), steps
 
         input_dim = prediction.shape[-1]
+        velocity_layout = getattr(self, "velocity_layout", None)
+        gripper_distance_unit = getattr(self, "gripper_distance_unit", None)
+        gripper_stream_mode = getattr(self, "gripper_stream_mode", "distance")
         # The token helpers below index rows, so a wide prediction is
         # restacked once here and the codec is pinned to the stacked layout.
         # Converting at this single boundary keeps the layout out of the
@@ -1922,8 +1925,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     if input_dim == 20 and self.velocity_mode == "per_waypoint"
                     else "stacked"
                 ),
-                gripper_distance_unit=self.gripper_distance_unit,
-                gripper_stream_mode=self.gripper_stream_mode,
+                gripper_distance_unit=gripper_distance_unit,
+                gripper_stream_mode=gripper_stream_mode,
             )
         partial = arc_execution_prefix(
             prediction,
@@ -1933,8 +1936,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
             self.arc_execution_cap_mode,
             arc_chunking_mode=evaluator_chunking_mode(self),
             rotation_distance_unit=getattr(self, "rotation_distance_unit", None),
-            gripper_distance_unit=self.gripper_distance_unit,
-            velocity_layout=self.velocity_layout,
+            gripper_distance_unit=gripper_distance_unit,
+            velocity_layout=velocity_layout,
             control_dt=self.control_dt,
         )
         steps = arc_prefix_control_steps(
@@ -1947,12 +1950,12 @@ class OpenLoopSimEval(BimanualCartesianEval):
             arc_chunking_mode=evaluator_chunking_mode(self),
             arc_execution_cap_mode=self.arc_execution_cap_mode,
             max_steps=max_steps,
-            gripper_distance_unit=self.gripper_distance_unit,
-            velocity_layout=self.velocity_layout,
-            gripper_stream_mode=self.gripper_stream_mode,
+            gripper_distance_unit=gripper_distance_unit,
+            velocity_layout=velocity_layout,
+            gripper_stream_mode=gripper_stream_mode,
         )
         codec_token = partial
-        if self.velocity_layout in SIX_CLOCK_LAYOUTS:
+        if velocity_layout in SIX_CLOCK_LAYOUTS:
             partial_m = len(partial) // 2
             codec_token = np.concatenate(
                 (
@@ -1961,11 +1964,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 ),
                 axis=-1,
             )
+        clock_options = (
+            {"clocks_in_seconds": True} if velocity_layout == "log_clock6" else {}
+        )
         decoded = self._arc_tokenizer.detokenize(
-            codec_token,
-            action_horizon=steps,
-            clocks_in_seconds=self._arc_tokenizer.velocity_layout
-            in ("log_clock", "log_clock6"),
+            codec_token, action_horizon=steps, **clock_options
         ).astype(np.float64, copy=False)
         return decoded, steps
 

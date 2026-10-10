@@ -654,5 +654,5 @@ def test_executed_chunk_video_holds_each_chunk_until_it_ends():
     # Frames 0-2 show the chunk planned at 0, 3-5 the one at 3, 6-7 the one at 6
     # (the episode ends after two of its three frames).
     assert [anchor for anchor, _ in shown] == [0, 0, 0, 3, 3, 3, 6, 6]
-    # Prediction and GT cover the same frames: the chunk's 3 (GT 2 at the end).
-    assert lengths[0] == (3, 3) and lengths[3] == (3, 3) and lengths[6] == (3, 2)
+    # Both overlays stop at the episode boundary, just like the metric.
+    assert lengths[0] == (3, 3) and lengths[3] == (3, 3) and lengths[6] == (2, 2)

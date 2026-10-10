@@ -1665,7 +1665,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
             return torch.from_numpy(np.asarray(values, dtype=np.float32)[None])
 
         pred_camframe = self._revert_to_camframe(
-            actions=batched(state["prediction"]),
+            # Episode end may arrive before this planned chunk finishes.
+            # Match the metric: render only frames that were actually executed.
+            actions=batched(state["prediction"][: len(frames)]),
             obs_pose=state["obs_pose"],
             embodiment_name=embodiment_name,
         )

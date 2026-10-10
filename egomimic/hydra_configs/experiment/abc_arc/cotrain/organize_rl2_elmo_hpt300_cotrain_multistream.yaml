@@ -15,6 +15,9 @@ abc:
   arc_gripper_stream_mode: events
   arc_velocity_layout: log_clock6
   arc_token_dim: 20
+trainer:
+  # Open-loop videos/metrics need complete episodes, not 80 batch prefixes.
+  limit_val_batches: 1.0
 hpt:
   action_horizon: ${abc.arc_token_rows}
   token_dim: ${abc.arc_token_dim}

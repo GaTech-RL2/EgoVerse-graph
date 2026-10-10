@@ -87,6 +87,9 @@ AUDIT_ENVIRONMENT = {
     "AF_COTRAIN_NORM": "/tmp/egoverse-config-audit/normalizer.json",
     "AF_HUMAN_DATA_ROOT": "/tmp/egoverse-config-audit/human",
     "AF_STATIONARY_SPEED_REFERENCE": "0.1",
+    "YAM_HPTFLOW_TRAINING_CONFIG": "/tmp/egoverse-config-audit/resolved-config.yaml",
+    "YAM_HPTFLOW_CHECKPOINT": "/tmp/egoverse-config-audit/model.ckpt",
+    "YAM_HPTFLOW_NORMALIZER": "/tmp/egoverse-config-audit/data-context.json",
     "PUSHSHAPES_USOCKET_ROOT": "/tmp/egoverse-config-audit/usocket",
     "PUSHSHAPES_CHAIN_GRIPPER_ROOT": "/tmp/egoverse-config-audit/chain",
     **{
@@ -229,10 +232,6 @@ def _compose_for_audit(path):
                     "training_config": "/tmp/audit/resolved.yaml",
                     "checkpoint": "/tmp/audit/model.ckpt",
                     "normalizer_path": "/tmp/audit/normalizer.json",
-                    "inference_graph": {
-                        "status": "unsupported",
-                        "reason": "station template audit",
-                    },
                     "path": "/tmp/audit/replay.zarr",
                 }.items():
                     if OmegaConf.is_missing(policy, key) or (

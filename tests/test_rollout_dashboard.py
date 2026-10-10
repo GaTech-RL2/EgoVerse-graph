@@ -20,6 +20,7 @@ from egomimic.robot.rollout_dashboard import (
     CheckpointBrowser,
     RolloutDashboard,
     _broadcast_dashboard_message,
+    _RolloutTimer,
     load_action_overlay,
     validate_rollout_preview,
 )
@@ -430,6 +431,47 @@ def test_checkpoint_browser_accepts_checkpoint_prefixed_artifacts(tmp_path):
     )
 
 
+@pytest.mark.parametrize("prefixed", [False, True])
+def test_checkpoint_browser_accepts_full_context_without_normalizer_cache(
+    tmp_path, prefixed
+):
+    checkpoint = tmp_path / "run__epoch-0-step-1__sha256-abcd.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (tmp_path / "resolved-config.yaml").write_text("model: {}\n")
+    context = tmp_path / ("run.data-context.json" if prefixed else "data-context.json")
+    context.write_text("{}\n")
+    browser = CheckpointBrowser(tmp_path)
+    bundle = browser.resolve_bundle(checkpoint.name)
+    assert bundle.normalizer_path == context.resolve()
+    assert (
+        browser.validate_policy(
+            {
+                "checkpoint": str(checkpoint),
+                "training_config": str(bundle.training_config),
+                "normalizer_path": str(context),
+            }
+        )
+        == bundle
+    )
+    # Discovery does not claim valid contents; the bound loader checks those.
+
+
+def test_checkpoint_browser_prefers_full_context_over_legacy_stats_filename(tmp_path):
+    checkpoint = tmp_path / "run__epoch-0-step-1__sha256-abcd.ckpt"
+    checkpoint.write_bytes(b"weights")
+    (tmp_path / "resolved-config.yaml").write_text("model: {}\n")
+    for name in ("run.norm_stats.json", "norm_stats.json", "data-context.json"):
+        (tmp_path / name).write_text("{}\n")
+    browser = CheckpointBrowser(tmp_path)
+    assert browser.resolve_bundle(checkpoint.name).normalizer_path.name == (
+        "data-context.json"
+    )
+    (tmp_path / "run.data-context.json").write_text("{}\n")
+    assert browser.resolve_bundle(checkpoint.name).normalizer_path.name == (
+        "run.data-context.json"
+    )
+
+
 def test_dashboard_model_selection_reaches_only_rollout_loop(tmp_path):
     root = tmp_path / "models"
     root.mkdir()
@@ -617,26 +659,9 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
     assert "execute_steps" not in profile
-    inference = profile["policy"]["inference_graph"]
-    assert inference["input"]["history_length"] == 1
-    assert inference["output"] == {
-        "representation": "cartesian",
-        "shape": [100, 14],
-    }
-    profiles = inference["profiles"]
-    assert all(
-        profiles[name]["overrides"]["inference_steps"]["default"] == 10
-        for name in ("flow_time", "flow_arcvel", "flow_arcdur")
-    )
-    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["default"] == 100
-    assert all(
-        model["overrides"]["replan_every"]["default"] == 30
-        for model in profiles.values()
-    )
-    assert profiles["diffusion_time"]["overrides"]["inference_steps"]["target"] == {
-        "kind": "stage_attribute",
-        "attribute_path": "policy.num_inference_steps",
-    }
+    assert "inference_graph" not in profile["policy"]
+    assert profile["policy"]["checkpoint"] == "${oc.env:YAM_HPTFLOW_CHECKPOINT}"
+    assert profile["policy"]["normalizer_path"] == "${oc.env:YAM_HPTFLOW_NORMALIZER}"
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert profile["video_recording"] == {
@@ -652,6 +677,21 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
         "front_img_1",
         "left_wrist_img",
         "right_wrist_img",
+    }
+
+
+@pytest.mark.parametrize(
+    "name", ["eva_rollout.yaml", "yam_rollout.yaml", "yam_rl2_hptflow_rollout.yaml"]
+)
+def test_station_templates_do_not_declare_model_inference(name):
+    policy = yaml.safe_load((ROOT / "egomimic/hydra_configs/robot" / name).read_text())[
+        "policy"
+    ]
+    assert not set(policy) & {
+        "inference_graph",
+        "inference_profiles",
+        "auto_inference_config",
+        "num_inference_steps",
     }
 
 
@@ -676,7 +716,9 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "?v=9" in html
+    assert "style.css?v=10" in html
+    assert "app.js?v=11" in html
+    assert 'id="rollout-time"' in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript
     assert "Apply settings" in javascript
@@ -1321,3 +1363,174 @@ def test_unlimited_rollout_exits_on_operator_quit():
         )
         == 0
     )
+
+
+def test_rollout_timer_is_monotonic_and_preserves_active_time_across_pauses():
+    now = [100.0]
+    timer = _RolloutTimer(clock=lambda: now[0])
+    assert timer.snapshot() == {"elapsed_seconds": 0.0, "running": False}
+    timer.resume()
+    now[0] += 4.5
+    timer.resume()  # Duplicate Continue must not restart the clock.
+    assert timer.snapshot() == {"elapsed_seconds": 4.5, "running": True}
+    timer.pause()
+    now[0] += 60.0
+    timer.pause()
+    assert timer.snapshot() == {"elapsed_seconds": 4.5, "running": False}
+    timer.resume()
+    now[0] += 2.0
+    assert timer.snapshot() == {"elapsed_seconds": 6.5, "running": True}
+    timer.reset()
+    assert timer.snapshot() == {"elapsed_seconds": 0.0, "running": False}
+
+
+def test_dashboard_rollout_time_follows_continue_pause_restart_and_camera_gate(
+    tmp_path,
+):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    now = [0.0]
+    with dashboard._lock:
+        dashboard._rollout_timer = _RolloutTimer(clock=lambda: now[0])
+    try:
+        dashboard.request_pause(False)  # Resume before Continue is a no-op.
+        assert dashboard._snapshot()["rollout_time"]["running"] is False
+        dashboard.request_start()
+        now[0] = 5.0
+        assert dashboard._snapshot()["rollout_time"]["elapsed_seconds"] == 5.0
+        dashboard.request_pause(True)
+        now[0] = 30.0
+        dashboard.request_start()  # c while paused must not unpause the timer.
+        assert dashboard._snapshot()["rollout_time"] == {
+            "elapsed_seconds": 5.0,
+            "running": False,
+        }
+        dashboard.request_pause(False)
+        now[0] = 32.0
+        dashboard.request_camera_reconnect()
+        now[0] = 100.0
+        assert dashboard._snapshot()["rollout_time"] == {
+            "elapsed_seconds": 7.0,
+            "running": False,
+        }
+        dashboard.request_start()
+        now[0] = 103.0
+        assert dashboard._snapshot()["rollout_time"]["elapsed_seconds"] == 10.0
+        dashboard.request_restart()
+        assert dashboard._snapshot()["rollout_time"] == {
+            "elapsed_seconds": 0.0,
+            "running": False,
+        }
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_rollout_time_survives_reconnection_and_is_sent_with_frames(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    now = [0.0]
+    with dashboard._lock:
+        dashboard._rollout_timer = _RolloutTimer(clock=lambda: now[0])
+    dashboard.request_start()
+    now[0] = 3.0
+
+    async def reconnect():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["rollout_time"] == {
+                    "elapsed_seconds": 3.0,
+                    "running": True,
+                }
+                frame = await asyncio.wait_for(ws.receive_json(), timeout=2.0)
+                assert frame["type"] == "frame"
+                assert frame["rollout_time"] == config["rollout_time"]
+            now[0] = 5.0
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                assert (await ws.receive_json())["rollout_time"] == {
+                    "elapsed_seconds": 5.0,
+                    "running": True,
+                }
+
+    try:
+        asyncio.run(reconnect())
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_episode_commands_reach_only_the_rollout_loop(tmp_path):
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+        episode_recording={"enabled": True, "directory": str(tmp_path / "episodes")},
+    )
+
+    async def drive():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["episode_recording_enabled"] is True
+                assert config["episode_recording"] is False
+                for message, expected in (
+                    ({"record_episode": "start"}, {"action": "start"}),
+                    ({"save_episode": "not-an-outcome"}, None),
+                    (
+                        {"save_episode": "failure"},
+                        {"action": "save", "outcome": "failure"},
+                    ),
+                    ({"discard_episode": True}, {"action": "discard"}),
+                ):
+                    await ws.send_json(message)
+                    deadline = time.monotonic() + (0.3 if expected is None else 1.0)
+                    request = None
+                    while request is None and time.monotonic() < deadline:
+                        await asyncio.sleep(0.01)
+                        request = dashboard.take_episode_request()
+                    assert request == expected
+            async with session.get(f"{dashboard.url}/api/episodes") as response:
+                assert response.status == 200
+                assert await response.json() == []
+
+    try:
+        asyncio.run(drive())
+        dashboard.set_episode_recording(True, frames=12)
+        snapshot = dashboard._snapshot()
+        assert snapshot["episode_recording"] is True
+        assert snapshot["episode_frames"] == 12
+        dashboard.set_episode_recording(False, frames=12, saved={"id": "rollout_x"})
+        assert dashboard._snapshot()["episode_last_saved"] == {"id": "rollout_x"}
+    finally:
+        dashboard.close()
+
+
+def test_dashboard_offers_episode_recording_next_to_video():
+    static = ROOT / "egomimic/robot/rollout_dashboard_static"
+    html = (static / "index.html").read_text()
+    javascript = (static / "app.js").read_text()
+
+    assert 'id="record-episode"' in html and "Record episode <kbd>d</kbd>" in html
+    assert 'id="record-video"' in html  # video-only recording stays
+    for outcome in ("success", "failure", "unlabeled"):
+        assert f'data-episode-outcome="{outcome}"' in html
+    assert 'id="discard-episode"' in html and 'id="open-episodes"' in html
+    assert "event.key === 'd'" in javascript
+    assert "record_episode: 'start'" in javascript
+    assert "save_episode: outcome" in javascript
+    assert "/api/episodes" in javascript

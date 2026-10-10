@@ -5,9 +5,6 @@ defaults:
 - override /model: bf/cotrain_uc_action_flow_latent_fm_sg_unite_h384d12h12
 - override /callbacks: action_flow_avln_cotrain
 - _self_
-name: action_flow_cotrain_uc_manual4919_avln_80k_s42
-description: Manual U-Socket 2999 + ChainGripper 3000 standard/1919 obstacle recollections
-  Action Flow AV-LN
 model:
   flow_loss_aggregation: sum_samples
   cfg_scale: 4.0

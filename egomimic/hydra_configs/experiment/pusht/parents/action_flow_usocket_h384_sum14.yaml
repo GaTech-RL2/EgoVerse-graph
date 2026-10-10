@@ -2,9 +2,6 @@
 defaults:
 - /experiment/pusht/parents/action_flow_usocket_h384
 - _self_
-name: action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42
-description: Action Flow H384 with released-UNITE flow aggregation, CFG, and validation
-  coverage
 model:
   flow_loss_aggregation: sum_samples
   cfg_scale: 4.0

@@ -117,7 +117,8 @@ SCALED_ADAMW_CONFIG_NAME = (
     "action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
 )
 SCALED_200M_CONFIG_NAMES = {SCALED_MUON_CONFIG_NAME, SCALED_ADAMW_CONFIG_NAME}
-CANDIDATE_METHODS = {
+# Serialized checkpoint identities, not a menu of selectable training recipes.
+CHECKPOINT_METHOD_CONTRACTS = {
     "pusht/" + HISTORICAL_COMPAT_CONFIG_NAME: STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
@@ -210,13 +211,13 @@ def action_flow_method(config: DictConfig, experiment: str | None = None) -> str
     )
     _exact(model_method, method, "model/train action_flow_method")
     _require(
-        method in {LEGACY_METHOD, *CANDIDATE_METHODS.values()},
+        method in {LEGACY_METHOD, *CHECKPOINT_METHOD_CONTRACTS.values()},
         "unknown action_flow_method",
     )
     if experiment is not None:
         _exact(
             method,
-            CANDIDATE_METHODS.get(experiment, LEGACY_METHOD),
+            CHECKPOINT_METHOD_CONTRACTS.get(experiment, LEGACY_METHOD),
             "experiment action_flow_method",
         )
     return method
@@ -485,6 +486,19 @@ def compose_experiment(
     _require(bool(experiment), "experiment must be non-empty")
     config_root = Path(config_root).resolve()
     _require(config_root.is_dir(), f"config root does not exist: {config_root}")
+    selector = Path(experiment)
+    _require(
+        not selector.is_absolute() and ".." not in selector.parts,
+        "invalid experiment selector",
+    )
+    _require(
+        not experiment.startswith(("pusht/parents/", "pusht_historical/")),
+        "parent/historical PushT configs are not fresh training entry points; use the checkpoint's recorded source",
+    )
+    _require(
+        (config_root / "experiment" / selector).with_suffix(".yaml").is_file(),
+        f"recipe is absent or retired in the selected source: {experiment}",
+    )
     selected_overrides = [
         f"+experiment={experiment}",
         "++paths.root_dir=.",

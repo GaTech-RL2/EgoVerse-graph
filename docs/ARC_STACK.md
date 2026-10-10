@@ -1,5 +1,8 @@
 # ARC consolidation stack
 
+This is a dated architecture snapshot. It does not select the current PushT
+recipe or live launcher; start with `docs/cluster-pipeline.md`.
+
 This is a new draft stack on `GaTech-RL2/EgoVerse-graph/main` at
 `6209dd5a58f0ba2a4e3692d67d73869106efe61b`. Each PR targets its predecessor.
 Original branches, PRs and worktrees are retained. No original branch was

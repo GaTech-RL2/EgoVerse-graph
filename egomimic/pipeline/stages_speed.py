@@ -81,6 +81,31 @@ def build_speed_conditioned_pipeline(
     return PipelineAlgo(modules, device=device, compatibility_mode=compatibility_mode)
 
 
+def build_multiplier_conditioned_pipeline(
+    stages,
+    encoding="scalar",
+    condition_dim=128,
+    device=None,
+    compatibility_mode="current",
+    conditioning_input="retiming_multiplier",
+    flow_inference_method=None,
+    dit_checkpoint_policy=None,
+):
+    """PushT raw-rate adapter; physical velocity/reference inputs are unsupported."""
+    if conditioning_input != "retiming_multiplier":
+        raise ValueError("PushT requires raw retiming_multiplier conditioning")
+    return build_speed_conditioned_pipeline(
+        stages,
+        encoding=encoding,
+        condition_dim=condition_dim,
+        device=device,
+        compatibility_mode=compatibility_mode,
+        conditioning_input="retiming_multiplier",
+        flow_inference_method=flow_inference_method,
+        dit_checkpoint_policy=dit_checkpoint_policy,
+    )
+
+
 def configure_dit_checkpoint_policy(encoder, field, policy):
     """Use native per-backbone checkpointing, without intercepting image execution."""
     if policy not in {"all", "dit_half"}:
@@ -212,9 +237,10 @@ def requested_rollout_condition(cfg):
     """Resolve the checkpoint-selected conditioning contract without fallback."""
     from omegaconf import OmegaConf
 
-    if OmegaConf.select(cfg, "model.pipeline._target_") != (
-        "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
-    ):
+    if OmegaConf.select(cfg, "model.pipeline._target_") not in {
+        "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline",
+        "egomimic.pipeline.stages_speed.build_multiplier_conditioned_pipeline",
+    }:
         return None, None
     kind = OmegaConf.select(
         cfg, "model.pipeline.conditioning_input", default="native_speed"

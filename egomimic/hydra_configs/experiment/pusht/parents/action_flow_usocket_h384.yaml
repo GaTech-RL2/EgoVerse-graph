@@ -4,8 +4,6 @@ defaults:
 - override /data: pusht/action_flow_unite_usocket_val01_h16
 - override /model: bf/us_action_flow_latent_fm_sg_unite_h384
 - _self_
-name: action_flow_usocket_latent_fm_sg_unite_h384_s42
-description: Action Flow stopgrad/JVP objective on separate released-UNITE H384 modules
 train:
   action_flow_method: latent_fm_stopgrad_unite
 trainer:

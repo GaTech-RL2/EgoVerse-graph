@@ -61,8 +61,9 @@ class PlanarCommandRetiming:
             axis=-1,
         )
         out[:, 2] = (out[:, 2] + np.pi) % (2 * np.pi) - np.pi
-        speed = np.linalg.norm(np.diff(out[:, :2], axis=0), axis=-1).mean() * self.fps
         batch[self.action_key] = out.astype(np.float32)
-        batch["requested_speed"] = np.asarray([speed], dtype=np.float32)
+        # PushT emits only the declared rate; discard stale physical-speed telemetry.
+        batch.pop("requested_speed", None)
+        batch.pop("requested_speed_value", None)
         batch["retiming_rate"] = np.asarray([rate], dtype=np.float32)
         return batch

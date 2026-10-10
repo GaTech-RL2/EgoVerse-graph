@@ -406,3 +406,16 @@ def test_direct_script_cli_resolves_repository_package(tmp_path):
     payload = json.loads(output.read_text())
     assert payload["status"] == "PASS"
     assert payload["parameters"]["field_v"]["total"] == 39_506_641
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "pusht/action_flow_chain_manual4919_avln_80k_s42",
+        "pusht/parents/action_flow_usocket_h384",
+        "pusht_historical/action_flow_cotrain_uc_speed_interpolation",
+    ],
+)
+def test_fresh_composition_rejects_retired_or_non_recipe_selectors(selector):
+    with pytest.raises(preflight.PreflightError, match="retired|historical"):
+        preflight.compose_experiment(selector, config_root=CONFIG_ROOT)

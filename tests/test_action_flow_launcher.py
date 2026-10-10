@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "scripts" / "train" / "launch_action_flow_usocket.sbatch"
@@ -76,29 +79,11 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "pusht/action_flow_bc_usocket_recon1_s42" in source
     assert "pusht/action_flow_bc_usocket_recon10_s42" in source
     assert "pusht/action_flow_bc_usocket_recon100_s42" in source
-    assert "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42" in source
     assert (
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
     )
     assert (
         "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
-        in source
-    )
-    assert "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42" in source
-    assert (
-        "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42"
-        in source
-    )
-    assert (
-        "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
-        in source
-    )
-    assert (
-        "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
-        in source
-    )
-    assert (
-        "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42"
         in source
     )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
@@ -109,8 +94,6 @@ def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     assert "AF_FULL_VALIDATE_EVERY=10000" in source
     assert "AF_FULL_CHECKPOINT_EVERY=40000" in source
     assert "AF_FULL_MAX_STEPS=150000" in source
-    assert "AF_FULL_VALIDATE_EVERY=30000" in source
-    assert "AF_FULL_CHECKPOINT_EVERY=30000" in source
     assert "TELEMETRY_EVERY=100" in source
     assert "data.train_dataloader_params.$AF_SOURCE.batch_size=32" in source
     assert (
@@ -231,3 +214,25 @@ def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     assert "++logger.wandb.resume=allow" in source
     for key in ("entity", "project", "group", "id", "tags"):
         assert f"++logger.wandb.{key}=" in source
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "pusht/action_flow_chain_manual4919_avln_80k_s42",
+        "pusht/parents/action_flow_usocket_h384",
+        "pusht_historical/action_flow_cotrain_uc_speed_interpolation",
+    ],
+)
+def test_retired_and_parent_selectors_fail_before_runtime(selector):
+    source = _source()
+    required = source.split("for variable in ", 1)[1].split("; do", 1)[0]
+    variables = required.replace("\\", " ").split()
+    env = {**os.environ, **dict.fromkeys(variables, "fixture")}
+    env.update(AF_REPO=str(ROOT), AF_EXPERIMENT=selector, AF_PYTHON="/must-not-execute")
+    completed = subprocess.run(
+        ["bash", str(LAUNCHER)], env=env, capture_output=True, text=True
+    )
+    assert completed.returncode != 0
+    assert "retired" in completed.stderr or "historical config" in completed.stderr
+    assert "must-not-execute" not in completed.stderr

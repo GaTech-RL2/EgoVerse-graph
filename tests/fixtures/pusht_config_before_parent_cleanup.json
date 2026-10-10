@@ -13,11 +13,9 @@
     "action_flow_bc_usocket_recon1_s42": "dd4f13fc095b59ed10fa7f29cd3b2e3e25cbd4e8ef4048c3c564438cd2f248fb",
     "action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": "cc754f3f742641463584355992a5ab9a436da9bde736f961802a0ffd2c6176b2",
     "action_flow_cotrain_uc_multiplier_interpolation": "9755ee842621fc3e5aa483d373ff24348159045453d5ac2b258e82c2f0707af7",
-    "action_flow_cotrain_uc_speed_interpolation": "643f68448e85aff1d57273a2d2211689a3f2bb580f75c3d4c987bce7e981c045",
     "action_flow_usocket_candidate_common": "5e4faf536d9e6d33d6c2e82b0a80c37bf4beb08954e4cdaf637afd7df7318f9d",
     "action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42": "62150360dbb2e8daa02af64cf1405835e03e012c3ab30c45fe759a3fe66f0a7c",
     "action_latent_vfm_usocket_val01_h16": "c47bd51273b01fa5b516ec781ebe119e5d6e9774697990b6d3172705aca0b839",
-    "planar_chain_manual4919_standard_dp_retimed": "eb2ae443c790984c01a5159ca1f880169982a30e6bfe1c97b761449a44a4ab7e",
     "planar_uc_manual4919_dp_261m_af_obs_multiplier": "e25f5f9f69b205cb10206e41a896922d4eeb5700a04597d6b086a4d3b44914a2",
     "planar_usocket_chain_manual4919_standard_dp_retimed_masked": "699dc867a101146e0fc6c6162b3c30514037d802dcf39f195bb9d4c29b0263ba",
     "planar_v2_base": "c9e7771e7f023a9742fff0e662693be6877372c736b3c1e8da75f32a3e2ee060",
@@ -57,7 +55,9 @@
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": "51d39070058c361b37a0235eb72d7dea0f27163d30b16ea254a44c6c861a293e",
     "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_scale1_s42": "cd4eef7c8927a649e6c5fde911836275b3f1c76c64951265ced3df566d0d4796",
     "action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": "afd8576ab5448604096f961b8a284d4a21f6fd8b05a83cbf59b355d5befe777a",
-    "action_flow_usocket_refactored_c12_compat_s42": "a62734de32fedf721e3d1eda16e67e3deba5c9d03ec6451a164720ac2b7dfa22"
+    "action_flow_usocket_refactored_c12_compat_s42": "a62734de32fedf721e3d1eda16e67e3deba5c9d03ec6451a164720ac2b7dfa22",
+    "planar_chain_manual4919_standard_dp_retimed": "eb2ae443c790984c01a5159ca1f880169982a30e6bfe1c97b761449a44a4ab7e",
+    "action_flow_cotrain_uc_speed_interpolation": "643f68448e85aff1d57273a2d2211689a3f2bb580f75c3d4c987bce7e981c045"
   },
   "retired_data": [
     "action_flow_chain_points6_frozen4920_val01_h16",
@@ -66,5 +66,19 @@
     "action_flow_cotrain_usocket_chain_manual3000_val01_h16",
     "action_flow_cotrain_usocket_chain_manual4919_val01_h16",
     "action_flow_cotrain_usocket_chain_points6_frozen4920_val01_h16"
-  ]
+  ],
+  "parent_identity_metadata": {
+    "parents/action_flow_usocket_h384_sum14": {
+      "name": "action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42",
+      "description": "Action Flow H384 with released-UNITE flow aggregation, CFG, and validation coverage"
+    },
+    "parents/action_flow_usocket_h384": {
+      "name": "action_flow_usocket_latent_fm_sg_unite_h384_s42",
+      "description": "Action Flow stopgrad/JVP objective on separate released-UNITE H384 modules"
+    },
+    "parents/action_flow_cotrain_uc_manual4919": {
+      "name": "action_flow_cotrain_uc_manual4919_avln_80k_s42",
+      "description": "Manual U-Socket 2999 + ChainGripper 3000 standard/1919 obstacle recollections Action Flow AV-LN"
+    }
+  }
 }

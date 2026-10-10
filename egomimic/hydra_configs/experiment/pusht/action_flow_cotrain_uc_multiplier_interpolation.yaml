@@ -14,7 +14,7 @@ model:
   num_latent_tokens: 8
   latent_dim: 16
   pipeline:
-    _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
+    _target_: egomimic.pipeline.stages_speed.build_multiplier_conditioned_pipeline
     _recursive_: false
     conditioning_input: retiming_multiplier
     encoding: ${speed_diagnostic.encoding}

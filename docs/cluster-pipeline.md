@@ -21,15 +21,46 @@ Refresh remote state and verify ancestry before choosing a new source. Older
 documents describing these PRs as unmerged are historical. Existing checkpoint
 source commits remain authoritative for strict reload and resume.
 
+## Current PushT selection
+
+The paired raw-multiplier recipes are:
+
+| Family | Experiment selector |
+| --- | --- |
+| Action Flow | `pusht/action_flow_cotrain_uc_multiplier_interpolation` |
+| Matched Standard DP | `pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier` |
+
+Use normal per-source image processing, retaining 32 U-Socket plus 32
+ChainGripper samples per optimizer update. ChainGripper manual4919 contains
+3000 standard-manual plus 1919 obstacle episodes: 4870 train and 49 validation.
+The frozen4920 corpus is a different historical dataset, not an interchangeable
+spelling. Resolve exact content and split hashes from the current run manifest.
+
+Shared `pusht/parents/` configs supply defaults and are not training selectors.
+The old physical-speed PushT recipe and velocity-derived retiming field are
+removed. The current PushT adapter accepts only raw retiming multipliers.
+Historical configuration audits use each checkpoint's recorded Git revision. Raw multiplier
+and physical speed must never be substituted during checkpoint reload.
+
+These selectors identify configuration contracts, not launch readiness. Resolve
+the live family launcher and its supported exact source, pass the applicable
+preflight and smoke gates, and preserve existing run source pins. In particular,
+this cleanup does not deploy a new live launcher or certify raw-multiplier
+support in the generic Action Flow launcher.
+
+## Historical source snapshots
+
+The following branch inventory describes the 2026-09-07 snapshot only. It does
+not select today's checkout, launcher, or recipe. Resolve current authority
+before using a source; historical checkpoints retain their recorded revision.
+
 The real-data Action Flow implementation is a separate review stack:
 `codex/usocket-action-flow-bc-20260905` is the parent of
 `codex/action-flow-recon10-warmup10k-20260907`
 ([PR #26](https://github.com/GaTech-RL2/EgoVerse-graph/pull/26)). Its real-data
 launcher is `scripts/train/launch_action_flow_usocket.sbatch` on those branches.
-It is absent from the audited remote `main` snapshot, but present in this
-Action Flow operational-cleanup child branch. The child preserves the warmup
-branch as its parent and carries shared runtime fixes without replacing its
-model code. Do not treat the synthetic Action Flow scripts on `main` as the
+It was absent from that audited remote `main` snapshot. That operational
+child preserved the warmup parent and added shared runtime fixes. Do not treat the synthetic Action Flow scripts on `main` as the
 real-data implementation or reset this stack to `main`.
 
 The `codex/torus-winners-usocket-system-test-20260907` child adds three explicit

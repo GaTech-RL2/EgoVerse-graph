@@ -15,8 +15,7 @@ def test_pair_config_diff_is_only_encoding(monkeypatch):
                 config_name="train_zarr_cartesian",
                 overrides=[
                     "hydra/launcher=basic",
-                    "+experiment=pusht/action_flow_cotrain_uc_speed_interpolation",
-                    "speed_diagnostic.speed_reference=84.11600368466028",
+                    "+experiment=pusht/action_flow_cotrain_uc_multiplier_interpolation",
                     f"speed_diagnostic.encoding={encoding}",
                 ],
             )
@@ -43,7 +42,7 @@ def test_factory_places_speed_inside_diagnostic_prefix(monkeypatch):
     from egomimic.pipeline.core import Stage
     from egomimic.pipeline.stages_speed import (
         SharedSpeedCondition,
-        build_speed_conditioned_pipeline,
+        build_multiplier_conditioned_pipeline,
     )
 
     class Marker(Stage):
@@ -60,7 +59,7 @@ def test_factory_places_speed_inside_diagnostic_prefix(monkeypatch):
             {"_target_": "unused.ConditionalVelocityStage"},
         ]
     )
-    pipeline = build_speed_conditioned_pipeline(configs, 84.116, device="cpu")
+    pipeline = build_multiplier_conditioned_pipeline(configs, device="cpu")
     stages = pipeline.pipeline.stages
     assert isinstance(stages[1], SharedSpeedCondition)
     assert stages[2].config["_target_"].endswith("RoutedContentEncoderStage")

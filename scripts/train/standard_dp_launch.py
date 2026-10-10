@@ -55,17 +55,14 @@ def recipe():
         "usocket_chain_manual4919_af_obs_multiplier_261m_v1",
     }:
         raise ValueError("Unsupported DP_COTRAIN_STANDARD")
-    if single_profile not in {"", "chain_manual4919_retimed_v1"}:
-        raise ValueError("Unsupported DP_SINGLE_SOURCE_STANDARD")
-    if cotrain_profile and single_profile:
-        raise ValueError("Select one DP profile, not both")
+    if single_profile or not cotrain_profile:
+        raise ValueError(
+            "Chain-only retimed DP recipe is retired; select an explicit "
+            "supported DP_COTRAIN_STANDARD profile. Historical runs keep their recorded source."
+        )
     if multiplier():
         return "pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier"
-    return (
-        "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
-        if cotrain()
-        else "pusht/planar_chain_manual4919_standard_dp_retimed"
-    )
+    return "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
 
 
 def layout():

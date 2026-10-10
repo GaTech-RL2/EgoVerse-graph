@@ -459,7 +459,7 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         200 if evaluator_mode == "baseline" else 400,
     )
     robot_keymap = train.yam_bimanual.resolver.key_map
-    assert robot_keymap.source_buffer_frames == 400
+    assert robot_keymap.source_buffer_frames == cfg.abc.arc_source_buffer_frames
     assert train.human_bimanual.resolver.transform_list.stride == 1
     row = dict(
         lab="rl2",

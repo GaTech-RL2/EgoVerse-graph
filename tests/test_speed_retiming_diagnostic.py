@@ -38,17 +38,17 @@ def test_wrap_stationary_and_tail_rejection():
 def test_condition_modes_rng_and_learning(encoding):
     torch.manual_seed(123)
     rng = torch.get_rng_state().clone()
-    stage = SharedSpeedCondition(100.0, encoding)
+    stage = SharedSpeedCondition(None, encoding)
     assert torch.equal(rng, torch.get_rng_state())
     assert stage.contract("train") == stage.contract("inference")
     cond = torch.zeros(2, 128)
-    speed = torch.tensor([[0.0], [100.0]])
-    out = stage({"condition": cond, "requested_speed": speed})["speed_condition"]
+    speed = torch.tensor([[0.25], [2.0]])
+    out = stage({"condition": cond, "retiming_rate": speed})["speed_condition"]
     assert torch.equal(out, cond)
     opt = torch.optim.SGD(stage.parameters(), lr=0.01)
     for _ in range(2):
         opt.zero_grad()
-        out = stage({"condition": cond, "requested_speed": speed})["speed_condition"]
+        out = stage({"condition": cond, "retiming_rate": speed})["speed_condition"]
         (out - 1).square().mean().backward()
         opt.step()
     assert stage.mlp[0].weight.grad.abs().sum() > 0
@@ -56,7 +56,7 @@ def test_condition_modes_rng_and_learning(encoding):
     with pytest.raises(KeyError):
         stage({"condition": cond})
     with pytest.raises(ValueError):
-        stage({"condition": cond, "requested_speed": -torch.ones(2, 1)})
+        stage({"condition": cond, "retiming_rate": -torch.ones(2, 1)})
 
 
 def test_unchanged_initialization_across_arms():
@@ -64,7 +64,7 @@ def test_unchanged_initialization_across_arms():
     for encoding in ("scalar", "fourier"):
         torch.manual_seed(42)
         before = torch.nn.Linear(10, 10)
-        SharedSpeedCondition(100.0, encoding)
+        SharedSpeedCondition(None, encoding)
         after = torch.nn.Linear(10, 10)
         weights.append((before.weight.detach(), after.weight.detach()))
     assert all(torch.equal(a, b) for a, b in zip(*weights))
@@ -78,7 +78,7 @@ def test_condition_initializer_never_reseeds_cuda(monkeypatch):
     monkeypatch.setattr(torch.cuda, "manual_seed_all", forbidden)
     rng = torch.get_rng_state().clone()
     for encoding in ("scalar", "fourier"):
-        SharedSpeedCondition(100.0, encoding)
+        SharedSpeedCondition(None, encoding)
         assert torch.equal(rng, torch.get_rng_state())
 
 
@@ -94,7 +94,7 @@ def test_real_graph_consumes_speed_in_both_modes(encoding):
         def forward(self, x, t, condition, **kwargs):
             return condition[:, : x.shape[-1]].unsqueeze(1).expand_as(x)
 
-    speed = SharedSpeedCondition(100.0, encoding, condition_dim=4)
+    speed = SharedSpeedCondition(None, encoding, condition_dim=4)
     torch.nn.init.constant_(speed.mlp[-1].weight, 0.1)
     bridge = LatentBridgeStage(
         samples_per_content=1,
@@ -107,7 +107,7 @@ def test_real_graph_consumes_speed_in_both_modes(encoding):
     graph = Pipeline([speed, bridge, velocity])
     b = {
         "condition": torch.zeros(2, 4),
-        "requested_speed": torch.tensor([[0.0], [100.0]]),
+        "retiming_rate": torch.tensor([[0.25], [2.0]]),
         "action_flow/clean_latent": torch.zeros(2, 2, 4),
         "sampler/noise": torch.zeros(2, 2, 4),
     }

@@ -1,5 +1,4 @@
 {
-  "source": "f4ed4b97192b204501fa4d12b41e94853614caab",
   "hash_contract": "SHA256 sorted compact JSON of unresolved composed config excluding hydra metadata; integer keys normalize through JSON",
   "recipes": {
     "action_flow_bc_usocket_bridge_likelihood_s42": "ff73c1ecfe60c29af17c6ae6806fb797984f22064af6656b7c40f745915caf56",
@@ -35,11 +34,16 @@
     "planar_v2_usocket_dp_paper": "79f87ad8c8fa6cc0835c82ef297222b4310b00d705bd895d350b41174523cc42",
     "planar_v2_usocket_dp_standard": "c7f54de8e746a66027e92bf9263e839fa1ce2d5db2a3825485f8b161c6a3d990",
     "unite_cotrain_usocket_chain_val01_h16": "56b9e9e6fdc1c8ad38d81148d7f7ba7713b2c817e54ba1dd14d4a15707a52d8b",
-    "unite_usocket_register_sweep_val01_h16": "9823d8dd3107639ebe9a4755bba27b5f38757baa2c8b10e6e9395ef05082c84f",
-    "parents/action_flow_usocket_h384": "3bbbb4f247acb88e2e74e96e20ce1617a18c2ee076d55e714f0d93a938a756d2",
-    "parents/action_flow_usocket_h384_sum14": "51d39070058c361b37a0235eb72d7dea0f27163d30b16ea254a44c6c861a293e",
-    "parents/action_flow_cotrain_uc_manual4919": "978b5d06e0db777a8e3367cee1bd8b744ed2812f0749c35187f393ce4e018916"
+    "unite_usocket_register_sweep_val01_h16": "9823d8dd3107639ebe9a4755bba27b5f38757baa2c8b10e6e9395ef05082c84f"
   },
+  "retired_data": [
+    "action_flow_chain_points6_frozen4920_val01_h16",
+    "action_flow_chain_points6_manual3000_val01_h16",
+    "action_flow_chain_points6_manual4919_val01_h16",
+    "action_flow_cotrain_usocket_chain_manual3000_val01_h16",
+    "action_flow_cotrain_usocket_chain_manual4919_val01_h16",
+    "action_flow_cotrain_usocket_chain_points6_frozen4920_val01_h16"
+  ],
   "retired_recipes": {
     "action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": "7e1bba2ed089e54b2d74c2ddb34cb3472b77c8a2e79c9cdf9f560402edc8792d",
     "action_flow_bc_usocket_recon10_warmup10k_flow001_s42": "4f5bf734d0d8d2d72282fef6da53ffac86bbb76bb76a233793ca8923a2dca21e",

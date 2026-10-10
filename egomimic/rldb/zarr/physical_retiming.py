@@ -55,21 +55,6 @@ def retime_stream(
     return np.concatenate([xyz, xyzw_to_wxyz(quat)], axis=1)
 
 
-def chunk_speed(positions, output_dt_s):
-    """Mean path speed per arm; caller explicitly binds native metric units."""
-    x = np.asarray(positions, dtype=np.float64)
-    if (
-        x.ndim not in (2, 3)
-        or x.shape[-1] != 3
-        or len(x) < 2
-        or not np.isfinite(x).all()
-    ):
-        raise ValueError("expected finite (H,3) or (H,arms,3)")
-    if not np.isfinite(output_dt_s) or output_dt_s <= 0:
-        raise ValueError("invalid output clock")
-    return np.linalg.norm(np.diff(x, axis=0), axis=-1).mean(axis=0) / output_dt_s
-
-
 class PhysicalWindowRetiming:
     """Deterministic uniform virtual views with recorded physical-time queries.
 
@@ -88,7 +73,7 @@ class PhysicalWindowRetiming:
         embodiment="human",
         sample_views=5,
         timestamp_key=None,
-        conditioning_input="native_speed",
+        conditioning_input="retiming_multiplier",
     ):
         self.rates = tuple(float(r) for r in rates)
         self.fields = dict(fields)
@@ -98,8 +83,10 @@ class PhysicalWindowRetiming:
         self.embodiment = embodiment
         self.sample_views = int(sample_views)
         self.timestamp_key = timestamp_key
-        if conditioning_input not in {"native_speed", "retiming_multiplier"}:
-            raise ValueError("Unknown retiming conditioning input")
+        if conditioning_input != "retiming_multiplier":
+            raise ValueError(
+                "Measured-speed conditioning was removed; use retiming_multiplier"
+            )
         self.conditioning_input = conditioning_input
         if (
             not self.rates
@@ -194,23 +181,9 @@ class PhysicalWindowRetiming:
                 batch[key] = np.concatenate([xyz, xyzw_to_wxyz(quaternion)], axis=1)
         offsets = np.arange(0, self.required_frames, self.stride)
         duration = clock[offsets[-1]] - clock[0]
-        if self.conditioning_input == "native_speed":
-            speeds = [
-                np.linalg.norm(np.diff(batch[k][offsets, :3], axis=0), axis=-1).sum()
-                / duration
-                for k in self.pose_keys
-            ]
-            speed = float(np.mean(speeds))
-            if not np.isfinite(speed) or speed < 0:
-                raise ValueError("invalid physical requested speed")
-            batch["requested_speed"] = np.asarray([speed], dtype=np.float32)
-            batch["requested_speed_value"] = np.asarray(speed, dtype=np.float32)
-            batch["retiming_rate"] = np.asarray(rate, dtype=np.float32)
-        else:
-            # PR223 consumes [B,1]; each dataset item supplies a one-value vector.
-            batch.pop("requested_speed", None)
-            batch.pop("requested_speed_value", None)
-            batch["retiming_rate"] = np.asarray([rate], dtype=np.float32)
+        batch.pop("requested_speed", None)
+        batch.pop("requested_speed_value", None)
+        batch["retiming_rate"] = np.asarray([rate], dtype=np.float32)
         batch["retiming_view"] = np.asarray(view, dtype=np.int64)
         batch["physical_window_duration_s"] = np.asarray(duration, dtype=np.float32)
         return batch

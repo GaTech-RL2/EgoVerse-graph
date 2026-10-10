@@ -285,7 +285,6 @@ def verify_config(
 
     experiment_names = {
         "none": "yam_human_keypoints_action_flow_h816_private512_s42",
-        "human_speed_v1": "yam_human_keypoints_speed_h816_private512_s42",
     }
     if augmentation not in experiment_names:
         raise ValueError("unknown augmentation")
@@ -383,85 +382,10 @@ def verify_config(
             "callbacks.yam_dit_half._target_",
             "egomimic.utils.yam_dit_half.YamHumanDiTHalf",
         )
-    if augmentation == "human_speed_v1":
-        require(
-            "model.pipeline._target_",
-            "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline",
+    if augmentation != "none":
+        raise ValueError(
+            "Measured-speed augmentation was removed from this historical launcher"
         )
-        require("model.pipeline._recursive_", False)
-        require("model.pipeline.encoding", "scalar")
-        require("model.pipeline.condition_dim", 256)
-        require("stationary_speed.human_rates", [0.2, 0.4, 0.6, 0.8, 1.0])
-        require("stationary_speed.yam_rates", [1.0])
-        require("stationary_speed.probabilities", [0.2] * 5)
-        require("stationary_speed.sample_views_per_source", 5)
-        require(
-            "stationary_speed.tail_contract", "complete_native_raw_windows_no_padding"
-        )
-        require(
-            "stationary_speed.timestamp_contract",
-            "human_recorded_rgb_nanoseconds_robot_metadata_fps",
-        )
-        require(
-            "run_provenance.speed_augmentation.inference_contract",
-            "external_requested_speed_no_future_action_oracle",
-        )
-        reference = getattr(args, "speed_reference", None)
-        if reference is None or not 0 < reference < float("inf"):
-            raise ValueError("positive train-only speed reference required")
-        require("stationary_speed.reference", reference)
-        reference_path = getattr(args, "speed_reference_receipt", None)
-        reference_sha = getattr(args, "speed_reference_receipt_sha", None)
-        if reference_path is None or digest(reference_path) != reference_sha:
-            raise ValueError("train-only speed reference receipt SHA mismatch")
-        reference_record = json.loads(reference_path.read_text())
-        if (
-            reference_record.get("status") != "TRAIN_ONLY_PHYSICAL_SPEED_REFERENCE_V1"
-            or reference_record.get("reference") != reference
-            or reference_record.get("train_ids_sha256") != ids["yam_train"]
-            or reference_record.get("statistic")
-            != "refreshed_train_robot_command_both_arm_native_window_median_v1"
-        ):
-            raise ValueError("train-only speed reference identity mismatch")
-        contract = json.loads(args.corpus_contract.read_text())
-        if (
-            contract.get("window_contract")
-            != "physical_complete_native_virtual_views_v1"
-        ):
-            raise ValueError(
-                "speed augmentation requires complete-native-window counts"
-            )
-        for domain, horizon in (("yam", 100), ("human", 30)):
-            name = domains[domain][0]
-            path = (
-                "data.train_datasets."
-                + name
-                + ".resolver.transform_list.window_transform"
-            )
-            require(
-                path + "._target_",
-                "egomimic.rldb.zarr.physical_retiming.PhysicalWindowRetiming",
-            )
-            require(
-                path + ".rates", [1.0] if domain == "yam" else [0.2, 0.4, 0.6, 0.8, 1.0]
-            )
-            require(path + ".horizon", horizon)
-            require(path + ".stride", 1 if domain == "yam" else 3)
-            require(path + ".sample_views", 5)
-            require(
-                path + ".timestamp_key",
-                None if domain == "yam" else "_physical_timestamps_ns",
-            )
-        require(
-            "data.train_datasets.human_bimanual.resolver.key_map.extra_key_map._physical_timestamps_ns.zarr_key",
-            "obs_rgb_timestamps_ns",
-        )
-        require(
-            "data.train_datasets.human_bimanual.resolver.key_map.extra_key_map._physical_timestamps_ns.horizon",
-            30,
-        )
-    elif augmentation != "none":
-        raise ValueError("unknown augmentation")
     require("model.jvp_activation_checkpointing", True)
     require("model.gradient_telemetry_cadence", 3 if args.phase == "smoke" else 100)
     require(
@@ -586,12 +510,7 @@ def main() -> None:
     parser.add_argument(
         "--checkpoint-policy", choices=("all", "dit_half"), default="all"
     )
-    parser.add_argument(
-        "--augmentation", choices=("none", "human_speed_v1"), default="none"
-    )
-    parser.add_argument("--speed-reference", type=float)
-    parser.add_argument("--speed-reference-receipt", type=Path)
-    parser.add_argument("--speed-reference-receipt-sha")
+    parser.add_argument("--augmentation", choices=("none",), default="none")
     parser.add_argument("--yam-root", type=Path)
     parser.add_argument("--human-root", type=Path)
     parser.add_argument("--norm-json", type=Path)
@@ -655,8 +574,6 @@ def main() -> None:
         "inference_method": args.inference_method,
         "checkpoint_policy": args.checkpoint_policy,
         "augmentation": args.augmentation,
-        "speed_reference": args.speed_reference,
-        "speed_reference_receipt_sha256": args.speed_reference_receipt_sha,
         "split_sha256": args.split_sha,
         "normalization_sha256": None if args.phase == "norm" else args.norm_sha,
         "normalization_cache_dir": str(args.norm_cache_dir)

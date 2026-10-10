@@ -37,14 +37,6 @@ fi
 AF_YAM_AUGMENTATION=${AF_YAM_AUGMENTATION:-none}
 case "$AF_YAM_AUGMENTATION" in
   none) AF_YAM_EXPERIMENT=yam_human_keypoints_action_flow_h816_private512_s42 ;;
-  human_speed_v1)
-    test "$AF_YAM_RECIPE" = yam_human_keypoints || fail 'human speed requires maintained two-source recipe'
-    for name in AF_STATIONARY_SPEED_REFERENCE AF_STATIONARY_SPEED_REFERENCE_RECEIPT AF_STATIONARY_SPEED_REFERENCE_RECEIPT_SHA; do
-      test -n "${!name:-}" || fail "missing $name"
-    done
-    test -f "$AF_STATIONARY_SPEED_REFERENCE_RECEIPT" || fail 'train-only speed reference receipt absent'
-    test "$(sha256sum "$AF_STATIONARY_SPEED_REFERENCE_RECEIPT" | cut -d' ' -f1)" = "$AF_STATIONARY_SPEED_REFERENCE_RECEIPT_SHA" || fail 'speed reference receipt SHA changed'
-    AF_YAM_EXPERIMENT=yam_human_keypoints_speed_h816_private512_s42 ;;
   *) fail 'unknown augmentation contract' ;;
 esac
 export AF_YAM_EXPERIMENT AF_YAM_AUGMENTATION
@@ -165,9 +157,6 @@ if test "$AF_YAM_MODE" = preflight; then
       --inference-method "$AF_YAM_INFERENCE_METHOD" --checkpoint-policy "$AF_YAM_CHECKPOINT_POLICY"
     )
     config_verify_args+=(--augmentation "$AF_YAM_AUGMENTATION")
-    if test "$AF_YAM_AUGMENTATION" = human_speed_v1; then
-      config_verify_args+=(--speed-reference "$AF_STATIONARY_SPEED_REFERENCE" --speed-reference-receipt "$AF_STATIONARY_SPEED_REFERENCE_RECEIPT" --speed-reference-receipt-sha "$AF_STATIONARY_SPEED_REFERENCE_RECEIPT_SHA")
-    fi
     if test "$AF_YAM_PHASE" = norm; then config_verify_args+=(--norm-cache-dir "$AF_YAM_NORM_CACHE_DIR"); fi
   else
     config_verify_args+=(--accumulation "$AF_YAM_ACCUMULATION")

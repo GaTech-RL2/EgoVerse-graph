@@ -1,4 +1,4 @@
-"""Shared scalar speed conditioning, identical in train and inference."""
+"""Direct multiplier conditioning, identical in train and inference."""
 
 import math
 
@@ -15,7 +15,7 @@ def build_speed_conditioned_pipeline(
     condition_dim=128,
     device=None,
     compatibility_mode="current",
-    conditioning_input=None,
+    conditioning_input="retiming_multiplier",
     flow_inference_method=None,
     dit_checkpoint_policy=None,
 ):
@@ -29,9 +29,9 @@ def build_speed_conditioned_pipeline(
 
     from egomimic.pipeline.algo import PipelineAlgo
 
-    if conditioning_input is None:
-        conditioning_input = (
-            "native_speed" if speed_reference is not None else "retiming_multiplier"
+    if conditioning_input != "retiming_multiplier" or speed_reference is not None:
+        raise ValueError(
+            "Measured-speed conditioning was removed; use direct retiming_multiplier with speed_reference=null"
         )
     configs = OmegaConf.to_container(stages, resolve=True)
     bridges = [
@@ -135,40 +135,23 @@ class SharedSpeedCondition(Stage):
         condition_dim=128,
         hidden_dim=32,
         condition_key="condition",
-        speed_key="requested_speed",
+        speed_key="retiming_rate",
         output_key="speed_condition",
         initialization_seed=42,
-        conditioning_input=None,
+        conditioning_input="retiming_multiplier",
     ):
         super().__init__()
-        if conditioning_input is None:
-            # Legacy positional references retain native-speed semantics;
-            # reference-free new callers consume the raw multiplier.
-            conditioning_input = (
-                "native_speed" if speed_reference is not None else "retiming_multiplier"
-            )
         if encoding not in {"scalar", "fourier"}:
             raise ValueError("encoding must be scalar or fourier")
-        if conditioning_input not in {"native_speed", "retiming_multiplier"}:
+        if conditioning_input != "retiming_multiplier" or speed_reference is not None:
             raise ValueError(
-                "conditioning_input must be native_speed or retiming_multiplier"
+                "Measured-speed conditioning was removed; use direct retiming_multiplier with speed_reference=null"
             )
-        if conditioning_input == "native_speed" and (
-            speed_reference is None
-            or not math.isfinite(speed_reference)
-            or speed_reference <= 0
-        ):
-            raise ValueError("speed_reference must be positive and train-derived")
+        if speed_key != "retiming_rate":
+            raise ValueError("Multiplier conditioning requires retiming_rate")
         self.conditioning_input = conditioning_input
-        if conditioning_input == "retiming_multiplier":
-            if speed_reference is not None:
-                raise ValueError(
-                    "Multiplier conditioning requires speed_reference=null"
-                )
-            speed_key = "retiming_rate"
-            # Make strict reload reject historical physical-speed weights even
-            # though the scalar MLP has the same tensor shapes in both modes.
-            self.register_buffer("retiming_multiplier_contract", torch.tensor(1))
+        # Reject historical physical-speed state rather than reinterpret weights.
+        self.register_buffer("retiming_multiplier_contract", torch.tensor(1))
         self.encoding = encoding
         self.condition_key, self.speed_key, self.output_key = (
             condition_key,
@@ -176,12 +159,6 @@ class SharedSpeedCondition(Stage):
             output_key,
         )
         self.reads, self.writes = (condition_key, speed_key), (output_key,)
-        self.register_buffer(
-            "speed_reference",
-            torch.tensor(
-                float(speed_reference) if speed_reference is not None else 1.0
-            ),
-        )
         # Added layers must not shift initialization of the unchanged model.
         with torch.random.fork_rng(devices=[]):
             # These layers initialize on CPU. torch.manual_seed also reseeds
@@ -206,24 +183,15 @@ class SharedSpeedCondition(Stage):
             raise ValueError(f"{self.speed_key} must have shape [B,1]")
         if not torch.isfinite(speed).all() or (speed < 0).any():
             raise ValueError(f"{self.speed_key} must be finite and nonnegative")
-        if self.conditioning_input == "retiming_multiplier":
-            if (speed <= 0).any():
-                raise ValueError("retiming_rate must be strictly positive")
-            u = speed  # Direct dimensionless multiplier; never measured XY speed.
-        else:
-            u = torch.log1p(speed / self.speed_reference)
+        if (speed <= 0).any():
+            raise ValueError("retiming_rate must be strictly positive")
+        u = speed  # Direct dimensionless multiplier.
         features = (
             u
             if self.encoding == "scalar"
             else torch.cat((u, u.sin(), u.cos(), (2 * u).sin(), (2 * u).cos()), dim=-1)
         )
-        # Preserve native-speed dtype behavior; the new multiplier path owns
-        # its explicit input-to-parameter dtype boundary.
-        if (
-            self.conditioning_input == "retiming_multiplier"
-            or self.mlp[0].weight.dtype == torch.float64
-        ):
-            features = features.to(dtype=self.mlp[0].weight.dtype)
+        features = features.to(dtype=self.mlp[0].weight.dtype)
         delta = self.mlp(features)
         if condition.ndim == 3:
             delta = delta.unsqueeze(1)
@@ -243,22 +211,20 @@ def requested_rollout_condition(cfg):
     }:
         return None, None
     kind = OmegaConf.select(
-        cfg, "model.pipeline.conditioning_input", default="native_speed"
+        cfg, "model.pipeline.conditioning_input", default="retiming_multiplier"
     )
-    if kind == "retiming_multiplier":
-        key, path = "retiming_rate", "deployment.requested_multiplier"
-        if OmegaConf.select(cfg, "deployment.requested_speed") is not None:
-            raise ValueError(
-                "Multiplier rollout must not supply deployment.requested_speed"
-            )
-    elif kind == "native_speed":
-        key, path = "requested_speed", "deployment.requested_speed"
-        if OmegaConf.select(cfg, "deployment.requested_multiplier") is not None:
-            raise ValueError(
-                "Native-speed checkpoint cannot use a multiplier condition"
-            )
-    else:
-        raise ValueError("Unsupported conditioning_input")
+    if (
+        kind != "retiming_multiplier"
+        or OmegaConf.select(cfg, "model.pipeline.speed_reference") is not None
+    ):
+        raise ValueError(
+            "Measured-speed conditioning was removed; use direct retiming_multiplier"
+        )
+    if OmegaConf.select(cfg, "deployment.requested_speed") is not None:
+        raise ValueError(
+            "Multiplier rollout must not supply deployment.requested_speed"
+        )
+    key, path = "retiming_rate", "deployment.requested_multiplier"
     value = OmegaConf.select(cfg, path)
     if value is None:
         raise ValueError(f"Conditioned rollout requires explicit {path}")

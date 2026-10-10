@@ -960,7 +960,6 @@ class PlanarActionEval(Eval):
             "sample_index",
             "retiming_view",
             "retiming_rate",
-            "requested_speed_value",
             "physical_window_duration_s",
         ):
             if key in source_batch:

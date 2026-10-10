@@ -47,7 +47,8 @@ def test_all_selected_rates_follow_irregular_physical_time(view):
     raw["_retiming_view"] = view
     got = obj.transform(raw)
     assert got["retiming_rate"] == np.float32(RATES[view])
-    np.testing.assert_allclose(got["requested_speed"], [0.2 * RATES[view]], rtol=1e-6)
+    np.testing.assert_allclose(got["retiming_rate"], [RATES[view]])
+    assert "requested_speed" not in got
     if view == 4:
         assert np.array_equal(got["left.pose"], old)
     np.testing.assert_allclose(np.linalg.norm(got["left.pose"][:, 3:], axis=1), 1)
@@ -60,7 +61,8 @@ def test_robot_five_identity_views_preserve_values(view):
     raw["_retiming_view"] = view
     got = obj.transform(raw)
     assert np.array_equal(got["left.pose"], old)
-    np.testing.assert_allclose(got["requested_speed"], [0.2], rtol=1e-6)
+    np.testing.assert_allclose(got["retiming_rate"], [1.0])
+    assert "requested_speed" not in got
 
 
 @pytest.mark.parametrize(
@@ -130,18 +132,18 @@ def test_real_leaf_maps_views_anchors_and_never_reads_padded_tail(
 def test_scalar_condition_rng_identity_gradient_and_explicit_inference_input():
     torch.manual_seed(5)
     before = torch.get_rng_state().clone()
-    stage = SharedSpeedCondition(0.07, condition_dim=8)
+    stage = SharedSpeedCondition(None, condition_dim=8)
     assert torch.equal(before, torch.get_rng_state())
     condition = torch.randn(3, 8, requires_grad=True)
     speed = torch.tensor([[0.01], [0.05], [0.1]])
-    got = stage({"condition": condition, "requested_speed": speed})["speed_condition"]
+    got = stage({"condition": condition, "retiming_rate": speed})["speed_condition"]
     torch.testing.assert_close(got, condition, rtol=0, atol=0)
     got.square().sum().backward()
     assert stage.mlp[-1].weight.grad.norm() > 0 and condition.grad.norm() > 0
     with pytest.raises(KeyError):
         stage({"condition": condition})
     with pytest.raises(ValueError):
-        stage({"condition": condition, "requested_speed": torch.full((3, 1), -1.0)})
+        stage({"condition": condition, "retiming_rate": torch.full((3, 1), -1.0)})
 
 
 @pytest.mark.parametrize("domain,dim", [(7, 14), (3, 138)])
@@ -173,13 +175,13 @@ def test_speed_reaches_actual_action_flow_objective(domain, dim):
         name: torch.nn.Linear(8, d).double()
         for name, d in (("robot", 14), ("human", 138))
     }
-    speed = SharedSpeedCondition(condition_dim=3, speed_reference=0.1).double()
+    speed = SharedSpeedCondition(condition_dim=3, speed_reference=None).double()
     field = Field()
     batch = {
         "target": torch.randn(2, 4, dim, dtype=torch.float64),
         "sampler/noise": torch.randn(2, 4, 8, dtype=torch.float64),
         "condition": torch.randn(2, 3, dtype=torch.float64),
-        "requested_speed": torch.tensor([[0.1], [0.3]], dtype=torch.float64),
+        "retiming_rate": torch.tensor([[0.1], [0.3]], dtype=torch.float64),
         "embodiment": torch.full((2,), domain),
     }
     stages = [

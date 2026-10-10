@@ -65,3 +65,13 @@ def test_factory_places_speed_inside_diagnostic_prefix(monkeypatch):
     assert stages[2].config["_target_"].endswith("RoutedContentEncoderStage")
     assert stages[3].config["condition_key"] == "speed_condition"
     assert stages[4].config["inference_condition_key"] == "speed_condition"
+
+
+def test_measured_speed_recipes_are_not_shipped():
+    root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
+    for name in (
+        "experiment/pusht/action_flow_cotrain_uc_speed_interpolation.yaml",
+        "experiment/e1/yam_human_keypoints_speed_h816_private512_s42.yaml",
+        "data/e1/yam_human_keypoints_speed_proportional_val01.yaml",
+    ):
+        assert not (root / name).exists()

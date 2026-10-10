@@ -56,26 +56,22 @@ def test_multiplier_input_contract():
         pass
     else:
         raise AssertionError("physical-speed fallback accepted")
-    # Preserve historical conditioner behavior and parameter surface.
-    old = m.SharedSpeedCondition(1.0, condition_dim=256)
-    assert old({"condition": obs, "requested_speed": torch.ones(5, 1)})[
-        "speed_condition"
-    ].shape == (5, 256)
-    print(
-        "MULTIPLIER_CONDITION_PASS shapes, telemetry independence, direct rate dependence, gradients, missing/invalid rejection, historical compatibility"
-    )
 
 
 def test_strict_reload_rejects_physical_speed_weights():
     import pytest
 
-    old = m.SharedSpeedCondition(1.0, condition_dim=256)
-    new = m.SharedSpeedCondition(
-        None, condition_dim=256, conditioning_input="retiming_multiplier"
-    )
-    with pytest.raises(RuntimeError, match="retiming_multiplier_contract"):
-        new.load_state_dict(old.state_dict(), strict=True)
+    new = m.SharedSpeedCondition(condition_dim=256)
+    old_state = dict(new.state_dict())
+    old_state.pop("retiming_multiplier_contract")
+    old_state["speed_reference"] = torch.tensor(1.0)
+    with pytest.raises(RuntimeError):
+        new.load_state_dict(old_state, strict=True)
     new.load_state_dict(new.state_dict(), strict=True)
+    with pytest.raises(ValueError, match="removed"):
+        m.SharedSpeedCondition(1.0)
+    with pytest.raises(ValueError, match="removed"):
+        m.SharedSpeedCondition(conditioning_input="native_speed")
 
 
 def test_rollout_requires_explicit_multiplier():
@@ -223,43 +219,37 @@ def test_multiplier_semantics_preserve_normalization_inputs():
         ("robot", 100, [1.0]),
     ):
         fields = {"left": "pose_wxyz", "right": "pose_wxyz", "articulation": "linear"}
-        kwargs = dict(
-            rates=rates,
-            fields=fields,
-            pose_keys=["left", "right"],
-            horizon=horizon,
+        transform = PhysicalWindowRetiming(
+            rates,
+            fields,
+            ["left", "right"],
+            horizon,
             embodiment=domain,
             sample_views=5,
             timestamp_key="clock" if domain == "human" else None,
         )
-        old = PhysicalWindowRetiming(**kwargs, conditioning_input="native_speed")
-        new = PhysicalWindowRetiming(**kwargs, conditioning_input="retiming_multiplier")
         km = {key: {"horizon": horizon} for key in fields}
         if domain == "human":
             km["clock"] = {"horizon": horizon}
-        for transform in (old, new):
-            transform.bind_episode({"fps": 30}, km)
+        transform.bind_episode({"fps": 30}, km)
         pose = np.zeros((horizon, 7))
         pose[:, 0] = np.arange(horizon) * 0.01
         pose[:, 3] = 1
         for view in range(5):
+            rate = rates[view % len(rates)]
+            values = np.arange(horizon * 126, dtype=float).reshape(horizon, 126)
             batch = {
                 "left": pose.copy(),
                 "right": pose.copy(),
-                "articulation": np.arange(horizon * 126, dtype=float).reshape(
-                    horizon, 126
-                ),
+                "articulation": values.copy(),
                 "_retiming_view": view,
             }
             if domain == "human":
                 batch["clock"] = np.arange(horizon, dtype=np.int64) * 33333333
-            a = old.transform(
-                {k: v.copy() if hasattr(v, "copy") else v for k, v in batch.items()}
-            )
-            b = new.transform(
-                {k: v.copy() if hasattr(v, "copy") else v for k, v in batch.items()}
-            )
-            for key in fields:
-                np.testing.assert_array_equal(a[key], b[key])
-            assert "requested_speed" in a and "requested_speed" not in b
-            assert b["retiming_rate"].shape == (1,)
+            out = transform.transform(batch)
+            for key in ("left", "right"):
+                np.testing.assert_allclose(out[key][:, 0], pose[:, 0] * rate)
+                np.testing.assert_array_equal(out[key][:, 3:], pose[:, 3:])
+            expected = values[0] + (values - values[0]) * rate
+            np.testing.assert_allclose(out["articulation"], expected)
+            assert "requested_speed" not in out and out["retiming_rate"].shape == (1,)

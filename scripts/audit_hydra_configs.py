@@ -36,7 +36,6 @@ EXPERIMENT_CONTEXTS = {
     "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
     "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
-    "data/e1/yam_human_keypoints_speed_proportional_val01": "e1/yam_human_keypoints_speed_h816_private512_s42",
     "evaluator/e1/yam_action_flow": "e1/yam_stationary_action_flow_h816_s42",
     "evaluator/e1/yam_human_keypoints_action_flow": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
     "data/libero/action_flow_libero10_val01_h16": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
@@ -86,7 +85,6 @@ AUDIT_ENVIRONMENT = {
     "DP_CHAIN_DATASET_DIR": "/tmp/egoverse-config-audit/chain",
     "AF_COTRAIN_NORM": "/tmp/egoverse-config-audit/normalizer.json",
     "AF_HUMAN_DATA_ROOT": "/tmp/egoverse-config-audit/human",
-    "AF_STATIONARY_SPEED_REFERENCE": "0.1",
     "PUSHSHAPES_USOCKET_ROOT": "/tmp/egoverse-config-audit/usocket",
     "PUSHSHAPES_CHAIN_GRIPPER_ROOT": "/tmp/egoverse-config-audit/chain",
     **{

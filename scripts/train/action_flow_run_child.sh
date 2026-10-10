@@ -36,7 +36,7 @@ export WANDB_MODE=online WANDB_SILENT=true MUJOCO_GL=egl
 overlap_args=()
 if test "${AF_NATIVE_SCHEDULED_STEP:-false}" = true; then overlap_args+=(--overlap); fi
 exec "$SRUN" "${overlap_args[@]}" --nodes=1 --ntasks=1 --gpus-per-task=1 \
-  --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --kill-on-bad-exit=1 --unbuffered \
+  --cpus-per-task="${SLURM_CPUS_PER_TASK:?}" --cpu-bind=none --kill-on-bad-exit=1 --unbuffered \
   /bin/bash -c 'set -Eeuo pipefail; cd "$AF_REPO"; exec "$AF_PYTHON" -m egomimic.trainHydra "$@"' \
   action-flow-train "$@" \
   "$checkpoint_override"

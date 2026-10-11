@@ -11,11 +11,18 @@ from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
 
 
 class YamHumanDiTHalf(Callback):
-    def __init__(self, velocity_depth=12, encoder_kind="dit"):
+    def __init__(self, velocity_depth=12, encoder_kind="dit", encoder_depth=6):
         self.velocity_depth = int(velocity_depth)
+        self.encoder_depth = int(encoder_depth)
+        if self.velocity_depth <= 0 or self.velocity_depth % 2:
+            raise ValueError("DiT-half requires a positive even velocity depth")
         if encoder_kind not in {"dit", "temporal_unet"}:
             raise ValueError("Unknown action encoder execution contract")
         self.encoder_kind = encoder_kind
+        if encoder_kind == "dit" and (
+            self.encoder_depth <= 0 or self.encoder_depth % 2
+        ):
+            raise ValueError("DiT-half requires a positive even encoder depth")
 
     def on_fit_start(self, trainer, module):
         stages = tuple(module.model.pipeline.stages)
@@ -38,15 +45,19 @@ class YamHumanDiTHalf(Callback):
             raise ValueError("native two-source private encoder mapping required")
         if self.encoder_kind == "temporal_unet":
             from egomimic.models.temporal_action_codec import (
-                TemporalActionEncoder, TemporalActionDecoder,
+                TemporalActionDecoder,
+                TemporalActionEncoder,
             )
-            if not all(isinstance(item, TemporalActionEncoder)
-                       and item.gradient_checkpointing
-                       for item in encoder.encoders.values()):
+
+            if not all(
+                isinstance(item, TemporalActionEncoder) and item.gradient_checkpointing
+                for item in encoder.encoders.values()
+            ):
                 raise ValueError("Temporal encoder checkpoint contract mismatch")
-            if not all(isinstance(item, TemporalActionDecoder)
-                       and item.gradient_checkpointing
-                       for item in decoder.decoders.values()):
+            if not all(
+                isinstance(item, TemporalActionDecoder) and item.gradient_checkpointing
+                for item in decoder.decoders.values()
+            ):
                 raise ValueError("Temporal decoder checkpoint contract mismatch")
             self.backbones = {}
         else:
@@ -56,7 +67,8 @@ class YamHumanDiTHalf(Callback):
         self.backbones["velocity"] = field.field.backbone
         for name, backbone in self.backbones.items():
             if (
-                backbone.depth != (self.velocity_depth if name == "velocity" else 6)
+                backbone.depth
+                != (self.velocity_depth if name == "velocity" else self.encoder_depth)
                 or backbone.checkpoint_policy != "dit_half"
                 or not backbone.gradient_checkpointing
             ):
@@ -105,7 +117,7 @@ class YamHumanDiTHalf(Callback):
     def state_dict(self):
         return {
             "policy": "native_dit_half",
-            "encoder_depth": 6 if self.encoder_kind == "dit" else None,
+            "encoder_depth": self.encoder_depth if self.encoder_kind == "dit" else None,
             "velocity_depth": self.velocity_depth,
             "sampling": "native_proportional_homogeneous",
         }

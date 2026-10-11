@@ -11,6 +11,12 @@ from egomimic.pipeline.action_flow_topology import resolve_action_flow_topology
 
 
 class YamHumanDiTHalf(Callback):
+    def __init__(self, velocity_depth=12, encoder_kind="dit"):
+        self.velocity_depth = int(velocity_depth)
+        if encoder_kind not in {"dit", "temporal_unet"}:
+            raise ValueError("Unknown action encoder execution contract")
+        self.encoder_kind = encoder_kind
+
     def on_fit_start(self, trainer, module):
         stages = tuple(module.model.pipeline.stages)
         encoder, field, decoder = resolve_action_flow_topology(module.model)
@@ -30,13 +36,27 @@ class YamHumanDiTHalf(Callback):
             )
         if set(encoder.encoders) != {"yam_bimanual", "human_bimanual"}:
             raise ValueError("native two-source private encoder mapping required")
-        self.backbones = {
-            name: item.backbone for name, item in encoder.encoders.items()
-        }
+        if self.encoder_kind == "temporal_unet":
+            from egomimic.models.temporal_action_codec import (
+                TemporalActionEncoder, TemporalActionDecoder,
+            )
+            if not all(isinstance(item, TemporalActionEncoder)
+                       and item.gradient_checkpointing
+                       for item in encoder.encoders.values()):
+                raise ValueError("Temporal encoder checkpoint contract mismatch")
+            if not all(isinstance(item, TemporalActionDecoder)
+                       and item.gradient_checkpointing
+                       for item in decoder.decoders.values()):
+                raise ValueError("Temporal decoder checkpoint contract mismatch")
+            self.backbones = {}
+        else:
+            self.backbones = {
+                name: item.backbone for name, item in encoder.encoders.items()
+            }
         self.backbones["velocity"] = field.field.backbone
         for name, backbone in self.backbones.items():
             if (
-                backbone.depth != (12 if name == "velocity" else 6)
+                backbone.depth != (self.velocity_depth if name == "velocity" else 6)
                 or backbone.checkpoint_policy != "dit_half"
                 or not backbone.gradient_checkpointing
             ):
@@ -85,8 +105,8 @@ class YamHumanDiTHalf(Callback):
     def state_dict(self):
         return {
             "policy": "native_dit_half",
-            "encoder_depth": 6,
-            "velocity_depth": 12,
+            "encoder_depth": 6 if self.encoder_kind == "dit" else None,
+            "velocity_depth": self.velocity_depth,
             "sampling": "native_proportional_homogeneous",
         }
 

@@ -19,7 +19,9 @@ class YamHumanDiTHalf(Callback):
         if encoder_kind not in {"dit", "temporal_unet"}:
             raise ValueError("Unknown action encoder execution contract")
         self.encoder_kind = encoder_kind
-        if encoder_kind == "dit" and (self.encoder_depth <= 0 or self.encoder_depth % 2):
+        if encoder_kind == "dit" and (
+            self.encoder_depth <= 0 or self.encoder_depth % 2
+        ):
             raise ValueError("DiT-half requires a positive even encoder depth")
 
     def on_fit_start(self, trainer, module):
@@ -43,15 +45,19 @@ class YamHumanDiTHalf(Callback):
             raise ValueError("native two-source private encoder mapping required")
         if self.encoder_kind == "temporal_unet":
             from egomimic.models.temporal_action_codec import (
-                TemporalActionEncoder, TemporalActionDecoder,
+                TemporalActionDecoder,
+                TemporalActionEncoder,
             )
-            if not all(isinstance(item, TemporalActionEncoder)
-                       and item.gradient_checkpointing
-                       for item in encoder.encoders.values()):
+
+            if not all(
+                isinstance(item, TemporalActionEncoder) and item.gradient_checkpointing
+                for item in encoder.encoders.values()
+            ):
                 raise ValueError("Temporal encoder checkpoint contract mismatch")
-            if not all(isinstance(item, TemporalActionDecoder)
-                       and item.gradient_checkpointing
-                       for item in decoder.decoders.values()):
+            if not all(
+                isinstance(item, TemporalActionDecoder) and item.gradient_checkpointing
+                for item in decoder.decoders.values()
+            ):
                 raise ValueError("Temporal decoder checkpoint contract mismatch")
             self.backbones = {}
         else:
@@ -61,7 +67,8 @@ class YamHumanDiTHalf(Callback):
         self.backbones["velocity"] = field.field.backbone
         for name, backbone in self.backbones.items():
             if (
-                backbone.depth != (self.velocity_depth if name == "velocity" else self.encoder_depth)
+                backbone.depth
+                != (self.velocity_depth if name == "velocity" else self.encoder_depth)
                 or backbone.checkpoint_policy != "dit_half"
                 or not backbone.gradient_checkpointing
             ):

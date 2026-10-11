@@ -96,8 +96,10 @@ def replace_action_codec_configs(stages, codec_configs):
     replacements = OmegaConf.to_container(codec_configs, resolve=True)
     if set(replacements) != {"encoders", "decoders"}:
         raise ValueError("Codec replacement requires encoders and decoders")
-    for key, stage_name in (("encoders", ".ContentEncoderStage"),
-                            ("decoders", ".ContentDecoderStage")):
+    for key, stage_name in (
+        ("encoders", ".ContentEncoderStage"),
+        ("decoders", ".ContentDecoderStage"),
+    ):
         matches = [s for s in stages if s.get("_target_", "").endswith(stage_name)]
         if len(matches) != 1 or key not in matches[0]:
             raise ValueError(f"Codec replacement requires one private {key} stage")
@@ -108,8 +110,12 @@ def replace_action_codec_configs(stages, codec_configs):
         for domain, spec in selected.items():
             if not spec.get("_target_"):
                 raise ValueError("Codec replacement needs an explicit module target")
-            for dimension in ("action_dim", "action_horizon", "latent_dim",
-                              "num_latent_tokens"):
+            for dimension in (
+                "action_dim",
+                "action_horizon",
+                "latent_dim",
+                "num_latent_tokens",
+            ):
                 if spec.get(dimension) != previous[domain].get(dimension):
                     raise ValueError(f"Codec replacement changes {domain}.{dimension}")
         matches[0][key] = selected

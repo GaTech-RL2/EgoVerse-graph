@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import torch
+
 from egomimic.pipeline.core import Stage
 
 
@@ -111,19 +113,53 @@ class OATObservationStage(Stage):
 
     writes = ("condition",)
 
-    def __init__(self, encoder, obs_keys):
+    def __init__(
+        self,
+        encoder,
+        obs_keys,
+        key_bindings=None,
+        chw_image_keys=(),
+        image_scale=1.0,
+        image_offset=0.0,
+        native_data_context=False,
+    ):
         super().__init__()
         self.encoder = encoder
         self.reads = tuple(obs_keys)
+        self.key_bindings = dict(key_bindings or {key: key for key in obs_keys})
+        if set(self.key_bindings) != set(self.reads) or len(
+            set(self.key_bindings.values())
+        ) != len(self.reads):
+            raise ValueError("OAT key bindings must map every input uniquely")
+        self.chw_image_keys = tuple(chw_image_keys)
+        if not set(self.chw_image_keys) <= set(self.reads):
+            raise ValueError("OAT CHW image keys must be declared inputs")
+        self.image_scale, self.image_offset = float(image_scale), float(image_offset)
+        if not torch.isfinite(
+            torch.tensor([self.image_scale, self.image_offset])
+        ).all():
+            raise ValueError("OAT image affine must be finite")
+        self.native_data_context = bool(native_data_context)
 
     def bind_data_context(self, *, normalizer):
         # Direct action-space DP has no ARC stage to carry these receipts.
         # Record the same data contract without changing encoder normalization.
         self.normalizer_state = normalizer.to_state()
-        self.data_context = normalizer.tokenizer_context()
+        self.data_context = (
+            self.normalizer_state
+            if self.native_data_context
+            else normalizer.tokenizer_context()
+        )
 
     def forward(self, batch):
-        batch["condition"] = self.encoder(
-            {key: batch[key] for key in self.reads}
-        ).flatten(1)
+        obs = {}
+        for key in self.reads:
+            value = batch[key]
+            if key in self.chw_image_keys:
+                if value.ndim != 5 or value.shape[2] != 3:
+                    raise ValueError(f"{key} must be B,T,3,H,W")
+                value = value.float().permute(0, 1, 3, 4, 2).contiguous()
+                value = value * self.image_scale + self.image_offset
+            obs[self.key_bindings[key]] = value
+        batch["condition"] = self.encoder(obs).flatten(1)
         return batch

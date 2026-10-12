@@ -953,6 +953,12 @@ elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
 fi
 
 
+# Bound the evaluator too: trainHydra applies its overrides after trainer config.
+# Full validation keeps its existing evaluator budget.
+if test "$AF_RUN_KIND" = smoke && test "$AF_SPEED_DIAGNOSTIC" = true; then
+  BASE_OVERRIDES+=("evaluator.limit_val_batches=$LIMIT_VAL_BATCHES")
+fi
+
 if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
   BASE_OVERRIDES+=("ckpt_path='$AF_INITIAL_CHECKPOINT'")
   if test "$AF_RUN_KIND" = full; then BASE_OVERRIDES+=("++logger.wandb.resume=must");
@@ -1888,6 +1894,11 @@ if run_kind == "smoke":
     assert cfg.trainer.max_steps == cfg.trainer.limit_train_batches == 2
     assert cfg.trainer.val_check_interval == 2
     assert cfg.trainer.limit_val_batches == 1
+    if speed_diagnostic:
+        assert type(cfg.evaluator.limit_val_batches) is int
+        assert cfg.evaluator.limit_val_batches == cfg.trainer.limit_val_batches
+        evaluator_limit = instantiate(cfg.evaluator).trainer_overrides()["limit_val_batches"]
+        assert type(evaluator_limit) is int and evaluator_limit == 1
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 1
     assert cfg.model.gradient_telemetry_cadence == 2
 else:

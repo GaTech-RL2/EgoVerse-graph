@@ -123,7 +123,6 @@ def candidate(
     }
 
 
-
 def select_trainer_root(candidates):
     """Forked data workers inherit argv/handlers; require one verified tree root."""
     by_pid = {item["pid"]: item for item in candidates}

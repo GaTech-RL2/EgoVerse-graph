@@ -192,6 +192,9 @@ def test_ambiguous_trainer_trees_fail_closed(case):
     elif case == "cross_step":
         child["cgroup"] = "other-step"
     elif case == "cycle":
-        rows += [dict(root, pid=102, parent_pid=103), dict(root, pid=103, parent_pid=102)]
+        rows += [
+            dict(root, pid=102, parent_pid=103),
+            dict(root, pid=103, parent_pid=102),
+        ]
     with pytest.raises(AssertionError):
         api["select_trainer_root"](rows)

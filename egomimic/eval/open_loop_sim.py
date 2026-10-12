@@ -292,8 +292,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
             .detach()
             .cpu()
         )
-        if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
-            obs_pose_native = obs_pose_native.squeeze(1)
+        if obs_pose_native.ndim == 3:
+            if "observation_frame_indices" in source_batch:
+                obs_pose_native = obs_pose_native[:, -1]
+            elif obs_pose_native.shape[1] == 1:
+                obs_pose_native = obs_pose_native.squeeze(1)
         pred_camframe = self._revert_to_camframe(
             actions=pred_native,
             obs_pose=obs_pose_native,
@@ -309,7 +312,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
         images = source_batch[self.image_key]
         if images.ndim == 5:
-            images = images[:, 0]
+            images = images[:, -1 if "observation_frame_indices" in source_batch else 0]
         images = images.detach().cpu()
         if images.ndim == 4 and images.shape[1] in (1, 3):
             images = images.permute(0, 2, 3, 1)

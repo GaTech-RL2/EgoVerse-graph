@@ -498,8 +498,11 @@ class BimanualCartesianEval(EvalVideo):
         # transforms expect per-sample obs of shape (D,), not (T_obs, D).
         obs_pose_normalized = source_batch[self.obs_pose_key].detach()
         obs_pose_native = self._native_pose(obs_pose_normalized, embodiment_id)
-        if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
-            obs_pose_native = obs_pose_native.squeeze(1)
+        if obs_pose_native.ndim == 3:
+            if "observation_frame_indices" in source_batch:
+                obs_pose_native = obs_pose_native[:, -1]
+            elif obs_pose_native.shape[1] == 1:
+                obs_pose_native = obs_pose_native.squeeze(1)
         obs_pose_native = obs_pose_native.detach().cpu()
 
         pred_camframe = self._revert_to_camframe(
@@ -523,7 +526,7 @@ class BimanualCartesianEval(EvalVideo):
         images = image_slab
         if images.ndim == 5:
             # (B, T=1, C, H, W) or (B, C, H, W) — collapse the optional obs-step axis.
-            images = images[:, 0]
+            images = images[:, -1 if "observation_frame_indices" in source_batch else 0]
         images = images.detach().cpu()
         if images.ndim == 4 and images.shape[1] in (1, 3):
             images = images.permute(0, 2, 3, 1)

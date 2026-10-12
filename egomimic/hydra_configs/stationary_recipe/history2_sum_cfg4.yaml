@@ -1,0 +1,44 @@
+# @package _global_
+# Shared corrected stationary recipe; codec architecture stays in its experiment.
+model:
+  cfg_scale: 4.0
+  flow_loss_aggregation: sum_samples
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        observation_history_steps: 2
+    human_bimanual:
+      resolver:
+        observation_history_steps: 2
+  valid_datasets:
+    yam:
+      yam_bimanual:
+        resolver:
+          observation_history_steps: 2
+    human:
+      human_bimanual:
+        resolver:
+          observation_history_steps: 2
+trainer:
+  val_check_interval: 15000
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 15000
+    every_n_epochs: null
+    save_on_train_epoch_end: false
+    save_top_k: -1
+    save_last: link
+run_provenance:
+  observation_history:
+    frames: 2
+    alignment: causal_previous_current_repeat_first
+    action_anchor: current_frame
+  objective:
+    flow_aggregation: sum_samples
+  inference:
+    cfg_scale: 4.0
+    classifier_free_guidance: true

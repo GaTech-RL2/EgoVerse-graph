@@ -295,3 +295,34 @@ def test_complete_episode_preflight_rejects_missing_tail():
     )
     with pytest.raises(ValueError, match="missing its tail"):
         module.configure_evaluation(EvaluationDataRequirements(complete_episodes=True))
+
+
+def test_fixed_range_context_roundtrips_and_rejects_both_directions_of_drift():
+    fixed = {"action": {"low": [-1.0] * 3, "high": [1.0] * 3}}
+    state = _state()
+    stats = state["norm_stats"][7]["action"]
+    stats.update(min=np.zeros((2, 3)), max=np.ones((2, 3)))
+    state["norm_stats"][7]["action"], _ = MultiDataset._fixed_range_quantiles(
+        stats, **fixed["action"]
+    )
+    saved = {
+        "kind": "zarr-normalizer-v1",
+        "normalizer_state": state,
+        "sha256": _digest(state),
+        "fixed_ranges": fixed,
+    }
+    context = _module().prepare_context(
+        mode="eval", normalization={"fixed_ranges": fixed}, restored_state=saved
+    )
+    assert context.snapshot()["fixed_ranges"] == fixed
+    assert context.snapshot()["sha256"] == saved["sha256"]
+    with pytest.raises(ValueError, match="set the same option"):
+        _module().prepare_context(mode="eval", normalization={}, restored_state=saved)
+    with pytest.raises(ValueError, match="does not carry"):
+        _module().prepare_context(
+            mode="eval",
+            normalization={
+                "fixed_ranges": {"action": {"low": [-2.0] * 3, "high": [2.0] * 3}}
+            },
+            restored_state=saved,
+        )

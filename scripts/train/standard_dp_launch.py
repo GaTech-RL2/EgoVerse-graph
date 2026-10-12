@@ -70,11 +70,45 @@ def layout():
     return (5, 6, 128, 32) if multiplier() else (3, 4, 67, 16)
 
 
+def runner_restart():
+    raw = os.environ.get("ICE_RESTART_COUNT", "0")
+    if not raw.isdecimal():
+        raise ValueError("ICE_RESTART_COUNT must be nonnegative")
+    if int(raw) == 0:
+        return False
+    if (
+        os.environ.get("DP_REQUEUE_OWNER") != "runner"
+        or os.environ.get("ICE_REQUEUE_OWNER") != "runner"
+        or os.environ.get("ICE_CHILD_REQUEUE_DISABLED") != "1"
+        or not all(
+            os.environ.get(key)
+            for key in (
+                "ICE_RESUME_CHECKPOINT",
+                "ICE_RESUME_CHECKPOINT_SHA256",
+                "ICE_RESUME_GLOBAL_STEP",
+            )
+        )
+    ):
+        raise ValueError("runner restart requires the native resume authority")
+    return True
+
+
+def verify_output_directory(output, phase):
+    output = pathlib.Path(output)
+    if not output.exists():
+        return
+    if phase != "full" or not runner_restart():
+        raise FileExistsError(output)
+    checkpoint = pathlib.Path(os.environ["ICE_RESUME_CHECKPOINT"]).resolve(strict=True)
+    checkpoint.relative_to((output / "checkpoints").resolve(strict=True))
+
+
 def arguments(phase, output, norm):
     smoke = phase in {"smoke", "resume-smoke"}
     resume = phase in {"resume", "resume-smoke"}
     start = int(os.environ["DP_RESUME_STEP"]) if resume else 0
     checkpoint = os.environ["DP_RESUME_CHECKPOINT"] if resume else "null"
+    tracking_resume = (resume and not smoke) or (phase == "full" and runner_restart())
     a = [
         "--config-name=train_zarr_cartesian",
         "+experiment=" + recipe(),
@@ -112,7 +146,7 @@ def arguments(phase, output, norm):
         "++logger.wandb.project=pushshapes-planar-v2",
         f"++logger.wandb.id={(os.environ.get('DP_SMOKE_WANDB_ID', os.environ['DP_WANDB_ID'] + '-smoke') if smoke else os.environ['DP_WANDB_ID'])}",
         f"++logger.wandb.name={(os.environ.get('DP_SMOKE_WANDB_ID', os.environ['DP_WANDB_ID'] + '-smoke') if smoke else os.environ['DP_WANDB_ID'])}",
-        f"++logger.wandb.resume={'must' if resume and not smoke else 'never'}",
+        f"++logger.wandb.resume={'must' if tracking_resume else 'never'}",
         (
             "++logger.wandb.group=standard-dp-usocket-chain-manual4919-five-rate-masked-20261008"
             if cotrain()
@@ -428,7 +462,7 @@ def main():
             }[args.mode]
         )
     )
-    assert not out.exists(), out
+    verify_output_directory(out, args.mode)
     if args.mode != "normalize":
         assert pathlib.Path(norm, "norm_stats.json").is_file()
     if args.mode == "resume":

@@ -995,6 +995,9 @@ if test "$AF_LAUNCH_MODE" = schema; then
 fi
 
 if test "$AF_LAUNCH_MODE" = preflight; then
+  if test "$AF_SPEED_DIAGNOSTIC" = true; then
+    "$AF_PYTHON" "$AF_SMOKE_VERIFIER" --check-experiment "$AF_EXPERIMENT"
+  fi
   for variable in \
     SLURM_JOB_ID SLURM_JOB_ACCOUNT SLURM_JOB_PARTITION SLURM_JOB_QOS \
     SLURM_JOB_NUM_NODES SLURM_NTASKS SLURM_CPUS_PER_TASK; do

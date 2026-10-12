@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,17 @@ from omegaconf import OmegaConf
 
 SCHEMA_VERSION = 1
 EXPERIMENTS = {
+    "pusht/action_flow_cotrain_uc_multiplier_interpolation": {
+        "config_name": "action_flow_cotrain_uc_multiplier_interpolation",
+        "parameter_count": 471_549_402,
+        "sources": {
+            "pushshapes_sim_u_socket": 4,
+            "pushshapes_sim_chain_gripper": 6,
+        },
+        "routed": True,
+        "hidden_dim": 696,
+        "raw_multiplier": True,
+    },
     "pusht/action_flow_chain_manual4919_avln_80k_s42": {
         "config_name": "action_flow_chain_manual4919_avln_80k_s42",
         "parameter_count": 151_990_970,
@@ -272,6 +284,28 @@ def require_sources_in_artifact(
     rendered = "\n".join(strings)
     for source in sources:
         require(source in rendered, f"{label} artifact lacks source {source}")
+
+
+def validate_raw_multiplier_ema(config, restored, checkpoint):
+    """Restore native EMA parameters strictly without changing trained source."""
+    from types import SimpleNamespace
+
+    from hydra.utils import instantiate
+
+    require(config.callbacks.ema.decay == 0.9978, "raw multiplier EMA decay mismatch")
+    require(config.callbacks.ema.validate_with_ema, "EMA validation is disabled")
+    require(not config.callbacks.ema.use_warmup, "raw multiplier EMA warmup mismatch")
+    require(checkpoint.get("ema_state_dict"), "EMA state missing")
+    finite_tree(checkpoint["ema_state_dict"], "checkpoint.ema_state_dict")
+    callback = instantiate(config.callbacks.ema)
+    trainer = SimpleNamespace(global_step=checkpoint["global_step"])
+    callback.on_load_checkpoint(trainer, restored, checkpoint)
+    callback.on_fit_start(trainer, restored)
+    require(callback.num_updates == 2, "EMA update count mismatch")
+    state = dict(restored.state_dict())
+    state.update(callback._shadow)
+    restored.load_state_dict(state, strict=True)
+    return {"strict_ema_reload": "passed", "decay": callback.decay, "num_updates": 2}
 
 
 def verify(args: argparse.Namespace) -> dict[str, Any]:
@@ -538,6 +572,25 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         parameter_count == args.expected_parameter_count,
         f"restored parameter count mismatch: {parameter_count}",
     )
+    ema_result = None
+    if row.get("raw_multiplier"):
+        require(
+            config.speed_diagnostic.encoding == "scalar",
+            "raw multiplier encoding mismatch",
+        )
+        require(
+            "homogeneous_dithalf" not in config.callbacks,
+            "grouped image processing is forbidden",
+        )
+        require(
+            config.model.pipeline.stages[6].inference_method == "euler",
+            "sampler mismatch",
+        )
+        require(
+            config.model.pipeline.stages[6].num_inference_steps == 50,
+            "sampler steps mismatch",
+        )
+        ema_result = validate_raw_multiplier_ema(config, restored, checkpoint)
     del restored, checkpoint
 
     streams = [
@@ -574,6 +627,12 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         *(f"Valid/EnergyScoreDiversity@32/{source}" for source in sources),
         *(f"Valid/ActionFlow/{component}" for component in components),
     )
+    if row.get("raw_multiplier"):
+        train_names += ("Train/MSE",)
+        valid_names += (
+            "Valid/Native_MSE",
+            *(f"Valid/Native_MSE/{source}" for source in sources),
+        )
     train_step, train = complete_row(rows, train_names, "training")
     valid_step, valid = complete_row(rows, valid_names, "validation")
     for suffix in ("", *(f"/{source}" for source in sources)):
@@ -627,6 +686,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "immutable_checkpoint_path": str(immutable),
             "parameter_count": parameter_count,
             "strict_checkpoint_reload": "passed",
+            **({"ema": ema_result} if ema_result is not None else {}),
         },
         "experiment": args.experiment,
         "gpu_probes": probes,
@@ -721,6 +781,18 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "--check-experiment":
+        require(sys.argv[2] in EXPERIMENTS, "unexpected experiment")
+        print(
+            json.dumps(
+                {
+                    "status": "PASS",
+                    "experiment": sys.argv[2],
+                    "contract": EXPERIMENTS[sys.argv[2]],
+                }
+            )
+        )
+        return 0
     args = parser().parse_args()
     require(
         args.expected_reconstruction_weight == 1.0, "reconstruction weight mismatch"

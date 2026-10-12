@@ -84,7 +84,7 @@ def arguments(phase, output, norm):
         f"hydra.run.dir={output}",
         f"++paths.root_dir={output}",
         f"paths.output_dir={output}",
-        f'paths.work_dir={os.environ["DP_REPO"]}',
+        f"paths.work_dir={os.environ['DP_REPO']}",
         "launch_params.gpus_per_node=1",
         "launch_params.nodes=1",
         "trainer.devices=1",
@@ -110,9 +110,9 @@ def arguments(phase, output, norm):
         "++callbacks.model_checkpoint.filename='epoch-{epoch}-step-{step}'",
         "++logger.wandb.entity=rl2-group",
         "++logger.wandb.project=pushshapes-planar-v2",
-        f'++logger.wandb.id={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
-        f'++logger.wandb.name={(os.environ.get("DP_SMOKE_WANDB_ID", os.environ["DP_WANDB_ID"]+"-smoke") if smoke else os.environ["DP_WANDB_ID"])}',
-        f'++logger.wandb.resume={"must" if resume and not smoke else "never"}',
+        f"++logger.wandb.id={(os.environ.get('DP_SMOKE_WANDB_ID', os.environ['DP_WANDB_ID'] + '-smoke') if smoke else os.environ['DP_WANDB_ID'])}",
+        f"++logger.wandb.name={(os.environ.get('DP_SMOKE_WANDB_ID', os.environ['DP_WANDB_ID'] + '-smoke') if smoke else os.environ['DP_WANDB_ID'])}",
+        f"++logger.wandb.resume={'must' if resume and not smoke else 'never'}",
         (
             "++logger.wandb.group=standard-dp-usocket-chain-manual4919-five-rate-masked-20261008"
             if cotrain()
@@ -154,7 +154,7 @@ def arguments(phase, output, norm):
             for key, value in provenance.items()
         ]
         a += [
-            f'++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ["DP_SPLIT_SHA256"]}'
+            f"++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ['DP_SPLIT_SHA256']}"
         ]
 
     requeue_owner = os.environ.get("DP_REQUEUE_OWNER", "")

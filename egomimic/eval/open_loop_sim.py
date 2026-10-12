@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -963,6 +963,80 @@ def arc_prefix_control_steps(
     return max(1, steps)
 
 
+# E1 wide (M, 16) layouts: each row is one waypoint's 14 pose columns followed by
+# one timing column per arm. Names and velocity modes match
+# robot/arc_decoder.E1_VELOCITY_MODE, the decoder the robot runs. The hybrid
+# layouts (M, 18) carry a translation and a rotation timing column per arm (the
+# tri layouts (M, 20) add a gripper column per arm), and their row M-1 is each
+# stream's start delay rather than an interval.
+E1_WIDE_TOKEN_DIM = 16
+E1_WIDE_VELOCITY_MODE = {
+    "e1_dur": "dur",
+    "e1_logdur": "logdur",
+    "e1_profile": "profile",
+    "e1_durhyb": "durhyb",
+    "e1_profhyb": "profhyb",
+    "e1_durtri": "durtri",
+    "e1_proftri": "proftri",
+    "e1_durevt": "durevt",
+    "e1_stkevt": "stkevt",
+    "e1_durref": "durref",
+    "e1_stkref": "stkref",
+}
+E1_TRI_LAYOUTS = ("e1_durtri", "e1_proftri")
+E1_HYBRID_LAYOUTS = ("e1_durhyb", "e1_profhyb", *E1_TRI_LAYOUTS)
+# Event-stream layouts (M, 20): row M-1 repeats row M-2 (no start delay) and the gripper is an event list, so a
+# row cut is meaningless. They are decoded whole and scored on the tick prefix only; NOT hybrid layouts, and
+# robot/arc_decoder.py does not know them yet.
+E1_EVT_LAYOUTS = ("e1_durevt", "e1_stkevt")
+# Reference two-clock layouts (M, 24): rotation6d in the token, decoded to the canonical ZYX Euler chunk.
+E1_REF_LAYOUTS = ("e1_durref", "e1_stkref")
+# Layouts with no row cut: decoded whole and scored on the tick prefix only; robot/arc_decoder.py knows none of them.
+E1_WHOLE_TOKEN_LAYOUTS = (*E1_EVT_LAYOUTS, *E1_REF_LAYOUTS)
+# Layouts whose timing columns hold speeds: the ones ``e1_speed_floors`` applies to.
+E1_SPEED_LAYOUTS = ("e1_profhyb", "e1_proftri", "e1_stkevt", "e1_stkref")
+TOKEN_LAYOUTS = ("lab", *E1_WIDE_VELOCITY_MODE)
+
+
+def e1_token_dim(layout: str) -> int:
+    if layout in E1_REF_LAYOUTS:
+        return 24
+    if layout in (*E1_TRI_LAYOUTS, *E1_EVT_LAYOUTS):
+        return 20
+    return 18 if layout in E1_HYBRID_LAYOUTS else E1_WIDE_TOKEN_DIM
+
+
+def truncate_e1_wide_token(
+    token: np.ndarray, execute_fraction: float, hybrid: bool = False
+) -> np.ndarray:
+    """Keep the first distance fraction of an E1 wide ``(M, 16)`` ARC token.
+
+    Every row carries one waypoint together with that waypoint's timing entry
+    for each arm, so truncating rows keeps each executed waypoint with its own
+    timing -- the ``(M, 16)`` counterpart of :func:`truncate_arc_token`.
+    ``hybrid`` (M, 18) or tri (M, 20): each stream is cut to the first fraction of its own arc,
+    and the kept last row takes the stream's start delay from row M-1, which is
+    where the hybrid codec reads it.
+    """
+
+    value = np.asarray(token, dtype=np.float64)
+    dims = (18, 20) if hybrid else (E1_WIDE_TOKEN_DIM,)
+    if value.ndim != 2 or value.shape[1] not in dims:
+        raise ValueError(
+            f"E1 wide ARC token must have shape (M, {' or '.join(map(str, dims))}), "
+            f"got {value.shape}"
+        )
+    fraction = float(execute_fraction)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError("execute_fraction must be in (0, 1]")
+    M = int(value.shape[0])
+    K = max(2, min(M, int(math.ceil(M * fraction))))
+    out = value[:K].copy()
+    if hybrid:
+        out[K - 1, 14:] = value[M - 1, 14:]
+    return out
+
+
 class OpenLoopSimEval(BimanualCartesianEval):
     """Compare baseline and ARC policies over complete recorded episodes.
 
@@ -972,6 +1046,33 @@ class OpenLoopSimEval(BimanualCartesianEval):
     rows; ``distance`` interpolates its terminal waypoint at
     ``execute_fraction * D`` according to the selected translation mode. Token
     timing recovers the corresponding variable control-frame stride.
+
+    ``execute_fraction * D`` cumulative left-plus-right EEF translation. Token
+    timing recovers the corresponding variable control-frame stride.
+
+    ``token_layout`` selects the ARC codec: ``lab`` for the ``(M+1, 14)`` /
+    ``(2M, 14)`` layouts chosen by ``velocity_mode``, ``e1_dur`` /
+    ``e1_logdur`` / ``e1_profile`` for the E1 wide ``(M, 16)`` layouts, or
+    ``e1_durhyb`` / ``e1_profhyb`` for the E1 hybrid ``(M, 18)`` layouts, or
+    ``e1_durtri`` / ``e1_proftri`` for the tri ``(M, 20)`` layouts (own gripper stream),
+    or ``e1_durevt`` / ``e1_stkevt`` for the event-stream ``(M, 20)`` layouts, or
+    ``e1_durref`` / ``e1_stkref`` for the reference two-clock ``(M, 24)`` layouts
+    (rotation6d in the token, decoded to ZYX Euler).
+
+    ``tick_prefix`` (E1 layouts, ``action_mode='arc'``) adds a second scored regime next to the
+    waypoint cut: the WHOLE predicted token is decoded over the control horizon, as it would be
+    deployed, and its first executed ticks are scored. The waypoint cut keeps each stream's first
+    ``execute_fraction * M`` rows and holds them for the rest of the executed ticks, which gives
+    ground-truth tokens a non-zero error (a hybrid's rotation, a tri's gripper); the tick prefix of a
+    ground-truth token is ~0. Segment boundaries stay the waypoint-cut ones and its metric keys are
+    unchanged; the new regime is reported as ``tick_prefix`` in the results and ``Tick_Prefix/*`` in
+    the logger. ``e1_speed_floors`` (speed layouts, tick prefix only) decodes the speed columns as
+    distance / max(|speed|, floor); the waypoint-cut metric keeps the legacy decode.
+
+    The event and reference layouts have no row cut: they are always decoded whole (``tick_prefix`` is forced
+    on), so their ``micro`` / ``macro`` results EQUAL the ``tick_prefix`` ones and are not comparable
+    with another layout's waypoint-cut numbers; their legacy MSE keys are therefore not logged.
+    ``arc_metric_regime`` in the results names which regime ``micro`` / ``macro`` hold.
 
     The evaluator expects validation to contain every frame of each episode,
     with ``episode_hash`` and ``frame_index`` metadata. It accumulates model
@@ -1012,6 +1113,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         velocity_mode: str = "per_waypoint",
         velocity_layout: str | None = None,
         log_step: int | None = None,
+        token_layout: str = "lab",
         gripper_distance_unit: float | None = None,
         gripper_stream_mode: str = "distance",
         results_path: str | None = None,
@@ -1033,11 +1135,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
         viz_func: Mapping | None = None,
         revert_transforms: Mapping | None = None,
         video_output_dir: str | None = None,
+        episode_dump_dir: str | None = None,
         video_chunk_frames: int = 1000,
         max_episode_frames: int = 6000,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
         arc_chunking_mode: str | None = None,
+        tick_prefix: bool = False,
+        e1_speed_floors: Sequence[float] | None = None,
         **kwargs,
     ):
         mode = str(action_mode)
@@ -1067,6 +1172,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 "omit arc_chunking_mode for legacy no-R checkpoints"
             )
         validate_bimanual_velocity_mode(velocity_mode)
+        if str(token_layout) not in TOKEN_LAYOUTS:
+            raise ValueError(
+                f"token_layout must be one of {TOKEN_LAYOUTS}, got {token_layout!r}"
+            )
         self.execute_fraction = float(execute_fraction)
         self.control_horizon = int(control_horizon)
         self.control_dt = float(control_dt)
@@ -1118,7 +1227,39 @@ class OpenLoopSimEval(BimanualCartesianEval):
         self.log_step = None if log_step is None else int(log_step)
         if self.log_step is not None and self.log_step < 0:
             raise ValueError("log_step must be nonnegative")
+        self.token_layout = str(token_layout)
+        self.tick_prefix = (
+            bool(tick_prefix) or self.token_layout in E1_WHOLE_TOKEN_LAYOUTS
+        )
+        if self.tick_prefix and not (
+            mode == "arc" and self.token_layout in E1_WIDE_VELOCITY_MODE
+        ):
+            raise ValueError(
+                "tick_prefix (and the e1_*evt / e1_*ref layouts) require action_mode='arc' and an "
+                f"E1 token_layout, got {mode!r} / {self.token_layout!r}"
+            )
+        if e1_speed_floors is not None and not (
+            self.tick_prefix and self.token_layout in E1_SPEED_LAYOUTS
+        ):
+            raise ValueError(
+                f"e1_speed_floors requires tick_prefix and one of {E1_SPEED_LAYOUTS}, "
+                f"got {self.token_layout!r}"
+            )
+        self.e1_speed_floors = (
+            None
+            if e1_speed_floors is None
+            else tuple(float(x) for x in e1_speed_floors)
+        )
+        # Built here so a bad option fails at instantiate, before any data is read.
+        self._tick_tokenizer = (
+            self._e1_tokenizer(self.token_layout, self.e1_speed_floors)
+            if self.tick_prefix
+            else None
+        )
         self.results_path = Path(results_path) if results_path else None
+        # Opt-in: one .npz per scored episode with the executed predicted and ground-truth control steps
+        # (frame index, prediction, ground truth) for plotting. None (default) writes nothing.
+        self.episode_dump_dir = Path(episode_dump_dir) if episode_dump_dir else None
         # Optional diagnostic: every validation frame's raw prediction, GT and
         # metric frame, so decoding can be re-run offline (e.g. jitter studies).
         self.records_dump_path = Path(records_dump_path) if records_dump_path else None
@@ -1884,10 +2025,45 @@ class OpenLoopSimEval(BimanualCartesianEval):
         return out
 
     def _is_arc_prediction(self, prediction: np.ndarray) -> bool:
+        layout = getattr(self, "token_layout", "lab")
+        if layout in E1_WIDE_VELOCITY_MODE:
+            return prediction.ndim == 2 and prediction.shape == (
+                self.resampled_vector_length,
+                e1_token_dim(layout),
+            )
         """Either velocity layout counts: (2M, 14) stacked or (M, 28) wide."""
         return prediction.ndim == 2 and prediction.shape in bimanual_arc_token_shapes(
             self.resampled_vector_length, self.velocity_mode
         )
+
+    def _e1_tokenizer(self, layout: str, speed_floors=None):
+        from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
+
+        # Built exactly as robot/arc_decoder.BimanualArcDecoder builds the same
+        # layout, so the scored decode is the deployed decode. That holds without
+        # ``speed_floors`` only: a tick tokenizer with floors is NOT the station
+        # decode (no robot decoder has them yet).
+        return TokenizeBimanualArcLengthE1(
+            min_distance_unit=self.min_distance_unit,
+            resampled_vector_length=self.resampled_vector_length,
+            dt=self.control_dt,
+            velocity_norm="path",
+            velocity_mode=E1_WIDE_VELOCITY_MODE[layout],
+            speed_floors=speed_floors,
+        )
+
+    def _decode_tick_prefix(self, prediction: np.ndarray, steps: int) -> np.ndarray:
+        """First ``steps`` ticks of the WHOLE token decoded over the control horizon (no row cut)."""
+        tokenizer = getattr(self, "_tick_tokenizer", None)
+        if tokenizer is None:
+            tokenizer = self._tick_tokenizer = self._e1_tokenizer(
+                self.token_layout, getattr(self, "e1_speed_floors", None)
+            )
+        # Decoded at the control horizon and sliced, never at ``steps``: a speed
+        # layout spreads a hold over the decode horizon.
+        return tokenizer.detokenize(prediction, action_horizon=self.control_horizon)[
+            :steps
+        ].astype(np.float64, copy=False)
 
     def _decode_prediction_with_steps(
         self, prediction: np.ndarray, *, max_steps: int | None = None
@@ -1917,6 +2093,23 @@ class OpenLoopSimEval(BimanualCartesianEval):
             if max_steps is not None:
                 steps = min(steps, int(max_steps))
             return prediction[:steps].copy(), steps
+
+        layout = getattr(self, "token_layout", "lab")
+        if layout in E1_WIDE_VELOCITY_MODE:
+            steps = self.execute_steps
+            if max_steps is not None:
+                steps = min(steps, int(max_steps))
+            if layout in E1_WHOLE_TOKEN_LAYOUTS:  # no row cut: the whole token, sliced
+                return self._decode_tick_prefix(prediction, steps), steps
+            if self._arc_tokenizer is None:
+                self._arc_tokenizer = self._e1_tokenizer(layout)
+            partial = truncate_e1_wide_token(
+                prediction, self.execute_fraction, hybrid=layout in E1_HYBRID_LAYOUTS
+            )
+            decoded = self._arc_tokenizer.detokenize(
+                partial, action_horizon=steps
+            ).astype(np.float64, copy=False)
+            return decoded, steps
 
         input_dim = prediction.shape[-1]
         velocity_layout = getattr(self, "velocity_layout", None)
@@ -2151,9 +2344,14 @@ class OpenLoopSimEval(BimanualCartesianEval):
             "grip_mse": 0.0,
             "paired_mse": 0.0,
         }
+        # Second regime, same segments: the whole token's tick prefix (see the class docstring).
+        tick_sq = (
+            dict.fromkeys(sq, 0.0) if getattr(self, "tick_prefix", False) else None
+        )
         executed = 0
         segments = 0
         segment_control_steps = []
+        dump = [] if getattr(self, "episode_dump_dir", None) is not None else None
         cursor = frames[0]
         while cursor < end_frame:
             record = by_frame.get(cursor)
@@ -2193,10 +2391,33 @@ class OpenLoopSimEval(BimanualCartesianEval):
             sq["ypr_mse"] += float(np.square(error[:, YPR_COLS]).sum())
             sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
             sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
+            if tick_sq is not None:
+                error = (
+                    self._decode_tick_prefix(record["prediction"], n) - ground_truth[:n]
+                )
+                tick_sq["mse"] += float(np.square(error).sum())
+                tick_sq["xyz_mse"] += float(np.square(error[:, XYZ_COLS]).sum())
+                tick_sq["ypr_mse"] += float(np.square(error[:, YPR_COLS]).sum())
+                tick_sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
+                tick_sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
+            if dump is not None:
+                dump.append((cursor, prediction[:n], ground_truth[:n]))
             executed += n
             segments += 1
             segment_control_steps.append(n)
             cursor += n
+        if dump:
+            self.episode_dump_dir.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(
+                self.episode_dump_dir / f"{records[0]['episode']}.npz",
+                segment_start=np.asarray([c for c, _, _ in dump], dtype=np.int64),
+                frame=np.concatenate(
+                    [c + np.arange(len(p)) for c, p, _ in dump]
+                ).astype(np.int64),
+                prediction=np.concatenate([p for _, p, _ in dump]).astype(np.float32),
+                ground_truth=np.concatenate([g for _, _, g in dump]).astype(np.float32),
+                control_dt=np.asarray(self.control_dt, dtype=np.float64),
+            )
 
         episode_length = end_frame - frames[0]
         denominators = {
@@ -2216,6 +2437,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
             "segment_control_steps": segment_control_steps,
             "coverage": executed / max(episode_length, 1),
             "metrics": {key: sq[key] / max(denominators[key], 1) for key in sq},
+            **(
+                {
+                    "tick_prefix": {
+                        key: tick_sq[key] / max(denominators[key], 1) for key in sq
+                    }
+                }
+                if tick_sq is not None
+                else {}
+            ),
             **(
                 {"distance_dtw": score_distance_dtw_episode(self, records)}
                 if getattr(self, "distance_dtw_enabled", False)
@@ -2261,6 +2491,28 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 key: float(np.mean([item["metrics"][key] for item in episodes]))
                 for key in micro
             },
+            **(
+                {
+                    "tick_prefix": {
+                        "micro": {
+                            key: sum(
+                                item["tick_prefix"][key] * item["executed_steps"] * dims
+                                for item in episodes
+                            )
+                            / max(total_steps * dims, 1)
+                            for key, dims in dimensions.items()
+                        },
+                        "macro": {
+                            key: float(
+                                np.mean([item["tick_prefix"][key] for item in episodes])
+                            )
+                            for key in micro
+                        },
+                    }
+                }
+                if "tick_prefix" in episodes[0]
+                else {}
+            ),
             "per_label": {
                 label: {
                     "episodes": len(items),
@@ -2308,6 +2560,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         for item in episodes:
             by_group[item["group"]].append(item)
         results = self._summarize_episodes(episodes)
+        layout = getattr(self, "token_layout", "lab")
         results.update(
             {
                 "execute_fraction": self.execute_fraction,
@@ -2339,6 +2592,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     self.execute_arc_waypoints
                     if self.action_mode == "arc"
                     and self.arc_execution_cap_mode == "waypoints"
+                    and layout not in E1_WHOLE_TOKEN_LAYOUTS  # no rows are cut
                     else None
                 ),
                 "execute_arc_distance_m": (
@@ -2360,6 +2614,20 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 ),
                 "control_horizon": self.control_horizon,
                 "control_dt": self.control_dt,
+                "tick_prefix_enabled": getattr(self, "tick_prefix", False),
+                "e1_speed_floors": (
+                    None
+                    if getattr(self, "e1_speed_floors", None) is None
+                    else list(self.e1_speed_floors)
+                ),
+                # Which regime micro / macro hold: the evt / ref layouts have no waypoint cut.
+                "arc_metric_regime": (
+                    "whole_token"
+                    if layout in E1_WHOLE_TOKEN_LAYOUTS
+                    else "waypoint_cut"
+                    if layout in E1_WIDE_VELOCITY_MODE
+                    else None
+                ),
                 "limit_val_episodes": self.limit_val_episodes,
                 "groups": sorted(by_group),
                 "per_group": {
@@ -2387,6 +2655,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
 
     def _metric_tensors(self, results: dict[str, Any]) -> dict[str, torch.Tensor]:
         metrics = {}
+        evt = getattr(self, "token_layout", "lab") in E1_WHOLE_TOKEN_LAYOUTS
         summaries = []
         for group, summary in results["per_group"].items():
             section = "Valid" if group == DEFAULT_VALID_GROUP else f"Valid_{group}"
@@ -2419,14 +2688,25 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     "Clipped_Segments": "clipped_segments",
                 }.items():
                     metrics[f"{prefix}/Distance_DTW/{name}"] = dtw[key]
+            for name, regime in (
+                # An evt layout's micro / macro ARE its tick prefix: logging them under the
+                # waypoint-cut keys would put two regimes on one panel.
+                ("", None if evt else summary),
+                ("Tick_Prefix/", summary.get("tick_prefix")),
+            ):
+                if regime is not None:
+                    metrics.update(
+                        {
+                            f"{prefix}/{name}MSE": regime["micro"]["mse"],
+                            f"{prefix}/{name}Episode_MSE": regime["macro"]["mse"],
+                            f"{prefix}/{name}XYZ_MSE": regime["micro"]["xyz_mse"],
+                            f"{prefix}/{name}YPR_MSE": regime["micro"]["ypr_mse"],
+                            f"{prefix}/{name}Grip_MSE": regime["micro"]["grip_mse"],
+                            f"{prefix}/{name}Paired_MSE": regime["micro"]["paired_mse"],
+                        }
+                    )
             metrics.update(
                 {
-                    f"{prefix}/MSE": summary["micro"]["mse"],
-                    f"{prefix}/Episode_MSE": summary["macro"]["mse"],
-                    f"{prefix}/XYZ_MSE": summary["micro"]["xyz_mse"],
-                    f"{prefix}/YPR_MSE": summary["micro"]["ypr_mse"],
-                    f"{prefix}/Grip_MSE": summary["micro"]["grip_mse"],
-                    f"{prefix}/Paired_MSE": summary["micro"]["paired_mse"],
                     f"{prefix}/Coverage": summary["coverage"],
                     f"{prefix}/Episodes": summary["episodes"],
                     f"{prefix}/Executed_Control_Steps": summary[

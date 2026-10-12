@@ -171,9 +171,21 @@ class E1TempoAccumulator:
         self._gt_span_arg = arcmatch_gt_span_m
         if kwargs:
             raise TypeError(f"Unexpected E1 metric options: {sorted(kwargs)}")
-        if variant not in ("time", "arcmean", "arcvel", "arclogdur", "arcdur"):
+        if variant not in (
+            "time",
+            "arcmean",
+            "arcvel",
+            "arclogdur",
+            "arcdur",
+            "arcdurhyb",
+            "arcvelhyb",
+            "arcdurtri",
+            "arcveltri",
+            "arcdurevt",
+            "arcvelevt",
+        ):
             raise ValueError(
-                "variant must be time | arcmean | arcvel | arclogdur | arcdur"
+                "variant must be time | arcmean | arcvel | arclogdur | arcdur | arcdurhyb | arcvelhyb | arcdurtri | arcveltri | arcdurevt | arcvelevt"
             )
         self.prog_horizon_m = float(prog_horizon_m)
         self.progress_smooth_hz = (
@@ -200,6 +212,12 @@ class E1TempoAccumulator:
                     "arcvel": "profile",
                     "arclogdur": "logdur",
                     "arcdur": "dur",
+                    "arcdurhyb": "durhyb",
+                    "arcvelhyb": "profhyb",
+                    "arcdurtri": "durtri",
+                    "arcveltri": "proftri",
+                    "arcdurevt": "durevt",
+                    "arcvelevt": "stkevt",
                 }[variant],
                 progress_smooth_hz=progress_smooth_hz,
             )

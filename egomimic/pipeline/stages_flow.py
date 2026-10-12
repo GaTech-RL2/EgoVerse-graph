@@ -19,6 +19,8 @@ is why these stages carry no scheduler and no scheduler-signature handshake.
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn.functional as F
 
@@ -133,6 +135,8 @@ class FlowDenoiserStage(Stage):
     In training this reads the interpolated point and returns the field at it.
     At inference the noising stage is gone, so it starts from pure noise and
     walks ``num_inference_steps`` Euler steps from ``t = 1`` down to ``t = 0``.
+    ``clip_sample_range`` (opt-in) clamps the clean sample implied at every step
+    to ``[-range, range]``, as DDIM's ``clip_sample`` does; None keeps plain Euler.
     """
 
     reads = ("condition", "flow/noisy_action", "flow/time")
@@ -150,6 +154,7 @@ class FlowDenoiserStage(Stage):
         num_inference_steps: int = 50,
         condition_as_tokens: bool = False,
         condition_ndim: int = 2,
+        clip_sample_range: float | None = None,
     ):
         super().__init__()
         self.model = model
@@ -175,6 +180,13 @@ class FlowDenoiserStage(Stage):
             raise ValueError("condition_input_dim must be positive")
         if self.num_inference_steps <= 0:
             raise ValueError("num_inference_steps must be positive")
+        if clip_sample_range is not None:
+            clip_sample_range = float(clip_sample_range)
+            if not (math.isfinite(clip_sample_range) and clip_sample_range > 0):
+                raise ValueError(
+                    f"clip_sample_range must be finite and positive, got {clip_sample_range}"
+                )
+        self.clip_sample_range = clip_sample_range
 
     def _model_condition(self, condition: torch.Tensor) -> torch.Tensor:
         if self.condition_as_tokens and condition.ndim == 2:
@@ -240,8 +252,20 @@ class FlowDenoiserStage(Stage):
         time = torch.ones(batch_size, device=condition.device, dtype=condition.dtype)
         for _ in range(self.num_inference_steps):
             velocity = self.model(x_t, time, self._model_condition(condition))
-            x_t = x_t + step * velocity
+            x_next = x_t + step * velocity
+            if self.clip_sample_range is not None:
+                # x_t = t noise + (1 - t) x0, v = noise - x0, so x0 = x_t - t v and noise = x_t + (1 - t) v.
+                # DDIM with clip_sample (the model's own noise estimate kept) steps to
+                # (1 - t') clip(x0) + t' noise = x_t + (t' - t) v - (1 - t') (x0 - clip(x0)).
+                clean = x_t - time[:, None, None] * velocity
+                x_next = x_next - (1.0 - (time + step))[:, None, None] * (
+                    clean - clean.clamp(-self.clip_sample_range, self.clip_sample_range)
+                )
+            x_t = x_next
             time = time + step
+        if self.clip_sample_range is not None:
+            # The accumulated time does not land exactly on 0.
+            x_t = x_t.clamp(-self.clip_sample_range, self.clip_sample_range)
         batch["pred_action"] = x_t
         batch["log/FlowInferenceSteps"] = torch.tensor(
             float(self.num_inference_steps), device=condition.device

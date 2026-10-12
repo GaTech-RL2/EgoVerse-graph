@@ -1,0 +1,9 @@
+# @package _global_
+# Frozen fast-tempo pool; shared training and tempo evaluator inherited.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/stationery_tempo_fast_time
+- _self_
+model:
+  data_requirements: ${model.data_contracts.yam}

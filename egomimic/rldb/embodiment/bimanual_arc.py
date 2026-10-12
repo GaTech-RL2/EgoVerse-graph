@@ -12,12 +12,34 @@ from egomimic.rldb.embodiment.human import (
 )
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
-VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur")
+VARIANTS = (
+    "time",
+    "arcmean",
+    "arcvel",
+    "arclogdur",
+    "arcdur",
+    "arcdurhyb",
+    "arcvelhyb",
+    "arcdurtri",
+    "arcveltri",
+    "arcdurevt",
+    "arcvelevt",
+    "arcdurref",
+    "arcvelref",
+)
 VELOCITY_MODES = {
     "arcmean": "mean",
     "arcvel": "profile",
     "arclogdur": "logdur",
     "arcdur": "dur",
+    "arcdurhyb": "durhyb",
+    "arcvelhyb": "profhyb",
+    "arcdurtri": "durtri",
+    "arcveltri": "proftri",
+    "arcdurevt": "durevt",
+    "arcvelevt": "stkevt",
+    "arcdurref": "durref",
+    "arcvelref": "stkref",
 }
 
 
@@ -26,21 +48,24 @@ def get_keymap(
     keymap_mode: str = "cartesian",
     embodiment: str = "human",
     drop_wrist_images: bool = True,
+    yam_source_frames: int | None = None,
     **kwargs,
 ):
-    """Build a cartesian keymap for the time or distance ARC variants.
+    """Build a Cartesian keymap, preserving declarative distance horizons.
 
-    Human retains the caller's fixed horizon. YAM baseline is always a raw
-    100-frame window; YAM ARC carries its distance/source-buffer specification
-    through unchanged so the resolver chooses the per-sample source length.
+    ``yam_source_frames`` explicitly pins a YAM Cartesian source window for
+    stationery recipes. Otherwise the caller's horizon remains unchanged.
     """
-    yam_cls = None
+    if yam_source_frames is not None:
+        if type(yam_source_frames) is not int or yam_source_frames < 1:
+            raise ValueError("yam_source_frames must be a positive integer")
+        if embodiment != "yam" or keymap_mode != "cartesian":
+            raise ValueError("yam_source_frames applies only to YAM cartesian windows")
     if embodiment == "human":
         key_map = Human.get_keymap(keymap_mode, **kwargs)
     elif embodiment == "yam":
         from egomimic.rldb.embodiment.yam import Yam
 
-        yam_cls = Yam
         key_map = Yam.get_keymap(keymap_mode, **kwargs)
         if drop_wrist_images:
             key_map = {
@@ -53,17 +78,11 @@ def get_keymap(
     for spec in key_map.values():
         if "horizon" not in spec:
             continue
-        # YAM's ARC keymap carries a declarative distance horizon.  Do not
-        # coerce it to an integer: the leaf resolver must inspect the source
-        # poses and choose a per-sample frame count.  Baseline YAM is now
-        # explicitly 100 source frames, independent of the legacy E1
-        # ``chunk_length=45`` setting.
+        # A distance horizon is a resolver contract, not an integer frame count.
         if isinstance(spec["horizon"], dict):
             continue
         spec["horizon"] = int(
-            yam_cls.ACTION_HORIZON
-            if yam_cls is not None and keymap_mode == "cartesian"
-            else horizon
+            horizon if yam_source_frames is None else yam_source_frames
         )
     return key_map
 
@@ -82,6 +101,8 @@ def get_transform_list(
     embodiment: str = "human",
     fixed_spacing: bool = False,
     source_fps: float = 30.0,
+    yam_source_frames: int | None = None,
+    rotation_distance_unit: float = 6.283185307179586,  # hybrid / tri / evt / ref variants only; see e1_arc_tokenizer
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
@@ -96,21 +117,21 @@ def get_transform_list(
         tl = _pad_human_cartesian_gripper(tl, rotation_mode=rotation_mode)
     elif embodiment == "yam":
         from egomimic.rldb.embodiment.yam import (
-            Yam,
             _build_yam_bimanual_eef_frame_transform_list,
         )
 
-        # Baseline YAM is a raw 100-frame time chunk. ARC YAM has a
-        # distance-resolved variable-length source chunk; leave it untouched
-        # so its tokenizer can measure cumulative travel on the original
-        # samples. ``chunk_length`` remains the human/legacy setting for other
-        # embodiments and is intentionally not mutated globally.
-        yam_chunk_length = Yam.ACTION_HORIZON if variant == "time" else None
-        # ARC distance is defined on the stored source samples.  YAM is
-        # recorded at the native 30 Hz cadence; never subsample it before
-        # accumulating distance.  Keep accepting the legacy argument for
-        # config compatibility, but it has no effect on YAM ARC.
-        yam_stride = 1
+        # Stationery pins native source frames; older main recipes retain their
+        # configured interpolation horizon and stride.
+        if yam_source_frames is not None and (
+            type(yam_source_frames) is not int or yam_source_frames < 1
+        ):
+            raise ValueError("yam_source_frames must be a positive integer")
+        yam_chunk_length = (
+            (yam_source_frames if variant == "time" else None)
+            if yam_source_frames is not None
+            else int(chunk_length)
+        )
+        yam_stride = 1 if yam_source_frames is not None else int(stride)
         tl = _build_yam_bimanual_eef_frame_transform_list(
             stride=yam_stride,
             rotation_mode=rotation_mode,
@@ -128,7 +149,7 @@ def get_transform_list(
                 resampled_vector_length=int(resampled_vector_length),
                 dt=(
                     1.0 / source_fps
-                    if embodiment == "yam"
+                    if embodiment == "yam" and yam_source_frames is not None
                     else float(stride) / source_fps
                 ),
                 velocity_norm=velocity_norm,
@@ -136,6 +157,7 @@ def get_transform_list(
                 speed_smooth_frames=int(speed_smooth_frames),
                 progress_smooth_hz=progress_smooth_hz,
                 fixed_spacing=bool(fixed_spacing),
+                rotation_distance_unit=float(rotation_distance_unit),
             )
         )
     return tl

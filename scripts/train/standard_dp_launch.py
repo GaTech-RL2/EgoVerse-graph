@@ -157,6 +157,16 @@ def arguments(phase, output, norm):
             f'++evaluator.energy_score_validation_view.split_manifest_sha256={os.environ["DP_SPLIT_SHA256"]}'
         ]
 
+    requeue_owner = os.environ.get("DP_REQUEUE_OWNER", "")
+    if requeue_owner not in {"", "runner"}:
+        raise ValueError("DP_REQUEUE_OWNER must be empty or runner")
+    if requeue_owner == "runner" and phase != "normalize":
+        a += [
+            "++runtime.slurm_requeue_owner=runner",
+            "++runtime.slurm_save_signal=SIGUSR2",
+            "++runtime.slurm_signal_checkpoint_dir=${paths.output_dir}/checkpoints",
+        ]
+
     if phase == "normalize":
         a = [x for x in a if not x.startswith("++logger.")]
         a += [

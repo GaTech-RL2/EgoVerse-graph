@@ -99,3 +99,23 @@ def test_yam_openloop_horizon32_preserves_native_backend():
     assert value.energy_score_distance_metadata["yam_bimanual"][
         "complete_normalized_chunk_shape"
     ] == [32, 14]
+
+
+def test_single_source_checkpoint_callback_yam_and_legacy_identity():
+    from types import SimpleNamespace
+    from egomimic.utils.libero_dit_half import LiberoDiTHalf
+
+    old = LiberoDiTHalf()
+    assert old.state_dict() == {
+        "policy": "dit-half",
+        "homogeneous": "not_applicable_single_source",
+    }
+    yam = LiberoDiTHalf(source_key="yam_bimanual")
+    yam.scope = SimpleNamespace(counts={"encoder/direct": 0})
+    yam.on_train_batch_start(None, None, {"yam_bimanual": {}}, 0)
+    assert yam.before == {"encoder/direct": 0}
+    yam.load_state_dict(yam.state_dict())
+    with pytest.raises(ValueError, match="single source"):
+        yam.on_train_batch_start(None, None, {"libero_panda": {}}, 0)
+    with pytest.raises(ValueError, match="identity mismatch"):
+        yam.load_state_dict(old.state_dict())

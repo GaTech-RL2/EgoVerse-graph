@@ -93,7 +93,10 @@ class HalfCheckpointScope:
 
 
 class LiberoDiTHalf(Callback):
-    def __init__(self):
+    def __init__(self, source_key="libero_panda"):
+        if not isinstance(source_key, str) or not source_key.strip():
+            raise ValueError("a nonempty single-source batch key is required")
+        self.source_key = source_key
         self.scope = None
 
     def on_fit_start(self, trainer, module):
@@ -106,8 +109,8 @@ class LiberoDiTHalf(Callback):
         self.scope.install()
 
     def on_train_batch_start(self, trainer, module, batch, batch_idx):
-        if set(batch) != {"libero_panda"}:
-            raise ValueError("single LIBERO source32 required")
+        if set(batch) != {self.source_key}:
+            raise ValueError(f"single source {self.source_key!r} required")
         self.before = dict(self.scope.counts)
 
     def on_train_batch_end(self, trainer, module, outputs, batch, batch_idx):
@@ -122,7 +125,10 @@ class LiberoDiTHalf(Callback):
             )
 
     def state_dict(self):
-        return {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
+        state = {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
+        if self.source_key != "libero_panda":
+            state["source_key"] = self.source_key
+        return state
 
     def load_state_dict(self, state):
         if state != self.state_dict():

@@ -326,7 +326,11 @@ def test_causal_history_video_uses_current_pose_and_current_image():
         "observation_frame_indices": torch.tensor([[2, 3]]),
     }
     evaluator._maybe_log_open_loop_video(
-        "yam", batch, torch.zeros(1, 2, 14), 7, "yam_bimanual"
+        source_id="yam",
+        source_batch=batch,
+        prediction=torch.zeros(1, 2, 14),
+        embodiment_id=7,
+        embodiment_name="yam_bimanual",
     )
     assert len(poses) == 2 and all(pose.equal(torch.ones(1, 14)) for pose in poses)
     assert len(rendered) == 1 and rendered[0].equal(torch.ones(1, 4, 4, 3))

@@ -546,6 +546,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "restored full-parallel flow mini-batch mismatch",
     )
     stages = tuple(restored.model.pipeline.stages)
+    conditioning_identity = None
     if row.get("raw_multiplier"):
         import importlib.util
 
@@ -556,6 +557,17 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         validator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(validator)
         validator.validate_speed_pipeline(config, restored.model)
+        condition = next(
+            stage for stage in stages if type(stage).__name__ == "SharedSpeedCondition"
+        )
+        require(
+            condition.speed_key == "retiming_rate", "raw multiplier input key mismatch"
+        )
+        conditioning_identity = {
+            "encoding": condition.encoding,
+            "conditioning_input": condition.conditioning_input,
+            "input_key": condition.speed_key,
+        }
         encoder = next(
             stage
             for stage in stages
@@ -713,6 +725,11 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "experiment": args.experiment,
         "gpu_probes": probes,
         "identities": {
+            **(
+                {"speed_conditioning": conditioning_identity}
+                if conditioning_identity
+                else {}
+            ),
             "repo_head": args.expected_head,
             "split_manifest_sha256": args.expected_split_sha256,
             "normalization_sha256": args.expected_normalization_sha256,

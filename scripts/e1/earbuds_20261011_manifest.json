@@ -1,0 +1,1614 @@
+{
+  "queried_at_utc": "2026-10-12T01:50:35.596836+00:00",
+  "inventory_sha256": "e85d42f7ab22edec016691b0165cbfc98fdda5471e006b0fa865cec1a226191c",
+  "split_seed": 42,
+  "validation_rule": "ceil(5%); operator proportional largest remainder, alphabetical operator order, random.Random(42) shuffles sorted IDs",
+  "validation_operator_counts": {
+    "aniketh": 4,
+    "Elmo": 3
+  },
+  "pools": {
+    "all": {
+      "train": [
+        "2026-09-25-01-59-33-089000",
+        "2026-09-25-23-09-58-225000",
+        "2026-09-25-23-11-26-577000",
+        "2026-09-25-23-15-20-171000",
+        "2026-09-25-23-16-25-777000",
+        "2026-09-25-23-17-47-414000",
+        "2026-09-25-23-18-45-506000",
+        "2026-09-25-23-19-42-748000",
+        "2026-09-25-23-20-51-498000",
+        "2026-09-25-23-22-11-341000",
+        "2026-09-25-23-23-26-177000",
+        "2026-09-25-23-25-18-750000",
+        "2026-09-25-23-26-25-824000",
+        "2026-09-25-23-29-10-697000",
+        "2026-09-25-23-30-17-595000",
+        "2026-09-25-23-34-31-069000",
+        "2026-09-25-23-39-38-907000",
+        "2026-09-25-23-40-37-402000",
+        "2026-09-25-23-41-36-544000",
+        "2026-09-25-23-43-35-354000",
+        "2026-09-25-23-44-37-571000",
+        "2026-09-25-23-45-42-129000",
+        "2026-09-25-23-46-49-892000",
+        "2026-09-25-23-48-47-809000",
+        "2026-09-25-23-53-01-192000",
+        "2026-09-25-23-57-20-070000",
+        "2026-09-25-23-58-24-971000",
+        "2026-09-25-23-59-41-667000",
+        "2026-09-26-00-01-33-135000",
+        "2026-09-26-00-07-02-535000",
+        "2026-09-26-00-08-08-045000",
+        "2026-09-26-00-14-52-387000",
+        "2026-09-26-00-16-35-721000",
+        "2026-09-26-00-17-41-821000",
+        "2026-09-26-00-23-01-685000",
+        "2026-09-26-00-25-37-395000",
+        "2026-09-26-00-26-35-354000",
+        "2026-09-26-00-27-34-268000",
+        "2026-09-26-00-28-41-404000",
+        "2026-09-26-00-29-36-850000",
+        "2026-09-26-00-30-33-370000",
+        "2026-09-26-00-31-27-103000",
+        "2026-09-26-00-34-43-885000",
+        "2026-09-26-00-35-55-316000",
+        "2026-09-26-00-38-32-958000",
+        "2026-09-26-00-39-21-952000",
+        "2026-09-26-00-40-17-374000",
+        "2026-09-26-00-40-58-240000",
+        "2026-09-26-00-41-44-583000",
+        "2026-09-26-00-42-36-136000",
+        "2026-09-26-00-43-25-921000",
+        "2026-09-26-00-44-33-281000",
+        "2026-09-26-00-45-21-710000",
+        "2026-09-26-00-46-11-366000",
+        "2026-09-26-00-46-52-468000",
+        "2026-09-26-00-48-05-025000",
+        "2026-09-26-00-51-20-555000",
+        "2026-09-26-00-54-28-206000",
+        "2026-09-26-00-55-28-510000",
+        "2026-09-26-00-57-01-180000",
+        "2026-09-26-00-58-07-961000",
+        "2026-09-26-00-59-06-292000",
+        "2026-09-26-00-59-52-368000",
+        "2026-09-26-01-01-28-570000",
+        "2026-09-26-01-03-51-353000",
+        "2026-09-26-01-04-44-691000",
+        "2026-09-26-01-05-36-658000",
+        "2026-09-26-01-06-40-200000",
+        "2026-09-26-01-07-27-416000",
+        "2026-09-26-01-08-07-853000",
+        "2026-09-26-01-08-52-500000",
+        "2026-09-26-01-09-36-108000",
+        "2026-09-26-01-10-27-228000",
+        "2026-09-26-01-11-10-817000",
+        "2026-09-26-01-12-47-099000",
+        "2026-09-26-01-13-38-102000",
+        "2026-09-26-01-14-56-311000",
+        "2026-09-26-01-15-37-702000",
+        "2026-10-11-05-13-10-363000",
+        "2026-10-11-05-15-02-726000",
+        "2026-10-11-05-16-40-065000",
+        "2026-10-11-05-17-56-982000",
+        "2026-10-11-05-19-02-981000",
+        "2026-10-11-05-20-24-921000",
+        "2026-10-11-05-21-26-459000",
+        "2026-10-11-05-22-40-425000",
+        "2026-10-11-05-23-36-353000",
+        "2026-10-11-05-34-24-595000",
+        "2026-10-11-05-35-48-320000",
+        "2026-10-11-05-37-43-975000",
+        "2026-10-11-05-38-52-523000",
+        "2026-10-11-05-40-03-440000",
+        "2026-10-11-05-45-27-462000",
+        "2026-10-11-05-46-23-208000",
+        "2026-10-11-05-47-17-778000",
+        "2026-10-11-05-48-13-033000",
+        "2026-10-11-05-49-44-257000",
+        "2026-10-11-05-55-18-334000",
+        "2026-10-11-05-56-36-453000",
+        "2026-10-11-05-57-45-483000",
+        "2026-10-11-05-59-02-812000",
+        "2026-10-11-06-02-54-128000",
+        "2026-10-11-06-04-40-764000",
+        "2026-10-11-06-05-54-660000",
+        "2026-10-11-06-07-03-726000",
+        "2026-10-11-06-09-30-602000",
+        "2026-10-11-06-12-50-961000",
+        "2026-10-11-06-13-44-509000",
+        "2026-10-11-06-14-51-518000",
+        "2026-10-11-06-15-53-802000",
+        "2026-10-11-06-17-33-012000",
+        "2026-10-11-06-18-42-364000",
+        "2026-10-11-06-19-46-159000",
+        "2026-10-11-06-20-45-648000",
+        "2026-10-11-06-22-02-704000",
+        "2026-10-11-06-23-07-204000",
+        "2026-10-11-06-24-17-383000",
+        "2026-10-11-06-25-36-305000",
+        "2026-10-11-06-27-43-964000",
+        "2026-10-11-06-30-24-283000",
+        "2026-10-11-06-34-41-525000",
+        "2026-10-11-06-36-49-698000"
+      ],
+      "valid": [
+        "2026-09-25-22-42-51-735000",
+        "2026-09-25-23-33-30-860000",
+        "2026-09-25-23-42-37-509000",
+        "2026-09-25-23-47-47-352000",
+        "2026-10-11-06-00-05-090000",
+        "2026-10-11-06-01-18-903000",
+        "2026-10-11-06-08-25-091000"
+      ]
+    }
+  },
+  "episodes": [
+    {
+      "episode_hash": "2026-09-25-01-59-33-089000",
+      "operator": "aniketh",
+      "num_frames": 3000,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-01-59-33-089000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-22-42-51-735000",
+      "operator": "aniketh",
+      "num_frames": 3000,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-22-42-51-735000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-09-58-225000",
+      "operator": "aniketh",
+      "num_frames": 1827,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-09-58-225000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-11-26-577000",
+      "operator": "aniketh",
+      "num_frames": 2180,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-11-26-577000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-15-20-171000",
+      "operator": "aniketh",
+      "num_frames": 1645,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-15-20-171000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-16-25-777000",
+      "operator": "aniketh",
+      "num_frames": 1583,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-16-25-777000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-17-47-414000",
+      "operator": "aniketh",
+      "num_frames": 1614,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-17-47-414000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-18-45-506000",
+      "operator": "aniketh",
+      "num_frames": 1358,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-18-45-506000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-19-42-748000",
+      "operator": "aniketh",
+      "num_frames": 1355,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-19-42-748000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-20-51-498000",
+      "operator": "aniketh",
+      "num_frames": 1666,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-20-51-498000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-22-11-341000",
+      "operator": "aniketh",
+      "num_frames": 1571,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-22-11-341000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-23-26-177000",
+      "operator": "aniketh",
+      "num_frames": 1834,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-23-26-177000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-25-18-750000",
+      "operator": "aniketh",
+      "num_frames": 2301,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-25-18-750000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-26-25-824000",
+      "operator": "aniketh",
+      "num_frames": 1590,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-26-25-824000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-29-10-697000",
+      "operator": "aniketh",
+      "num_frames": 1524,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-29-10-697000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-30-17-595000",
+      "operator": "aniketh",
+      "num_frames": 1571,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-30-17-595000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-33-30-860000",
+      "operator": "aniketh",
+      "num_frames": 1581,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-33-30-860000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-34-31-069000",
+      "operator": "aniketh",
+      "num_frames": 1420,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-34-31-069000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-39-38-907000",
+      "operator": "aniketh",
+      "num_frames": 1291,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-39-38-907000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-40-37-402000",
+      "operator": "aniketh",
+      "num_frames": 1394,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-40-37-402000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-41-36-544000",
+      "operator": "aniketh",
+      "num_frames": 1382,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-41-36-544000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-42-37-509000",
+      "operator": "aniketh",
+      "num_frames": 1474,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-42-37-509000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-43-35-354000",
+      "operator": "aniketh",
+      "num_frames": 1311,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-43-35-354000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-44-37-571000",
+      "operator": "aniketh",
+      "num_frames": 1446,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-44-37-571000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-45-42-129000",
+      "operator": "aniketh",
+      "num_frames": 1495,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-45-42-129000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-46-49-892000",
+      "operator": "aniketh",
+      "num_frames": 1544,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-46-49-892000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-47-47-352000",
+      "operator": "aniketh",
+      "num_frames": 1292,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-47-47-352000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-48-47-809000",
+      "operator": "aniketh",
+      "num_frames": 1457,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-48-47-809000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-53-01-192000",
+      "operator": "aniketh",
+      "num_frames": 1345,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-53-01-192000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-57-20-070000",
+      "operator": "aniketh",
+      "num_frames": 1329,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-57-20-070000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-58-24-971000",
+      "operator": "aniketh",
+      "num_frames": 1523,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-58-24-971000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-25-23-59-41-667000",
+      "operator": "aniketh",
+      "num_frames": 1779,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-25-23-59-41-667000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-01-33-135000",
+      "operator": "aniketh",
+      "num_frames": 1363,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-01-33-135000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-07-02-535000",
+      "operator": "aniketh",
+      "num_frames": 1395,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-07-02-535000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-08-08-045000",
+      "operator": "aniketh",
+      "num_frames": 1299,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-08-08-045000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-14-52-387000",
+      "operator": "aniketh",
+      "num_frames": 1382,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-14-52-387000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-16-35-721000",
+      "operator": "aniketh",
+      "num_frames": 1379,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-16-35-721000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-17-41-821000",
+      "operator": "aniketh",
+      "num_frames": 1524,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-17-41-821000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-23-01-685000",
+      "operator": "aniketh",
+      "num_frames": 1312,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-23-01-685000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-25-37-395000",
+      "operator": "aniketh",
+      "num_frames": 1469,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-25-37-395000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-26-35-354000",
+      "operator": "aniketh",
+      "num_frames": 1171,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-26-35-354000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-27-34-268000",
+      "operator": "aniketh",
+      "num_frames": 1286,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-27-34-268000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-28-41-404000",
+      "operator": "aniketh",
+      "num_frames": 1569,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-28-41-404000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-29-36-850000",
+      "operator": "aniketh",
+      "num_frames": 1306,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-29-36-850000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-30-33-370000",
+      "operator": "aniketh",
+      "num_frames": 1294,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-30-33-370000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-31-27-103000",
+      "operator": "aniketh",
+      "num_frames": 1267,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-31-27-103000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-34-43-885000",
+      "operator": "aniketh",
+      "num_frames": 1705,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-34-43-885000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-35-55-316000",
+      "operator": "aniketh",
+      "num_frames": 1230,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-35-55-316000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-38-32-958000",
+      "operator": "aniketh",
+      "num_frames": 1155,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-38-32-958000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-39-21-952000",
+      "operator": "aniketh",
+      "num_frames": 1163,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-39-21-952000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-40-17-374000",
+      "operator": "aniketh",
+      "num_frames": 1257,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-40-17-374000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-40-58-240000",
+      "operator": "aniketh",
+      "num_frames": 935,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-40-58-240000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-41-44-583000",
+      "operator": "aniketh",
+      "num_frames": 1004,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-41-44-583000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-42-36-136000",
+      "operator": "aniketh",
+      "num_frames": 1132,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-42-36-136000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-43-25-921000",
+      "operator": "aniketh",
+      "num_frames": 1059,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-43-25-921000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-44-33-281000",
+      "operator": "aniketh",
+      "num_frames": 1163,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-44-33-281000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-45-21-710000",
+      "operator": "aniketh",
+      "num_frames": 1135,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-45-21-710000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-46-11-366000",
+      "operator": "aniketh",
+      "num_frames": 1072,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-46-11-366000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-46-52-468000",
+      "operator": "aniketh",
+      "num_frames": 866,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-46-52-468000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-48-05-025000",
+      "operator": "aniketh",
+      "num_frames": 1093,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-48-05-025000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-51-20-555000",
+      "operator": "aniketh",
+      "num_frames": 3000,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-51-20-555000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-54-28-206000",
+      "operator": "aniketh",
+      "num_frames": 1040,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-54-28-206000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-55-28-510000",
+      "operator": "aniketh",
+      "num_frames": 1262,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-55-28-510000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-57-01-180000",
+      "operator": "aniketh",
+      "num_frames": 1197,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-57-01-180000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-58-07-961000",
+      "operator": "aniketh",
+      "num_frames": 1270,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-58-07-961000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-59-06-292000",
+      "operator": "aniketh",
+      "num_frames": 1421,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-59-06-292000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-00-59-52-368000",
+      "operator": "aniketh",
+      "num_frames": 1046,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-00-59-52-368000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-01-28-570000",
+      "operator": "aniketh",
+      "num_frames": 1325,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-01-28-570000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-03-51-353000",
+      "operator": "aniketh",
+      "num_frames": 1294,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-03-51-353000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-04-44-691000",
+      "operator": "aniketh",
+      "num_frames": 1138,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-04-44-691000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-05-36-658000",
+      "operator": "aniketh",
+      "num_frames": 1178,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-05-36-658000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-06-40-200000",
+      "operator": "aniketh",
+      "num_frames": 1476,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-06-40-200000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-07-27-416000",
+      "operator": "aniketh",
+      "num_frames": 1027,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-07-27-416000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-08-07-853000",
+      "operator": "aniketh",
+      "num_frames": 914,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-08-07-853000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-08-52-500000",
+      "operator": "aniketh",
+      "num_frames": 931,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-08-52-500000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-09-36-108000",
+      "operator": "aniketh",
+      "num_frames": 883,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-09-36-108000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-10-27-228000",
+      "operator": "aniketh",
+      "num_frames": 1200,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-10-27-228000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-11-10-817000",
+      "operator": "aniketh",
+      "num_frames": 832,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-11-10-817000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-12-47-099000",
+      "operator": "aniketh",
+      "num_frames": 1155,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-12-47-099000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-13-38-102000",
+      "operator": "aniketh",
+      "num_frames": 1151,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-13-38-102000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-14-56-311000",
+      "operator": "aniketh",
+      "num_frames": 1142,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-14-56-311000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-09-26-01-15-37-702000",
+      "operator": "aniketh",
+      "num_frames": 928,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-09-26-01-15-37-702000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-13-10-363000",
+      "operator": "Elmo",
+      "num_frames": 1603,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-13-10-363000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-15-02-726000",
+      "operator": "Elmo",
+      "num_frames": 1902,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-15-02-726000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-16-40-065000",
+      "operator": "Elmo",
+      "num_frames": 1609,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-16-40-065000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-17-56-982000",
+      "operator": "Elmo",
+      "num_frames": 1621,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-17-56-982000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-19-02-981000",
+      "operator": "Elmo",
+      "num_frames": 1364,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-19-02-981000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-20-24-921000",
+      "operator": "Elmo",
+      "num_frames": 1889,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-20-24-921000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-21-26-459000",
+      "operator": "Elmo",
+      "num_frames": 1269,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-21-26-459000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-22-40-425000",
+      "operator": "Elmo",
+      "num_frames": 1387,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-22-40-425000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-23-36-353000",
+      "operator": "Elmo",
+      "num_frames": 1204,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-23-36-353000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-34-24-595000",
+      "operator": "Elmo",
+      "num_frames": 1746,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-34-24-595000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-35-48-320000",
+      "operator": "Elmo",
+      "num_frames": 1616,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-35-48-320000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-37-43-975000",
+      "operator": "Elmo",
+      "num_frames": 1279,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-37-43-975000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-38-52-523000",
+      "operator": "Elmo",
+      "num_frames": 1557,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-38-52-523000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-40-03-440000",
+      "operator": "Elmo",
+      "num_frames": 1528,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-40-03-440000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-45-27-462000",
+      "operator": "Elmo",
+      "num_frames": 1314,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-45-27-462000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-46-23-208000",
+      "operator": "Elmo",
+      "num_frames": 1101,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-46-23-208000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-47-17-778000",
+      "operator": "Elmo",
+      "num_frames": 1185,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-47-17-778000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-48-13-033000",
+      "operator": "Elmo",
+      "num_frames": 1274,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-48-13-033000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-49-44-257000",
+      "operator": "Elmo",
+      "num_frames": 1491,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-49-44-257000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-55-18-334000",
+      "operator": "Elmo",
+      "num_frames": 1449,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-55-18-334000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-56-36-453000",
+      "operator": "Elmo",
+      "num_frames": 1665,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-56-36-453000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-57-45-483000",
+      "operator": "Elmo",
+      "num_frames": 1391,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-57-45-483000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-05-59-02-812000",
+      "operator": "Elmo",
+      "num_frames": 1406,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-05-59-02-812000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-00-05-090000",
+      "operator": "Elmo",
+      "num_frames": 1314,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-00-05-090000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-01-18-903000",
+      "operator": "Elmo",
+      "num_frames": 1535,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-01-18-903000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-02-54-128000",
+      "operator": "Elmo",
+      "num_frames": 1395,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-02-54-128000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-04-40-764000",
+      "operator": "Elmo",
+      "num_frames": 1511,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-04-40-764000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-05-54-660000",
+      "operator": "Elmo",
+      "num_frames": 1651,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-05-54-660000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-07-03-726000",
+      "operator": "Elmo",
+      "num_frames": 1459,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-07-03-726000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-08-25-091000",
+      "operator": "Elmo",
+      "num_frames": 1614,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-08-25-091000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-09-30-602000",
+      "operator": "Elmo",
+      "num_frames": 1294,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-09-30-602000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-12-50-961000",
+      "operator": "Elmo",
+      "num_frames": 2135,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-12-50-961000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-13-44-509000",
+      "operator": "Elmo",
+      "num_frames": 1125,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-13-44-509000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-14-51-518000",
+      "operator": "Elmo",
+      "num_frames": 1568,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-14-51-518000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-15-53-802000",
+      "operator": "Elmo",
+      "num_frames": 1358,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-15-53-802000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-17-33-012000",
+      "operator": "Elmo",
+      "num_frames": 2328,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-17-33-012000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-18-42-364000",
+      "operator": "Elmo",
+      "num_frames": 1673,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-18-42-364000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-19-46-159000",
+      "operator": "Elmo",
+      "num_frames": 1148,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-19-46-159000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-20-45-648000",
+      "operator": "Elmo",
+      "num_frames": 1106,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-20-45-648000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-22-02-704000",
+      "operator": "Elmo",
+      "num_frames": 1751,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-22-02-704000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-23-07-204000",
+      "operator": "Elmo",
+      "num_frames": 1302,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-23-07-204000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-24-17-383000",
+      "operator": "Elmo",
+      "num_frames": 1585,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-24-17-383000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-25-36-305000",
+      "operator": "Elmo",
+      "num_frames": 1656,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-25-36-305000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-27-43-964000",
+      "operator": "Elmo",
+      "num_frames": 1134,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-27-43-964000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-30-24-283000",
+      "operator": "Elmo",
+      "num_frames": 1417,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-30-24-283000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-34-41-525000",
+      "operator": "Elmo",
+      "num_frames": 1311,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-34-41-525000.zarr",
+      "task": "wireless_earbuds"
+    },
+    {
+      "episode_hash": "2026-10-11-06-36-49-698000",
+      "operator": "Elmo",
+      "num_frames": 2103,
+      "zarr_processed_path": "s3://rldb/processed_v3/yam/2026-10-11-06-36-49-698000.zarr",
+      "task": "wireless_earbuds"
+    }
+  ],
+  "excluded": [
+    {
+      "episode_hash": "2026-10-11-15-46-49-595000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-47-43-787000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-48-33-299000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-49-21-907000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-50-51-925000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-51-42-866000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-52-29-887000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-54-19-117000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-55-02-352000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-55-47-851000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-56-36-095000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-57-13-892000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-57-53-715000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-15-58-33-204000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-00-49-301000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-01-39-344000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-02-20-910000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-03-00-155000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-03-47-228000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-04-27-859000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-05-34-784000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-06-15-336000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-07-01-868000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-07-39-875000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-08-23-846000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-11-40-022000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-14-05-301000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-14-40-945000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-15-38-673000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-17-29-689000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-18-05-719000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-18-47-632000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-19-32-344000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-21-01-036000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-21-49-853000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-22-44-407000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-24-28-765000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-25-09-941000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-26-52-030000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-28-02-954000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-28-48-717000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-29-28-734000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-30-45-060000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-31-33-143000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-39-39-029000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-40-18-776000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-40-58-363000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-41-39-831000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-42-28-771000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-43-18-165000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-44-43-228000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-45-21-385000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-46-10-291000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-46-56-785000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-47-39-339000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-48-20-197000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-49-21-987000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-50-01-633000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-54-41-491000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-55-23-853000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-56-01-521000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-56-50-120000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-16-59-34-125000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-00-25-801000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-01-14-429000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-02-59-212000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-03-39-818000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-04-17-182000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-04-55-713000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-05-39-360000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-06-19-995000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-07-53-221000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-08-39-492000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-09-21-032000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-10-55-478000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-11-42-035000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-13-13-264000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-14-05-073000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-14-43-771000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    },
+    {
+      "episode_hash": "2026-10-11-17-16-47-486000",
+      "task": "wireless_earbuds_updated",
+      "num_frames": -1,
+      "zarr_processed_path": "",
+      "zarr_processing_error": ""
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/_base/earbuds_hpt300
+- override /model: e1/hpt300_flow_wrists_time
+- _self_
+e1:
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: ${e1.action_dim}

@@ -147,7 +147,9 @@ def test_pid_runner_pins_validator_venv(monkeypatch, tmp_path, case):
         "ICE_CANONICAL_REQUEUE_RUNNER": str(native),
         "ICE_TRAINER_REPO": str(ROOT),
         "ICE_NATIVE_RUNNER_SHA256": hashlib.sha256(native.read_bytes()).hexdigest(),
-        "ICE_TRAINER_SIGNAL_ADAPTER_SHA256": hashlib.sha256(adapter.read_bytes()).hexdigest(),
+        "ICE_TRAINER_SIGNAL_ADAPTER_SHA256": hashlib.sha256(
+            adapter.read_bytes()
+        ).hexdigest(),
         "ICE_TRAINER_PYTHON": str(python),
         "PATH": "/foreign/login/bin",
     }.items():

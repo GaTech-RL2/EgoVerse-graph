@@ -70,7 +70,10 @@ def human_native_residual(
 class YamHumanKeypointsActionFlowEval(PlanarActionEval):
     """Use one evaluator with explicit action keys and native geometry."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, yam_action_horizon=100, **kwargs):
+        if type(yam_action_horizon) is not int or yam_action_horizon < 1:
+            raise ValueError("YAM action horizon must be positive integer")
+        self.yam_action_horizon = yam_action_horizon
         if kwargs.get("native_decoder") is not None or kwargs.get("native_decoders"):
             raise ValueError("YAM/human native actions do not use a private decoder")
         if kwargs.get("energy_score_distance") is not None:
@@ -91,6 +94,11 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
             "yam_bimanual": dict(YAM_ENERGY_DISTANCE_METADATA),
             "human_bimanual": dict(HUMAN_ENERGY_DISTANCE_METADATA),
         }
+
+        self.energy_score_distance_metadata["yam_bimanual"].update(
+            complete_normalized_chunk_shape=[yam_action_horizon, 14],
+            coverage=f"all_{yam_action_horizon}_steps_and_all_14_action_channels",
+        )
 
     def set_validation_group(self, group_name) -> None:
         """Give each validation domain its own diagnostic budget and artifacts."""

@@ -23,6 +23,7 @@ class RobotOpenLoopMixin:
         requires_ordered_validation=True,
         robot_execute_fraction=0.25,
         robot_control_dt=1.0 / 30.0,
+        robot_prediction_horizon=100,
         **kwargs,
     ):
         if not requires_ordered_validation:
@@ -30,13 +31,22 @@ class RobotOpenLoopMixin:
         limit = kwargs.get("limit_val_batches")
         if not isinstance(limit, float) or limit != 1.0:
             raise ValueError("Robot open-loop scoring requires limit_val_batches: 1.0")
+        if type(robot_prediction_horizon) is not int or robot_prediction_horizon < 1:
+            raise ValueError("Robot prediction horizon must be positive integer")
+        self.robot_prediction_horizon = robot_prediction_horizon
         super().__init__(**kwargs)
+        self.yam_action_horizon = robot_prediction_horizon
+        if "yam_bimanual" in self.energy_score_distance_metadata:
+            self.energy_score_distance_metadata["yam_bimanual"].update(
+                complete_normalized_chunk_shape=[robot_prediction_horizon, 14],
+                coverage=f"all_{robot_prediction_horizon}_steps_and_all_14_action_channels",
+            )
         self.requires_ordered_validation = True
         self.robot_open_loop = OpenLoopSimEval(
             action_key="actions_cartesian",
             ground_truth_action_key="actions_cartesian",
             action_mode="baseline",
-            control_horizon=100,
+            control_horizon=robot_prediction_horizon,
             execute_fraction=robot_execute_fraction,
             control_dt=robot_control_dt,
         )
@@ -70,11 +80,11 @@ class RobotOpenLoopMixin:
             prediction = result[source_id]["pred_action"]
             target = source_batch["actions_cartesian"]
             if prediction.shape != target.shape or tuple(target.shape[-2:]) != (
-                100,
+                self.robot_prediction_horizon,
                 14,
             ):
                 raise ValueError(
-                    "Robot open-loop scoring requires matching [B,100,14] chunks"
+                    f"Robot open-loop scoring requires matching [B,{self.robot_prediction_horizon},14] chunks"
                 )
             if not bool(
                 torch.isfinite(prediction).all() and torch.isfinite(target).all()

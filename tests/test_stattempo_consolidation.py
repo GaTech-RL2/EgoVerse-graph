@@ -131,7 +131,7 @@ def test_small_graph_backward_and_sampling(variant):
         for stem in stems.values():
             if "weights" in stem:
                 stem.weights = None
-    model = instantiate(cfg.model.pipeline)
+    model = instantiate(cfg.model.pipeline, device="cpu")
     row = {
         "embodiment": torch.tensor([7, 7]),
         "observations.state.ee_pose": torch.randn(2, 1, 14),
@@ -226,3 +226,51 @@ def test_full_model_checkpoint_names_shapes_and_parameter_counts(name):
         hashlib.sha256(json.dumps(schema, sort_keys=True).encode()).hexdigest()
         == expected["state_schema_sha256"]
     )
+
+
+@pytest.mark.parametrize("variant", ["time", "arcdur", "arcvel", *VARIANTS])
+def test_native_yam_full_preprocessing_preserves_source_rows(variant):
+    from scipy.spatial.transform import Rotation
+
+    from egomimic.rldb.embodiment.bimanual_arc import VELOCITY_MODES
+
+    actions = chunk("motion")
+    raw = {}
+    for arm, off in (("left", 0), ("right", 7)):
+        quat = Rotation.from_euler("ZYX", actions[:, off + 3 : off + 6]).as_quat()
+        poses = np.concatenate(
+            [actions[:, off : off + 3], quat[:, [3, 0, 1, 2]]], axis=1
+        )
+        raw[f"{arm}.cmd_ee_pose"] = poses
+        raw[f"{arm}.obs_ee_pose"] = poses[0].copy()
+        raw[f"{arm}.cmd_gripper"] = actions[:, off + 6 : off + 7].copy()
+        raw[f"{arm}.obs_gripper"] = actions[0, off + 6 : off + 7].copy()
+    transforms = get_transform_list(
+        variant, chunk_length=200, embodiment="yam", yam_source_frames=100
+    )
+    for transform in transforms:
+        raw = transform.transform(raw)
+    np.testing.assert_allclose(raw["actions_time"], actions, atol=1e-6)
+    expected = (
+        actions
+        if variant == "time"
+        else codec(VELOCITY_MODES[variant]).transform(
+            {"actions_cartesian": actions.copy()}
+        )["actions_cartesian"]
+    )
+    np.testing.assert_allclose(raw["actions_cartesian"], expected, atol=1e-6)
+
+
+@pytest.mark.parametrize("kind", ["pose", "linear"])
+def test_native_interpolation_copies_rows_without_legacy_stride(kind):
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        InterpolateLinear,
+        InterpolatePose,
+    )
+
+    cls = InterpolatePose if kind == "pose" else InterpolateLinear
+    source = np.arange(35, dtype=np.float64).reshape(5, 7)
+    transform = cls(None, "source", "output", stride=3)
+    result = transform.transform({"source": source})["output"]
+    np.testing.assert_array_equal(result, source)
+    assert not np.shares_memory(result, source)

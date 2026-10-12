@@ -126,11 +126,9 @@ def get_transform_list(
             type(yam_source_frames) is not int or yam_source_frames < 1
         ):
             raise ValueError("yam_source_frames must be a positive integer")
-        yam_chunk_length = (
-            (yam_source_frames if variant == "time" else None)
-            if yam_source_frames is not None
-            else int(chunk_length)
-        )
+        # Native windows are already padded by the loader. TIME must also
+        # preserve these rows exactly, as in the original stationery source.
+        yam_chunk_length = None if yam_source_frames is not None else int(chunk_length)
         yam_stride = 1 if yam_source_frames is not None else int(stride)
         tl = _build_yam_bimanual_eef_frame_transform_list(
             stride=yam_stride,

@@ -286,3 +286,51 @@ def test_nonzero_rank_finishes_video_collectives_before_return(monkeypatch):
     monkeypatch.setattr(torch.distributed, "get_rank", lambda: 1)
     assert evaluator.on_validation_end() == {"sentinel": True}
     assert calls == ["gather"]
+
+
+def test_causal_history_video_uses_current_pose_and_current_image():
+    from functools import partial
+
+    evaluator = _baseline_evaluator()
+    evaluator._video_enabled = True
+    evaluator._validation_group = None
+    evaluator.obs_pose_key = "observations.state.ee_pose"
+    evaluator.image_key = "observations.images.front_img_1"
+    evaluator.action_key = "actions_cartesian"
+    evaluator.ground_truth_action_key = "actions_cartesian"
+    poses, rendered = [], []
+
+    def revert(*, actions, obs_pose, embodiment_name):
+        poses.append(obs_pose)
+        return actions
+
+    def draw(*, predictions, batch):
+        rendered.append(batch[evaluator.image_key])
+        return np.zeros((1, 4, 4, 3), dtype=np.uint8)
+
+    evaluator.viz_func = {"yam_bimanual": partial(draw)}
+    evaluator._decoded_video_predictions = lambda value, embodiment_id: value
+    evaluator._native_key = lambda value, key, embodiment_id: value
+    evaluator._native_pose = lambda value, embodiment_id: value
+    evaluator._revert_to_camframe = revert
+    evaluator._record_video_frames = lambda *args: None
+    batch = {
+        evaluator.obs_pose_key: torch.stack(
+            [torch.zeros(1, 14), torch.ones(1, 14)], dim=1
+        ),
+        evaluator.image_key: torch.stack(
+            [torch.zeros(1, 3, 4, 4), torch.ones(1, 3, 4, 4)], dim=1
+        ),
+        evaluator.action_key: torch.zeros(1, 4, 14),
+        "embodiment": torch.tensor([7]),
+        "observation_frame_indices": torch.tensor([[2, 3]]),
+    }
+    evaluator._maybe_log_open_loop_video(
+        source_id="yam",
+        source_batch=batch,
+        prediction=torch.zeros(1, 2, 14),
+        embodiment_id=7,
+        embodiment_name="yam_bimanual",
+    )
+    assert len(poses) == 2 and all(pose.equal(torch.ones(1, 14)) for pose in poses)
+    assert len(rendered) == 1 and rendered[0].equal(torch.ones(1, 4, 4, 3))

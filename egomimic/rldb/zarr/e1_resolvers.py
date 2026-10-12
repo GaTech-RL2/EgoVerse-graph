@@ -18,13 +18,25 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
 
 class LocalFolderEpisodeResolverWithEmbodimentOverride(LocalFolderEpisodeResolver):
     def __init__(
-        self, *args, embodiment_override: str | None = None, image_hw=None, **kwargs
+        self,
+        *args,
+        embodiment_override: str | None = None,
+        image_hw=None,
+        observation_history_steps: int = 1,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.embodiment_override = embodiment_override
+        self.observation_history_steps = observation_history_steps
         # The folder resolver drops the base class's image_hw; ABC episodes mix 640x480 with
         # 1280x720 front images and a batch cannot mix sizes, so resize like the lab's S3 resolver.
         self.image_hw = tuple(image_hw) if image_hw else None
+
+    def _dataset_init_kwargs(self):
+        return {
+            **super()._dataset_init_kwargs(),
+            "observation_history_steps": self.observation_history_steps,
+        }
 
     def resolve(self, *args, **kwargs):
         datasets = super().resolve(*args, **kwargs)

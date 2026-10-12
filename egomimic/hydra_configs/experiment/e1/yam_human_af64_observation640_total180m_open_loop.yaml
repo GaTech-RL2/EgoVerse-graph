@@ -241,7 +241,7 @@ model:
       timestep_shift_alpha: 0.5
       dopri5_atol: 1.0e-06
       dopri5_rtol: 0.001
-      cfg_scale: 1.0
+      cfg_scale: ${model.cfg_scale}
       cfg_interval:
       - 0.0
       - 1.0
@@ -319,7 +319,7 @@ model:
       reconstruction_weight: 1.0
       action_velocity_weight: 1.0
       moment_weight: 0.0
-      flow_aggregation: mean
+      flow_aggregation: ${model.flow_loss_aggregation}
       flow_samples_per_content: 14
     _recursive_: false
     conditioning_input: retiming_multiplier

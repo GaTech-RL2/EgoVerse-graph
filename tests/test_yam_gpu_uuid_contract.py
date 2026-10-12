@@ -44,6 +44,7 @@ def test_physical_indices_or_unknown_uuid_rejected(value):
     with pytest.raises(RuntimeError):
         helper()(value)
 
+
 @pytest.mark.parametrize("text", ["f8ae3ac1-0e5a-3e23-c619-d06dd44000a2", "invalid"])
 def test_torch_cuuuid_wrapper_keeps_strict_uuid_validation(text):
     wrapper = type(

@@ -546,25 +546,47 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "restored full-parallel flow mini-batch mismatch",
     )
     stages = tuple(restored.model.pipeline.stages)
+    if row.get("raw_multiplier"):
+        import importlib.util
+
+        validator_path = Path(__file__).with_name("validate_multiplier_config.py")
+        spec = importlib.util.spec_from_file_location(
+            "raw_multiplier_config_validator", validator_path
+        )
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        validator.validate_speed_pipeline(config, restored.model)
+        encoder = next(
+            stage
+            for stage in stages
+            if type(stage).__name__ == "RoutedContentEncoderStage"
+        )
+        decoder = next(
+            stage
+            for stage in stages
+            if type(stage).__name__ == "RoutedContentDecoderStage"
+        )
+    else:
+        encoder, decoder = stages[4], stages[7]
     if routed:
         # Chain-only training selects one active source, but deliberately keeps
         # both embodiment codecs in the routed model for checkpoint parity.
         expected_routes = ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper")
         require(
-            tuple(stages[4].encoder) == expected_routes,
+            tuple(encoder.encoder) == expected_routes,
             "restored encoder routes mismatch",
         )
         require(
-            tuple(stages[7].decoder) == expected_routes,
+            tuple(decoder.decoder) == expected_routes,
             "restored decoder routes mismatch",
         )
         if cotrain:
             require(
-                stages[4].encoder[sources[0]] is not stages[4].encoder[sources[1]],
+                encoder.encoder[sources[0]] is not encoder.encoder[sources[1]],
                 "restored encoders alias",
             )
             require(
-                stages[7].decoder[sources[0]] is not stages[7].decoder[sources[1]],
+                decoder.decoder[sources[0]] is not decoder.decoder[sources[1]],
                 "restored decoders alias",
             )
     parameter_count = sum(parameter.numel() for parameter in restored.parameters())

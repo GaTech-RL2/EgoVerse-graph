@@ -19,6 +19,15 @@ assert (
     hashlib.sha256(adapter.read_bytes()).hexdigest()
     == os.environ["ICE_TRAINER_SIGNAL_ADAPTER_SHA256"]
 )
+# The native runner executes the validator through its python3 shebang.
+# Bind child executable lookup to the audited venv, not login-node Python.
+pinned_python = pathlib.Path(os.environ["ICE_TRAINER_PYTHON"]).absolute()
+assert pinned_python.is_file() and os.access(pinned_python, os.X_OK)
+python3 = pinned_python.parent / "python3"
+assert python3.is_file() and python3.resolve() == pinned_python.resolve(), (
+    "Pinned runtime must provide its matching python3 executable"
+)
+os.environ["PATH"] = str(pinned_python.parent) + os.pathsep + os.environ.get("PATH", "")
 assert "--scancel" not in sys.argv, "Conflicting signal route rejected"
 index = sys.argv.index("--")
 sys.argv[index:index] = ["--scancel", str(adapter)]

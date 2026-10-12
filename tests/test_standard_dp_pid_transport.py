@@ -122,3 +122,46 @@ def test_foreign_checkpoint_cannot_unlock_existing_output(environment, monkeypat
         monkeypatch.setenv(key, value)
     with pytest.raises(ValueError):
         driver.verify_output_directory(output, "full")
+
+
+@pytest.mark.parametrize("case", ["valid", "missing_python3", "wrong_python3"])
+def test_pid_runner_pins_validator_venv(monkeypatch, tmp_path, case):
+    import hashlib
+    import os
+    import runpy
+    import sys
+
+    shim = ROOT / "scripts/ice/ice_requeue_trainer_pid.py"
+    native = ROOT / "scripts/ice/ice_requeue_runner.py"
+    adapter = ROOT / "scripts/ice/trainer_pid_signal.py"
+    runtime = tmp_path / "venv/bin"
+    runtime.mkdir(parents=True)
+    python = runtime / "python"
+    python.write_text("pinned")
+    python.chmod(0o700)
+    if case == "valid":
+        (runtime / "python3").symlink_to(python)
+    elif case == "wrong_python3":
+        (runtime / "python3").write_text("foreign")
+    for key, value in {
+        "ICE_CANONICAL_REQUEUE_RUNNER": str(native),
+        "ICE_TRAINER_REPO": str(ROOT),
+        "ICE_NATIVE_RUNNER_SHA256": hashlib.sha256(native.read_bytes()).hexdigest(),
+        "ICE_TRAINER_SIGNAL_ADAPTER_SHA256": hashlib.sha256(adapter.read_bytes()).hexdigest(),
+        "ICE_TRAINER_PYTHON": str(python),
+        "PATH": "/foreign/login/bin",
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(sys, "argv", [str(shim), "--", "child"])
+    captured = []
+    original = runpy.run_path
+    monkeypatch.setattr(runpy, "run_path", lambda *args, **kw: captured.append(args))
+    if case == "valid":
+        original(str(shim))
+        assert os.environ["PATH"] == str(runtime) + ":/foreign/login/bin"
+        assert captured == [(str(native),)]
+        assert sys.argv[1:3] == ["--scancel", str(adapter)]
+    else:
+        with pytest.raises(AssertionError):
+            original(str(shim))
+        assert not captured

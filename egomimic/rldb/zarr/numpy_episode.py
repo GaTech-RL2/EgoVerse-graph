@@ -36,11 +36,21 @@ class NumpyEpisode(torch.utils.data.Dataset):
             raise IndexError(index)
         result = {}
         for key, spec in self.key_map.items():
-            values = _array(str(self.episode_path / (spec["zarr_key"] + ".npy")))
             horizon = spec.get("horizon")
-            if horizon is None:
+            packed = self.metadata.get("packed_images", {}).get(spec["zarr_key"])
+            if packed is not None:
+                if packed["format"] != "blosc_rgb_v1" or packed["frames"] != self.total_frames:
+                    raise ValueError("Unknown or inconsistent packed RGB cache")
+                from egomimic.rldb.zarr.frame_cache import read_frames
+                frames = np.minimum(np.arange(index, index + int(horizon or 1)), self.total_frames - 1)
+                value = read_frames(self.episode_path / spec["zarr_key"], frames, packed["shape"])
+                if horizon is None:
+                    value = value[0]
+            elif horizon is None:
+                values = _array(str(self.episode_path / (spec["zarr_key"] + ".npy")))
                 value = np.array(values[index], copy=True)
             else:
+                values = _array(str(self.episode_path / (spec["zarr_key"] + ".npy")))
                 frames = np.minimum(np.arange(index, index + int(horizon)), self.total_frames - 1)
                 value = np.array(values[frames], copy=True)
             if spec.get("key_type") == "camera_keys":

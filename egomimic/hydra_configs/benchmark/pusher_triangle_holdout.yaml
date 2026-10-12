@@ -1,6 +1,9 @@
 version: 1
 name: pusher-holdout-20261012
-status: CONFIGURED_NOT_LAUNCHED
+status: DATA_AND_GPU_GATED
+artifact_prefix: experiments/pusher-holdout-20261012/
+data_release_prefix: experiments/pusher-holdout-20261012/data-v1/release/
+source_selection_sha256: 7b56ebfbe957a61f254ff4ce8c6e97b27a793b37182fc5130ccf3107b1c5cc33
 recommended_holdout: triangle
 holdout_kind: target_obstacle_data_only
 rationale: Triangle radius24 with orientation-dependent face/vertex contact; pentagon
@@ -144,3 +147,9 @@ preflight_required:
   for every arm
 interpretation: Obstacle transfer with known target embodiment, not completely unseen-embodiment
   zero-shot. ARC gain is a hypothesis.
+data_finalizer_sha256: 085aa44475ae83ee18fbb4a521270a2441db0d3442c1ae85e163b521b9a16d5d
+regimes:
+  cotrain:
+    episodes: 19303
+  clean:
+    episodes: 11998

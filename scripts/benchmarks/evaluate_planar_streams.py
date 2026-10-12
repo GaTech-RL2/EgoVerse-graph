@@ -19,7 +19,7 @@ import numpy as np
 import torch
 import yaml
 
-from planar_rollout_core import EpisodeWatchdog, run_episode, summarize
+from planar_rollout_core import EpisodeWatchdog, StaticContactMonitor, run_episode, summarize
 
 ROOT = Path("/workspace/cotrain")
 OUT = ROOT / "evidence"
@@ -87,8 +87,10 @@ def video_episode(policy, env, entry, budget, contract, *, label, record_video):
     obs, info = env.reset(seed=seed)
     assert_reset_matches(env, entry["initial_states"][CONFIG["domain"]["label"]], contract)
     queue = (PlanarActionQueue(policy, execution_horizon=contract["dp_execution_steps"])
-             if CONFIG["arm"]["arm"] == "dp" else PlanarActionQueue(policy,
+             if contract.get("execution_mode") == "fixed" or CONFIG["arm"]["arm"] == "dp" else PlanarActionQueue(policy,
              execution_selector=PlanarTimedArcExecutionSelector(fraction=contract["arc_support_fraction"])))
+    if contract.get("collect_static_contacts", False):
+        env = StaticContactMonitor(env, contract["contact_tolerance"])
     def step(count, coverage, predictions):
         if count % 100 == 0:
             write("LIVE.json", {"label": label, "level": env.obstacle_level, "seed": seed,
@@ -170,7 +172,10 @@ def main():
     budgets = json.loads(budgets_path.read_text())
     assert budgets["statistic"] == CONTRACT["budget_statistic"]
     assert budgets["multiplier"] == CONTRACT["budget_multiplier"]
-    assert budgets["source_content_manifest_sha256"] == CONFIG["data_content_manifest_sha256"]
+    if "source_selection_sha256" in CONFIG:
+        assert budgets["source_selection_sha256"] == CONFIG["source_selection_sha256"]
+    else:
+        assert budgets["source_content_manifest_sha256"] == CONFIG["data_content_manifest_sha256"]
     paths = {name: download(spec, ROOT / "restored" / name) for name, spec in CONFIG["arm"]["restore"].items()}
     checkpoint = torch.load(paths["checkpoint.ckpt"], map_location="cpu", weights_only=False, mmap=True)
     assert int(checkpoint["global_step"]) == CONTRACT["checkpoint_step"]
@@ -232,7 +237,7 @@ def main():
                     budget_derived=bool(budget_info["derived"]), label=CONTRACT["label"], canonical_oec56=False,
                     initial_state=entry["initial_states"][CONFIG["domain"]["label"]])
                 details = write("episodes/" + label + ".json", row)
-                compact = {k: v for k, v in row.items() if k not in ["actions", "coverages", "replans", "initial_state"]}
+                compact = {k: v for k, v in row.items() if k not in ["actions", "coverages", "replans", "initial_state", "static_contact_steps"]}
                 compact["details"] = details
                 results.append(compact); level_results.append(compact)
                 wb.log({"episode/index": len(results), "episode/level": level, "episode/seed": row["seed"],

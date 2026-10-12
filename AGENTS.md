@@ -1,12 +1,19 @@
 # Repo Agent Rules
 
-## Pusher holdout preparation
+## Pusher holdout campaign
 
-This branch prepares pusher-only co-training with triangle obstacle data held
+This branch launches pusher-only co-training with triangle obstacle data held
 out. See `egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml`.
 The selected sources are pinned by digest; training and normalization exclude
 triangle obstacle demonstrations. Triangle clean demonstrations remain in the
 primary experiment. Completely unseen-embodiment transfer is a separate study.
+Use `scripts/benchmarks/launch_pusher_holdout.py` for one regime/seed workflow:
+six arms, four L40S per training run, three dependent triangle evaluation shards.
+The full matrix uses co-training and clean-only controls at seeds 42/43/44.
+Data gates verify the immutable release, family splits and reset overlap before
+allocating GPUs; each training job runs a fused four-GPU smoke before 240k updates.
+The primary evaluation uses the same fixed eight-step replanning for DP and ARC.
+RGB caches use lossless Blosc/LZ4 frame indexing to bound storage and decoding.
 Keep tests, resolved configurations, source manifests and preparation receipts
 outside this runtime branch, in `../pusher-holdout-20261012-artifacts/`.
 Do not launch the older four-source launcher with the new pusher recipes; its

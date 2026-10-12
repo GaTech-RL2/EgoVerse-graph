@@ -88,6 +88,11 @@ run_provenance:
   normalization: Training selection only; no triangle obstacles
   decoded_image_cache: true
   primary_replanning: fixed 8 native control steps for every method
+  action_contract:
+    prediction_horizon: ${planar.action_horizon}
+    raw_action_horizon: ${planar.raw_action_horizon}
+    rollout_action_chunk_start_index: 0
+    execution_steps: 8
 pusher:
   held_out: triangle
   holdout_kind: obstacle

@@ -8,6 +8,42 @@ class EpisodeWatchdog(TimeoutError):
     pass
 
 
+class StaticContactMonitor:
+    """Observe static overlap before each simulator clamp without changing physics.
+
+    A control step counts once if any substep has a pusher or object overlap
+    deeper than tolerance. Arena walls and internal obstacles both count.
+    """
+    def __init__(self, env, tolerance):
+        self.env = env
+        self.tolerance = float(tolerance)
+        self.contact_steps = []
+
+    def __getattr__(self, name):
+        return getattr(self.env, name)
+
+    def step(self, action):
+        contact = False
+        original = self.env._clamp_pusher_to_static
+
+        def observed_clamp():
+            nonlocal contact
+            if not contact:
+                depth = max(self.env._object_static_penetration_depth(),
+                    self.env._shapes_static_penetration_depth(self.env._pusher_body,
+                        list(self.env.agent.physics_shapes(self.env))))
+                contact = depth > self.tolerance
+            return original()
+
+        self.env._clamp_pusher_to_static = observed_clamp
+        try:
+            result = self.env.step(action)
+        finally:
+            self.env._clamp_pusher_to_static = original
+        self.contact_steps.append(bool(contact))
+        return result
+
+
 def run_episode(queue, env, initial_observation, initial_info, budget, *, on_frame=None, on_step=None):
     queue.reset(initial_observation)
     coverages = [float(initial_info["coverage"])]
@@ -48,7 +84,7 @@ def run_episode(queue, env, initial_observation, initial_info, budget, *, on_fra
             raise
     observed_peak = max(coverages)
     peak = observed_peak if failure is None else 0.0
-    return {
+    result = {
         "peak_coverage": peak, "observed_peak_before_failure": observed_peak,
         "final_coverage": coverages[-1], "SR80": int(peak >= 0.80), "SR95": int(peak >= 0.95),
         "failure": failure, "control_steps": len(actions), "budget": int(budget),
@@ -56,14 +92,24 @@ def run_episode(queue, env, initial_observation, initial_info, budget, *, on_fra
         "wall_seconds": time.monotonic() - started, "prediction_count": queue.prediction_count,
         "actions": actions, "coverages": coverages, "replans": replans,
     }
+    if isinstance(env, StaticContactMonitor):
+        result.update(static_contact_steps=env.contact_steps,
+            collision_steps=sum(env.contact_steps),
+            collision_rate=float(np.mean(env.contact_steps)) if env.contact_steps else 0.0)
+    return result
 
 
 def summarize(rows):
     if not rows: raise ValueError("No episodes to summarize")
     scores = np.asarray([r["peak_coverage"] for r in rows], dtype=np.float64)
     if not np.isfinite(scores).all(): raise ValueError("Nonfinite score")
-    return {"episodes": len(rows), "mean_peak_coverage": float(scores.mean()),
+    result = {"episodes": len(rows), "mean_peak_coverage": float(scores.mean()),
             "median_peak_coverage": float(np.median(scores)),
             "SR80": float(np.mean(scores >= 0.80)), "SR95": float(np.mean(scores >= 0.95)),
             "failure_count": sum(r["failure"] is not None for r in rows),
             "mean_control_steps": float(np.mean([r["control_steps"] for r in rows]))}
+    if all("final_coverage" in r for r in rows):
+        result["mean_final_coverage"] = float(np.mean([r["final_coverage"] for r in rows]))
+    if all("collision_rate" in r for r in rows):
+        result["mean_collision_rate"] = float(np.mean([r["collision_rate"] for r in rows]))
+    return result

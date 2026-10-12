@@ -1495,9 +1495,13 @@ if test "$AF_RUN_KIND" = full; then
     die "AF_EXPECTED_SMOKE_SHA256 must be a lowercase SHA-256"
   test "$(sha256 "$AF_SMOKE_RESULT")" = "$AF_EXPECTED_SMOKE_SHA256" || \
     die "smoke result SHA-256 mismatch"
+  # Preserve the original smoke/preflight binding when a later full preflight
+  # refreshes operational launcher checks without changing model semantics.
+  AF_SMOKE_PREFLIGHT_IDENTITY=${AF_EXPECTED_SMOKE_PREFLIGHT_SHA256:-$AF_EXPECTED_PREFLIGHT_SHA256}
+  [[ "$AF_SMOKE_PREFLIGHT_IDENTITY" =~ ^[0-9a-f]{64}$ ]] || die "invalid smoke preflight SHA"
   "$AF_PYTHON" - "$AF_SMOKE_RESULT" "$AF_EXPECTED_HEAD" "$AF_EXPERIMENT" \
     "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" "$AF_EXPECTED_NORM_SHA256" \
-    "$AF_EXPECTED_PREFLIGHT_SHA256" \
+    "$AF_SMOKE_PREFLIGHT_IDENTITY" \
     "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
     "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" "$AF_SCALED_H512" \
     "$AF_PAIRED_CHAIN_MANUAL4919" \

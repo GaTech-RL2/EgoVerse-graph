@@ -243,8 +243,9 @@ def test_retired_and_parent_selectors_fail_before_runtime(selector):
     [("smoke", ["evaluator.limit_val_batches=1"]), ("full", [])],
 )
 def test_raw_multiplier_smoke_bounds_actual_evaluator_override(run_kind, expected):
-    from egomimic.eval.planar_action_eval import PlanarActionEval
     from omegaconf import OmegaConf
+
+    from egomimic.eval.planar_action_eval import PlanarActionEval
 
     source = _source()
     start = source.index("# Bound the evaluator too:")

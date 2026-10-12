@@ -109,6 +109,7 @@ def candidate(
     assert start > 0
     return {
         "pid": pid,
+        "parent_pid": int(fields[1]),
         "start_time_ticks": start,
         "uid": uid,
         "pid_namespace_inode": namespace,
@@ -120,6 +121,28 @@ def candidate(
         "job_membership": membership,
         "cgroup": cgroup.strip(),
     }
+
+
+
+def select_trainer_root(candidates):
+    """Forked data workers inherit argv/handlers; require one verified tree root."""
+    by_pid = {item["pid"]: item for item in candidates}
+    assert len(by_pid) == len(candidates), "Duplicate candidate PID"
+    roots = [item for item in candidates if item["parent_pid"] not in by_pid]
+    assert len(roots) == 1, ("Exactly one verified trainer tree required", len(roots))
+    root = roots[0]
+    for item in candidates:
+        seen = set()
+        current = item
+        while current["pid"] != root["pid"]:
+            assert current["pid"] not in seen, "Cyclic process ancestry"
+            seen.add(current["pid"])
+            assert current["parent_pid"] in by_pid, "Disconnected trainer candidate"
+            parent = by_pid[current["parent_pid"]]
+            assert parent["job_id"] == current["job_id"]
+            assert parent["cgroup"] == current["cgroup"], "Cross-step trainer ancestry"
+            current = parent
+    return root
 
 
 def main():
@@ -169,11 +192,7 @@ def main():
             candidates.append(candidate(pid, **context))
         except (OSError, AssertionError, ValueError, KeyError, IndexError):
             pass
-    assert len(candidates) == 1, (
-        "Exactly one verified trainer required",
-        len(candidates),
-    )
-    proof = candidates[0]
+    proof = select_trainer_root(candidates)
     proof["source_head"] = head
     proof["checked_at_unix"] = time.time()
     if audit:

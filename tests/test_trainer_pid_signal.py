@@ -164,3 +164,34 @@ def test_pace_cgroup_v2_refuses_ambiguous_membership(fixture, case):
         )
     with pytest.raises(AssertionError):
         api["candidate"](123, **kw, native_steps=mapping)
+
+
+def test_fork_workers_select_only_verified_trainer_root():
+    api = runpy.run_path(
+        str(Path(__file__).resolve().parents[1] / "scripts/ice/trainer_pid_signal.py")
+    )
+    root = dict(pid=100, parent_pid=90, job_id="456", cgroup="same-step")
+    workers = [dict(root, pid=i, parent_pid=100) for i in range(101, 113)]
+    assert api["select_trainer_root"](workers + [root]) is root
+    nested = dict(root, pid=113, parent_pid=101)
+    assert api["select_trainer_root"]([nested, root] + workers) is root
+
+
+@pytest.mark.parametrize("case", ["empty", "two_roots", "cross_step", "cycle"])
+def test_ambiguous_trainer_trees_fail_closed(case):
+    api = runpy.run_path(
+        str(Path(__file__).resolve().parents[1] / "scripts/ice/trainer_pid_signal.py")
+    )
+    root = dict(pid=100, parent_pid=90, job_id="456", cgroup="same-step")
+    child = dict(root, pid=101, parent_pid=100)
+    rows = [root, child]
+    if case == "empty":
+        rows = []
+    elif case == "two_roots":
+        child["parent_pid"] = 91
+    elif case == "cross_step":
+        child["cgroup"] = "other-step"
+    elif case == "cycle":
+        rows += [dict(root, pid=102, parent_pid=103), dict(root, pid=103, parent_pid=102)]
+    with pytest.raises(AssertionError):
+        api["select_trainer_root"](rows)

@@ -29,8 +29,14 @@ class EMBODIMENT(Enum):
     # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
     # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
     YAM_BIMANUAL = 7
+    # Preserve IDs from the September multi-embodiment data release.
+    PUSHSHAPES_SIM_CIRCLE_SMALL = 17
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
+    PUSHSHAPES_SIM_TRIANGLE = 24
+    PUSHSHAPES_SIM_STICK = 28
+    PUSHSHAPES_SIM_PENTAGON = 30
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

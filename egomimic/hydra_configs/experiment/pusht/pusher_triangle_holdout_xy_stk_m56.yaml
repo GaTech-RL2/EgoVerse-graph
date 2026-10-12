@@ -1,0 +1,59 @@
+# @package _global_
+defaults:
+- /experiment/pusht/pusher_triangle_holdout_base
+- _self_
+name: pusher_triangle_holdout_xy_stk_m56
+planar:
+  action_dim: 8
+  action_horizon: 56
+  raw_action_horizon: 80
+  arc_waypoints: 56
+  arc_timing_mode: velocity
+  translation_groups: xy
+  transform_target: egomimic.rldb.zarr.planar_arc_grouped.get_planar_grouped_transform_list
+evaluator:
+  native_decoders:
+    pushshapes_sim_circle_small:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 2
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: xy
+      dt: ${planar.arc_dt}
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 2
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: xy
+      dt: ${planar.arc_dt}
+    pushshapes_sim_pentagon:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: xy
+      dt: ${planar.arc_dt}
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.planar_grouped.PlanarArcGroupedNativeDecoder
+      action_horizon: 80
+      native_action_dim: 3
+      resampled_vector_length: 56
+      timing_mode: velocity
+      translation_groups: xy
+      dt: ${planar.arc_dt}
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 8
+run_provenance:
+  gripper: Absent for every pusher; padded channels excluded from execution clocks
+  support_groups: xy/rotation

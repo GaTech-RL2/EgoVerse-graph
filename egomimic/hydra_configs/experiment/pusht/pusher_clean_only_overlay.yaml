@@ -1,0 +1,14 @@
+# @package _global_
+name: pusher_triangle_clean_only
+pusher:
+  source_selection:
+    circle_small:
+    - circle_small_clean
+    stick:
+    - stick_clean
+    pentagon:
+    - pentagon_clean
+    triangle:
+    - triangle_clean
+run_provenance:
+  holdout: all_obstacles_clean_only_transfer_control

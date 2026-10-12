@@ -1,0 +1,146 @@
+version: 1
+name: pusher-holdout-20261012
+status: CONFIGURED_NOT_LAUNCHED
+recommended_holdout: triangle
+holdout_kind: target_obstacle_data_only
+rationale: Triangle radius24 with orientation-dependent face/vertex contact; pentagon
+  radius12 supplies yaw control transfer.
+source_manifests:
+  clean:
+    uri: s3://rldb/experiments/multiemb-cotrain-20260918/release-v3/READY.json
+    sha256: 63ac78aa0ee9042cbfea84d9cefbf27f82355beaa762251410e6943e9299393d
+  obstacle:
+    uri: s3://rldb/experiments/pusher-obstacle-topup-20261011/local-release-v1/manifest.json
+    sha256: 5260c6d0a176397dfee29c2cb49cb54f738f03b3da4f627afc2e484c29486b8c
+sources:
+  circle_small:
+  - circle_small_clean
+  - circle_small_obstacle
+  stick:
+  - stick_clean
+  - stick_obstacle
+  pentagon:
+  - pentagon_clean
+  - pentagon_obstacle
+  triangle:
+  - triangle_clean
+raw_selected_episodes: 19303
+raw_selected_train: 19124
+raw_selected_valid: 179
+excluded_triangle_obstacle: 1093
+optimizer_updates: 240000
+global_batch_size: 128
+gpus: 4
+gpu_type: L40S
+training_seeds:
+- 42
+- 43
+- 44
+arms:
+  dp16:
+    experiment: pusher_triangle_holdout_dp16
+    role: historical horizon control
+  dp80:
+    experiment: pusher_triangle_holdout_dp80
+    role: matched raw-horizon DP
+  xy_stk_m56:
+    experiment: pusher_triangle_holdout_xy_stk_m56
+    mode: stk
+    translation_groups: xy
+    waypoints: 56
+  xy_dur_m56:
+    experiment: pusher_triangle_holdout_xy_dur_m56
+    mode: dur
+    translation_groups: xy
+    waypoints: 56
+  x_y_stk_m56:
+    experiment: pusher_triangle_holdout_x_y_stk_m56
+    mode: stk
+    translation_groups: x_y
+    waypoints: 56
+  x_y_dur_m56:
+    experiment: pusher_triangle_holdout_x_y_dur_m56
+    mode: dur
+    translation_groups: x_y
+    waypoints: 56
+controls:
+  clean_only: Apply pusher_clean_only_overlay after each selected arm; same target
+    exposure and update budget
+  target_obstacle_supervised: Optional separate upper-bound study; never merge its
+    data/normalizer/checkpoint into transfer arms
+geometry:
+  D_pixels: 80.0
+  R_degrees: 26.0
+  M: 56
+  raw_horizon: 80
+  fps: 30
+primary_evaluation:
+  pusher: triangle
+  obstacle_levels:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25
+  - 26
+  - 27
+  - 28
+  - 29
+  - 30
+  clean_sanity_level: 0
+  resets_per_level: 50
+  success_thresholds:
+  - 0.8
+  - 0.95
+  metrics:
+  - macro_level_SR95
+  - macro_level_SR80
+  - peak_coverage
+  - final_coverage
+  - collision_rate
+  execution_steps: 8
+  prediction_start_index: 0
+  sampler_steps: 100
+  use_ema: true
+  seed_bank: Freeze pusher-specific geometrically valid resets disjoint from every
+    train/valid/diagnostic source
+  rollout_budget: Same fixed native-step budget per level for all methods; freeze
+    before policy scoring
+  checkpoint_selection: Final240k; source validation only for development; never target
+    obstacle scores
+  uncertainty: Three training seeds; paired reset comparisons; bootstrap by layout
+    and training seed
+  secondary_replanning: Historical ARC half-support clock, reported separately from
+    fixed8 primary results
+preflight_required:
+- Decode/checksum all selected caches; check clean and obstacle state/action/alignment/physics
+  consistency
+- Audit parent families and initial-scene hashes jointly across source releases; quarantine
+  any cross-split conflicts
+- Freeze pusher-specific independent evaluation resets and geometry-feasibility checks
+- Training-only codec replay audit for D80/R26/M56; never tune on target obstacle
+  demonstrations or rollouts
+- Check exact parameter counts and run four-L40S fused-batch forward/backward smoke
+  for every arm
+interpretation: Obstacle transfer with known target embodiment, not completely unseen-embodiment
+  zero-shot. ARC gain is a hypothesis.

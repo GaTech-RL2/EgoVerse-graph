@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+- /experiment/pusht/pusher_triangle_holdout_base
+- _self_
+name: pusher_triangle_holdout_dp16
+planar:
+  raw_action_horizon: 16
+  action_horizon: 16

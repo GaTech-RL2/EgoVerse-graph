@@ -43,9 +43,9 @@ class PlanarArcGroupedNativeDecoder(PlanarArcTimedNativeDecoder):
             raise ValueError("Execution selection expects a single token")
         clocks = {}
         for name, geometry, durations in self._streams(value.unsqueeze(0)):
-            if name == "gripper" and self.native_action_dim == 3:
-                # U-Socket has no gripper actuator. Its padded predictions must
-                # never choose when the real translation/rotation replan.
+            if ((name == "gripper" and self.native_action_dim < 4)
+                    or (name == "rotation" and self.native_action_dim < 3)):
+                # Padded, absent actuators cannot set the replanning clock.
                 continue
             d = durations[0]
             clocks[name] = {"seconds": torch.cat((d.new_zeros(1), d.cumsum(0))),

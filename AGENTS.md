@@ -1,6 +1,18 @@
 # Repo Agent Rules
 
-## Four-source Planar stream campaign
+## Pusher holdout preparation
+
+This branch prepares pusher-only co-training with triangle obstacle data held
+out. See `egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml`.
+The selected sources are pinned by digest; training and normalization exclude
+triangle obstacle demonstrations. Triangle clean demonstrations remain in the
+primary experiment. Completely unseen-embodiment transfer is a separate study.
+Keep tests, resolved configurations, source manifests and preparation receipts
+outside this runtime branch, in `../pusher-holdout-20261012-artifacts/`.
+Do not launch the older four-source launcher with the new pusher recipes; its
+data, domain, effective-batch and evaluation assertions describe another study.
+
+## Parent four-source Planar stream campaign
 
 This isolated experiment branch preserves the previous obstacle comparison's
 PaperConditionalUnet1D backbone, 240k updates, effective batch 128, and frozen
@@ -15,7 +27,8 @@ columns. Gripper total variation is uncapped; duration retains zero-motion
 waits, while STK has no hidden time channel. This is a planar adaptation of
 the LIBERO stream findings, not a three-axis rotation ablation.
 
-Keep new tests and launch receipts on `codex/obstacle-stream-validation-20261007`.
+The parent campaign's tests and launch receipts remain on
+`codex/obstacle-stream-validation-20261007`.
 Do not edit or cancel other agents' worktrees or workflows. The training data
 and evaluation artifacts are under `s3://rldb/experiments/obstacle-streams-20261007/`.
 The new loader uses decoded NumPy caches, pinned family splits, source-specific

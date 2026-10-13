@@ -1,8 +1,10 @@
+
 """Hardware-free checks for the YAM rollout browser view and its overlay."""
 
 from __future__ import annotations
 
 import asyncio
+import re
 import socket
 import threading
 import time
@@ -636,9 +638,25 @@ def test_dashboard_validation_requires_loopback_and_pinned_calibration(tmp_path)
         validate_rollout_preview(preview, {"front_img_1"})
 
 
-def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
+def _profile_default(value):
+    """A station path, or the default of an ``${oc.env:NAME,default}`` selector."""
+    match = re.fullmatch(r"\$\{oc\.env:[A-Z_]+,(.+)\}", str(value))
+    return match.group(1) if match else str(value)
+
+
+@pytest.mark.parametrize(
+    "profile_name",
+    [
+        "yam_rl2_hptflow_rollout.yaml",
+        "yam_rl2_towels_hpt300_rollout.yaml",
+        "yam_rl2_earbuds_hpt300_rollout.yaml",
+    ],
+)
+def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration(
+    profile_name,
+):
     profile = yaml.safe_load(
-        (ROOT / "egomimic/hydra_configs/robot/yam_rl2_hptflow_rollout.yaml").read_text()
+        (ROOT / "egomimic/hydra_configs/robot" / profile_name).read_text()
     )
     calibration = yaml.safe_load(
         (
@@ -659,9 +677,22 @@ def test_hptflow_profile_derives_right_model_frame_from_pinned_calibration():
     )
     assert profile["max_joint_velocity"] / profile["frequency"] == 0.4
     assert "execute_steps" not in profile
-    assert "inference_graph" not in profile["policy"]
-    assert profile["policy"]["checkpoint"] == "${oc.env:YAM_HPTFLOW_CHECKPOINT}"
-    assert profile["policy"]["normalizer_path"] == "${oc.env:YAM_HPTFLOW_NORMALIZER}"
+    # Model-owned inference and normalization come from the checkpoint bundle.
+    # A legacy inline schema-1 graph would override that bound declaration.
+    policy = profile["policy"]
+    assert "inference_graph" not in policy
+    assert "auto_inference_config" not in policy
+    paths = {
+        key: Path(_profile_default(policy[key]))
+        for key in ("training_config", "checkpoint", "normalizer_path")
+    }
+    bundle = paths["checkpoint"].parent
+    assert paths["training_config"] == bundle / "resolved-config.yaml"
+    assert paths["normalizer_path"].parent == bundle
+    if "inference_config" in policy:
+        assert Path(policy["inference_config"]) == bundle / "inference-config.yaml"
+    assert profile["ik_solver"]["backend"] == "mujoco"
+    assert profile["ik_relaxation"]["enabled"] is False
     assert profile["reset_on_start"] is True
     assert profile["reset_home_on_restart"] is True
     assert profile["video_recording"] == {
@@ -716,8 +747,8 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "style.css?v=10" in html
-    assert "app.js?v=11" in html
+    assert "style.css?v=11" in html
+    assert "app.js?v=14" in html
     assert 'id="rollout-time"' in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript

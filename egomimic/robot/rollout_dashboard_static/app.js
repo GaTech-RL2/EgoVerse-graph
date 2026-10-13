@@ -28,6 +28,51 @@ let inferenceControlRevision = 0;
 let inferenceDrafts = {};
 let pendingInferenceApply;
 let inferenceApplyFeedback = '';
+let ikRelaxationPending = null;
+let ikSolverPending = null;
+let ikSolverApplied = 'mujoco';
+
+function updateIkSolver(settings) {
+  const available = Boolean(settings?.available);
+  $('ik-solver-control').hidden = !available;
+  ikSolverApplied = settings?.backend ?? 'mujoco';
+  if (ikSolverApplied === ikSolverPending || settings?.error) ikSolverPending = null;
+  $('ik-solver').value = ikSolverPending ?? ikSolverApplied;
+  $('ik-solver').disabled = !available || ikSolverPending !== null;
+  $('ik-solver-detail').textContent = settings?.error ?? (ikSolverPending ? 'Applying…' : '');
+}
+
+$('ik-solver').addEventListener('change', event => {
+  if (send({ik_solver: event.target.value})) {
+    ikSolverPending = event.target.value;
+    event.target.disabled = true;
+  } else {
+    event.target.value = ikSolverApplied;
+    reportDisconnected();
+  }
+});
+
+function updateIkRelaxation(settings) {
+  const available = Boolean(settings?.available);
+  $('ik-relaxation-control').hidden = !available;
+  if (settings?.enabled === ikRelaxationPending) ikRelaxationPending = null;
+  $('ik-relaxation').checked = ikRelaxationPending ?? Boolean(settings?.enabled);
+  $('ik-relaxation').disabled = !available || ikRelaxationPending !== null;
+  $('ik-relaxation-detail').textContent = available
+    ? ` (up to ${(settings.position_tolerance_m * 1000).toFixed(1)} mm / ${settings.rotation_tolerance_deg}°${ikRelaxationPending !== null ? '; applying…' : ''})`
+    : '';
+}
+
+$('ik-relaxation').addEventListener('change', event => {
+  const enabled = event.target.checked;
+  if (send({ik_relaxation: enabled})) {
+    ikRelaxationPending = enabled;
+    event.target.disabled = true;
+  } else {
+    event.target.checked = !enabled;
+    reportDisconnected();
+  }
+});
 
 function send(message) {
   if (socket?.readyState !== WebSocket.OPEN) return false;
@@ -471,6 +516,9 @@ function chooseVelocityAction(action) {
 }
 
 function configure(message) {
+  ikRelaxationPending = null;
+  updateIkRelaxation(message.ik_relaxation);
+  updateIkSolver(message.ik_solver);
   waitForStart = Boolean(message.wait_for_start);
   paused = Boolean(message.paused);
   started = Boolean(message.started);
@@ -521,6 +569,8 @@ function configure(message) {
 }
 
 function frame(message) {
+  updateIkRelaxation(message.ik_relaxation);
+  updateIkSolver(message.ik_solver);
   paused = Boolean(message.paused);
   started = Boolean(message.started);
   updateRolloutTime(message.rollout_time);
@@ -772,6 +822,8 @@ function connect() {
   socket.binaryType = 'arraybuffer';
   socket.onopen = () => {
     retryDelay = 500;
+    ikSolverPending = null;
+    ikRelaxationPending = null;
     expectedImages = [];
     $('status').textContent = 'Connected; waiting for rollout frames';
     updateInferenceApplyState();
@@ -792,6 +844,8 @@ function connect() {
     }
   };
   socket.onclose = event => {
+    $('ik-solver').disabled = true;
+    $('ik-relaxation').disabled = true;
     $('status').className = 'starting';
     if (event.code === SUPERSEDED) {
       // A newer tab owns the dashboard. Reconnecting would only take it back

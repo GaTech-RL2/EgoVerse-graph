@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import json
 import time
 from collections import deque
 from collections.abc import Mapping
@@ -10,12 +11,14 @@ import numpy as np
 from omegaconf import OmegaConf
 
 from egomimic.robot.cameras import CameraView
+from egomimic.robot.ik_options import validate_ik_relaxation, validate_ik_solver
 from egomimic.robot.interface import ARM_OFFSET, create_robot, joint_vector
 from egomimic.robot.rollout_episode import (
     RolloutEpisodeRecorder,
     validate_episode_recording,
 )
 from egomimic.robot.rollout_video import RolloutVideoRecorder, validate_video_recording
+from egomimic.robot.yam.rollout_ik import validate_ik_recovery
 
 
 def load_policy(config):
@@ -47,6 +50,21 @@ def _max_steps(config):
 def validate_rollout_config(config):
     """Validate browser-only rollout settings before creating robot hardware."""
     _max_steps(config)
+    solver_settings = validate_ik_solver(config.get("ik_solver"))
+    recovery = validate_ik_recovery(config.get("ik_recovery"))
+    if recovery["enabled"] and config.get("robot", {}).get("kind") != "yam":
+        raise ValueError("Differential IK recovery is supported only for Yam")
+    relaxation = validate_ik_relaxation(config.get("ik_relaxation"))
+    if relaxation["enabled"] and config.get("robot", {}).get("kind") != "yam":
+        raise ValueError(
+            "IK pose relaxation is supported only for Yam Cartesian rollout"
+        )
+    if solver_settings["backend"] == "pytracik":
+        if config.get("robot", {}).get("kind") != "yam":
+            raise ValueError("TRAC-IK is supported only for Yam Cartesian rollout")
+        from egomimic.robot.yam.tracik import require_pytracik
+
+        require_pytracik()
     for name in ("reset_on_start", "reset_home_on_restart"):
         value = config.get(name, False)
         if type(value) is not bool:
@@ -262,6 +280,27 @@ def _reset_policy_state(policy) -> None:
 
 
 def run_rollout(robot, policy, config, view=None):
+    solver_settings = validate_ik_solver(config.get("ik_solver"))
+    recovery = validate_ik_recovery(config.get("ik_recovery"))
+    if recovery["enabled"] and (
+        policy.action_type != "cartesian"
+        or not callable(getattr(robot, "solve_ik_step", None))
+    ):
+        raise ValueError(
+            "Differential IK recovery needs a supported Cartesian robot/policy"
+        )
+    relaxation = validate_ik_relaxation(config.get("ik_relaxation"))
+    relaxation_available = policy.action_type == "cartesian" and callable(
+        getattr(robot, "solve_ik_relaxed", None)
+    )
+    if relaxation["enabled"] and not relaxation_available:
+        raise ValueError("This robot/policy does not support IK pose relaxation")
+    set_backend = getattr(robot, "set_ik_backend", None)
+    solver_available = policy.action_type == "cartesian" and callable(set_backend)
+    if solver_settings["backend"] != "mujoco" and not solver_available:
+        raise ValueError("TRAC-IK needs a supported Cartesian robot/policy")
+    if solver_available:
+        set_backend(**solver_settings)
     frequency = float(config["frequency"])
     max_steps = _max_steps(config)
     limit = float(config["max_joint_velocity"]) / frequency
@@ -276,6 +315,7 @@ def run_rollout(robot, policy, config, view=None):
     policy_config = copy.deepcopy(config.get("policy"))
     waiting_since, velocity_replans = None, 0
     ik_rejections = 0
+    recovery_row, recovery_ticks = None, 0
     paused = False
     pending_inference_overrides = {}
     view = view or create_preview_view(
@@ -306,6 +346,20 @@ def run_rollout(robot, policy, config, view=None):
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
     model_ready = True
+
+    def publish_ik_relaxation():
+        publish = getattr(view, "set_ik_relaxation", None)
+        if callable(publish):
+            publish({**relaxation, "available": relaxation_available})
+
+    publish_ik_relaxation()
+
+    def publish_ik_solver(error=None):
+        publish = getattr(view, "set_ik_solver", None)
+        if callable(publish):
+            publish({**solver_settings, "available": solver_available, "error": error})
+
+    publish_ik_solver()
 
     def reset_to_ready():
         nonlocal last, step, waiting_since, velocity_replans, started, paused
@@ -400,6 +454,38 @@ def run_rollout(robot, policy, config, view=None):
             control = view.update(obs)
             if control in ("q", "\x1b"):
                 break
+            take_solver = getattr(view, "take_ik_solver_request", None)
+            requested_solver = take_solver() if callable(take_solver) else None
+            if solver_available and requested_solver in ("mujoco", "pytracik"):
+                if requested_solver != solver_settings["backend"]:
+                    # Do not retain old-backend waypoints or stale observations
+                    # across model construction. A failed switch sends no command.
+                    queue.clear()
+                    _reset_policy_state(policy)
+                    clear_plan = getattr(view, "clear_action_plan", None)
+                    if callable(clear_plan):
+                        clear_plan()
+                    candidate = {**solver_settings, "backend": requested_solver}
+                    try:
+                        set_backend(**candidate)
+                    except (ImportError, OSError, RuntimeError, ValueError) as error:
+                        publish_ik_solver(str(error))
+                        _set_view_status(view, f"IK backend unchanged: {error}")
+                    else:
+                        solver_settings.update(candidate)
+                        publish_ik_solver()
+                    continue
+                publish_ik_solver()
+            take_relaxation = getattr(view, "take_ik_relaxation_request", None)
+            requested_relaxation = (
+                take_relaxation() if callable(take_relaxation) else None
+            )
+            if relaxation_available and type(requested_relaxation) is bool:
+                if relaxation["enabled"] != requested_relaxation:
+                    relaxation["enabled"] = requested_relaxation
+                    queue.clear()
+                    _reset_policy_state(policy)
+                publish_ik_relaxation()
             bundle = _take_model_selection_request(view)
             if bundle is not None:
                 # Freeze the current measured pose before the potentially slow
@@ -684,12 +770,25 @@ def run_rollout(robot, policy, config, view=None):
             commands = {}
             violations = []
             unreachable = []
-            for arm in robot.arms:
+            recovering = recovery["enabled"] and recovery_row is row
+            for arm in () if recovering else robot.arms:
                 offset = ARM_OFFSET[arm]
                 target = row[offset : offset + 7]
                 if policy.action_type == "cartesian":
                     try:
-                        joints = robot.solve_ik(target[:6], arm)
+                        try:
+                            joints = robot.solve_ik(target[:6], arm)
+                        except ValueError:
+                            if not relaxation["enabled"]:
+                                raise
+                            joints = robot.solve_ik_relaxed(
+                                target[:6],
+                                arm,
+                                position_tolerance_m=relaxation["position_tolerance_m"],
+                                rotation_tolerance_deg=relaxation[
+                                    "rotation_tolerance_deg"
+                                ],
+                            )
                     except ValueError as error:
                         # An unreachable Cartesian target is a property of this
                         # sampled plan, not a fault. Record it and drop the plan
@@ -705,6 +804,61 @@ def run_rollout(robot, policy, config, view=None):
                 if joint_step > limit + 1e-8:
                     violations.append((arm, joint_step))
                 commands[arm] = command
+            if recovery["enabled"] and (recovering or unreachable):
+                # Once one endpoint fails, both arms track this same paired row
+                # locally. Keep it queued until both endpoints are reached.
+                commands, violations, unreachable = {}, [], []
+                if recovery_row is not row:
+                    recovery_ticks = 0
+                reached = True
+                recovery_limit = min(limit, recovery["max_joint_velocity"] / frequency)
+                for arm in robot.arms:
+                    offset = ARM_OFFSET[arm]
+                    try:
+                        if recovery_ticks >= recovery["max_ticks_per_target"]:
+                            raise ValueError(
+                                "Differential IK target exceeded its recovery tick budget"
+                            )
+                        result = robot.solve_ik_step(
+                            row[offset : offset + 6],
+                            arm,
+                            measured=np.asarray(obs["joint_positions"])[
+                                offset : offset + 6
+                            ],
+                            last_command=last[offset : offset + 6],
+                            max_step=recovery_limit,
+                            settings=recovery,
+                        )
+                        command = joint_vector(np.r_[result.joints, row[offset + 6]])
+                        # Defense in depth, including measured-state tracking lag.
+                        measured = np.asarray(obs["joint_positions"])[
+                            offset : offset + 6
+                        ]
+                        if (
+                            np.max(np.abs(command[:6] - last[offset : offset + 6]))
+                            > recovery_limit + 1e-8
+                            or np.max(np.abs(command[:6] - measured))
+                            > recovery_limit + 1e-8
+                        ):
+                            raise ValueError(
+                                "Differential IK exceeded the per-tick joint bound"
+                            )
+                        reached = reached and result.reached
+                        commands[arm] = command
+                    except ValueError as error:
+                        unreachable.append((arm, str(error)))
+                if not unreachable:
+                    recovery_ticks += 1
+                    if not reached:
+                        queue.appendleft(row)
+                        recovery_row = row
+                        # Do not release/close a gripper before reaching its row.
+                        for arm, command in commands.items():
+                            command[6] = last[ARM_OFFSET[arm] + 6]
+                    else:
+                        recovery_row, recovery_ticks = None, 0
+                else:
+                    recovery_row, recovery_ticks = None, 0
             if unreachable:
                 # Send neither arm, discard the rest of the chunk and wait for
                 # the next plan. This is deliberately not budgeted: an
@@ -816,13 +970,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True)
     parser.add_argument("--inference-mode", choices=("graph",), default="graph")
-    parser.add_argument(
+    checks = parser.add_mutually_exclusive_group()
+    checks.add_argument(
         "--check-config",
         action="store_true",
         help="validate dashboard/calibration configuration only; open no devices",
     )
+    checks.add_argument(
+        "--check-model",
+        action="store_true",
+        help="strictly load the configured graph checkpoint on CPU; open no devices",
+    )
     args = parser.parse_args()
     config = OmegaConf.to_container(OmegaConf.load(args.config), resolve=True)
+    if args.check_model:
+        if config.get("policy", {}).get("kind") != "graph":
+            raise ValueError("--check-model requires a graph checkpoint policy")
+        config["policy"]["device"] = "cpu"
     validate_rollout_config(config)
     if args.check_config:
         print(
@@ -831,6 +995,31 @@ def main():
         return
     # Load/validate policy artifacts before opening hardware.
     policy = load_policy(config["policy"])
+    if args.check_model:
+        try:
+            parameters = list(policy.graph.nets.parameters())
+            if any(parameter.device.type != "cpu" for parameter in parameters):
+                raise RuntimeError("Model check must restore every parameter on CPU")
+            print(
+                json.dumps(
+                    {
+                        "status": "passed",
+                        "checkpoint": config["policy"]["checkpoint"],
+                        "device": "cpu",
+                        "parameters": sum(
+                            parameter.numel() for parameter in parameters
+                        ),
+                        "action_type": policy.action_type,
+                        "hardware_opened": False,
+                    },
+                    sort_keys=True,
+                )
+            )
+        finally:
+            close_policy = getattr(policy, "close", None)
+            if callable(close_policy):
+                close_policy()
+        return
     robot = create_robot(config["robot"])
     try:
         run_rollout(robot, policy, config)

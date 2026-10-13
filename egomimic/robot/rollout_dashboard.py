@@ -619,6 +619,10 @@ class RolloutDashboard:
         self._inference_controls = _validate_inference_controls(inference_controls)
         self._pending_inference_overrides: dict[str, object] = {}
         self._inference_controls_revision = 0
+        self._ik_relaxation = {"available": False, "enabled": False}
+        self._ik_relaxation_request = None
+        self._ik_solver = {"available": False, "backend": "mujoco", "error": None}
+        self._ik_solver_request = None
         self._inference_ms = deque(maxlen=20)
         self._rollout_timer = _RolloutTimer()
         self._video_recording = False
@@ -849,6 +853,42 @@ class RolloutDashboard:
             self._pending_inference_overrides.update(validated)
         return True
 
+    def set_ik_solver(self, settings) -> None:
+        with self._lock:
+            self._ik_solver = dict(settings)
+
+    def request_ik_solver(self, backend) -> bool:
+        with self._lock:
+            if (
+                backend not in ("mujoco", "pytracik")
+                or not self._ik_solver["available"]
+            ):
+                return False
+            self._ik_solver_request = backend
+            return True
+
+    def take_ik_solver_request(self):
+        with self._lock:
+            request, self._ik_solver_request = self._ik_solver_request, None
+            return request
+
+    def set_ik_relaxation(self, settings) -> None:
+        """Publish settings applied by the rollout thread, never command a robot."""
+        with self._lock:
+            self._ik_relaxation = dict(settings)
+
+    def request_ik_relaxation(self, enabled) -> bool:
+        with self._lock:
+            if type(enabled) is not bool or not self._ik_relaxation["available"]:
+                return False
+            self._ik_relaxation_request = enabled
+        return True
+
+    def take_ik_relaxation_request(self):
+        with self._lock:
+            request, self._ik_relaxation_request = self._ik_relaxation_request, None
+        return request
+
     def request_inference_override(self, name: object, value: object) -> None:
         """Compatibility wrapper for callers submitting one declared value."""
         self.request_inference_overrides({name: value})
@@ -994,6 +1034,8 @@ class RolloutDashboard:
                 "started": self._start_requested.is_set(),
                 "rollout_time": self._rollout_timer.snapshot(),
                 "inference_controls": deepcopy(self._inference_controls),
+                "ik_relaxation": dict(self._ik_relaxation),
+                "ik_solver": dict(self._ik_solver),
                 "inference_controls_revision": self._inference_controls_revision,
                 "inference": {
                     "samples": len(inference_ms),
@@ -1067,6 +1109,8 @@ class RolloutDashboard:
                 started = self._start_requested.is_set()
                 inference_controls = deepcopy(self._inference_controls)
                 inference_controls_revision = self._inference_controls_revision
+                ik_relaxation = dict(self._ik_relaxation)
+                ik_solver = dict(self._ik_solver)
                 checkpoint = self._checkpoint
                 rollout_time = self._rollout_timer.snapshot()
             for client in superseded:
@@ -1089,6 +1133,8 @@ class RolloutDashboard:
                         "started": started,
                         "rollout_time": rollout_time,
                         "inference_controls": inference_controls,
+                        "ik_relaxation": ik_relaxation,
+                        "ik_solver": ik_solver,
                         "inference_controls_revision": inference_controls_revision,
                         "video_recording_enabled": self.video_recording_config[
                             "enabled"
@@ -1134,6 +1180,10 @@ class RolloutDashboard:
                         self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
                         self.request_pause(command["paused"])
+                    if "ik_solver" in command:
+                        self.request_ik_solver(command["ik_solver"])
+                    if "ik_relaxation" in command:
+                        self.request_ik_relaxation(command["ik_relaxation"])
                     overrides = command.get(
                         "inference_overrides", command.get("inference_override")
                     )
@@ -1251,6 +1301,8 @@ class RolloutDashboard:
                         "started": snapshot["started"],
                         "rollout_time": snapshot["rollout_time"],
                         "inference_controls": snapshot["inference_controls"],
+                        "ik_relaxation": snapshot["ik_relaxation"],
+                        "ik_solver": snapshot["ik_solver"],
                         "inference_controls_revision": snapshot[
                             "inference_controls_revision"
                         ],

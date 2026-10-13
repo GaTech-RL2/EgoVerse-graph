@@ -274,6 +274,32 @@ X, home, quit and exceptions. These files remain available for inspection.
 
 ## Local graph rollout
 
+Check the complete checkpoint load on CPU before opening station devices:
+
+```bash
+python -m egomimic.robot.rollout \
+  --config egomimic/hydra_configs/robot/yam_rl2_towels_hpt300_rollout.yaml \
+  --check-model
+python -m egomimic.robot.rollout \
+  --config egomimic/hydra_configs/robot/yam_rl2_earbuds_hpt300_rollout.yaml \
+  --check-model
+```
+
+`--check-model` forces CPU in memory, restores the bound graph and strict
+checkpoint weights, prints a JSON result, and exits before creating any robot,
+CAN, camera, or dashboard. It leaves the YAML unchanged. `--check-config`
+validates settings only; it does not test checkpoint compatibility.
+
+The RL2 HPT300 profiles select the 180k-step towel and earbud bundles from
+2026-10-12; the default `yam_rl2_hptflow_rollout.yaml` selects towels. Their
+schema-2 inference sidecars require the matching bound-inference runtime.
+The older tokenshapes/IK runtime fails constructing `FlowDenoiserStage` with
+`unexpected keyword argument 'clip_sample_range'`. Use the matching runtime;
+removing the keyword alone leaves further graph/schema incompatibilities.
+Keep each bundle's config, data context, normalizer and inference sidecar
+together. These profiles retain the existing IK controls: MuJoCo by default,
+optional TRAC-IK, and pose relaxation disabled by default.
+
 ```bash
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rollout.yaml
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/eva_rollout.yaml

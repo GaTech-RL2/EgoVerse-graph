@@ -1,5 +1,6 @@
 # RL2 YAM rollout station profile. Select an explicitly bound model bundle;
 # --check-config opens no robot devices and does not prove checkpoint readiness.
+# --check-model strictly restores the selected bundle on CPU, opening no device.
 robot:
   kind: yam
   arms: [left, right]
@@ -97,12 +98,17 @@ preview:
 
 policy:
   kind: graph
-  # No historical checkpoint defaults: select the exact immutable bundle.
-  # NORMALIZER is the legacy variable name; supply full data-context.json,
-  # not a statistics-only export. The loader verifies the checkpoint binding.
-  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG}
-  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT}
-  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER}
+  # Default: the bound RL2 towels time HPT-300M bundle (180k step, 2026-10-12),
+  # the one `--check-model` was verified on. The environment variables select
+  # another immutable bundle; override all three together (the per-task
+  # profiles yam_rl2_towels_hpt300_rollout.yaml / yam_rl2_earbuds_hpt300_rollout.yaml
+  # pin theirs). NORMALIZER is the legacy variable name; supply the full
+  # data-context (a norm_stats.json name is accepted only when its contents are
+  # the complete context). The loader verifies the checkpoint binding and reads
+  # the model-owned inference-config.yaml beside the checkpoint.
+  training_config: ${oc.env:YAM_HPTFLOW_TRAINING_CONFIG,/home/rohan/checkpoints/EgoVerse/towels_time_hpt300_since0924_180k_20261012/yam_rl2_towels_since0924_time_h840t19_d320x6_s42_step180k/resolved-config.yaml}
+  checkpoint: ${oc.env:YAM_HPTFLOW_CHECKPOINT,/home/rohan/checkpoints/EgoVerse/towels_time_hpt300_since0924_180k_20261012/yam_rl2_towels_since0924_time_h840t19_d320x6_s42_step180k/yam_rl2_towels_since0924_time_h840t19_d320x6_s42_step180k__epoch-1799-step-00180000__sha256-c294128754184585.ckpt}
+  normalizer_path: ${oc.env:YAM_HPTFLOW_NORMALIZER,/home/rohan/checkpoints/EgoVerse/towels_time_hpt300_since0924_180k_20261012/yam_rl2_towels_since0924_time_h840t19_d320x6_s42_step180k/yam_rl2_towels_since0924_time_h840t19_d320x6_s42_step180k.norm_stats.json}
   device: cuda:0
   use_ema: false
   # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
@@ -136,8 +142,33 @@ policy:
     image_hw: [480, 640]
     proprio_key: observations.state.ee_pose
     action_key: actions_cartesian
-    prompt: sorting markers and pens
+    prompt: fold towels
     decoder: null
     # Clip routine stochastic overshoot only. Larger values reject the complete
     # plan and use policy.max_valid_samples before any robot command is issued.
     gripper_clip_tolerance: 0.05
+
+# Endpoint IK backend for Cartesian plans. MuJoCo is the pinned default; TRAC-IK
+# (pytracik, extra `yam-tracik`) is opt-in, also from the dashboard's Endpoint IK
+# selector. Both arms' targets go through the same backend.
+ik_solver:
+  backend: mujoco
+  timeout_s: 0.005
+  solver_type: Distance
+# Opt-in bounded pose relaxation: when strict IK fails, accept a solution within
+# these tolerances instead of discarding the plan (dashboard toggle, default off).
+ik_relaxation:
+  enabled: false
+  position_tolerance_m: 0.005
+  rotation_tolerance_deg: 3.0
+# Bounded differential recovery: once an endpoint IK fails, both arms track the
+# same paired row with damped least-squares steps under this joint-speed bound
+# until both endpoints are reached or the tick budget runs out.
+ik_recovery:
+  enabled: true
+  max_joint_velocity: 1.0
+  position_scale_m: 0.05
+  rotation_scale_rad: 0.5
+  damping: 0.01
+  posture_weight: 0.05
+  max_ticks_per_target: 30

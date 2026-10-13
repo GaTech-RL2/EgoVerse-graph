@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM rollout</title>
-    <link rel="stylesheet" href="/style.css?v=10">
+    <link rel="stylesheet" href="/style.css?v=11">
   </head>
   <body>
     <main>
@@ -39,6 +39,19 @@
       </header>
       <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
       <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
+      <label id="ik-solver-control" class="overlay-toggle" hidden>
+        Endpoint IK
+        <select id="ik-solver" disabled>
+          <option value="mujoco">MuJoCo</option>
+          <option value="pytracik">TRAC-IK</option>
+        </select>
+        <span id="ik-solver-detail"></span>
+      </label>
+      <label id="ik-relaxation-control" class="overlay-toggle" hidden>
+        <input id="ik-relaxation" type="checkbox" disabled>
+        Allow small IK pose errors
+        <span id="ik-relaxation-detail"></span>
+      </label>
       <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
         <strong>Joint velocity limit reached</strong>
         <p id="velocity-detail"></p>
@@ -128,6 +141,6 @@
       </label>
       <div id="model-list" class="model-list">Loading…</div>
     </dialog>
-    <script type="module" src="/app.js?v=11"></script>
+    <script type="module" src="/app.js?v=14"></script>
   </body>
 </html>

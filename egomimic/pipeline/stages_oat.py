@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from egomimic.pipeline.core import Stage
+from egomimic.pipeline.core import Stage, resolve_homogeneous_scalar
 
 
 class OATTokenizerStage(Stage):
@@ -162,4 +162,52 @@ class OATObservationStage(Stage):
                 value = value * self.image_scale + self.image_offset
             obs[self.key_bindings[key]] = value
         batch["condition"] = self.encoder(obs).flatten(1)
+        return batch
+
+
+class EmbodimentOATObservationStage(Stage):
+    """Route native observation boundaries to one common conditioning width.
+
+    Shorter feature vectors are zero-padded, preserving the reference branch
+    exactly. Each registered branch owns its own vision parameters.
+    """
+
+    writes = ("condition",)
+
+    def __init__(
+        self, branches, condition_dim, selector_aliases=None, selector_key="embodiment"
+    ):
+        super().__init__()
+        if type(condition_dim) is not int or condition_dim <= 0:
+            raise ValueError("condition_dim must be a positive integer")
+        if not branches or any(
+            not isinstance(v, OATObservationStage) for v in branches.values()
+        ):
+            raise TypeError("branches must contain OATObservationStage instances")
+        self.branches = torch.nn.ModuleDict(branches)
+        self.condition_dim = condition_dim
+        self.selector_key = selector_key
+        self.selector_aliases = dict(selector_aliases or {})
+        self.reads = (selector_key,)
+
+    def bind_data_context(self, *, normalizer):
+        self.normalizer_state = normalizer.to_state()
+        self.data_context = self.normalizer_state
+        for branch in self.branches.values():
+            branch.bind_data_context(normalizer=normalizer)
+
+    def forward(self, batch):
+        raw = resolve_homogeneous_scalar(
+            batch[self.selector_key], label=self.selector_key
+        )
+        name = self.selector_aliases.get(str(raw), str(raw))
+        if name not in self.branches:
+            raise ValueError(f"No OAT observation branch for {name!r}")
+        self.branches[name](batch)
+        condition = batch["condition"]
+        if condition.ndim != 2 or condition.shape[-1] > self.condition_dim:
+            raise ValueError("Observation features exceed declared condition width")
+        batch["condition"] = torch.nn.functional.pad(
+            condition, (0, self.condition_dim - condition.shape[-1])
+        )
         return batch

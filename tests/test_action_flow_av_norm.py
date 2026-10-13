@@ -14,6 +14,7 @@ from egomimic.pipeline.action_flow_av_norm import (
 )
 from egomimic.pipeline.stages_action_flow import (
     ActionFlowObjectiveStage,
+    ContentDecoderStage,
     ConditionalVelocityStage,
     LatentBridgeStage,
     RoutedContentDecoderStage,
@@ -48,13 +49,20 @@ def _batch(route):
     }
 
 
-def test_routed_av_norm_only_touches_selected_jvp_and_restores_everything():
+@pytest.mark.parametrize("mapped_base", [False, True])
+def test_routed_av_norm_only_touches_selected_jvp_and_restores_everything(mapped_base):
     us, chain = _decoder(4), _decoder(6)
-    stage = RoutedContentDecoderStage(
-        decoders={"us": us, "chain": chain},
-        route_key="embodiment",
-        route_aliases={19: "us", 20: "chain"},
-    )
+    if mapped_base:
+        stage = ContentDecoderStage(
+            decoders={"us": us, "chain": chain},
+            selector_aliases={19: "us", 20: "chain"},
+        )
+    else:
+        stage = RoutedContentDecoderStage(
+            decoders={"us": us, "chain": chain},
+            route_key="embodiment",
+            route_aliases={19: "us", 20: "chain"},
+        )
     original_jvp = stages_action_flow.jvp
     original_forwards = [
         m.forward

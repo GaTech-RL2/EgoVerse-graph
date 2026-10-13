@@ -35,5 +35,7 @@ data:
 evaluator:
   human_action_horizon: 32
 callbacks:
+  # The proportional multi-source sampler owns the batch/epoch budget.
+  batch_budget: null
   dit_half:
     source_keys: [yam_bimanual, human_bimanual]

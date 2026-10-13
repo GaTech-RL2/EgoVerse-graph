@@ -134,6 +134,9 @@ def video_episode(policy, env, entry, budget, contract, *, label, record_video):
 
 def main():
     global CAN_WRITE
+    expected_harness = os.environ.get("EVAL_HARNESS_SHA256")
+    if expected_harness:
+        assert digest(__file__) == expected_harness
     assert CONTRACT["canonical_oec56"] is False
     assert torch.cuda.is_available() and torch.cuda.device_count() == 1
     assert "L40S" in torch.cuda.get_device_name(0)
@@ -157,9 +160,10 @@ def main():
     upload(OUT / "resolved-evaluation.yaml")
     archive = download(CONFIG["simulator"], ROOT / "simulator.tar")
     with tarfile.open(archive) as stream: stream.extractall(ROOT / "simulator", filter="data")
-    sys.path.insert(0, str(ROOT / "simulator"))
-    from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv, SIM_VERSION
-    from egomimic.eval.planar_rollout import load_planar_graph_policy
+    from planar_imports import load_planar_runtime
+    PushShapesEnv, SIM_VERSION, load_planar_graph_policy, imports = load_planar_runtime(ROOT / "source", ROOT / "simulator")
+    write("IMPORTS_VERIFIED.json", {**imports, "source_commit": source,
+        "harness_sha256": digest(__file__)})
     assert SIM_VERSION == 2 and all(getattr(PushShapesEnv, k) is True for k in CONTRACT["fixed_physics"])
     assert digest(ROOT / "simulator/Tsimulation/sim_v2/pushshapes/obstacles.py") == CONTRACT["obstacles_sha256"]
     versions = {name: importlib.metadata.version(name) for name in CONTRACT["simulator_dependencies"]}

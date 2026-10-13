@@ -14,6 +14,10 @@ Data gates verify the immutable release, family splits and reset overlap before
 allocating GPUs; each training job runs a fused four-GPU smoke before 240k updates.
 The primary evaluation uses the same fixed eight-step replanning for DP and ARC.
 RGB caches use lossless Blosc/LZ4 frame indexing to bound storage and decoding.
+`launch_pusher_evaluation.py` recovers evaluation from completed training receipts.
+It keeps the policy checkout at the training commit and pins the evaluation
+harness separately. Simulator capsules must not shadow the graph's `egomimic`
+package; `planar_imports.py` checks both module locations before restoring weights.
 Keep tests, resolved configurations, source manifests and preparation receipts
 outside this runtime branch, in `../pusher-holdout-20261012-artifacts/`.
 Do not launch the older four-source launcher with the new pusher recipes; its

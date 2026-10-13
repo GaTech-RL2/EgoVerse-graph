@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - yam_libero_oat_action_flow
+  - /experiment/e1/yam_libero_oat_action_flow
   - override /model: libero/action_flow_yam_human
   - _self_
 name: yam_human_libero_oat_action_flow

@@ -1,6 +1,6 @@
 # Shared LIBERO-sized flow; private native observation/action interfaces.
 defaults:
-- action_flow_oat_dp_matched
+- /model/libero/action_flow_oat_dp_matched
 - _self_
 action_dim: 14
 condition_dim: 412

@@ -148,7 +148,7 @@ class LiberoDiTHalf(Callback):
 
     def on_train_batch_start(self, trainer, module, batch, batch_idx):
         if len(batch) != 1 or not set(batch) <= set(self.source_keys):
-            raise ValueError("one configured homogeneous source per batch required")
+            raise ValueError("single source from configured homogeneous sources required")
         self.active_source = next(iter(batch))
         self.before = dict(self.scope.counts)
 

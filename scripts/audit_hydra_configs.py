@@ -129,6 +129,29 @@ def audit_context(path):
         experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
         if "arc_D" in entry or "arcD" in entry or "arc_cotrain" in entry:
             experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100"
+    # Stationery fragments require the same FT sizes, source frames and fixed
+    # ranges supplied by their real inheriting recipes, never invented values.
+    if (
+        name.startswith("model/e1/hpt_flow_wrists_ft")
+        or name
+        in {
+            "model/e1/dp300_wrists_arcdur",
+            "model/e1/dp300pt_wrists_arcdur",
+            "model/e1/dp180pt_wrists_time",
+            "model/e1/hpt300_flow_wrists_time",
+            "model/e1/hpt300_flow_wrists_arcdur",
+            "model_contract/e1_wrists",
+        }
+        or name.startswith("data/abc_arc/stationery_")
+    ):
+        experiment = "yam_arc_grid/scratch_rl2_stattempo_fast_time"
+    if name == "model/e1/hpt_flow_wrists_ft_arcdurevt":
+        experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurevt_r360"
+    if name in {
+        "model/e1/hpt_flow_wrists_ft_arcdurref",
+        "experiment/yam_arc_grid/_base/stattempo_reference",
+    }:
+        experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurref_r360"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

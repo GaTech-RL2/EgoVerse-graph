@@ -1,0 +1,10 @@
+# HPT-300M E1 arcdur: same observation/codec graph, larger trunk and smaller flow head.
+defaults:
+  - /model/e1/hpt_flow_wrists_ft_arcdur@_here_
+  - _self_
+embed_dim: 840
+trunk_blocks: 19
+attention_heads: 10
+attention_head_dim: 84
+flow_hidden_dim: 320
+flow_blocks: 6

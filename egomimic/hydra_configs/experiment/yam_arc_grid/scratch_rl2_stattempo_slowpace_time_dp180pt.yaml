@@ -1,0 +1,23 @@
+# @package _global_
+# FROM SCRATCH, RL2-only sort stationery, tempo pool 'slowpace' (217 eps), variant time, DP-180M graph Diffusion Policy
+# (3 cams, pretrained ResNet-18 encoders, UNet [488, 976, 1952], DDIM 100). Twin of scratch_rl2_stattempo_slowpace_time
+# (same data, shared 24-episode held-out val, 240k / warmup 10k / seed 42 recipe, BimanualTempoEval); only the model differs.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_slowpace_time
+- _self_
+- override /model: e1/dp180pt_wrists_time
+name: scratch_rl2_stattempo_slowpace_time_dp180pt
+description: dp180pt_cos10k_240k_s42_scratch_rl2_stattempo_slowpace_time_dp180pt
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_slowpace_time_dp180pt_20260930_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_slowpace
+    - scratch
+    - time
+    - dp180
+e1:
+  policy_domain: yam

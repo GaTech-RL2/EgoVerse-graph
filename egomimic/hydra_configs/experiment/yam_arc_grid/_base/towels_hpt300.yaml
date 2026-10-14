@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_elmoaidan_arcdur_hpt300
+- override /data: abc_arc/towels_since0924_20261011
+- _self_
+e1:
+  spread: towels
+logger:
+  wandb:
+    entity: rl2-group
+    offline: false
+    id: ${name}_20261011_s42
+    tags:
+    - rl2
+    - fold_towels
+    - hpt300
+    - ${e1.variant}
+    - ${towels_pool}
+name: towels_${towels_pool}_${e1.variant}_hpt300
+description: h840t19_d320x6_cos10k_240k_s42_${name}
+towels_pool: since0924

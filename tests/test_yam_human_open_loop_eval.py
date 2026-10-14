@@ -74,11 +74,35 @@ def test_rejects_trainer_truncation_and_missing_episode_frames():
         value.on_validation_end()
 
 
-def test_rejects_nonidentity_retiming_for_robot():
+@pytest.mark.parametrize("rate", [0.2, 5.0])
+def test_nonidentity_robot_views_are_not_open_loop_records(rate):
     value = evaluator()
     source = batch()
-    source["source"]["retiming_rate"] = torch.full((6,), 0.2)
-    with pytest.raises(ValueError, match="retiming_rate"):
+    source["source"]["retiming_rate"] = torch.full((6,), rate)
+    value._collect_validation_predictions(
+        source, {"source": {"pred_action": torch.ones(6, 100, 14)}}
+    )
+    assert value.robot_open_loop._records == []
+
+
+def test_mixed_views_keep_prediction_and_episode_frame_metadata_aligned():
+    value = evaluator()
+    source = batch()
+    source["source"]["retiming_rate"] = torch.tensor([5., 1., 2.5, 1.25, 1., 5.])
+    pred = torch.arange(6.).reshape(6, 1, 1).expand(6, 100, 14)
+    value._collect_validation_predictions(source, {"source": {"pred_action": pred}})
+    records = value.robot_open_loop._records
+    assert [row["frame"] for row in records] == [1, 4]
+    assert [float(row["prediction"].mean()) for row in records] == [1., 4.]
+    assert [row["episode"] for row in records] == ["episode-a", "episode-a"]
+
+
+@pytest.mark.parametrize("rate", [float("nan"), 0., -1.])
+def test_invalid_retiming_metadata_still_fails(rate):
+    value = evaluator()
+    source = batch()
+    source["source"]["retiming_rate"] = torch.full((6,), rate)
+    with pytest.raises(ValueError, match="finite positive"):
         value._collect_validation_predictions(
             source, {"source": {"pred_action": torch.ones(6, 100, 14)}}
         )

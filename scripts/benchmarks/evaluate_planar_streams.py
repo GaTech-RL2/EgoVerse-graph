@@ -204,6 +204,28 @@ def main():
         "token_shape": policy.token_shape, "native_shape": policy.native_shape,
         "seed_bank": CONFIG["seed_bank"], "budgets": CONFIG["budgets"], "canonical_oec56": False}
     write("RESTORE_VERIFIED.json", runtime)
+    resume = None
+    if CONFIG.get("resume_sources"):
+        from planar_eval_resume import EvaluationResume
+        resume = EvaluationResume(CLIENT, CONFIG)
+        write("RESUME_VERIFIED.json", {"sources": resume.receipt()})
+    if CONFIG.get("verify_resume_only", False):
+        assert resume is not None
+        level = TASK_LEVELS[0]
+        entry = bank["levels"][str(level)]["selected"][0]
+        restored = resume.lookup(level, int(entry["seed"]), int(budgets["by_level"][str(level)]["budget"]))
+        assert restored is not None
+        env = PushShapesEnv(**dict(CONFIG["domain"]["environment"], obstacle_level=level))
+        try:
+            smoke = video_episode(policy, env, entry, 8, CONTRACT,
+                                  label="RESUME_SMOKE_ONLY", record_video=False)
+            assert smoke["full_budget_executed"] and smoke["failure"] is None
+        finally:
+            env.close()
+        write("RESUME_SMOKE_COMPLETE.json", {"not_a_benchmark_score": True,
+            "reused_episode": restored[1], "native_steps": smoke["control_steps"],
+            "prediction_count": smoke["prediction_count"], "runtime": runtime})
+        return
     video_seeds = {int(level): set(seeds) for level, seeds in CONFIG["artifact_policy"]["video_seeds_by_level"].items()}
     write("EVAL_PLAN_VERIFIED.json", {"expected_rollouts": EXPECTED_ROLLOUTS,
         "artifact_policy": CONFIG["artifact_policy"], "levels": TASK_LEVELS,
@@ -229,6 +251,9 @@ def main():
                 label = f"L{level:02d}_seed{entry['seed']:07d}"
                 pair = (level, int(entry["seed"]))
                 row = read_existing("episodes/" + label + ".json")
+                reused = resume.lookup(level, pair[1], budget) if row is None and resume else None
+                if reused is not None:
+                    row, reused_reference = reused
                 if row is None:
                     row = video_episode(policy, env, entry, budget, CONTRACT, label=label,
                                         record_video=pair[1] in video_seeds[level])
@@ -240,7 +265,8 @@ def main():
                     seed=int(entry["seed"]), checkpoint_step=CONTRACT["checkpoint_step"], true_epoch=epoch,
                     budget_derived=bool(budget_info["derived"]), label=CONTRACT["label"], canonical_oec56=False,
                     initial_state=entry["initial_states"][CONFIG["domain"]["label"]])
-                details = write("episodes/" + label + ".json", row)
+                # Keep the original action trace/video and checksum for reused episodes.
+                details = reused_reference if reused is not None else write("episodes/" + label + ".json", row)
                 compact = {k: v for k, v in row.items() if k not in ["actions", "coverages", "replans", "initial_state", "static_contact_steps"]}
                 compact["details"] = details
                 results.append(compact); level_results.append(compact)

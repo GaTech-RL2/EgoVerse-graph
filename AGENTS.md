@@ -18,6 +18,11 @@ RGB caches use lossless Blosc/LZ4 frame indexing to bound storage and decoding.
 It keeps the policy checkout at the training commit and pins the evaluation
 harness separately. Simulator capsules must not shadow the graph's `egomimic`
 package; `planar_imports.py` checks both module locations before restoring weights.
+`launch_pusher_evaluation_scaled.py` partitions remaining levels across extra
+L40S workers. `planar_eval_resume.py` verifies the original configuration,
+checkpoint, normalizer, protocol and artifact hashes before reusing scores.
+Stop the superseded evaluation workers before starting overlapping partitions;
+keep their R2 artifacts. Verification-only smoke jobs never emit benchmark scores.
 Keep tests, resolved configurations, source manifests and preparation receipts
 outside this runtime branch, in `../pusher-holdout-20261012-artifacts/`.
 Do not launch the older four-source launcher with the new pusher recipes; its

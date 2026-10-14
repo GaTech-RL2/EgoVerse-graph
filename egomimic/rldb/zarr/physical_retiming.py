@@ -4,6 +4,8 @@ No images are interpolated. Callers retain the observation anchor and request
 sufficient raw futures. Out-of-range requests fail instead of silently padding.
 """
 
+import math
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation, Slerp
@@ -74,11 +76,14 @@ class PhysicalWindowRetiming:
         sample_views=5,
         timestamp_key=None,
         conditioning_input="retiming_multiplier",
+        allow_robot_augmentation=False,
     ):
         self.rates = tuple(float(r) for r in rates)
         self.fields = dict(fields)
         self.pose_keys = tuple(pose_keys)
-        self.required_frames = int(horizon)
+        self.output_frames = int(horizon)
+        self.allow_robot_augmentation = bool(allow_robot_augmentation)
+        self.required_frames = self.output_frames
         self.stride = int(stride)
         self.embodiment = embodiment
         self.sample_views = int(sample_views)
@@ -91,7 +96,7 @@ class PhysicalWindowRetiming:
         if (
             not self.rates
             or not np.isfinite(self.rates).all()
-            or any(r <= 0 or r > 1 for r in self.rates)
+            or any(r <= 0 or (r > 1 and not (embodiment == "robot" and self.allow_robot_augmentation)) for r in self.rates)
             or len(set(self.rates)) != len(self.rates)
             or self.sample_views < 1
             or self.sample_views % len(self.rates)
@@ -106,17 +111,26 @@ class PhysicalWindowRetiming:
         ):
             raise ValueError("invalid physical retiming contract")
         if embodiment not in {"human", "robot"} or (
-            embodiment == "robot" and self.rates != (1.0,)
+            embodiment == "robot" and self.rates != (1.0,) and not self.allow_robot_augmentation
         ):
             raise ValueError("robot trajectory must remain at1x")
         if embodiment == "human" and timestamp_key is None:
             raise ValueError("human recorded timestamps are mandatory")
+        if self.allow_robot_augmentation and embodiment != "robot":
+            raise ValueError("robot augmentation opt-in requires robot embodiment")
+        if self.allow_robot_augmentation:
+            self.required_frames = max(self.output_frames, math.ceil(max(self.rates) * (self.output_frames - 1)) + 1)
         self.required_keys = tuple(self.fields) + (
             (timestamp_key,) if timestamp_key else ()
         )
         self.fps = None
 
     def bind_episode(self, metadata, key_map):
+        if self.allow_robot_augmentation:
+            for key in self.required_keys:
+                if key not in key_map or key_map[key].get("horizon") not in (self.output_frames, self.required_frames):
+                    raise ValueError("robot retiming raw horizon must match its output contract")
+                key_map[key] = {**key_map[key], "horizon": self.required_frames}
         for key in self.required_keys:
             if (
                 key not in key_map
@@ -153,7 +167,7 @@ class PhysicalWindowRetiming:
             clock = np.arange(self.required_frames, dtype=np.float64) / self.fps
         if not np.isfinite(clock).all() or np.any(np.diff(clock) <= 0):
             raise ValueError("physical timestamps must be strictly increasing")
-        query = rate * clock
+        query = rate * clock[:self.output_frames]
         if query[-1] > clock[-1] or query[0] < clock[0]:
             raise ValueError("physical retiming cannot extrapolate")
         for key, kind in self.fields.items():
@@ -166,7 +180,7 @@ class PhysicalWindowRetiming:
                 ):
                     raise ValueError("invalid pose quaternion")
             if rate == 1.0:
-                batch[key] = value.copy()  # exact identity, preserving native values
+                batch[key] = value[:self.output_frames].copy()  # exact identity, preserving native values
             elif kind == "hold":
                 batch[key] = value[
                     np.searchsorted(clock, query, side="right") - 1
@@ -179,7 +193,7 @@ class PhysicalWindowRetiming:
                     clock, Rotation.from_quat(wxyz_to_xyzw(value[:, 3:]))
                 )(query).as_quat()
                 batch[key] = np.concatenate([xyz, xyzw_to_wxyz(quaternion)], axis=1)
-        offsets = np.arange(0, self.required_frames, self.stride)
+        offsets = np.arange(0, self.output_frames, self.stride)
         duration = clock[offsets[-1]] - clock[0]
         batch.pop("requested_speed", None)
         batch.pop("requested_speed_value", None)

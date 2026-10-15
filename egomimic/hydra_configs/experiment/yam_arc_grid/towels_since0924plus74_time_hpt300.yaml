@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/_base/towels_hpt300
+- override /data: abc_arc/towels_since0924plus74_20261015
+- override /model: e1/hpt300_flow_wrists_time
+- _self_
+towels_pool: since0924plus74
+e1:
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: ${e1.action_dim}
+logger:
+  wandb:
+    id: ${name}_20261015_s42

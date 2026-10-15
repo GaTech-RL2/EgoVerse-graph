@@ -15,6 +15,10 @@ this PR is not authorization to restart them or to bypass a training preflight.
 
 ## Configuration structure
 
+[ARC Projection](ARC_PROJECTION.md) adds duration and velocity model leaves
+whose single per-arm clock uses a point 2 cm along each end-effector-local axis.
+Its recipes inherit the existing BC infrastructure and frozen slowpace366 pool.
+
 All 50 existing stattempo experiment selectors remain available under
 `experiment/yam_arc_grid/`. Their shared parents are:
 

@@ -167,6 +167,11 @@ def audit_context(path):
         experiment = "yam_arc_grid/scratch_rl2_stattempo_fast_time"
     if name == "model/e1/hpt_flow_wrists_ft_arcdurevt":
         experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurevt_r360"
+    if "arc_projection" in name and group in {"model", "data"}:
+        variant = "vel" if name.endswith("_vel") else "dur"
+        experiment = (
+            f"yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_{variant}"
+        )
     if name in {
         "model/e1/hpt_flow_wrists_ft_arcdurref",
         "experiment/yam_arc_grid/_base/stattempo_reference",
@@ -350,7 +355,7 @@ if __name__ == "__main__":
     results = audit()
     args.output.write_text(json.dumps(results, indent=2) + "\n")
     failed = [r for r in results if r["status"] != "passed"]
-    print(f"{len(results)-len(failed)}/{len(results)} YAML configs resolved")
+    print(f"{len(results) - len(failed)}/{len(results)} YAML configs resolved")
     for row in failed:
         print(row["path"], row["error"].splitlines()[0])
     raise SystemExit(bool(failed))

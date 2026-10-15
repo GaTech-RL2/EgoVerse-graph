@@ -12,12 +12,18 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
     bimanual_arc_token_shape,
 )
+from egomimic.rldb.zarr.arc_projection_tokenizer import (
+    PROJECTION_LAYOUTS,
+    PROJECTION_OFFSET_M,
+    TokenizeBimanualArcProjection,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import (
     DEFAULT_ROTATION_DISTANCE_UNIT,
     TokenizeBimanualArcLengthE1,
 )
 
 E1_VELOCITY_MODE = {
+    **PROJECTION_LAYOUTS,
     "e1_dur": "dur",
     "e1_logdur": "logdur",
     "e1_profile": "profile",
@@ -30,7 +36,12 @@ E1_VELOCITY_MODE = {
     "e1_durref": "durref",
     "e1_stkref": "stkref",
 }
-E1_HYBRID_LAYOUTS = set(E1_VELOCITY_MODE) - {"e1_dur", "e1_logdur", "e1_profile"}
+E1_HYBRID_LAYOUTS = set(E1_VELOCITY_MODE) - {
+    "e1_dur",
+    "e1_logdur",
+    "e1_profile",
+    *PROJECTION_LAYOUTS,
+}
 ARC_TOKEN_LAYOUTS = ("lab", *E1_VELOCITY_MODE)
 
 
@@ -43,6 +54,8 @@ class BimanualArcDecoder:
         dt=1 / 30,
         action_horizon=100,
         rotation_distance_unit=None,
+        projection_offset_m=None,
+        projection_min_speed=1e-6,
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
@@ -66,10 +79,23 @@ class BimanualArcDecoder:
             kwargs["rotation_distance_unit"] = rotation_distance_unit
         elif rotation_distance_unit is not None:
             raise ValueError("A rotation distance requires an E1 hybrid token layout")
+        projection = token_layout in PROJECTION_LAYOUTS
+        if projection_offset_m is not None and not projection:
+            raise ValueError("projection_offset_m requires an ARC Projection layout")
+        codec_class = (
+            TokenizeBimanualArcProjection if projection else TokenizeBimanualArcLengthE1
+        )
+        if projection:
+            kwargs.update(
+                projection_offset_m=PROJECTION_OFFSET_M
+                if projection_offset_m is None
+                else projection_offset_m,
+                min_speed=projection_min_speed,
+            )
         self.codec = (
             TokenizeBimanualArcLengthCartesian(**kwargs)
             if token_layout == "lab"
-            else TokenizeBimanualArcLengthE1(
+            else codec_class(
                 **kwargs,
                 velocity_norm="path",
                 velocity_mode=E1_VELOCITY_MODE[token_layout],

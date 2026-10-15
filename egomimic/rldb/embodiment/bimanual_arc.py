@@ -10,6 +10,11 @@ from egomimic.rldb.embodiment.human import (
     _build_human_cartesian_eef_frame_transform_list,
     _pad_human_cartesian_gripper,
 )
+from egomimic.rldb.zarr.arc_projection_tokenizer import (
+    PROJECTION_OFFSET_M,
+    PROJECTION_VARIANTS,
+    TokenizeBimanualArcProjection,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
 VARIANTS = (
@@ -26,6 +31,7 @@ VARIANTS = (
     "arcvelevt",
     "arcdurref",
     "arcvelref",
+    *PROJECTION_VARIANTS,
 )
 VELOCITY_MODES = {
     "arcmean": "mean",
@@ -40,6 +46,7 @@ VELOCITY_MODES = {
     "arcvelevt": "stkevt",
     "arcdurref": "durref",
     "arcvelref": "stkref",
+    **PROJECTION_VARIANTS,
 }
 
 
@@ -103,11 +110,16 @@ def get_transform_list(
     source_fps: float = 30.0,
     yam_source_frames: int | None = None,
     rotation_distance_unit: float = 6.283185307179586,  # hybrid / tri / evt / ref variants only; see e1_arc_tokenizer
+    projection_offset_m=None,
+    projection_min_speed: float = 1e-6,
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+    projection = variant in PROJECTION_VARIANTS
+    if projection_offset_m is not None and not projection:
+        raise ValueError("projection_offset_m requires an ARC Projection variant")
     if embodiment == "human":
         tl = _build_human_cartesian_eef_frame_transform_list(
             stride=int(stride),
@@ -139,8 +151,21 @@ def get_transform_list(
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
     if variant != "time":
+        codec_class = (
+            TokenizeBimanualArcProjection if projection else TokenizeBimanualArcLengthE1
+        )
+        projection_kwargs = (
+            dict(
+                projection_offset_m=PROJECTION_OFFSET_M
+                if projection_offset_m is None
+                else projection_offset_m,
+                min_speed=projection_min_speed,
+            )
+            if projection
+            else {}
+        )
         tl.append(
-            TokenizeBimanualArcLengthE1(
+            codec_class(
                 action_key="actions_cartesian",
                 output_action_key="actions_cartesian",
                 min_distance_unit=float(min_distance_unit),
@@ -156,6 +181,7 @@ def get_transform_list(
                 progress_smooth_hz=progress_smooth_hz,
                 fixed_spacing=bool(fixed_spacing),
                 rotation_distance_unit=float(rotation_distance_unit),
+                **projection_kwargs,
             )
         )
     return tl

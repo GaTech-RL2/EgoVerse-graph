@@ -1,0 +1,25 @@
+# @package _global_
+# ARC Projection on the maintained stattempo BC recipe; whole-token tick-prefix scoring.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_openloop
+- override /model: e1/hpt_flow_wrists_ft_arc_projection
+- override /data: abc_arc/stationery_slowpace366_bc_arc_projection
+- _self_
+name: bc_rl2_stattempo_slowpace366_${model.projection_variant}
+description: h640t8_d384x10_cos10k_240k_s42_${name}
+e1:
+  variant: ${model.projection_variant}
+  action_dim: 16
+hpt:
+  action_dim: 16
+evaluator:
+  action_mode: arc
+  token_layout: ${model.projection_layout}
+  tick_prefix: true
+  arc_video_trajectory_cap_mode: execution_horizon
+  projection_offset_m: ${model.projection_offset_m}
+  projection_min_speed: ${model.projection_min_speed}
+logger:
+  wandb:
+    id: ${name}_20261015_s42
+    tags: [rl2, stationery, stattempo, slowpace366, bc, arc_projection]

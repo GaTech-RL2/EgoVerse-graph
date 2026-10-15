@@ -1021,6 +1021,14 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         )
 
     # -- one arm, parent semantics of ArcLengthTokenizer.tokenize_at(t=0) -----
+    def progress_coordinates(self, pos: np.ndarray, ypr: np.ndarray) -> np.ndarray:
+        """Geometric path used for a single stream's support placement and clock.
+
+        Pose values remain at the end effector. Subclasses may measure progress
+        at another rigidly attached point, including during decode.
+        """
+        return pos
+
     def _tokenize_arm(self, arm: np.ndarray):
         """arm: (T, 7) [xyz ypr grip] → (waypoints (M, 7), mean velocity (3,), num_steps, span)."""
         cfg = self.tokenizer.config
@@ -1028,7 +1036,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         pos_raw, ypr, grip = arm[:, 0:3], arm[:, 3:6], arm[:, 6:7]
         pos = self._progress_positions(pos_raw)
         n = len(pos)
-        cum = cumulative_arc_length(pos)
+        cum = cumulative_arc_length(self.progress_coordinates(pos, ypr))
         end_s = min(D, float(cum[-1]))
         end_idx = int(np.searchsorted(cum, end_s, side="right") - 1)
         end_idx = max(0, min(end_idx, n - 1))
@@ -1149,8 +1157,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
         if self.wide:
             prof = np.zeros((M, 2), dtype=np.float64)
-            for k, (xyz_off, _, _, _) in enumerate(ARM_LAYOUT):
+            for k, (xyz_off, ypr_off, _, _) in enumerate(ARM_LAYOUT):
                 pos = self._progress_positions(chunk[:, xyz_off : xyz_off + 3])
+                pos = self.progress_coordinates(pos, chunk[:, ypr_off : ypr_off + 3])
                 cum = cumulative_arc_length(pos)
                 span = spans[k]
                 if span <= 1e-8 or len(pos) < 2:
@@ -1253,7 +1262,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             xyz_wp = arc[:M, xyz_off : xyz_off + 3]
             ypr_wp = arc[:M, ypr_off : ypr_off + 3]
             grip_wp = arc[:M, grip_off : grip_off + 1]
-            cum = cumulative_arc_length(xyz_wp)
+            cum = cumulative_arc_length(self.progress_coordinates(xyz_wp, ypr_wp))
             total = float(cum[-1])
             if profile:
                 degenerate = total < 1e-9
@@ -1323,8 +1332,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         arc = np.asarray(arc_actions, dtype=np.float64)
         M = arc.shape[0] if self.wide else arc.shape[0] - 1
         out = []
-        for k, (xyz_off, _, _, vsl) in enumerate(ARM_LAYOUT):
-            cum = cumulative_arc_length(arc[:M, xyz_off : xyz_off + 3])
+        for k, (xyz_off, ypr_off, _, vsl) in enumerate(ARM_LAYOUT):
+            cum = cumulative_arc_length(
+                self.progress_coordinates(
+                    arc[:M, xyz_off : xyz_off + 3], arc[:M, ypr_off : ypr_off + 3]
+                )
+            )
             if self.wide:
                 out.append(self._wide_clock(arc[:, 14 + k], cum))
             else:

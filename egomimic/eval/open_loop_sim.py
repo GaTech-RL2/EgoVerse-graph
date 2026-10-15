@@ -970,7 +970,10 @@ def arc_prefix_control_steps(
 # tri layouts (M, 20) add a gripper column per arm), and their row M-1 is each
 # stream's start delay rather than an interval.
 E1_WIDE_TOKEN_DIM = 16
+E1_PROJECTION_LAYOUTS = ("e1_projection_dur", "e1_projection_vel")
 E1_WIDE_VELOCITY_MODE = {
+    "e1_projection_dur": "dur",
+    "e1_projection_vel": "profile",
     "e1_dur": "dur",
     "e1_logdur": "logdur",
     "e1_profile": "profile",
@@ -991,8 +994,8 @@ E1_HYBRID_LAYOUTS = ("e1_durhyb", "e1_profhyb", *E1_TRI_LAYOUTS)
 E1_EVT_LAYOUTS = ("e1_durevt", "e1_stkevt")
 # Reference two-clock layouts (M, 24): rotation6d in the token, decoded to the canonical ZYX Euler chunk.
 E1_REF_LAYOUTS = ("e1_durref", "e1_stkref")
-# Layouts with no row cut: decoded whole and scored on the tick prefix only; robot/arc_decoder.py knows none of them.
-E1_WHOLE_TOKEN_LAYOUTS = (*E1_EVT_LAYOUTS, *E1_REF_LAYOUTS)
+# Layouts with no row cut: decoded whole and scored on the tick prefix only.
+E1_WHOLE_TOKEN_LAYOUTS = (*E1_EVT_LAYOUTS, *E1_REF_LAYOUTS, *E1_PROJECTION_LAYOUTS)
 # Layouts whose timing columns hold speeds: the ones ``e1_speed_floors`` applies to.
 E1_SPEED_LAYOUTS = ("e1_profhyb", "e1_proftri", "e1_stkevt", "e1_stkref")
 TOKEN_LAYOUTS = ("lab", *E1_WIDE_VELOCITY_MODE)
@@ -1143,6 +1146,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         arc_chunking_mode: str | None = None,
         tick_prefix: bool = False,
         e1_speed_floors: Sequence[float] | None = None,
+        projection_offset_m: Sequence[float] | None = None,
+        projection_min_speed: float = 1e-6,
         **kwargs,
     ):
         mode = str(action_mode)
@@ -1228,6 +1233,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if self.log_step is not None and self.log_step < 0:
             raise ValueError("log_step must be nonnegative")
         self.token_layout = str(token_layout)
+        if (
+            projection_offset_m is not None
+            and self.token_layout not in E1_PROJECTION_LAYOUTS
+        ):
+            raise ValueError("projection_offset_m requires an ARC Projection layout")
+        self.projection_offset_m = projection_offset_m
+        self.projection_min_speed = projection_min_speed
         self.tick_prefix = (
             bool(tick_prefix) or self.token_layout in E1_WHOLE_TOKEN_LAYOUTS
         )
@@ -2037,19 +2049,35 @@ class OpenLoopSimEval(BimanualCartesianEval):
         )
 
     def _e1_tokenizer(self, layout: str, speed_floors=None):
+        from egomimic.rldb.zarr.arc_projection_tokenizer import (
+            PROJECTION_OFFSET_M,
+            TokenizeBimanualArcProjection,
+        )
         from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
+
+        codec_class = TokenizeBimanualArcLengthE1
+        projection_kwargs = {}
+        if layout in E1_PROJECTION_LAYOUTS:
+            codec_class = TokenizeBimanualArcProjection
+            projection_kwargs = dict(
+                projection_offset_m=PROJECTION_OFFSET_M
+                if self.projection_offset_m is None
+                else self.projection_offset_m,
+                min_speed=self.projection_min_speed,
+            )
 
         # Built exactly as robot/arc_decoder.BimanualArcDecoder builds the same
         # layout, so the scored decode is the deployed decode. That holds without
         # ``speed_floors`` only: a tick tokenizer with floors is NOT the station
         # decode (no robot decoder has them yet).
-        return TokenizeBimanualArcLengthE1(
+        return codec_class(
             min_distance_unit=self.min_distance_unit,
             resampled_vector_length=self.resampled_vector_length,
             dt=self.control_dt,
             velocity_norm="path",
             velocity_mode=E1_WIDE_VELOCITY_MODE[layout],
             speed_floors=speed_floors,
+            **projection_kwargs,
         )
 
     def _decode_tick_prefix(self, prediction: np.ndarray, steps: int) -> np.ndarray:
@@ -2608,7 +2636,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     else None
                 ),
                 "replan_stride_mode": (
-                    f"arc_{self.arc_execution_cap_mode}_timing"
+                    "fixed_control_frames"
+                    if layout in E1_PROJECTION_LAYOUTS
+                    else f"arc_{self.arc_execution_cap_mode}_timing"
                     if self.action_mode == "arc"
                     else "fixed_control_frames"
                 ),
@@ -2651,6 +2681,20 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 },
             }
         )
+        if layout in E1_PROJECTION_LAYOUTS:
+            # Projection executes a fixed tick prefix, regardless of inherited
+            # XYZ waypoint/distance cap settings.
+            results.update(
+                execute_control_steps=self.execute_steps,
+                arc_execution_cap_mode=None,
+                execute_arc_distance_m=None,
+                arc_distance_semantics=None,
+            )
+            results["projection"] = {
+                "progress_metric": "end_effector_local_projected_point",
+                "offset_m": self._tick_tokenizer.projection_offset_m.tolist(),
+                "min_speed_m_s": self._tick_tokenizer.min_speed,
+            }
         return results
 
     def _metric_tensors(self, results: dict[str, Any]) -> dict[str, torch.Tensor]:

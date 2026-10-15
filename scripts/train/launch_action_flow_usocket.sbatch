@@ -129,7 +129,7 @@ fi
 if test "$AF_EXPERIMENT" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42; then
   test "$AF_LAUNCH_MODE" != schema || die "joint route uses typed preflight, not historical native schema"
   test -z "${AF_INITIAL_CHECKPOINT:-}" || die "joint fresh launch cannot use historical resume adapter"
-  if test -z "${SLURM_STEP_ID:-}"; then
+  if test -z "${SLURM_STEP_ID:-}" || test "$SLURM_STEP_ID" = batch; then
     required SLURM_JOB_ID; required SLURM_CPUS_PER_TASK
     exec srun --overlap --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --gres=none /usr/bin/env bash "$LAUNCHER"
   fi

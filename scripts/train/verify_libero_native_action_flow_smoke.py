@@ -92,6 +92,7 @@ def validate_joint_checkpoint_context(payload, cfg):
         joint_profile_for_config,
     )
     from egomimic.pipeline.checkpoint_binding import validate_checkpoint_binding
+    from egomimic.pl_utils.data_context import state_fingerprint
     from egomimic.rldb.zarr.data_module import load_data_context
 
     config = (
@@ -158,7 +159,8 @@ def validate_joint_checkpoint_context(payload, cfg):
             "joint checkpoint provenance differs: " + key,
         )
     require(
-        payload.get("data_context") == state,
+        isinstance(payload.get("data_context"), dict)
+        and state_fingerprint(payload["data_context"]) == state_fingerprint(state),
         "joint checkpoint full data context differs",
     )
     binding = validate_checkpoint_binding(payload, config, context)

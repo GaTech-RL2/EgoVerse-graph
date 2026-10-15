@@ -226,6 +226,17 @@ def test_joint_operational_split_materializes_450_50_and_rejects_wrong_binding(
         ]
         == checkpoint["inference_binding"]
     )
+    # Native checkpoints keep integer embodiment keys/tuples; JSON exports do not.
+    native_context = copy.deepcopy(checkpoint["data_context"])
+    native_context["normalizer_state"] = restored_context.normalizer.to_state()
+    assert native_context != checkpoint["data_context"]
+    checkpoint["data_context"] = native_context
+    assert (
+        validate_joint_checkpoint_context(checkpoint, checkpoint_config)[
+            "checkpoint_binding"
+        ]
+        == checkpoint["inference_binding"]
+    )
     wrong_checkpoint = copy.deepcopy(checkpoint)
     wrong_checkpoint["data_context"].pop("preprocessing")
     with pytest.raises(ValueError, match="full data context differs"):

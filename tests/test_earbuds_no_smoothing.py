@@ -33,3 +33,12 @@ def test_recipe_keeps_frozen_split_model_and_budget():
         transforms = instantiate(new.data[split].yam_bimanual.resolver.transform_list)
         assert transforms[-1].speed_smooth_frames == 1
         assert transforms[-1].progress_smooth_hz is None
+
+
+def test_stationery_recipe_drops_only_speed_smoothing():
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_nosmooth")
+    assert cfg.evaluator.token_layout == "e1_profile"
+    for split in ("train_datasets", "valid_datasets"):
+        transforms = instantiate(cfg.data[split].yam_bimanual.resolver.transform_list)
+        assert transforms[-1].speed_smooth_frames == 1
+        assert transforms[-1].velocity_mode == "profile"

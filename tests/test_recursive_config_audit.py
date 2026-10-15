@@ -6,6 +6,36 @@ from scripts.audit_components import audit_components
 from scripts.audit_hydra_configs import CONFIGS, audit
 
 
+def test_diagnostic_constructor_fixture_preserves_production_seed_binding():
+    import hashlib
+    from pathlib import Path
+
+    from omegaconf import OmegaConf
+
+    from scripts.audit_constructor_inputs import evaluator_inputs
+
+    config = OmegaConf.create(
+        {
+            "_target_": "egomimic.eval.planar_action_eval.PlanarActionEval",
+            "action_flow_diagnostics": {
+                "noise_seed_bank_path": "/production/diagnostic-seeds.json",
+                "noise_seed_bank_sha256": "a" * 64,
+            },
+        }
+    )
+    original = OmegaConf.to_container(config, resolve=True)
+    inputs, evidence = evaluator_inputs(config)
+    diagnostics = inputs["action_flow_diagnostics"]
+    assert OmegaConf.to_container(config, resolve=True) == original
+    assert (
+        hashlib.sha256(
+            Path(diagnostics["noise_seed_bank_path"]).read_bytes()
+        ).hexdigest()
+        == diagnostics["noise_seed_bank_sha256"]
+    )
+    assert "UNVERIFIED" in evidence["external_binding"]
+
+
 def test_every_shipped_yaml_composes_and_resolves():
     previous = HydraConfig.instance().cfg
     records = audit()

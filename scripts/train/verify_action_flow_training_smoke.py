@@ -29,6 +29,7 @@ from omegaconf import DictConfig, OmegaConf
 # ``python scripts/train/...`` otherwise places only ``scripts/train`` on the
 # import path.  Resolve imports from the exact checkout being verified.
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+VERIFIER_PROVENANCE = None
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -270,7 +271,8 @@ def _resolve_normalization_path(value: Any, *, relative_to: Path) -> Path:
     return path
 
 
-def _git_head(repository_root: Path = REPOSITORY_ROOT) -> str:
+def _git_head(repository_root: Path | None = None) -> str:
+    repository_root = repository_root or REPOSITORY_ROOT
     result = subprocess.run(
         ["git", "-C", str(repository_root), "rev-parse", "HEAD"],
         check=False,
@@ -1180,10 +1182,20 @@ def _validate_optimizer_state(optimizer_state: Any, config: DictConfig | None) -
     )
 
 
-def _joint_smoke_checkpoint_path(checkpoint_dir):
-    """Use the unique immutable step-eight save; joint runs have no rolling last."""
+def _joint_smoke_checkpoint_path(checkpoint_dir, config=None):
+    """Select the cadence save; separately classify the configured EMA terminal."""
+    terminal = checkpoint_dir / "last.ckpt"
+    configured_terminal = (
+        config is not None
+        and _select(config, "callbacks.model_checkpoint.save_last") is False
+        and _select(config, "callbacks.ema._target_")
+        == "egomimic.pl_utils.oat_matched_training.ActionFlowFixedEMACallback"
+        and _select(config, "callbacks.ema.final_checkpoint_path") == str(terminal)
+        and terminal.is_file()
+        and not terminal.is_symlink()
+    )
     _require(
-        not (checkpoint_dir / "last.ckpt").exists(),
+        not terminal.exists() or configured_terminal,
         "joint smoke must not publish rolling last.ckpt",
     )
     candidates = [
@@ -1256,7 +1268,7 @@ def _validate_checkpoint(
         )
     checkpoint_dir = run_dir / "checkpoints"
     last_path = (
-        _joint_smoke_checkpoint_path(checkpoint_dir)
+        _joint_smoke_checkpoint_path(checkpoint_dir, config)
         if joint
         else checkpoint_dir / "last.ckpt"
     )
@@ -1485,6 +1497,17 @@ def _validate_checkpoint(
         "gradient_routes": gradient_routes,
         "global_step": expected_optimizer_steps,
         **({"joint_context": joint_context, "joint_ema": joint_ema} if joint else {}),
+        **(
+            {
+                "preserved_ema_terminal": {
+                    "path": str(checkpoint_dir / "last.ckpt"),
+                    "sha256": _sha256(checkpoint_dir / "last.ckpt"),
+                    "role": "configured_on_train_end_save_not_selected_cadence",
+                }
+            }
+            if joint and (checkpoint_dir / "last.ckpt").exists()
+            else {}
+        ),
         "loss_schedule": loss_schedule,
         "likelihood_contract": likelihood_contract,
         "immutable_checkpoint_path": str(immutable_path),
@@ -2593,12 +2616,85 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-reconstruction-weight", type=float)
     parser.add_argument("--expected-flow-weight", type=float)
     parser.add_argument("--expected-preflight-sha256")
+    parser.add_argument("--training-repo", type=Path)
+    parser.add_argument("--expected-verifier-head")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    global REPOSITORY_ROOT, VERIFIER_PROVENANCE
     args = _parser().parse_args(argv)
     try:
+        if args.training_repo is not None:
+            _require(
+                args.experiment
+                == "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                "separate verifier source requires explicit joint route",
+            )
+            verifier_root = REPOSITORY_ROOT
+            verifier_head = _git_head(verifier_root)
+            _require(
+                verifier_head == args.expected_verifier_head, "verifier HEAD mismatch"
+            )
+            _require(
+                not subprocess.check_output(
+                    [
+                        "git",
+                        "-C",
+                        str(verifier_root),
+                        "status",
+                        "--porcelain",
+                        "--untracked-files=all",
+                    ],
+                    text=True,
+                ),
+                "verifier source must be clean",
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(verifier_root),
+                    "merge-base",
+                    "--is-ancestor",
+                    args.expected_head,
+                    verifier_head,
+                ],
+                check=True,
+            )
+            changed = set(
+                subprocess.check_output(
+                    [
+                        "git",
+                        "-C",
+                        str(verifier_root),
+                        "diff",
+                        "--name-only",
+                        args.expected_head,
+                        verifier_head,
+                    ],
+                    text=True,
+                ).splitlines()
+            )
+            allowed = {
+                "egomimic/benchmarks/libero/saved_hydra_context.py",
+                "scripts/train/verify_action_flow_training_smoke.py",
+                "scripts/train/verify_libero_native_action_flow_smoke.py",
+                "tests/test_libero_saved_hydra_context.py",
+            }
+            _require(
+                changed <= allowed,
+                "separate verifier revision changes training implementation",
+            )
+            REPOSITORY_ROOT = args.training_repo.resolve(strict=True)
+            _require(_git_head() == args.expected_head, "training HEAD mismatch")
+            VERIFIER_PROVENANCE = dict(
+                repository=str(verifier_root),
+                source_commit=verifier_head,
+                training_repository=str(REPOSITORY_ROOT),
+                training_source_commit=args.expected_head,
+                changed_paths=sorted(changed),
+            )
         result = verify_smoke(
             args.run_dir,
             experiment=args.experiment,

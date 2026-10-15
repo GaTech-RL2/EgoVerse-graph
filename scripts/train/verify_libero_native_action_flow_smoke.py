@@ -834,6 +834,8 @@ def verify_joint_smoke(
         history=history,
         strict_online_and_alias_safe_ema_reload=True,
     )
+    if getattr(shared, "VERIFIER_PROVENANCE", None) is not None:
+        result["verifier_provenance"] = shared.VERIFIER_PROVENANCE
     rendered = json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + "\n"
     destination = run_dir / "SMOKE_RESULT.json"
     if destination.exists():

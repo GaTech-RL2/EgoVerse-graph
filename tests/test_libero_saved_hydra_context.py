@@ -133,3 +133,111 @@ def test_context_rejects_identity_drift(tmp_path, monkeypatch, fault):
         pytest.raises(ValueError),
     ):
         load_saved_native_config(run, repo)
+
+
+@pytest.mark.parametrize("fault", [None, "context", "source", "resolver"])
+def test_joint_saved_context_uses_complete_context_without_historical_binding(
+    tmp_path, monkeypatch, fault
+):
+    import hydra
+
+    from egomimic.benchmarks.libero.native_launch_profiles import joint_phase_argv
+
+    repo = Path(__file__).resolve().parents[1]
+    run = tmp_path / "joint"
+    (run / ".hydra").mkdir(parents=True)
+    context = tmp_path / "context.json"
+    split = tmp_path / "split.json"
+    context.write_text("{}")
+    split.write_text("{}")
+
+    def sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    args = dict(
+        source_root=str(repo),
+        original_root=str(tmp_path / "original"),
+        sharpa_root=str(tmp_path / "sharpa"),
+        output_root=str(run),
+        context_path=str(context),
+        split_path=str(split),
+        split_sha256=sha(split),
+        normalization_sha256=sha(context),
+        source_commit="c" * 40,
+        diagnostic_seed_bank=str(tmp_path / "seeds.json"),
+        wandb_entity="test",
+        wandb_project="test",
+        wandb_run_id="joint",
+    )
+    with hydra.initialize_config_dir(
+        version_base="1.2", config_dir=str(repo / "egomimic/hydra_configs")
+    ):
+        cfg = hydra.compose(
+            config_name="train_zarr_cartesian",
+            return_hydra_config=True,
+            overrides=joint_phase_argv(phase="smoke", **args)[1:]
+            + ["hydra/launcher=basic"],
+        )
+        cfg.hydra.runtime.cwd = str(repo)
+        cfg.hydra.runtime.output_dir = str(run)
+        HydraConfig.instance().set_config(cfg)
+        payload = OmegaConf.to_container(
+            OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True
+        )
+        saved = OmegaConf.to_container(cfg.hydra, resolve=False)
+    if fault == "context":
+        context.write_text("changed")
+    if fault == "source":
+        payload["run_provenance"]["source_commit"] = "wrong"
+    if fault == "resolver":
+        payload["data"]["valid_datasets"]["libero_panda_sharpa"]["resolver"][
+            "folder_path"
+        ] = "/wrong"
+    OmegaConf.save(OmegaConf.create(payload), run / ".hydra/config.yaml")
+    OmegaConf.save(OmegaConf.create({"hydra": saved}), run / ".hydra/hydra.yaml")
+    with patch("subprocess.check_output", return_value="c" * 40 + "\n"):
+        if fault:
+            with pytest.raises(ValueError):
+                load_saved_native_config(run, repo)
+        else:
+            loaded = load_saved_native_config(run, repo)
+            assert OmegaConf.to_container(loaded, resolve=True) == payload
+
+
+@pytest.mark.parametrize("fault", [None, "rolling", "wrong_callback", "wrong_path"])
+def test_joint_checkpoint_distinguishes_configured_terminal_from_rolling_alias(
+    tmp_path, fault
+):
+    from scripts.train.verify_action_flow_training_smoke import (
+        _joint_smoke_checkpoint_path,
+    )
+
+    cadence = tmp_path / "epoch-0000-step-000000008.ckpt"
+    terminal = tmp_path / "last.ckpt"
+    cadence.write_bytes(b"cadence")
+    terminal.write_bytes(b"terminal")
+    cfg = OmegaConf.create(
+        {
+            "callbacks": {
+                "model_checkpoint": {"save_last": False},
+                "ema": {
+                    "_target_": "egomimic.pl_utils.oat_matched_training.ActionFlowFixedEMACallback",
+                    "final_checkpoint_path": str(terminal),
+                },
+            }
+        }
+    )
+    if fault == "rolling":
+        cfg.callbacks.model_checkpoint.save_last = True
+    if fault == "wrong_callback":
+        cfg.callbacks.ema._target_ = "unknown.Callback"
+    if fault == "wrong_path":
+        cfg.callbacks.ema.final_checkpoint_path = "/wrong"
+    if fault:
+        with pytest.raises(Exception, match="rolling last"):
+            _joint_smoke_checkpoint_path(tmp_path, cfg)
+    else:
+        assert _joint_smoke_checkpoint_path(tmp_path, cfg) == cadence
+        assert terminal.read_bytes() == b"terminal"
+    with pytest.raises(Exception, match="rolling last"):
+        _joint_smoke_checkpoint_path(tmp_path)

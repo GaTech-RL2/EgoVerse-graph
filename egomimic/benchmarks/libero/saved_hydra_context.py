@@ -11,7 +11,11 @@ import re
 import subprocess
 from pathlib import Path
 
-from .native_launch_profiles import profile_for_config
+from .native_launch_profiles import (
+    SPATIAL_HAND_JOINT_PROFILE,
+    joint_profile_for_config,
+    profile_for_config,
+)
 
 
 def require(condition, message):
@@ -57,7 +61,8 @@ def load_saved_native_config(run_dir, repo=None):
     config = OmegaConf.load(root / ".hydra/config.yaml")
     saved = OmegaConf.load(root / ".hydra/hydra.yaml")
     literal = OmegaConf.to_container(config, resolve=False)
-    profile = profile_for_config(config)
+    joint = literal.get("name") == SPATIAL_HAND_JOINT_PROFILE.name
+    profile = None if joint else profile_for_config(config)
     require(
         str(saved.hydra.runtime.cwd) == str(repo), "saved Hydra cwd/source mismatch"
     )
@@ -75,6 +80,63 @@ def load_saved_native_config(run_dir, repo=None):
         literal["run_provenance"]["source_commit"] == head,
         "saved task/source HEAD mismatch",
     )
+    if joint:
+        # Joint snapshots carry a complete context and physical split, rather
+        # than the historical single-body native_saved_state_binding envelope.
+        provenance = literal["run_provenance"]
+        checked_json(
+            provenance["split_manifest_path"], provenance["split_manifest_sha256"]
+        )
+        checked_json(
+            literal["norm_stats"]["precomputed_norm_path"],
+            provenance["normalization_sha256"],
+        )
+        references = set(
+            re.findall(
+                r"\$\{oc\.env:([A-Za-z_][A-Za-z0-9_]*)", OmegaConf.to_yaml(config)
+            )
+        )
+        require(
+            not references, "joint saved config requires literal environment inputs"
+        )
+        typed = OmegaConf.structured(HydraConf)
+        with open_dict(typed):
+            typed.merge_with(saved.hydra)
+        before = OmegaConf.to_container(saved.hydra, resolve=False, enum_to_str=True)
+        after = OmegaConf.to_container(typed, resolve=False, enum_to_str=True)
+        require(
+            all(after.get(k) == v for k, v in before.items()),
+            "saved Hydra fields changed",
+        )
+        setup_globals()
+        HydraConfig.instance().set_config(
+            OmegaConf.merge(config, OmegaConf.create({"hydra": typed}))
+        )
+        payload = OmegaConf.to_container(config, resolve=True)
+        joint_profile_for_config(payload)
+        for source, key in (
+            ("libero_panda", "dataset"),
+            ("libero_panda_sharpa", "sharpa_dataset"),
+        ):
+            replay = payload["benchmark"][key]
+            require(
+                isinstance(replay, str) and Path(replay).is_absolute(),
+                "joint replay root must be absolute",
+            )
+            for group in ("train_datasets", "valid_datasets"):
+                require(
+                    payload["data"][group][source]["resolver"]["folder_path"] == replay,
+                    "joint resolved replay root mismatch",
+                )
+        require(
+            payload["evaluator"]["seed_bank_path"]
+            == str(
+                repo
+                / "egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json"
+            ),
+            "saved seed-bank context mismatch",
+        )
+        return config
     binding = literal["norm_stats"]["native_saved_state_binding"]
     require(binding["source_commit"] == head, "saved binding/source HEAD mismatch")
     replay = binding["data_root"]

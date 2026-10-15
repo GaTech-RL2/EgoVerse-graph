@@ -26,14 +26,20 @@ def resolve_backbones(module):
         "ContentDecoderStage",
         "ActionFlowObjectiveStage",
     )
-    routed_encoders = [stage for stage in stages if type(stage).__name__ == "RoutedContentEncoderStage"]
-    shared_fields = [stage for stage in stages if type(stage).__name__ == "ConditionalVelocityStage"]
+    routed_encoders = [
+        stage for stage in stages if type(stage).__name__ == "RoutedContentEncoderStage"
+    ]
+    shared_fields = [
+        stage for stage in stages if type(stage).__name__ == "ConditionalVelocityStage"
+    ]
     if len(routed_encoders) == len(shared_fields) == 1:
         encoders = routed_encoders[0].encoder
         if len(encoders) < 2:
             raise ValueError("routed checkpoint policy requires private encoders")
-        return {**{"encoder/" + name: module.backbone for name, module in encoders.items()},
-                "velocity": shared_fields[0].field.backbone}
+        return {
+            **{"encoder/" + name: module.backbone for name, module in encoders.items()},
+            "velocity": shared_fields[0].field.backbone,
+        }
     if native:
         encoder, velocity = stages[4], stages[6]
     elif oat:
@@ -47,9 +53,15 @@ def resolve_backbones(module):
 
 class HalfCheckpointScope:
     def __init__(self, native_module, backbones, expected_depth=12):
-        encoders = {name for name in backbones if name == "encoder" or name.startswith("encoder/")}
+        encoders = {
+            name
+            for name in backbones
+            if name == "encoder" or name.startswith("encoder/")
+        }
         if not encoders or set(backbones) != encoders | {"velocity"}:
-            raise ValueError("private encoder DiTs plus exactly one shared velocity owner required")
+            raise ValueError(
+                "private encoder DiTs plus exactly one shared velocity owner required"
+            )
         self.native_module = native_module
         self.original = None
         self.inventory = {}
@@ -105,7 +117,9 @@ class LiberoDiTHalf(Callback):
     def __init__(self, source_batch_sizes=None):
         self.scope = None
         self.source_batch_sizes = dict(source_batch_sizes or {"libero_panda": 32})
-        if not self.source_batch_sizes or any(type(v) is not int or v <= 0 for v in self.source_batch_sizes.values()):
+        if not self.source_batch_sizes or any(
+            type(v) is not int or v <= 0 for v in self.source_batch_sizes.values()
+        ):
             raise ValueError("positive declared batch size required for every source")
 
     def on_fit_start(self, trainer, module):
@@ -122,7 +136,9 @@ class LiberoDiTHalf(Callback):
             raise ValueError("LIBERO source identities differ from checkpoint policy")
         for name, size in self.source_batch_sizes.items():
             if batch[name]["actions"].shape[0] != size:
-                raise ValueError("LIBERO per-source batch differs from checkpoint policy")
+                raise ValueError(
+                    "LIBERO per-source batch differs from checkpoint policy"
+                )
         self.before = dict(self.scope.counts)
 
     def on_train_batch_end(self, trainer, module, outputs, batch, batch_idx):

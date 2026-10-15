@@ -238,21 +238,34 @@ def test_retired_and_parent_selectors_fail_before_runtime(selector):
     assert "must-not-execute" not in completed.stderr
 
 
-@pytest.mark.parametrize("mode,step,message", [
-    ("schema", "0", "typed preflight"),
-    ("run", "extern", "numeric scheduled step"),
-    ("run", "0", "AF_JOINT_PHASE_INPUTS"),
-])
-def test_joint_canonical_route_rejects_missing_operational_identity_before_runtime(mode, step, message):
+@pytest.mark.parametrize(
+    "mode,step,message",
+    [
+        ("schema", "0", "typed preflight"),
+        ("run", "extern", "numeric scheduled step"),
+        ("run", "0", "AF_JOINT_PHASE_INPUTS"),
+    ],
+)
+def test_joint_canonical_route_rejects_missing_operational_identity_before_runtime(
+    mode, step, message
+):
     required = _source().split("for variable in ", 1)[1].split("; do", 1)[0]
     variables = required.replace("\\", " ").split()
     env = {key: value for key, value in os.environ.items() if not key.startswith("AF_")}
     env.update(dict.fromkeys(variables, "fixture"))
-    env.update(AF_REPO=str(ROOT),
+    env.update(
+        AF_REPO=str(ROOT),
         AF_EXPERIMENT="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
-        AF_PYTHON="/must-not-execute", AF_LAUNCH_MODE=mode, AF_RUN_KIND="smoke",
-        AF_EXPECTED_MEMORY="128G", AF_EXPECTED_TIME_LIMIT="1:00:00", SLURM_STEP_ID=step)
-    result = subprocess.run(["bash", str(LAUNCHER)], env=env, capture_output=True, text=True)
+        AF_PYTHON="/must-not-execute",
+        AF_LAUNCH_MODE=mode,
+        AF_RUN_KIND="smoke",
+        AF_EXPECTED_MEMORY="128G",
+        AF_EXPECTED_TIME_LIMIT="1:00:00",
+        SLURM_STEP_ID=step,
+    )
+    result = subprocess.run(
+        ["bash", str(LAUNCHER)], env=env, capture_output=True, text=True
+    )
     assert result.returncode != 0
     assert message in result.stderr
     assert "must-not-execute" not in result.stderr

@@ -38,26 +38,39 @@ def test_step_budget_honors_first_limit(epochs, max_steps, expected):
 
 
 def test_joint_budget_matches_actual_cycling_loader_and_preserves_both_sources():
-    from torch.utils.data import DataLoader
     from lightning.pytorch.utilities.combined_loader import CombinedLoader
+    from torch.utils.data import DataLoader
 
     datasets = {"original": range(83), "sharpa": range(37)}
     params = {name: {"batch_size": 16, "drop_last": True} for name in datasets}
     trainer = SimpleNamespace(
-        datamodule=SimpleNamespace(train_datasets=datasets,
-            train_dataloader_params=params, train_loader_mode="max_size_cycle"),
-        accumulate_grad_batches=1, world_size=1, limit_train_batches=1.0,
-        max_epochs=-1, max_steps=120000, is_global_zero=False,
+        datamodule=SimpleNamespace(
+            train_datasets=datasets,
+            train_dataloader_params=params,
+            train_loader_mode="max_size_cycle",
+        ),
+        accumulate_grad_batches=1,
+        world_size=1,
+        limit_train_batches=1.0,
+        max_epochs=-1,
+        max_steps=120000,
+        is_global_zero=False,
     )
-    callback = OATBatchBudgetCallback(global_batch_size=32,
-        expected_source_batches={"original": 16, "sharpa": 16})
+    callback = OATBatchBudgetCallback(
+        global_batch_size=32, expected_source_batches={"original": 16, "sharpa": 16}
+    )
     callback.on_fit_start(trainer, None)
-    loader = CombinedLoader({name: DataLoader(data, **params[name])
-        for name, data in datasets.items()}, "max_size_cycle")
+    loader = CombinedLoader(
+        {name: DataLoader(data, **params[name]) for name, data in datasets.items()},
+        "max_size_cycle",
+    )
     seen = list(loader)
     assert trainer.limit_train_batches == len(seen) == 5
-    assert all({name: len(batch) for name, batch in item[0].items()}
-               == {"original": 16, "sharpa": 16} for item in seen)
+    assert all(
+        {name: len(batch) for name, batch in item[0].items()}
+        == {"original": 16, "sharpa": 16}
+        for item in seen
+    )
     assert callback.budget["total_optimizer_steps"] == 120000
     assert callback.budget["global_batch_size"] == 32
     params["sharpa"]["batch_size"] = 8
@@ -159,26 +172,43 @@ def test_pilot_arguments_compose_matched_budget_and_checkpoint_policy(
 
 
 def test_early_recovery_save_has_full_state_and_refuses_overwrite(tmp_path):
-    from types import SimpleNamespace
-    from egomimic.pl_utils.oat_training import EarlyRecoveryCheckpoint
-    import torch
     import json
+    from types import SimpleNamespace
+
+    import torch
+
+    from egomimic.pl_utils.oat_training import EarlyRecoveryCheckpoint
+
     callback = EarlyRecoveryCheckpoint(str(tmp_path), first_step=2)
-    state = {'global_step': 2, 'ema_num_updates': 2,
-             'state_dict': {'weight': torch.ones(2)},
-             'optimizer_states': [{'state': {0: {'moment': torch.zeros(2)}}}],
-             'lr_schedulers': [{'last_epoch': 2}], 'data_context': {'bound': True}}
+    state = {
+        "global_step": 2,
+        "ema_num_updates": 2,
+        "state_dict": {"weight": torch.ones(2)},
+        "optimizer_states": [{"state": {0: {"moment": torch.zeros(2)}}}],
+        "lr_schedulers": [{"last_epoch": 2}],
+        "data_context": {"bound": True},
+    }
+
     def save(path, weights_only):
         assert weights_only is False
         torch.save(state, path)
-    trainer = SimpleNamespace(global_step=1, current_epoch=0, world_size=1, save_checkpoint=save)
+
+    trainer = SimpleNamespace(
+        global_step=1, current_epoch=0, world_size=1, save_checkpoint=save
+    )
     callback.on_train_batch_end(trainer, None, None, None, 0)
     assert not list(tmp_path.iterdir())
     trainer.global_step = 2
     callback.on_train_batch_end(trainer, None, None, None, 1)
-    path = next((tmp_path / 'checkpoints').glob('*.ckpt'))
-    proof = json.loads(path.with_suffix('.ckpt.recovery.json').read_text())
-    assert proof['global_step'] == 2 and proof['full_state'] and proof['bytes'] == path.stat().st_size
+    path = next((tmp_path / "checkpoints").glob("*.ckpt"))
+    proof = json.loads(path.with_suffix(".ckpt.recovery.json").read_text())
+    assert (
+        proof["global_step"] == 2
+        and proof["full_state"]
+        and proof["bytes"] == path.stat().st_size
+    )
     callback.on_train_batch_end(trainer, None, None, None, 1)
-    with pytest.raises(FileExistsError, match='overwrite'):
-        EarlyRecoveryCheckpoint(str(tmp_path), 2).on_train_batch_end(trainer, None, None, None, 1)
+    with pytest.raises(FileExistsError, match="overwrite"):
+        EarlyRecoveryCheckpoint(str(tmp_path), 2).on_train_batch_end(
+            trainer, None, None, None, 1
+        )

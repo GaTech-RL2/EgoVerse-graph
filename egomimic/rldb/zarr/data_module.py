@@ -200,8 +200,12 @@ class ZarrDataModule(MultiDataModuleWrapper):
             raise ValueError(f"Unsupported data preparation mode: {mode!r}")
         options = dict(normalization or {})
         export_path = options.get("export_context_path")
-        if export_path and (mode != "normalization" or not Path(export_path).is_absolute()):
-            raise ValueError("Full context export requires normalization mode and an absolute path")
+        if export_path and (
+            mode != "normalization" or not Path(export_path).is_absolute()
+        ):
+            raise ValueError(
+                "Full context export requires normalization mode and an absolute path"
+            )
         if mode == "normalization" and not options.get("save_cache_dir"):
             raise ValueError(
                 "Normalization-only mode requires norm_stats.save_cache_dir"
@@ -387,13 +391,24 @@ class ZarrDataModule(MultiDataModuleWrapper):
 
             target = Path(export_path)
             target.parent.mkdir(parents=True, exist_ok=True)
-            payload = json.dumps({"data_context": _json_value(snapshot)},
-                                 sort_keys=True, indent=2, allow_nan=False) + "\n"
+            payload = (
+                json.dumps(
+                    {"data_context": _json_value(snapshot)},
+                    sort_keys=True,
+                    indent=2,
+                    allow_nan=False,
+                )
+                + "\n"
+            )
             if target.exists():
                 if target.read_text() != payload:
-                    raise ValueError("Refusing to replace a different immutable data context")
+                    raise ValueError(
+                        "Refusing to replace a different immutable data context"
+                    )
             else:
-                descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=".context-")
+                descriptor, name = tempfile.mkstemp(
+                    dir=target.parent, prefix=".context-"
+                )
                 temporary = Path(name)
                 try:
                     with os.fdopen(descriptor, "w") as stream:
@@ -404,7 +419,9 @@ class ZarrDataModule(MultiDataModuleWrapper):
                         os.link(temporary, target)
                     except FileExistsError:
                         if target.read_text() != payload:
-                            raise ValueError("Concurrent immutable data context differs") from None
+                            raise ValueError(
+                                "Concurrent immutable data context differs"
+                            ) from None
                 finally:
                     temporary.unlink()
         return self.context

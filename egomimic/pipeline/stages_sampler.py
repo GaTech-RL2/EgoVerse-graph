@@ -216,7 +216,11 @@ class KeyedFeatureProjection(Stage):
     ):
         super().__init__()
         self.selector_key = str(selector_key)
-        self.input_keys = (str(input_key),) if isinstance(input_key, str) else tuple(map(str, input_key))
+        self.input_keys = (
+            (str(input_key),)
+            if isinstance(input_key, str)
+            else tuple(map(str, input_key))
+        )
         if not self.input_keys or any(not key for key in self.input_keys):
             raise ValueError("input_key requires one or more nonempty feature keys")
         self.input_key = self.input_keys[0]
@@ -248,7 +252,9 @@ class KeyedFeatureProjection(Stage):
             }
             if spec.get("identity", False):
                 if input_dim != self.output_dim:
-                    raise ValueError("Identity projection input/output dimensions must match")
+                    raise ValueError(
+                        "Identity projection input/output dimensions must match"
+                    )
                 branches[selector] = nn.Identity()
                 self.projection_specs[selector]["identity"] = True
                 continue

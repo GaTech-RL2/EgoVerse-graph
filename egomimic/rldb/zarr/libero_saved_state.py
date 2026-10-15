@@ -334,15 +334,24 @@ def make_replay_split_proof(train, valid, *, expected_episodes, valid_ratio, see
     for dataset in (train, valid):
         if dataset.val_ratio != valid_ratio or dataset.split_seed != seed:
             raise ValueError("configured split ratio/seed differs")
-        if (dataset.resolver.embodiment, dataset.resolver.action_dim,
-                dataset.resolver.suite) != (
-                train.resolver.embodiment, train.resolver.action_dim,
-                train.resolver.suite):
+        if (
+            dataset.resolver.embodiment,
+            dataset.resolver.action_dim,
+            dataset.resolver.suite,
+        ) != (
+            train.resolver.embodiment,
+            train.resolver.action_dim,
+            train.resolver.suite,
+        ):
             raise ValueError("train/valid embodiment contract differs")
-    ends = np.asarray(zarr.open_group(str(root), mode="r")["meta/episode_ends"][:],
-                      dtype=np.int64)
-    if (ends.ndim != 1 or len(ends) != expected_episodes
-            or np.any(np.diff(np.r_[0, ends]) <= 0)):
+    ends = np.asarray(
+        zarr.open_group(str(root), mode="r")["meta/episode_ends"][:], dtype=np.int64
+    )
+    if (
+        ends.ndim != 1
+        or len(ends) != expected_episodes
+        or np.any(np.diff(np.r_[0, ends]) <= 0)
+    ):
         raise ValueError("physical replay episode coverage differs")
     starts = np.r_[0, ends[:-1]]
     mask = validation_mask(len(ends), valid_ratio, seed)
@@ -356,22 +365,36 @@ def make_replay_split_proof(train, valid, *, expected_episodes, valid_ratio, see
         for index, episode_id in zip(indices, expected_ids):
             episode = dataset.datasets[episode_id]
             start, end = int(starts[index]), int(ends[index])
-            if (Path(episode.path).resolve(strict=True) != root
-                    or (episode.start, episode.end) != (start, end)):
+            if Path(episode.path).resolve(strict=True) != root or (
+                episode.start,
+                episode.end,
+            ) != (start, end):
                 raise ValueError("actual selected physical rows differ")
-            rows.append(dict(episode_id=episode_id,
-                             physical_id=f"{root}#rows={start}:{end}",
-                             start=start, end=end))
+            rows.append(
+                dict(
+                    episode_id=episode_id,
+                    physical_id=f"{root}#rows={start}:{end}",
+                    start=start,
+                    end=end,
+                )
+            )
         selections[name] = rows
     return dict(
-        schema="libero-configured-replay-split/v1", status="PASS",
-        data_root=str(root), embodiment=train.resolver.embodiment,
-        suite=train.resolver.suite, action_dim=train.resolver.action_dim,
-        split_seed=seed, valid_ratio=valid_ratio, episodes=len(ends),
+        schema="libero-configured-replay-split/v1",
+        status="PASS",
+        data_root=str(root),
+        embodiment=train.resolver.embodiment,
+        suite=train.resolver.suite,
+        action_dim=train.resolver.action_dim,
+        split_seed=seed,
+        valid_ratio=valid_ratio,
+        episodes=len(ends),
         frames=int(ends[-1]),
         episode_ends_sha256=hashlib.sha256(ends.tobytes()).hexdigest(),
-        train=selections["train"], valid=selections["valid"],
-        zero_id_overlap=True, zero_physical_row_overlap=True,
+        train=selections["train"],
+        valid=selections["valid"],
+        zero_id_overlap=True,
+        zero_physical_row_overlap=True,
         complete_episode_and_frame_coverage=True,
     )
 

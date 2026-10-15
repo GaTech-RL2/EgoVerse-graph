@@ -21,7 +21,9 @@ class EarlyRecoveryCheckpoint(Callback):
         self.output = Path(output)
         self.first_step = int(first_step)
         if not self.output.is_absolute() or self.first_step <= 0:
-            raise ValueError("Recovery save requires an absolute output and positive step")
+            raise ValueError(
+                "Recovery save requires an absolute output and positive step"
+            )
         self.done = False
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
@@ -30,18 +32,30 @@ class EarlyRecoveryCheckpoint(Callback):
         if self.done or step != self.first_step:
             return
         if int(trainer.world_size) != 1:
-            raise ValueError("Early recovery publication currently requires world size one")
-        path = self.output / "checkpoints" / (
-            f"recovery-epoch-{int(trainer.current_epoch):04d}-step-{step:09d}.ckpt")
+            raise ValueError(
+                "Early recovery publication currently requires world size one"
+            )
+        path = (
+            self.output
+            / "checkpoints"
+            / (f"recovery-epoch-{int(trainer.current_epoch):04d}-step-{step:09d}.ckpt")
+        )
         if path.exists():
             raise FileExistsError("Refusing to overwrite an early recovery checkpoint")
         path.parent.mkdir(parents=True, exist_ok=True)
         trainer.save_checkpoint(str(path), weights_only=False)
         payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
-        if (payload.get("global_step") != step or payload.get("ema_num_updates") != step
-                or not payload.get("optimizer_states") or not payload.get("lr_schedulers")
-                or not payload.get("data_context")):
-            raise ValueError("Early recovery checkpoint lacks exact full training state")
+        if (
+            payload.get("global_step") != step
+            or payload.get("ema_num_updates") != step
+            or not payload.get("optimizer_states")
+            or not payload.get("lr_schedulers")
+            or not payload.get("data_context")
+        ):
+            raise ValueError(
+                "Early recovery checkpoint lacks exact full training state"
+            )
+
         def finite(value):
             if torch.is_tensor(value):
                 return bool(torch.isfinite(value).all())
@@ -52,25 +66,40 @@ class EarlyRecoveryCheckpoint(Callback):
             if isinstance(value, float):
                 return bool(torch.isfinite(torch.tensor(value)))
             return True
+
         if not finite(payload):
             raise ValueError("Nonfinite early recovery training state")
         from egomimic.utils.slurm_requeue import _atomic_json_no_overwrite, _sha256
-        _atomic_json_no_overwrite(path.with_suffix(".ckpt.recovery.json"), {
-            "status": "PASS_DURABLE_STATE", "global_step": step,
-            "ema_num_updates": step, "path": str(path), "bytes": path.stat().st_size,
-            "sha256": _sha256(path), "full_state": True})
+
+        _atomic_json_no_overwrite(
+            path.with_suffix(".ckpt.recovery.json"),
+            {
+                "status": "PASS_DURABLE_STATE",
+                "global_step": step,
+                "ema_num_updates": step,
+                "path": str(path),
+                "bytes": path.stat().st_size,
+                "sha256": _sha256(path),
+                "full_state": True,
+            },
+        )
         self.done = True
 
 
 class OATBatchBudgetCallback(Callback):
     """Match the released four-rank, drop-last optimizer budget on any device count."""
 
-    def __init__(self, global_batch_size=1024, report_path=None, expected_source_batches=None):
+    def __init__(
+        self, global_batch_size=1024, report_path=None, expected_source_batches=None
+    ):
         self.global_batch_size = int(global_batch_size)
         self.report_path = report_path
         self.expected_source_batches = (
-            None if expected_source_batches is None
-            else {str(name): int(size) for name, size in expected_source_batches.items()}
+            None
+            if expected_source_batches is None
+            else {
+                str(name): int(size) for name, size in expected_source_batches.items()
+            }
         )
         if self.expected_source_batches is not None and (
             not self.expected_source_batches
@@ -138,20 +167,26 @@ class OATBatchBudgetCallback(Callback):
         if trainer.datamodule.train_loader_mode != "max_size_cycle":
             raise ValueError("Fixed joint batches require max_size_cycle")
         if trainer.limit_train_batches != 1.0:
-            raise ValueError("Disable the batch budget callback for limited smoke tests")
+            raise ValueError(
+                "Disable the batch budget callback for limited smoke tests"
+            )
         world = int(trainer.world_size)
         accumulation = int(trainer.accumulate_grad_batches)
         sources = {}
         for name, size in self.expected_source_batches.items():
             params = trainer.datamodule.train_dataloader_params[name]
             if int(params["batch_size"]) != size or not params.get("drop_last", False):
-                raise ValueError(f"Joint source {name} must preserve batch size and drop_last")
+                raise ValueError(
+                    f"Joint source {name} must preserve batch size and drop_last"
+                )
             effective = size * world * accumulation
             # Lightning's distributed sampler pads to equal rank lengths.
             rank_examples = (len(datasets[name]) + world - 1) // world
             microbatches = rank_examples // size
             if microbatches < accumulation:
-                raise ValueError(f"Joint source {name} is smaller than one optimizer batch")
+                raise ValueError(
+                    f"Joint source {name} is smaller than one optimizer batch"
+                )
             sources[name] = {
                 "train_examples": len(datasets[name]),
                 "microbatch_size": size,

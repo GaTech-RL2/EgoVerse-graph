@@ -775,16 +775,13 @@ def verify_joint_smoke(
         == fingerprint,
         "joint preflight/smoke scientific configurations differ",
     )
-    constructor = checked_json(preflight["CPU_constructor"])
-    require(
-        constructor.get("status") == "PASS"
-        and constructor.get("full_model_constructor") is True
-        and constructor.get("parameter_count") == 78182614
-        and constructor.get("source_commit") == expected_head
-        and constructor.get("resolved_config_sha256")
-        == preflight["resolved_config_sha256"]
-        and constructor.get("model_contract_sha256") == fingerprint,
-        "joint genuine constructor binding missing",
+    from scripts.train.libero_native_launch_contract import validate_joint_constructor
+
+    validate_joint_constructor(
+        preflight["CPU_constructor"],
+        source_head=expected_head,
+        resolved_sha=preflight["resolved_config_sha256"],
+        fingerprint=fingerprint,
     )
     from scripts.train.libero_native_launch_contract import runtime_equivalent
 

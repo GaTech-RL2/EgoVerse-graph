@@ -1209,3 +1209,53 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
     row["Train/Execution/DiTHalf/encoder/libero_panda_sharpa/checkpoint"] = 0.0
     with pytest.raises(ValueError, match="path inactive"):
         validate_joint_wandb_records(**histories)
+
+
+def test_joint_constructor_explicit_waiver_keeps_cached_evidence_immutable(tmp_path):
+    import hashlib
+
+    from scripts.train.libero_native_launch_contract import validate_joint_constructor
+
+    original = tmp_path / "original.json"
+    original.write_text(
+        json.dumps(
+            dict(
+                status="PASS_ACTUAL_CPU_MODEL_CONSTRUCTION_NOT_TRAINING_SMOKE",
+                total_parameters=78182614,
+                private_codecs_per_embodiment=True,
+                single_shared_velocity_stage=True,
+                all_parameters_finite=True,
+            )
+        )
+    )
+    before = original.read_bytes()
+    waiver = tmp_path / "waiver.json"
+    data = dict(
+        schema="libero-joint-constructor-provenance-waiver/v1",
+        authorization="explicit_human_override",
+        waived_gate="cached_constructor_source_config_binding",
+        source_commit="a" * 40,
+        human_message="bypass the provenance gate",
+        original_constructor=dict(
+            path=str(original), sha256=hashlib.sha256(before).hexdigest()
+        ),
+    )
+
+    def check():
+        waiver.write_text(json.dumps(data))
+        ref = dict(
+            path=str(waiver), sha256=hashlib.sha256(waiver.read_bytes()).hexdigest()
+        )
+        return validate_joint_constructor(
+            ref, source_head="a" * 40, resolved_sha="b" * 64, fingerprint="c" * 64
+        )
+
+    assert check() == "HUMAN_WAIVED_SOURCE_CONFIG_BINDING"
+    assert original.read_bytes() == before
+    data["source_commit"] = "d" * 40
+    with pytest.raises(ValueError, match="authorization/source"):
+        check()
+    data["source_commit"] = "a" * 40
+    data["authorization"] = ""
+    with pytest.raises(ValueError, match="authorization/source"):
+        check()

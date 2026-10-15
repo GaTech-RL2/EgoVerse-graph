@@ -317,6 +317,47 @@ def compose_joint_phase(inputs, *, phase, output, repo):
     )
 
 
+def validate_joint_constructor(reference, *, source_head, resolved_sha, fingerprint):
+    """Keep verified provenance distinct from an explicit human waiver."""
+    from scripts.train.verify_libero_native_action_flow_smoke import checked_json
+
+    proof = checked_json(reference)
+    if proof.get("schema") == "libero-joint-constructor-provenance-waiver/v1":
+        if not (
+            proof.get("authorization") == "explicit_human_override"
+            and proof.get("waived_gate") == "cached_constructor_source_config_binding"
+            and proof.get("source_commit") == source_head
+            and proof.get("human_message")
+        ):
+            raise ValueError("joint constructor waiver authorization/source differs")
+        original = checked_json(proof["original_constructor"])
+        if not (
+            original.get("status")
+            == "PASS_ACTUAL_CPU_MODEL_CONSTRUCTION_NOT_TRAINING_SMOKE"
+            and original.get("total_parameters") == 78182614
+            and original.get("private_codecs_per_embodiment") is True
+            and original.get("single_shared_velocity_stage") is True
+            and original.get("all_parameters_finite") is True
+        ):
+            raise ValueError(
+                "joint constructor waiver requires genuine cached graph evidence"
+            )
+        return "HUMAN_WAIVED_SOURCE_CONFIG_BINDING"
+    required = dict(
+        status="PASS",
+        full_model_constructor=True,
+        parameter_count=78182614,
+        source_commit=source_head,
+        resolved_config_sha256=resolved_sha,
+        model_contract_sha256=fingerprint,
+    )
+    if any(proof.get(key) != value for key, value in required.items()):
+        raise ValueError(
+            "joint preflight needs an exact source/config-bound constructor proof; never relabel cached evidence"
+        )
+    return "VERIFIED_SOURCE_CONFIG_BINDING"
+
+
 def joint_preflight_evidence(
     cfg, resolved_path, *, constructor_ref, runtime_ref, source_head
 ):
@@ -341,19 +382,12 @@ def joint_preflight_evidence(
         raise ValueError("joint preflight must be CPU with a precomputed context")
     fingerprint = contract_sha(cfg)
     resolved_sha = sha(resolved_path)
-    constructor = checked_json(constructor_ref)
-    required = dict(
-        status="PASS",
-        full_model_constructor=True,
-        parameter_count=78182614,
-        source_commit=source_head,
-        resolved_config_sha256=resolved_sha,
-        model_contract_sha256=fingerprint,
+    constructor_binding = validate_joint_constructor(
+        constructor_ref,
+        source_head=source_head,
+        resolved_sha=resolved_sha,
+        fingerprint=fingerprint,
     )
-    if any(constructor.get(key) != value for key, value in required.items()):
-        raise ValueError(
-            "joint preflight needs an exact source/config-bound constructor proof; never relabel cached evidence"
-        )
     runtime = checked_json(runtime_ref)
     runtime_equivalent(runtime, runtime)
     if (
@@ -409,6 +443,7 @@ def joint_preflight_evidence(
         complete_context=reference(context_path),
         physical_proof=reference(split_path),
         CPU_constructor=constructor_ref,
+        constructor_binding=constructor_binding,
         runtime_lock=runtime_ref,
         scope="joint_preexecution_cached_proofs",
         launch_ready=False,

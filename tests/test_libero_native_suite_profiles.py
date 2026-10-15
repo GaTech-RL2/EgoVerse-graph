@@ -312,6 +312,12 @@ def test_explicit_joint_profile_and_contract_reject_single_source_or_semantic_dr
             resolve=True,
         )
     assert joint_profile_for_config(c).sources[1] == ("libero_panda_sharpa", 22, 69, 22)
+    missing_latent = copy.deepcopy(c)
+    missing_latent["evaluator"]["action_flow_diagnostics"]["provenance"].pop(
+        "latent_shape"
+    )
+    with pytest.raises(ValueError, match="diagnostic latent shape"):
+        joint_profile_for_config(missing_latent)
     with pytest.raises(ValueError, match="unsupported native"):
         profile_for_config(c)
     contract = module.model_contract(c)
@@ -412,6 +418,10 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
             OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True
         )
     joint_profile_for_config(resolved)
+    assert resolved["evaluator"]["action_flow_diagnostics"]["provenance"][
+        "latent_shape"
+    ] == [16, 16]
+    assert resolved["trainer"]["log_every_n_steps"] == (1 if phase == "smoke" else 10)
     if phase != "normalization":
         from scripts.train import libero_native_launch_contract as adapter
 

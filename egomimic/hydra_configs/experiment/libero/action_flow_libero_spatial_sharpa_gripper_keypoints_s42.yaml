@@ -159,6 +159,7 @@ evaluator:
     normalization_sha256: ${run_provenance.normalization_sha256}
     split_manifest_sha256: ${run_provenance.split_manifest_sha256}
     prediction_horizon: 32
+    latent_shape: [16, 16]
     sampler: euler
     sampler_steps: 50
     cfg_scale: 4.0

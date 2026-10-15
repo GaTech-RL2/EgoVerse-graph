@@ -315,6 +315,8 @@ def joint_phase_argv(
             if phase == "smoke"
             else "callbacks.model_checkpoint.every_n_train_steps=15000",
         ]
+    if phase == "smoke":
+        argv.append("trainer.log_every_n_steps=1")
     return argv
 
 
@@ -460,6 +462,11 @@ def joint_profile_for_config(config):
         config["normalizer"]["_target_"].endswith(".LiberoMultiEmbodimentNormalizer")
         and config["norm_stats"]["norm_mode"] == "libero_train_limits",
         "train-only private normalization required",
+    )
+    require(
+        config["evaluator"]["action_flow_diagnostics"]["provenance"].get("latent_shape")
+        == [16, 16],
+        "diagnostic latent shape must match shared16x16 graph",
     )
     trainer = config["trainer"]
     require(

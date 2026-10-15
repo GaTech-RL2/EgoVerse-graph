@@ -56,9 +56,12 @@ class BimanualArcDecoder:
         rotation_distance_unit=None,
         projection_offset_m=None,
         projection_min_speed=1e-6,
+        duration_timing="delta",
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
+        if duration_timing != "delta" and token_layout != "e1_dur":
+            raise ValueError("Absolute waypoint timing requires token_layout='e1_dur'")
         self.M = int(resampled_vector_length)
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
@@ -99,6 +102,7 @@ class BimanualArcDecoder:
                 **kwargs,
                 velocity_norm="path",
                 velocity_mode=E1_VELOCITY_MODE[token_layout],
+                duration_timing=duration_timing,
             )
         )
 

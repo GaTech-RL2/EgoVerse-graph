@@ -615,6 +615,35 @@ def durations_to_clock_abs(
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
+def absolute_times_to_clock(
+    col: np.ndarray, cum: np.ndarray, min_speed: float = 0.01, max_speed: float = 5.0
+) -> np.ndarray:
+    """Waypoint seconds from the chunk anchor, without accumulating predictions.
+
+    Anchor row zero at zero, project backwards predictions to a monotone clock,
+    and hold padded supports at the preceding time. Retain the duration codec's
+    whole-clock speed bounds. A local timing error never sums into later rows.
+    """
+    clock = np.asarray(col, dtype=np.float64).copy()
+    cum = np.asarray(cum, dtype=np.float64)
+    if clock.ndim != 1 or clock.shape != cum.shape or len(clock) < 2:
+        raise ValueError("Absolute times require matching waypoint and arc vectors")
+    if not np.isfinite(clock).all() or not np.isfinite(cum).all():
+        raise ValueError("Absolute times and arc supports must be finite")
+    clock[0] = 0.0
+    for i in range(1, len(clock)):
+        clock[i] = (
+            max(clock[i - 1], clock[i], 0.0)
+            if cum[i] - cum[i - 1] > 1e-9
+            else clock[i - 1]
+        )
+    span = max(float(cum[-1]), 1e-9)
+    lo, hi = span / max_speed, span / min_speed
+    if clock[-1] > 1e-12 and not lo <= clock[-1] <= hi:
+        clock *= min(max(clock[-1], lo), hi) / clock[-1]
+    return clock
+
+
 class CopyKeyRows(Transform):
     """``batch[dst] = batch[src][:n_rows]`` — carries the un-tokenized time chunk
     (``actions_time``) alongside the model target so the E1 evaluator can score
@@ -647,6 +676,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         velocity_norm: str = "chord",
         velocity_mode: str = "mean",
         speed_smooth_frames: int = 7,
+        duration_timing: str = "delta",
         min_speed: float = 0.01,
         progress_smooth_hz: float | None = None,
         fixed_spacing: bool = False,
@@ -699,6 +729,11 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                     f"speed_floors applies only to speed-column modes, not {velocity_mode!r}"
                 )
         self.speed_floors = speed_floors
+        if duration_timing not in ("delta", "absolute"):
+            raise ValueError("duration_timing must be 'delta' or 'absolute'")
+        if duration_timing != "delta" and velocity_mode != "dur":
+            raise ValueError("Absolute waypoint timing requires velocity_mode='dur'")
+        self.duration_timing = duration_timing
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
@@ -1193,8 +1228,13 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                     # the last interval, as his `_sample_stream` pads.
                     valid = np.diff(u) > 1e-9
                     seg = np.maximum(np.diff(fidx) * dt, LOGDUR_MIN_DT) * valid
-                    prof[: M - 1, k] = seg
-                    prof[M - 1, k] = seg[-1]
+                    if self.duration_timing == "absolute":
+                        # Same supports and ground-truth clock as delta dur;
+                        # each row directly supervises its time from the anchor.
+                        prof[:, k] = np.concatenate(([0.0], np.cumsum(seg)))
+                    else:
+                        prof[: M - 1, k] = seg
+                        prof[M - 1, k] = seg[-1]
                 else:  # logdur: row 0 = log mean slowness, rows 1.. = log relative segment durations
                     valid = (
                         np.diff(u) > 1e-9
@@ -1299,6 +1339,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
 
     def _wide_clock(self, col: np.ndarray, cum: np.ndarray) -> np.ndarray:
         """Time-of-progress at the M waypoints from one arm's timing column."""
+        if self.velocity_mode == "dur" and self.duration_timing == "absolute":
+            return absolute_times_to_clock(col, cum, min_speed=self.min_speed)
         if self.velocity_mode in EVT_MODES:  # the translation clock: a running sum
             floors = self.speed_floors or EVT_RATE_FLOORS
             seconds = self._evt_seconds(col[:-1], np.diff(cum), floors[0])

@@ -1,0 +1,37 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/earbuds_updated_arcdur_hpt300
+- _self_
+name: earbuds_updated_arcdur_abstime_hpt300
+description: h840t19_d320x6_cos10k_240k_s42_${name}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          duration_timing: absolute
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          duration_timing: absolute
+evaluator:
+  duration_timing: absolute
+model:
+  inference_contracts:
+    arcdur:
+      native_output:
+        timing:
+          kind: per_waypoint_absolute_time
+      compatibility:
+        tokenizer:
+          duration_timing: absolute
+      profiles:
+        default:
+          adapter:
+            decoder:
+              duration_timing: absolute
+logger:
+  wandb:
+    id: ${name}_20261015_s42
+    tags: [rl2, wireless_earbuds_updated, hpt300, arcdur, absolute_waypoint_time]

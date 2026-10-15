@@ -1214,6 +1214,14 @@ def _joint_smoke_checkpoint_path(checkpoint_dir, config=None):
     return path
 
 
+def _joint_smoke_artifact_epoch(run_dir, config):
+    """Bind scheduled validation to the immutable cadence checkpoint's epoch."""
+    if config is not None and not isinstance(config, DictConfig):
+        config = OmegaConf.create(config)
+    path = _joint_smoke_checkpoint_path(Path(run_dir) / "checkpoints", config)
+    return int(path.name.split("-")[1])
+
+
 def _joint_checkpoint_owners(stages):
     """Require two private codec pairs and one shared field, without aliasing."""
     names = {"libero_panda", "libero_panda_sharpa"}
@@ -1896,7 +1904,7 @@ def _artifact_root(config: DictConfig, path: str, run_dir: Path) -> Path:
 
 
 def _step_artifact(
-    root: Path, *, label: str, expected_step: int = 2
+    root: Path, *, label: str, expected_step: int = 2, expected_epoch: int | None = None
 ) -> tuple[Path, Mapping[str, Any]]:
     _require(expected_step in (2, 8), "unsupported smoke artifact step")
     execution = artifact_execution_identity()
@@ -1919,14 +1927,15 @@ def _step_artifact(
         and (path.suffix in {".tmp", ".temporary"} or ".temporary" in path.name)
     ]
     _require(not leftovers, f"unfinished {label} artifacts: {leftovers}")
+    epoch = "*" if expected_epoch is None else str(expected_epoch)
     candidates = sorted(
         [
-            *root.glob(f"epoch-*-step-{expected_step}/rank-0-batch-*.pt"),
+            *root.glob(f"epoch-{epoch}-step-{expected_step}/rank-0-batch-*.pt"),
             *(
                 []
                 if execution is not None
                 else root.glob(
-                    f"job-*-restart-*/epoch-*-step-{expected_step}/rank-0-batch-*.pt"
+                    f"job-*-restart-*/epoch-{epoch}-step-{expected_step}/rank-0-batch-*.pt"
                 )
             ),
         ]
@@ -1940,6 +1949,10 @@ def _step_artifact(
     _require(
         payload.get("global_step") == expected_step, f"{label} artifact step differs"
     )
+    if expected_epoch is not None:
+        _require(
+            payload.get("epoch") == expected_epoch, f"{label} artifact epoch differs"
+        )
     namespace = candidates[0].parent.parent.name
     if namespace.startswith("job-"):
         recorded = payload.get("execution")
@@ -2681,7 +2694,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "egomimic/benchmarks/libero/saved_hydra_context.py",
                 "scripts/train/verify_action_flow_training_smoke.py",
                 "scripts/train/verify_libero_native_action_flow_smoke.py",
+                "scripts/train/libero_native_launch_contract.py",
                 "tests/test_libero_saved_hydra_context.py",
+                "tests/test_libero_multi_embodiment_native.py",
             }
             _require(
                 changed <= allowed,

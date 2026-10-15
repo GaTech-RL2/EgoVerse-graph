@@ -1040,6 +1040,7 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
         schema_version=1,
         metric="ActionFlowValidationDiagnostics",
         global_step=8,
+        epoch=0,
         rank=0,
         batch_idx=0,
         precision="bf16-mixed",
@@ -1089,6 +1090,8 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
         validate_joint_diagnostic_artifact(diagnostic_path, diagnostic, resolved)
 
     # Metadata-only producer fixture: real saved tensor files, synthetic runtime/preflight.
+    (tmp_path / "checkpoints").mkdir()
+    (tmp_path / "checkpoints/epoch-0000-step-000000008.ckpt").write_bytes(b"fixture")
     from scripts.train.libero_native_launch_contract import (
         contract_sha,
         joint_smoke_evidence,

@@ -544,15 +544,18 @@ def joint_smoke_evidence(cfg, root, *, preflight_ref, runtime_ref, shared):
     runtime_equivalent(
         checked_json(preflight["runtime_lock"]), checked_json(runtime_ref)
     )
+    artifact_epoch = shared._joint_smoke_artifact_epoch(root, cfg)
     energy_path, _ = shared._step_artifact(
         Path(cfg["evaluator"]["artifact_root"]),
         label="joint EnergyScore",
         expected_step=8,
+        expected_epoch=artifact_epoch,
     )
     diagnostic_path, _ = shared._step_artifact(
         Path(cfg["evaluator"]["action_flow_diagnostics"]["artifact_root"]),
         label="joint diagnostics",
         expected_step=8,
+        expected_epoch=artifact_epoch,
     )
     checked_ref(preflight_ref)
     return dict(

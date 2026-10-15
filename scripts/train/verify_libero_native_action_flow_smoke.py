@@ -798,15 +798,18 @@ def verify_joint_smoke(
         expected_parameter_count_override=78182614,
         expected_optimizer_steps=8,
     )
+    artifact_epoch = shared._joint_smoke_artifact_epoch(run_dir, cfg)
     energy_path, energy = shared._step_artifact(
         Path(config["evaluator"]["artifact_root"]),
         label="joint EnergyScore",
         expected_step=8,
+        expected_epoch=artifact_epoch,
     )
     diagnostic_path, diagnostic = shared._step_artifact(
         Path(config["evaluator"]["action_flow_diagnostics"]["artifact_root"]),
         label="joint diagnostics",
         expected_step=8,
+        expected_epoch=artifact_epoch,
     )
     require(
         checked_ref(evidence["energy_artifact"]) == energy_path.resolve()

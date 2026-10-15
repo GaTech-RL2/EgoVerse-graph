@@ -310,3 +310,32 @@ def test_separate_verifier_finalizes_through_same_loaded_helpers(tmp_path, monke
         == 0
     )
     assert calls == ["finalize", "write", "verify"]
+
+
+def test_joint_artifacts_bind_cadence_epoch_and_preserve_postfit(tmp_path, monkeypatch):
+    import torch
+
+    from scripts.train import verify_action_flow_training_smoke as shared
+
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    run = tmp_path / "run"
+    checkpoint = run / "checkpoints/epoch-0000-step-000000008.ckpt"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"filename-only-selection")
+    root = run / "artifacts"
+    for epoch in (0, 1):
+        path = root / f"epoch-{epoch}-step-8/rank-0-batch-0.pt"
+        path.parent.mkdir(parents=True)
+        torch.save({"global_step": 8, "epoch": epoch}, path)
+    epoch = shared._joint_smoke_artifact_epoch(run, None)
+    assert epoch == 0
+    selected, payload = shared._step_artifact(
+        root, label="joint", expected_step=8, expected_epoch=epoch
+    )
+    assert selected.parent.name == "epoch-0-step-8" and payload["epoch"] == 0
+    assert (root / "epoch-1-step-8/rank-0-batch-0.pt").is_file()
+    with pytest.raises(shared.SmokeVerificationError, match="expected one step-8"):
+        shared._step_artifact(root, label="joint", expected_step=8)
+    torch.save({"global_step": 8, "epoch": 1}, selected)
+    with pytest.raises(shared.SmokeVerificationError, match="epoch differs"):
+        shared._step_artifact(root, label="joint", expected_step=8, expected_epoch=0)

@@ -2720,7 +2720,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _sha256(preflight_path) == args.expected_preflight_sha256,
                 "finalize preflight SHA mismatch",
             )
-            cfg = load_saved_native_config(root, REPOSITORY_ROOT)
+            cfg = OmegaConf.to_container(
+                load_saved_native_config(root, REPOSITORY_ROOT), resolve=True
+            )
             evidence = joint_smoke_evidence(
                 cfg,
                 root,

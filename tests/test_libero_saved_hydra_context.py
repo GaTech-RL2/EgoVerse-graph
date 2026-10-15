@@ -275,7 +275,8 @@ def test_separate_verifier_finalizes_through_same_loaded_helpers(tmp_path, monke
         return OmegaConf.create({"original": True})
 
     def evidence(cfg, root, **kwargs):
-        assert cfg.original and root == run
+        assert isinstance(cfg, dict) and cfg["original"] and root == run
+        json.dumps(cfg, allow_nan=False)
         assert kwargs["shared"] is shared
         calls.append("finalize")
         return {"actual": True}

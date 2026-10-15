@@ -199,6 +199,9 @@ class ZarrDataModule(MultiDataModuleWrapper):
         if mode not in {"train", "eval", "normalization"}:
             raise ValueError(f"Unsupported data preparation mode: {mode!r}")
         options = dict(normalization or {})
+        export_path = options.get("export_context_path")
+        if export_path and (mode != "normalization" or not Path(export_path).is_absolute()):
+            raise ValueError("Full context export requires normalization mode and an absolute path")
         if mode == "normalization" and not options.get("save_cache_dir"):
             raise ValueError(
                 "Normalization-only mode requires norm_stats.save_cache_dir"
@@ -375,6 +378,35 @@ class ZarrDataModule(MultiDataModuleWrapper):
         self.context = DataContext(
             owner, copy.deepcopy(owner.shapes), tuple(self.valid_group_names), snapshot
         )
+        if export_path:
+            # Numeric norm_stats.json is retained for legacy callers. The full
+            # context additionally binds the normalizer class and preprocessing
+            # required by the existing precomputed-context restoration path.
+            import os
+            import tempfile
+
+            target = Path(export_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.dumps({"data_context": _json_value(snapshot)},
+                                 sort_keys=True, indent=2, allow_nan=False) + "\n"
+            if target.exists():
+                if target.read_text() != payload:
+                    raise ValueError("Refusing to replace a different immutable data context")
+            else:
+                descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=".context-")
+                temporary = Path(name)
+                try:
+                    with os.fdopen(descriptor, "w") as stream:
+                        stream.write(payload)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    try:
+                        os.link(temporary, target)
+                    except FileExistsError:
+                        if target.read_text() != payload:
+                            raise ValueError("Concurrent immutable data context differs") from None
+                finally:
+                    temporary.unlink()
         return self.context
 
     def configure_evaluation(self, requirements):

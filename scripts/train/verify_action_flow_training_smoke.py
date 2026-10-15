@@ -1180,6 +1180,36 @@ def _validate_optimizer_state(optimizer_state: Any, config: DictConfig | None) -
     )
 
 
+def _joint_smoke_checkpoint_path(checkpoint_dir):
+    """Use the unique immutable step-eight save; joint runs have no rolling last."""
+    _require(not (checkpoint_dir / "last.ckpt").exists(),
+             "joint smoke must not publish rolling last.ckpt")
+    candidates = [path for path in checkpoint_dir.glob("epoch-*-step-*.ckpt")
+                  if re.fullmatch(r"epoch-\d+-step-0*8\.ckpt", path.name)]
+    _require(len(candidates) == 1, "joint smoke needs one immutable step-eight checkpoint")
+    path = candidates[0]
+    _require(path.is_file() and not path.is_symlink(),
+             "joint smoke checkpoint must be an immutable regular file")
+    return path
+
+
+def _joint_checkpoint_owners(stages):
+    """Require two private codec pairs and one shared field, without aliasing."""
+    names = {"libero_panda", "libero_panda_sharpa"}
+    encoders, decoders = stages[4].encoder, stages[7].decoder
+    _require(set(encoders) == names and set(decoders) == names,
+             "joint checkpoint private codec source coverage differs")
+    owners = tuple(encoders[name] for name in sorted(names)) + (stages[6].field,) + tuple(
+        decoders[name] for name in sorted(names))
+    _require(len({id(owner) for owner in owners}) == 5, "joint owners are aliased")
+    parameter_sets = [{id(parameter) for parameter in owner.parameters()} for owner in owners]
+    _require(all(parameter_sets), "joint owner has no parameters")
+    for index, parameters in enumerate(parameter_sets):
+        _require(not any(parameters & previous for previous in parameter_sets[:index]),
+                 "joint owners share parameters")
+    return owners
+
+
 def _validate_checkpoint(
     run_dir: Path,
     *,
@@ -1188,18 +1218,30 @@ def _validate_checkpoint(
     method: str = LEGACY_METHOD,
     config: DictConfig | None = None,
     expected_parameter_count_override: int | None = None,
+    expected_optimizer_steps: int = 2,
 ) -> dict[str, Any]:
+    joint = expected_optimizer_steps == 8
+    _require(expected_optimizer_steps in (2, 8), "unsupported smoke optimizer budget")
+    if joint:
+        _require(method == STOPGRAD_UNITE_METHOD and config is not None,
+                 "joint checkpoint needs exact typed config and wrapper")
+        from egomimic.benchmarks.libero.native_launch_profiles import joint_profile_for_config
+        joint_profile_for_config(config)
+        _require(expected_parameter_count_override == 78182614,
+                 "joint checkpoint parameter count contract differs")
     checkpoint_dir = run_dir / "checkpoints"
-    last_path = checkpoint_dir / "last.ckpt"
+    last_path = (_joint_smoke_checkpoint_path(checkpoint_dir) if joint else
+                 checkpoint_dir / "last.ckpt")
     _require(last_path.is_file(), f"missing smoke checkpoint: {last_path}")
-    _require(last_path.is_symlink(), "last.ckpt must be a symlink")
+    if not joint:
+        _require(last_path.is_symlink(), "last.ckpt must be a symlink")
     immutable_path = last_path.resolve(strict=True)
     _require(
         immutable_path.parent == checkpoint_dir.resolve(),
         "last.ckpt target escapes the checkpoint directory",
     )
     _require(
-        immutable_path.name != last_path.name and immutable_path.suffix == ".ckpt",
+        (joint or immutable_path.name != last_path.name) and immutable_path.suffix == ".ckpt",
         "last.ckpt does not resolve to an immutable checkpoint",
     )
 
@@ -1207,7 +1249,7 @@ def _validate_checkpoint(
         str(last_path), map_location="cpu", weights_only=False, mmap=True
     )
     _require(isinstance(payload, Mapping), "last checkpoint is not a mapping")
-    _require(payload.get("global_step") == 2, "last checkpoint global_step is not 2")
+    _require(payload.get("global_step") == expected_optimizer_steps, "last checkpoint optimizer step differs")
     state_dict = payload.get("state_dict")
     optimizer_states = payload.get("optimizer_states")
     scheduler_states = payload.get("lr_schedulers")
@@ -1249,8 +1291,8 @@ def _validate_checkpoint(
     )
     _require(
         isinstance(immutable_payload, Mapping)
-        and immutable_payload.get("global_step") == 2,
-        "immutable checkpoint is not step 2",
+        and immutable_payload.get("global_step") == expected_optimizer_steps,
+        "immutable checkpoint optimizer step differs",
     )
     _require(
         immutable_payload.get("action_flow_gradient_route_manifest")
@@ -1261,6 +1303,15 @@ def _validate_checkpoint(
         immutable_payload.get("action_flow_loss_schedule") == loss_schedule,
         "immutable/last checkpoint loss schedules differ",
     )
+    joint_context = None
+    joint_ema_payload = None
+    if joint:
+        _finite_tree(loops, "joint checkpoint loops")
+        joint_ema_payload = {key: payload.get(key) for key in
+                             ("global_step", "ema_num_updates", "ema_config", "ema_state_dict")}
+        from scripts.train.verify_libero_native_action_flow_smoke import validate_joint_checkpoint_context
+        joint_context = validate_joint_checkpoint_context(payload, config)
+        validate_joint_checkpoint_context(immutable_payload, config)
     del immutable_payload, payload
 
     wrapper_type = ActionFlowModelWrapper
@@ -1356,11 +1407,12 @@ def _validate_checkpoint(
         owners = (stages[3].mean_encoder, stages[5].field, stages[6].decoder)
     elif method == STOPGRAD_UNITE_METHOD:
         stages = restored.model.pipeline.stages
-        owners = (stages[4].encoder, stages[6].field, stages[7].decoder)
+        owners = (_joint_checkpoint_owners(stages) if joint else
+                  (stages[4].encoder, stages[6].field, stages[7].decoder))
     else:
         owners = (restored.encoder_e, restored.field_v, restored.decoder_g)
     _require(
-        len({id(owner) for owner in owners}) == 3, "Action Flow owners are aliased"
+        len({id(owner) for owner in owners}) == (5 if joint else 3), "Action Flow owners are aliased"
     )
     trainable = tuple(
         (name, parameter)
@@ -1372,13 +1424,18 @@ def _validate_checkpoint(
     gradient_routes = _validate_gradient_route_manifest(
         gradient_route_manifest, trainable, method
     )
-    del restored
+    joint_ema = None
+    if joint:
+        from scripts.train.verify_libero_native_action_flow_smoke import validate_joint_ema_reload
+        joint_ema = validate_joint_ema_reload(restored, joint_ema_payload, config)
+    del restored, joint_ema_payload
 
     return {
         "checkpoint_sha256": _sha256(last_path),
         "file_size_bytes": last_path.stat().st_size,
         "gradient_routes": gradient_routes,
-        "global_step": 2,
+        "global_step": expected_optimizer_steps,
+        **({"joint_context": joint_context, "joint_ema": joint_ema} if joint else {}),
         "loss_schedule": loss_schedule,
         "likelihood_contract": likelihood_contract,
         "immutable_checkpoint_path": str(immutable_path),
@@ -1487,7 +1544,14 @@ def _validate_history(
     source_label: str = SOURCE_LABEL,
     validation_metric_names: Sequence[str] | None = None,
     diagnostic_metric_names: Sequence[str] | None = None,
+    source_labels: Sequence[str] | None = None,
+    minimum_step: int = 1,
 ) -> dict[str, Any]:
+    labels = (source_label,) if source_labels is None else tuple(source_labels)
+    if source_labels is not None or minimum_step != 1:
+        _require(labels == ("libero_panda", "libero_panda_sharpa")
+                 and method == STOPGRAD_UNITE_METHOD and minimum_step == 7,
+                 "joint history requires exact source pair and dated step seven")
     _require(action_velocity_weight in (0.0, 1.0), "unsupported action velocity weight")
     component_names = (
         "TotalLoss",
@@ -1499,7 +1563,7 @@ def _validate_history(
     if method == LIKELIHOOD_METHOD:
         component_names = ("TotalLoss", "InteriorBridgeNLL", "BoundaryNLL")
     components = tuple(f"Train/ActionFlow/{name}" for name in component_names)
-    per_source_components = tuple(f"{name}/{source_label}" for name in components)
+    per_source_components = tuple(f"{name}/{label}" for label in labels for name in components)
     gradient_labels = (
         ("InteriorBridgeNLL", "BoundaryNLL")
         if method == LIKELIHOOD_METHOD
@@ -1527,7 +1591,7 @@ def _validate_history(
             for pair in gradient_pairs
         ),
         "Train/MSE",
-        f"Train/MSE/{source_label}",
+        *(f"Train/MSE/{label}" for label in labels),
         "Train/ActionFlow/Compute/FieldForwardCallsPerStep",
         "Train/ActionFlow/Compute/FieldSampleEquivalentsPerStep",
         "Train/ActionFlow/Compute/DecoderJVPCallsPerStep",
@@ -1543,7 +1607,7 @@ def _validate_history(
     train_step, train = _complete_row(
         rows,
         (*components, *per_source_components, *telemetry),
-        minimum_step=1,
+        minimum_step=minimum_step,
         label="Action Flow training/gradient telemetry",
     )
     for name in telemetry:
@@ -1611,7 +1675,7 @@ def _validate_history(
         ),
         "joint smoke step did not enable both delayed objectives",
     )
-    for suffix in ("", f"/{source_label}"):
+    for suffix in ("", *(f"/{label}" for label in labels)):
         expected_total = (
             (
                 train[f"Train/ActionFlow/InteriorBridgeNLL{suffix}"]
@@ -1652,7 +1716,7 @@ def _validate_history(
                 == 0.0,
                 "warmup smoke step enabled a delayed objective",
             )
-            for suffix in ("", f"/{source_label}"):
+            for suffix in ("", *(f"/{label}" for label in labels)):
                 expected_total = (
                     reconstruction_weight
                     * concrete[f"Train/ActionFlow/ReconstructionLoss{suffix}"]
@@ -1678,7 +1742,7 @@ def _validate_history(
         "Valid/EnergyScoreAccuracy@32",
         "Valid/EnergyScoreDiversity@32",
     ):
-        validity.extend((base, f"{base}/{source_label}"))
+        validity.extend((base, *(f"{base}/{label}" for label in labels)))
     if validation_metric_names is not None:
         validity = list(validation_metric_names)
     validity.extend(f"Valid/ActionFlow/{name}" for name in component_names)
@@ -1703,7 +1767,8 @@ def _validate_history(
     diagnostics = (
         *diagnostics,
         *(
-            f"{name}/{source_label}"
+            f"{name}/{label}"
+            for label in labels
             for name in diagnostics
             if "NativeMSE" in name or "decoded_native_mse" in name
         ),
@@ -1713,7 +1778,7 @@ def _validate_history(
     valid_step, valid = _complete_row(
         rows,
         (*validity, *diagnostics),
-        minimum_step=1,
+        minimum_step=minimum_step,
         label="scheduled validation",
     )
     expected_valid_total = (
@@ -1753,7 +1818,8 @@ def _artifact_root(config: DictConfig, path: str, run_dir: Path) -> Path:
     return root.resolve()
 
 
-def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, Any]]:
+def _step_artifact(root: Path, *, label: str, expected_step: int = 2) -> tuple[Path, Mapping[str, Any]]:
+    _require(expected_step in (2, 8), "unsupported smoke artifact step")
     execution = artifact_execution_identity()
     if execution is not None:
         attempt_root = root / (
@@ -1776,20 +1842,20 @@ def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, An
     _require(not leftovers, f"unfinished {label} artifacts: {leftovers}")
     candidates = sorted(
         [
-            *root.glob("epoch-*-step-2/rank-0-batch-*.pt"),
+            *root.glob(f"epoch-*-step-{expected_step}/rank-0-batch-*.pt"),
             *(
                 []
                 if execution is not None
-                else root.glob("job-*-restart-*/epoch-*-step-2/rank-0-batch-*.pt")
+                else root.glob(f"job-*-restart-*/epoch-*-step-{expected_step}/rank-0-batch-*.pt")
             ),
         ]
     )
     _require(
-        len(candidates) == 1, f"expected one step-2 {label} artifact: {candidates}"
+        len(candidates) == 1, f"expected one step-{expected_step} {label} artifact: {candidates}"
     )
     payload = torch.load(candidates[0], map_location="cpu", weights_only=False)
     _require(isinstance(payload, Mapping), f"{label} artifact is not a mapping")
-    _require(payload.get("global_step") == 2, f"{label} artifact is not step 2")
+    _require(payload.get("global_step") == expected_step, f"{label} artifact step differs")
     namespace = candidates[0].parent.parent.name
     if namespace.startswith("job-"):
         recorded = payload.get("execution")
@@ -1806,6 +1872,11 @@ def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, An
         )
     _finite_tree(payload, f"{label} artifact")
     return candidates[0], payload
+
+
+def _step_two_artifact(root: Path, *, label: str) -> tuple[Path, Mapping[str, Any]]:
+    """Preserve the existing single-body verifier's step-two contract."""
+    return _step_artifact(root, label=label, expected_step=2)
 
 
 def _target_tensor_sha256(value: torch.Tensor) -> str:
@@ -2259,6 +2330,14 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
+    if experiment == "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42":
+        from scripts.train.verify_libero_native_action_flow_smoke import verify_joint_smoke
+        return verify_joint_smoke(run_dir=run_dir, expected_head=expected_head,
+            expected_config_sha256=expected_config_sha256,
+            expected_split_sha256=expected_split_sha256,
+            expected_normalization_sha256=expected_normalization_sha256,
+            expected_preflight_sha256=expected_preflight_sha256,
+            shared=sys.modules[__name__])
     if experiment in (
         "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
         "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
@@ -2426,6 +2505,7 @@ def _parser() -> argparse.ArgumentParser:
         dest="experiment",
         choices=(
             *tuple(APPROVED_EXPERIMENTS),
+            "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
             "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
             "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
             "libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",

@@ -124,7 +124,9 @@ def scheduler():
         ("H100|H200", "NVIDIA H200"),
     ],
 )
-def test_ice_native_preserves_real_resource_bindings(constraint, gpu):
+@pytest.mark.parametrize("profile", [PROFILES["libero_spatial"].experiment,
+    "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42"])
+def test_ice_native_preserves_real_resource_bindings(constraint, gpu, profile):
     m = scheduler()
     fields = dict(
         JobId="123",
@@ -150,7 +152,7 @@ def test_ice_native_preserves_real_resource_bindings(constraint, gpu):
         expected_memory="128G",
         expected_time_limit="1-00:00:00",
         expected_constraint=constraint,
-        native_profile=PROFILES["libero_spatial"].experiment,
+        native_profile=profile,
         gpu_probe=dict(
             status="PASSED",
             gpu_name=gpu,
@@ -264,3 +266,227 @@ def test_actual_hydra_recipe_composes_same_science_and_fixed_split(monkeypatch, 
             assert OmegaConf.to_container(
                 c[field], resolve=False
             ) == OmegaConf.to_container(reference[field], resolve=False)
+
+
+def test_explicit_joint_profile_and_contract_reject_single_source_or_semantic_drift(tmp_path, monkeypatch):
+    import hydra
+    from hydra.core.hydra_config import HydraConfig
+    from omegaconf import OmegaConf
+    from egomimic.benchmarks.libero.native_launch_profiles import joint_profile_for_config
+    spec = importlib.util.spec_from_file_location("joint_contract_test", ROOT / "scripts/train/libero_native_launch_contract.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setenv("LIBERO_ORIGINAL_SPATIAL_ROOT", str(tmp_path / "original"))
+    monkeypatch.setenv("LIBERO_SHARPA_SPATIAL_ROOT", str(tmp_path / "sharpa"))
+    monkeypatch.setenv("LIBERO_DIAGNOSTIC_SEED_BANK", str(tmp_path / "SEEDS.json"))
+    with hydra.initialize_config_dir(version_base="1.2", config_dir=str(ROOT / "egomimic/hydra_configs")):
+        config = hydra.compose(config_name="train_zarr_cartesian", return_hydra_config=True,
+                               overrides=["hydra/launcher=basic", "+experiment=libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                                          "paths.output_dir=" + str(tmp_path), "paths.work_dir=" + str(ROOT)])
+        config.hydra.runtime.output_dir = str(tmp_path)
+        HydraConfig.instance().set_config(config)
+        c = OmegaConf.to_container(OmegaConf.masked_copy(config, [k for k in config if k != "hydra"]), resolve=True)
+    assert joint_profile_for_config(c).sources[1] == ("libero_panda_sharpa", 22, 69, 22)
+    with pytest.raises(ValueError, match="unsupported native"):
+        profile_for_config(c)
+    contract = module.model_contract(c)
+    assert contract["schema"] == "libero-joint-scientific-contract/v1"
+    assert contract["train_batch"] == {"libero_panda": 16, "libero_panda_sharpa": 16}
+    assert module.contract_sha(c) == module.contract_sha(copy.deepcopy(c))
+    relocated = copy.deepcopy(c)
+    relocated["callbacks"]["ema"]["final_checkpoint_path"] = "/other/output/checkpoints/last.ckpt"
+    relocated["evaluator"]["action_flow_diagnostics"]["artifact_root"] = "/other/output/diagnostics"
+    assert module.contract_sha(c) == module.contract_sha(relocated)
+    changed_ema = copy.deepcopy(c)
+    changed_ema["callbacks"]["ema"]["decay"] = .99
+    assert module.contract_sha(c) != module.contract_sha(changed_ema)
+    changes = [
+        ("model.pipeline.stages.4.encoders.libero_panda_sharpa.backbone.hidden_dim", 384),
+        ("model.pipeline.stages.6.field.backbone.depth", 24),
+        ("model.pipeline.stages.4.encoders.libero_panda_sharpa.action_dim", 7),
+        ("model.pipeline.stages.7.decoders.libero_panda_sharpa.condition_dim", 276),
+        ("model.pipeline.stages.6.experts", {}),
+        ("model.pipeline.stages.3.num_tokens", 8),
+        ("data.train_dataloader_params.libero_panda_sharpa.batch_size", 32),
+        ("data.train_datasets.libero_panda_sharpa.valid_ratio", .01),
+        ("data.train_datasets.libero_panda_sharpa.resolver.action_representation", "native"),
+        ("model.pipeline.stages.6.num_inference_steps", 8),
+        ("normalizer._target_", "egomimic.rldb.zarr.libero_dataset.LiberoNormalizer"),
+    ]
+    for path, replacement in changes:
+        wrong = copy.deepcopy(c)
+        keys = path.split(".")
+        node = wrong
+        for key in keys[:-1]:
+            node = node[int(key)] if isinstance(node, list) else node[key]
+        node[keys[-1]] = replacement
+        with pytest.raises(ValueError, match="joint LIBERO"):
+            module.contract_sha(wrong)
+
+
+@pytest.mark.parametrize("phase", ["normalization", "preflight", "smoke", "full"])
+def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(tmp_path, monkeypatch, phase):
+    import hydra
+    from hydra.core.hydra_config import HydraConfig
+    from omegaconf import OmegaConf
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        joint_phase_argv, joint_profile_for_config,
+    )
+    # These env values must be replaced by the exact typed arguments, including
+    # spaces and '=' which must survive the shell/Hydra boundary literally.
+    for key in ("LIBERO_ORIGINAL_SPATIAL_ROOT", "LIBERO_SHARPA_SPATIAL_ROOT",
+                "LIBERO_DIAGNOSTIC_SEED_BANK"):
+        monkeypatch.setenv(key, "/wrong/unselected")
+    original = str(tmp_path / "original data=1")
+    sharpa = str(tmp_path / "hand data=2")
+    args = dict(source_root=str(ROOT), original_root=original, sharpa_root=sharpa,
+                output_root=str(tmp_path / phase), context_path=str(tmp_path / "context.json"),
+                split_path=str(tmp_path / "split.json"), split_sha256="a" * 64,
+                normalization_sha256=None if phase == "normalization" else "b" * 64, source_commit="c" * 40,
+                diagnostic_seed_bank=str(tmp_path / "seeds.json"),
+                wandb_entity="test", wandb_project="test", wandb_run_id="joint-" + phase)
+    argv = joint_phase_argv(phase=phase, **args)
+    with hydra.initialize_config_dir(version_base="1.2", config_dir=str(ROOT / "egomimic/hydra_configs")):
+        cfg = hydra.compose(config_name="train_zarr_cartesian", return_hydra_config=True,
+                            overrides=argv[1:])
+        cfg.hydra.runtime.output_dir = str(tmp_path / phase)
+        HydraConfig.instance().set_config(cfg)
+        resolved = OmegaConf.to_container(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True)
+    joint_profile_for_config(resolved)
+    if phase != "normalization":
+        from scripts.train import libero_native_launch_contract as adapter
+        def compose_exact(command, *, cwd, text):
+            assert command[1:3] == ["-m", "egomimic.trainHydra"]
+            assert command[3:-3] == argv
+            assert command[-3:] == ["--cfg", "job", "--resolve"]
+            assert cwd == ROOT and text is True
+            return OmegaConf.to_yaml(OmegaConf.create(resolved))
+        monkeypatch.setattr(adapter.subprocess, "check_output", compose_exact)
+        destination = tmp_path / (phase + "-composition")
+        destination.mkdir()
+        composed = adapter.compose_joint_phase(args, phase=phase, output=destination, repo=ROOT)
+        assert composed["launch_ready"] is False
+        assert (destination / "exact-phase.argv0").read_bytes() == b"\0".join(
+            arg.encode() for arg in argv) + b"\0"
+        with pytest.raises(FileExistsError):
+            adapter.compose_joint_phase(args, phase=phase, output=destination, repo=ROOT)
+    if phase in {"smoke", "full"}:
+        import json
+        from scripts.train.libero_native_launch_contract import joint_prepare_evidence, contract_sha, reference
+        runtime = {key: {} for key in ("python", "installed_distributions", "core_distribution_versions",
+                                       "dependency_inputs", "source", "torch_runtime")}
+        runtime_path = tmp_path / "synthetic-runtime.json"
+        runtime_path.write_text(json.dumps(runtime))
+        identity = {key: resolved["run_provenance"][key] for key in (
+            "source_commit", "normalization_sha256", "split_manifest_sha256")}
+        preflight = dict(schema="libero-joint-launch-preflight/v1", status="PASS",
+            profile="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+            model_contract_sha256=contract_sha(resolved), runtime_lock=reference(runtime_path), **identity)
+        preflight_path = tmp_path / "synthetic-preflight.json"
+        preflight_path.write_text(json.dumps(preflight))
+        kwargs = dict(phase=phase, preflight_ref=reference(preflight_path), runtime_ref=reference(runtime_path))
+        if phase == "full":
+            with pytest.raises(ValueError, match="genuine eight-update"):
+                joint_prepare_evidence(resolved, **kwargs)
+            smoke = dict(schema="libero-joint-action-flow-smoke/v1", status="PASS",
+                profile=preflight["profile"], model_contract_sha256=contract_sha(resolved),
+                identities=identity, preflight=reference(preflight_path),
+                strict_online_and_alias_safe_ema_reload=True,
+                checkpoint=dict(parameter_count=78182614, global_step=8,
+                                joint_ema=dict(alias_safe_strict_reload=True)))
+            smoke_path = tmp_path / "synthetic-smoke.json"
+            smoke_path.write_text(json.dumps(smoke))
+            kwargs["smoke_ref"] = reference(smoke_path)
+        assert joint_prepare_evidence(resolved, **kwargs)["launch_ready"] is False
+        if phase == "full":
+            smoke["checkpoint"]["global_step"] = 2
+            smoke_path.write_text(json.dumps(smoke))
+            kwargs["smoke_ref"] = reference(smoke_path)
+            with pytest.raises(ValueError, match="smoke proof differs"):
+                joint_prepare_evidence(resolved, **kwargs)
+    if phase == "preflight":
+        from scripts.train.libero_native_launch_contract import contract_sha
+        for other_phase in ("smoke", "full"):
+            other_args = {**args, "output_root": str(tmp_path / other_phase),
+                          "wandb_run_id": "joint-" + other_phase}
+            with hydra.initialize_config_dir(version_base="1.2", config_dir=str(ROOT / "egomimic/hydra_configs")):
+                other = hydra.compose(config_name="train_zarr_cartesian", return_hydra_config=True,
+                    overrides=joint_phase_argv(phase=other_phase, **other_args)[1:])
+                other.hydra.runtime.output_dir = other_args["output_root"]
+                HydraConfig.instance().set_config(other)
+                other_resolved = OmegaConf.to_container(OmegaConf.masked_copy(other,
+                    [k for k in other if k != "hydra"]), resolve=True)
+            assert contract_sha(resolved) == contract_sha(other_resolved)
+    if phase == "smoke":
+        import copy
+        from scripts.train.verify_libero_native_action_flow_smoke import validate_joint_smoke_config
+        assert validate_joint_smoke_config(resolved, args["output_root"], "c" * 40)["optimizer_updates"] == 8
+        for key, value in (("trainer.max_steps", 2), ("trainer.accumulate_grad_batches", 2),
+                           ("run_provenance.run_kind", "full"), ("logger.wandb.mode", "offline"),
+                           ("callbacks.model_checkpoint.save_last", True),
+                           ("run_provenance.source_commit", None)):
+            altered = OmegaConf.create(copy.deepcopy(resolved))
+            OmegaConf.update(altered, key, value)
+            with pytest.raises(ValueError, match="joint (smoke config mismatch|LIBERO:)"):
+                validate_joint_smoke_config(altered, args["output_root"], "c" * 40)
+    for mode in ("train", "valid"):
+        for source, root in (("libero_panda", original), ("libero_panda_sharpa", sharpa)):
+            assert resolved["data"][mode + "_datasets"][source]["resolver"]["folder_path"] == root
+    assert resolved["callbacks"]["model_checkpoint"]["save_last"] is False
+    assert resolved["trainer"]["default_root_dir"] == args["output_root"]
+    assert resolved["callbacks"]["model_checkpoint"]["dirpath"] == args["output_root"] + "/checkpoints"
+    assert resolved["callbacks"]["ema"]["final_checkpoint_path"] == args["output_root"] + "/checkpoints/last.ckpt"
+    assert resolved["runtime"]["slurm_requeue_owner"] == "runner"
+    assert resolved["callbacks"]["early_recovery"]["first_step"] == 1000
+    assert resolved["trainer"]["max_steps"] == (8 if phase == "smoke" else 120000)
+    if phase == "normalization":
+        assert "logger" not in resolved
+        # The experiment itself extends the evaluator body; group deletion
+        # would leave an invalid target-less partial mapping. Normalization-only
+        # trainHydra returns before model/trainer construction or evaluation.
+        assert resolved["evaluator"]["_target_"].endswith(".PlanarActionEval")
+        assert resolved["norm_stats"]["precomputed_norm_path"] is None
+        assert resolved["norm_stats_only"] is True
+        assert resolved["norm_stats"]["export_context_path"] == args["context_path"]
+        assert resolved["run_provenance"]["normalization_sha256"] is None
+    else:
+        assert resolved["norm_stats"]["precomputed_norm_path"] == args["context_path"]
+        assert resolved["logger"]["wandb"]["id"] == args["wandb_run_id"]
+        assert resolved["logger"]["wandb"]["save_dir"] == args["output_root"]
+        assert resolved["trainer"]["val_check_interval"] == (8 if phase == "smoke" else 15000)
+        with pytest.raises(ValueError, match="normalization_sha256"):
+            joint_phase_argv(phase=phase, **{**args, "normalization_sha256": None})
+    for key, bad_value in (("original_root", "relative/root"),
+                           ("sharpa_root", "/path\nwith-newline"),
+                           ("source_commit", "unknown"),
+                           ("wandb_run_id", "unsafe id")):
+        with pytest.raises(ValueError):
+            joint_phase_argv(phase=phase, **{**args, key: bad_value})
+
+
+def test_joint_phase_factory_data_only_snapshot_never_authorizes_training(tmp_path):
+    import hydra
+    from hydra.core.hydra_config import HydraConfig
+    from omegaconf import OmegaConf
+    from egomimic.benchmarks.libero.native_launch_profiles import joint_phase_argv, joint_profile_for_config
+
+    args = dict(source_root=str(ROOT), original_root=str(tmp_path / "original"),
+                sharpa_root=str(tmp_path / "sharpa"), output_root=str(tmp_path / "out"),
+                context_path=str(tmp_path / "context.json"), split_path=str(tmp_path / "split.json"),
+                split_sha256="a" * 64, normalization_sha256=None, source_commit=None,
+                diagnostic_seed_bank=str(tmp_path / "bank.json"), wandb_entity="test",
+                wandb_project="test", wandb_run_id="data-only", data_preparation_source_sha256="d" * 64)
+    argv = joint_phase_argv(phase="normalization", **args)
+    with hydra.initialize_config_dir(version_base="1.2", config_dir=str(ROOT / "egomimic/hydra_configs")):
+        cfg = hydra.compose(config_name="train_zarr_cartesian", return_hydra_config=True, overrides=argv[1:])
+        cfg.hydra.runtime.output_dir = str(tmp_path / "out")
+        HydraConfig.instance().set_config(cfg)
+        resolved = OmegaConf.to_container(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True)
+    joint_profile_for_config(resolved)
+    assert resolved["norm_stats_only"] is True and resolved["run_provenance"]["source_commit"] is None
+    assert resolved["run_provenance"]["data_preparation_source_snapshot_sha256"] == "d" * 64
+    for phase in ("preflight", "smoke", "full"):
+        with pytest.raises(ValueError, match="data-only source snapshots"):
+            joint_phase_argv(phase=phase, **args)
+    with pytest.raises(ValueError, match="exact SHA"):
+        joint_phase_argv(phase="normalization", **{**args, "data_preparation_source_sha256": None})

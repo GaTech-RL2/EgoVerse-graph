@@ -7,6 +7,7 @@ normalization. No OAT Dataset, Workspace or training loop is imported.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
@@ -56,12 +57,29 @@ def validation_mask(n_episodes, val_ratio=0.1, seed=42):
 
 
 class LiberoReplayResolver:
-    def __init__(self, folder_path, key_map, suite, decoded_cache=False):
+    def __init__(self, folder_path, key_map, suite, decoded_cache=False,
+                 action_dim=7, embodiment="libero_panda", gripper_state_dim=2,
+                 action_representation="native"):
         self.folder_path = str(folder_path)
         self.key_map = dict(key_map)
         self.suite = suite
         self.decoded_cache = bool(decoded_cache)
         self._decoded = None
+        self.action_dim = int(action_dim)
+        self.embodiment = str(embodiment)
+        self.embodiment_id = get_embodiment_id(self.embodiment)
+        self.gripper_state_dim = int(gripper_state_dim)
+        self.action_representation = str(action_representation)
+        if self.action_representation not in ("native", "wrist_hand_keypoints"):
+            raise ValueError("Unknown LIBERO action representation")
+        if self.action_dim <= 0 or self.gripper_state_dim <= 0:
+            raise ValueError("Action and hand-state dimensions must be positive")
+        if self.embodiment == "libero_panda" and ((self.action_dim, self.gripper_state_dim) != (7, 2) or self.action_representation != "native"):
+            raise ValueError("Original Panda contract requires action7 and gripper state2")
+        if self.embodiment == "libero_panda_sharpa":
+            expected = 28 if self.action_representation == "native" else 69
+            if (self.action_dim, self.gripper_state_dim) != (expected, 22):
+                raise ValueError(f"Sharpa contract requires action{expected} and hand state22")
 
     def open_arrays(self):
         keys = {info["zarr_key"] for info in self.key_map.values()}
@@ -75,13 +93,22 @@ class LiberoReplayResolver:
         return {key: data[key] for key in keys}
 
     def resolve(self):
+        if self.action_representation == "wrist_hand_keypoints":
+            manifest = json.loads((Path(self.folder_path) / "benchmark_manifest.json").read_text())
+            if (not manifest.get("complete") or manifest.get("action_dim") != 69
+                    or manifest.get("action_representation") != self.action_representation
+                    or manifest.get("keypoint_frame") != "wrist_relative_Quest_XYZ_m"
+                    or manifest.get("observation_alignment") != "causal_pre_action_raw_lossless"):
+                raise ValueError("Keypoint representation/frame manifest differs")
         group = zarr.open_group(self.folder_path, mode="r")
         ends = np.asarray(group["meta/episode_ends"][:], dtype=np.int64)
         if ends.ndim != 1 or len(ends) == 0 or np.any(np.diff(np.r_[0, ends]) <= 0):
             raise ValueError("episode_ends must be strictly increasing and nonempty")
         data = group["data"]
-        if data["action"].shape != (ends[-1], 7):
-            raise ValueError("LIBERO action must be (frames,7) delta OSC controls")
+        if data["action"].shape != (ends[-1], self.action_dim):
+            raise ValueError(f"{self.embodiment} action must be (frames,{self.action_dim})")
+        if "robot0_gripper_qpos" in data and data["robot0_gripper_qpos"].shape != (ends[-1], self.gripper_state_dim):
+            raise ValueError(f"{self.embodiment} hand-state shape differs from declared contract")
         for info in self.key_map.values():
             if data[info["zarr_key"]].shape[0] != ends[-1]:
                 raise ValueError("Replay array lengths differ")
@@ -96,6 +123,7 @@ class LiberoReplayResolver:
                 self.key_map,
                 index,
                 decoded=self._decoded,
+                embodiment=self.embodiment,
             )
             for index, (start, end) in enumerate(zip(np.r_[0, ends[:-1]], ends))
         }
@@ -104,12 +132,14 @@ class LiberoReplayResolver:
 class _ReplayEpisode(torch.utils.data.Dataset):
     embodiment = "libero_panda"
 
-    def __init__(self, path, start, end, key_map, index, decoded=None):
+    def __init__(self, path, start, end, key_map, index, decoded=None, embodiment="libero_panda"):
         self.path, self.start, self.end = path, start, end
         self.key_map = key_map
         self.episode_path = Path(path) / f"episode_{index:06d}"
         self._arrays = None
         self._decoded = decoded
+        self.embodiment = str(embodiment)
+        self.embodiment_id = get_embodiment_id(self.embodiment)
 
     def __len__(self):
         return self.end - self.start
@@ -148,7 +178,7 @@ class _ReplayEpisode(torch.utils.data.Dataset):
                 raise ValueError(f"Non-finite {key} in {self.episode_path}")
             result[key] = torch.from_numpy(np.ascontiguousarray(values)).float()
         result.update(
-            embodiment=EMBODIMENT, episode_hash=self.episode_path.name, frame_index=idx
+            embodiment=self.embodiment_id, episode_hash=self.episode_path.name, frame_index=idx
         )
         return result
 
@@ -174,13 +204,14 @@ class LiberoDataset(MultiDataset):
         )
         dataset.resolver = resolver
         dataset.split_seed, dataset.val_ratio = int(split_seed), float(valid_ratio)
+        dataset.split_mode = mode
         return dataset
 
     def __getitem__(self, idx, _attempts=None):
         # Benchmarks fail on corrupt samples; never replace a validation frame.
         name, offset = self.index_map[idx]
         sample = self.datasets[name][offset]
-        return self.normalize(sample, EMBODIMENT)
+        return self.normalize(sample, sample["embodiment"])
 
     def _apply_norm_one(self, tensor, stats):
         scale = torch.as_tensor(
@@ -286,3 +317,81 @@ class LiberoNormalizer(LiberoDataset):
             raise ValueError(
                 "Tokenizer and policy dataset/split/action-normalizer differ"
             )
+
+
+class LiberoMultiEmbodimentNormalizer(LiberoDataset):
+    """Separate native affine limits fit only on each selected training split.
+
+    Historical LiberoNormalizer keeps its all-replay baseline contract. This
+    adapter records a distinct metric/data identity and never mixes hand widths.
+    """
+
+    def __init__(self, state=None, norm_mode="libero_train_limits", **kwargs):
+        if norm_mode != "libero_train_limits":
+            raise ValueError("Joint native LIBERO requires train-only affine limits")
+        super().__init__(state={} if state is None else state, norm_mode=norm_mode, **kwargs)
+        self.contexts = dict((state or {}).get("native_embodiment_contexts", {}))
+
+    def infer_norm_from_dataset(self, dataset, dataset_name, **kwargs):
+        if dataset.split_mode != "train":
+            raise ValueError("Normalization may only fit selected training episodes")
+        if kwargs.get("precomputed_norm_path") is not None:
+            raise ValueError("Use a complete saved multi-embodiment data context")
+        resolver = dataset.resolver
+        identity = resolver.embodiment_id
+        if str(identity) in self.contexts:
+            raise ValueError("One immutable native source per embodiment is required")
+        arrays = resolver.open_arrays()
+        stats = self.norm_stats.setdefault(identity, {})
+        digest = hashlib.sha256()
+        selected = sorted(dataset.datasets.items())
+        for name, _ in selected:
+            digest.update(name.encode())
+        for key, info in resolver.key_map.items():
+            array = arrays[info["zarr_key"]]
+            low = np.full(array.shape[-1], np.inf, dtype=np.float32)
+            high = -low.copy()
+            digest.update(key.encode())
+            for _, episode in selected:
+                for start in range(episode.start, episode.end, 64):
+                    values = np.asarray(array[start:min(start + 64, episode.end)], dtype=np.float32)
+                    if not np.isfinite(values).all():
+                        raise ValueError(f"Non-finite training normalization in {dataset_name}/{key}")
+                    digest.update(np.ascontiguousarray(values).tobytes())
+                    flat = values.reshape(-1, array.shape[-1])
+                    low = np.minimum(low, flat.min(axis=0))
+                    high = np.maximum(high, flat.max(axis=0))
+            span = high - low
+            constant = span < 1e-4
+            scale = 2 / np.where(constant, 2, span)
+            offset = np.where(constant, -low, -1 - scale * low)
+            stats[key] = {"min": low, "max": high, "scale": scale, "offset": offset}
+        self.contexts[str(identity)] = {
+            "embodiment": resolver.embodiment,
+            "action_dim": resolver.action_dim,
+            "action_representation": resolver.action_representation,
+            "hand_state_dim": resolver.gripper_state_dim,
+            "suite": resolver.suite,
+            "split_seed": dataset.split_seed,
+            "val_ratio": dataset.val_ratio,
+            "normalization_scope": "selected_training_episodes_only",
+            "train_episode_ids": [name for name, _ in selected],
+            "train_content_sha256": digest.hexdigest(),
+        }
+
+    def to_state(self):
+        state = super().to_state()
+        state["native_embodiment_contexts"] = self.contexts
+        return state
+
+    def tokenizer_context(self):
+        return {"native_embodiments": {
+            identity: {**context,
+                       "action_scale": np.asarray(self.norm_stats[int(identity)]["actions"]["scale"]).tolist(),
+                       "action_offset": np.asarray(self.norm_stats[int(identity)]["actions"]["offset"]).tolist()}
+            for identity, context in self.contexts.items()
+        }}
+
+    def assert_tokenizer_context(self, reference):
+        if self.tokenizer_context() != reference:
+            raise ValueError("Native embodiment/split/normalizer identity differs")

@@ -216,13 +216,16 @@ class KeyedFeatureProjection(Stage):
     ):
         super().__init__()
         self.selector_key = str(selector_key)
-        self.input_key = str(input_key)
+        self.input_keys = (str(input_key),) if isinstance(input_key, str) else tuple(map(str, input_key))
+        if not self.input_keys or any(not key for key in self.input_keys):
+            raise ValueError("input_key requires one or more nonempty feature keys")
+        self.input_key = self.input_keys[0]
         self.output_key = str(output_key)
         if not self.selector_key or not self.input_key or not self.output_key:
             raise ValueError(
                 "selector_key, input_key, and output_key must be non-empty"
             )
-        self.reads = (self.input_key, self.selector_key)
+        self.reads = (*self.input_keys, self.selector_key)
         self.writes = (self.output_key,)
         self.output_dim = int(output_dim)
         if self.output_dim <= 0 or not projections:
@@ -243,6 +246,12 @@ class KeyedFeatureProjection(Stage):
                 "input_dim": input_dim,
                 "semantic": str(spec.get("semantic", "")),
             }
+            if spec.get("identity", False):
+                if input_dim != self.output_dim:
+                    raise ValueError("Identity projection input/output dimensions must match")
+                branches[selector] = nn.Identity()
+                self.projection_specs[selector]["identity"] = True
+                continue
             branches[selector] = nn.Sequential(
                 nn.Linear(input_dim, hidden_dim),
                 nn.SiLU(),
@@ -273,7 +282,12 @@ class KeyedFeatureProjection(Stage):
                 f"No projection for {self.selector_key}={selector!r}; "
                 f"configured={list(self.projections)}"
             )
-        value = batch[self.input_key]
+        features = [batch[key] for key in self.input_keys]
+        if any(not torch.is_tensor(value) or value.ndim < 2 for value in features):
+            raise ValueError("Projection inputs must be batched feature tensors")
+        if any(value.shape[:-1] != features[0].shape[:-1] for value in features):
+            raise ValueError("Projection inputs must have matching batch/history axes")
+        value = features[0] if len(features) == 1 else torch.cat(features, dim=-1)
         spec = self.projection_specs[selector]
         if value.shape[-1] != spec["input_dim"]:
             raise ValueError(

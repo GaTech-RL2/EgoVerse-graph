@@ -125,6 +125,45 @@ if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_MEMORY
   required AF_EXPECTED_TIME_LIMIT
 fi
+# Explicit unequal-width joint route reuses the maintained phase/child adapters.
+if test "$AF_EXPERIMENT" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42; then
+  test "$AF_LAUNCH_MODE" != schema || die "joint route uses typed preflight, not historical native schema"
+  test -z "${AF_INITIAL_CHECKPOINT:-}" || die "joint fresh launch cannot use historical resume adapter"
+  if test -z "${SLURM_STEP_ID:-}"; then
+    required SLURM_JOB_ID; required SLURM_CPUS_PER_TASK
+    exec srun --overlap --nodes=1 --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --gres=none /usr/bin/env bash "$LAUNCHER"
+  fi
+  [[ "$SLURM_STEP_ID" =~ ^[0-9]+$ ]] || die "joint route requires numeric scheduled step"
+  for variable in AF_JOINT_PHASE_INPUTS AF_EXPECTED_JOINT_PHASE_INPUTS_SHA256 \
+    AF_SECOND_DATASET_DIR AF_NORM_STATS_PATH AF_EXPECTED_NORM_SHA256 AF_SPLIT_MANIFEST; do required "$variable"; done
+  for variable in AF_REPO AF_PYTHON AF_OUTPUT_DIR AF_DATASET_DIR AF_SECOND_DATASET_DIR \
+    AF_JOINT_PHASE_INPUTS AF_NORM_STATS_PATH AF_SPLIT_MANIFEST; do absolute_path "$variable" "${!variable}"; done
+  test -x "$AF_PYTHON" || die "joint Python runtime is unavailable"
+  case "$AF_OUTPUT_DIR/" in "$AF_REPO/"*) die "joint outputs must be outside source" ;; esac
+  test "$(sha256 "$LAUNCHER")" = "$AF_EXPECTED_LAUNCHER_SHA256" || die "joint launcher SHA mismatch"
+  test "$(git -C "$AF_REPO" rev-parse HEAD)" = "$AF_EXPECTED_HEAD" || die "joint source HEAD mismatch"
+  test -z "$(git -C "$AF_REPO" status --porcelain=v1 --untracked-files=all)" || die "joint source must be clean"
+  test "$(sha256 "$AF_SPLIT_MANIFEST")" = "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" || die "joint split SHA mismatch"
+  test "$(sha256 "$AF_NORM_STATS_PATH")" = "$AF_EXPECTED_NORM_SHA256" || die "joint context SHA mismatch"
+  test "$(sha256 "$AF_JOINT_PHASE_INPUTS")" = "$AF_EXPECTED_JOINT_PHASE_INPUTS_SHA256" || die "joint phase inputs SHA mismatch"
+  test "$AF_SMOKE_VERIFIER" = "$AF_REPO/scripts/train/verify_action_flow_training_smoke.py" || die "joint requires shared verifier"
+  AF_NATIVE_LIBERO=true
+  AF_JOINT_LIBERO=true
+  if test "$AF_LAUNCH_MODE" = preflight; then AF_NATIVE_PHASE=preflight; else AF_NATIVE_PHASE=$AF_RUN_KIND; fi
+  export AF_NATIVE_SCHEDULED_STEP=true
+  export PATH="$(dirname "$AF_PYTHON"):$PATH"
+  export PYTHONPATH="$AF_REPO${AF_EXTRA_PYTHONPATH:+:$AF_EXTRA_PYTHONPATH}"
+  export AF_REPO AF_PYTHON AF_EXPERIMENT AF_OUTPUT_DIR AF_DATASET_DIR AF_SECOND_DATASET_DIR
+  export AF_EXPECTED_HEAD AF_EXPECTED_SPLIT_MANIFEST_SHA256 AF_EXPECTED_NORM_SHA256
+  export AF_NORM_STATS_PATH AF_SPLIT_MANIFEST AF_WANDB_ENTITY AF_WANDB_PROJECT AF_WANDB_RUN_ID
+  export AF_CONFIG_VALIDATOR AF_EXTRA_PYTHONPATH
+  export ICE_REQUIRE_LR_SCHEDULERS=1 ICE_EXPECTED_SOURCE_COMMIT="$AF_EXPECTED_HEAD"
+  export ICE_EXPECTED_RUN_ID="$AF_WANDB_RUN_ID" ICE_EXPECTED_SPLIT_SHA256="$AF_EXPECTED_SPLIT_MANIFEST_SHA256"
+  export ICE_EXPECTED_NORMALIZATION_SHA256="$AF_EXPECTED_NORM_SHA256"
+  source "$AF_REPO/scripts/train/libero_native_launch_phases.sh"
+  exit 0
+fi
+
 AF_METHOD=action_flow_joint
 AF_FULL_MAX_STEPS=240000
 AF_FULL_VALIDATE_EVERY=10000

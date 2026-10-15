@@ -199,11 +199,13 @@ def evaluate_contract(
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from egomimic.benchmarks.libero.native_launch_profiles import (
-            profile_for_experiment,
+            profile_for_experiment, SPATIAL_HAND_JOINT_PROFILE,
         )
 
         try:
-            selected_profile = profile_for_experiment(native_profile)
+            selected_profile = (SPATIAL_HAND_JOINT_PROFILE
+                if native_profile == SPATIAL_HAND_JOINT_PROFILE.experiment
+                else profile_for_experiment(native_profile))
             if selected_profile.suite == "libero_spatial" and native:
                 raise ValueError(
                     "Spatial ICE requires an explicit H100/H200 constraint"

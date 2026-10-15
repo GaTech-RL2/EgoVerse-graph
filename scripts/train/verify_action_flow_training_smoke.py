@@ -2618,6 +2618,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--expected-preflight-sha256")
     parser.add_argument("--training-repo", type=Path)
     parser.add_argument("--expected-verifier-head")
+    parser.add_argument("--finalize-runtime-lock", type=Path)
     return parser
 
 
@@ -2695,6 +2696,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 training_source_commit=args.expected_head,
                 changed_paths=sorted(changed),
             )
+        if args.finalize_runtime_lock is not None:
+            _require(
+                args.training_repo is not None,
+                "finalize requires separately bound verifier and training sources",
+            )
+            from egomimic.benchmarks.libero.saved_hydra_context import (
+                load_saved_native_config,
+            )
+            from scripts.train.libero_native_launch_contract import (
+                joint_smoke_evidence,
+                reference,
+                write,
+            )
+
+            _require(
+                os.environ.get("SLURM_STEP_ID", "").isdigit(),
+                "finalize requires numeric scheduled step",
+            )
+            root = args.run_dir.resolve(strict=True)
+            preflight_path = Path(os.environ["AF_PREFLIGHT_RESULT"])
+            _require(
+                _sha256(preflight_path) == args.expected_preflight_sha256,
+                "finalize preflight SHA mismatch",
+            )
+            cfg = load_saved_native_config(root, REPOSITORY_ROOT)
+            evidence = joint_smoke_evidence(
+                cfg,
+                root,
+                preflight_ref=reference(preflight_path),
+                runtime_ref=reference(args.finalize_runtime_lock),
+                shared=sys.modules[__name__],
+            )
+            write(root / "provenance/JOINT_SMOKE_EVIDENCE.json", evidence)
         result = verify_smoke(
             args.run_dir,
             experiment=args.experiment,

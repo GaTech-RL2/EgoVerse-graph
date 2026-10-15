@@ -241,3 +241,71 @@ def test_joint_checkpoint_distinguishes_configured_terminal_from_rolling_alias(
         assert terminal.read_bytes() == b"terminal"
     with pytest.raises(Exception, match="rolling last"):
         _joint_smoke_checkpoint_path(tmp_path)
+
+
+def test_separate_verifier_finalizes_through_same_loaded_helpers(tmp_path, monkeypatch):
+    from egomimic.benchmarks.libero import saved_hydra_context as loader
+    from scripts.train import libero_native_launch_contract as producer
+    from scripts.train import verify_action_flow_training_smoke as shared
+
+    training, verifier, run = [tmp_path / p for p in ("training", "verifier", "run")]
+    for p in (training, verifier, run):
+        p.mkdir()
+    preflight = tmp_path / "preflight.json"
+    preflight.write_text("{}")
+    runtime = tmp_path / "runtime.json"
+    runtime.write_text("{}")
+    monkeypatch.setattr(shared, "REPOSITORY_ROOT", verifier)
+    monkeypatch.setattr(shared, "VERIFIER_PROVENANCE", None)
+    monkeypatch.setattr(
+        shared,
+        "_git_head",
+        lambda repository_root=None: "a" * 40
+        if repository_root == verifier
+        else "b" * 40,
+    )
+    monkeypatch.setattr(shared.subprocess, "check_output", lambda *a, **k: "")
+    monkeypatch.setattr(shared.subprocess, "run", lambda *a, **k: None)
+    monkeypatch.setenv("SLURM_STEP_ID", "0")
+    monkeypatch.setenv("AF_PREFLIGHT_RESULT", str(preflight))
+    calls = []
+
+    def load(root, repo):
+        assert root == run and repo == training
+        return OmegaConf.create({"original": True})
+
+    def evidence(cfg, root, **kwargs):
+        assert cfg.original and root == run
+        assert kwargs["shared"] is shared
+        calls.append("finalize")
+        return {"actual": True}
+
+    monkeypatch.setattr(loader, "load_saved_native_config", load)
+    monkeypatch.setattr(producer, "joint_smoke_evidence", evidence)
+    monkeypatch.setattr(producer, "write", lambda path, value: calls.append("write"))
+    monkeypatch.setattr(
+        shared,
+        "verify_smoke",
+        lambda *a, **k: calls.append("verify") or {"run_dir": str(run)},
+    )
+    assert (
+        shared.main(
+            [
+                str(run),
+                "--experiment",
+                "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                "--expected-head",
+                "b" * 40,
+                "--training-repo",
+                str(training),
+                "--expected-verifier-head",
+                "a" * 40,
+                "--finalize-runtime-lock",
+                str(runtime),
+                "--expected-preflight-sha256",
+                hashlib.sha256(preflight.read_bytes()).hexdigest(),
+            ]
+        )
+        == 0
+    )
+    assert calls == ["finalize", "write", "verify"]

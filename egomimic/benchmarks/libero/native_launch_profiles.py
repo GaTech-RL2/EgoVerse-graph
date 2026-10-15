@@ -316,7 +316,7 @@ def joint_phase_argv(
             else "callbacks.model_checkpoint.every_n_train_steps=15000",
         ]
     if phase == "smoke":
-        argv.append("trainer.log_every_n_steps=1")
+        argv += ["trainer.log_every_n_steps=1", "model.gradient_telemetry_cadence=1"]
     return argv
 
 

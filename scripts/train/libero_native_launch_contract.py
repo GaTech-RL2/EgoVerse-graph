@@ -467,6 +467,8 @@ def joint_prepare_evidence(cfg, *, phase, preflight_ref, runtime_ref, smoke_ref=
         or cfg["callbacks"]["model_checkpoint"]["every_n_train_steps"] != cadence
     ):
         raise ValueError("joint prepare stop/validation/checkpoint cadence differs")
+    if phase == "smoke" and cfg["model"].get("gradient_telemetry_cadence") != 1:
+        raise ValueError("joint smoke requires per-step gradient telemetry")
     fingerprint = contract_sha(cfg)
     preflight = checked_json(preflight_ref)
     identities = {

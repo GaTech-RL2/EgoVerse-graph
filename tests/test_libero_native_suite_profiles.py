@@ -545,6 +545,16 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
     if phase == "smoke":
         import copy
 
+        from scripts.train.libero_native_launch_contract import joint_prepare_evidence
+
+        assert resolved["model"]["gradient_telemetry_cadence"] == 1
+        missing_telemetry = copy.deepcopy(resolved)
+        missing_telemetry["model"]["gradient_telemetry_cadence"] = 100
+        with pytest.raises(ValueError, match="per-step gradient telemetry"):
+            joint_prepare_evidence(
+                missing_telemetry, phase="smoke", preflight_ref={}, runtime_ref={}
+            )
+
         from scripts.train.verify_libero_native_action_flow_smoke import (
             validate_joint_smoke_config,
         )

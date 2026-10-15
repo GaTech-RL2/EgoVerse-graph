@@ -81,3 +81,27 @@ def test_recipe_preserves_training_contract_and_binds_all_decoders():
     tokens = transforms[-1].transform({"actions_cartesian": chunk})["actions_cartesian"]
     np.testing.assert_allclose(decoder(tokens)[0], transforms[-1].detokenize(tokens, 100))
     assert decoder.codec.duration_timing == "absolute"
+
+
+def test_stationery_open_loop_evaluator_decodes_absolute_times():
+    from egomimic.eval.open_loop_sim import truncate_e1_wide_token
+
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcdur_abstime")
+    for split in ("train_datasets", "valid_datasets"):
+        transforms = instantiate(cfg.data[split].yam_bimanual.resolver.transform_list)
+        assert transforms[-1].duration_timing == "absolute"
+    evaluator = instantiate(cfg.evaluator)
+    chunk = np.zeros((100, 14))
+    chunk[:, 0] = 0.3 * np.linspace(0, 1, 100) ** 1.4
+    chunk[:, 7] = np.linspace(0, 0.2, 100)
+    tokens = transforms[-1].transform({"actions_cartesian": chunk})["actions_cartesian"]
+    decoded, steps = evaluator._decode_prediction_with_steps(tokens)
+    assert evaluator._arc_tokenizer.duration_timing == "absolute"
+    expected = transforms[-1].detokenize(
+        truncate_e1_wide_token(tokens, evaluator.execute_fraction), action_horizon=steps
+    )
+    np.testing.assert_allclose(decoded, expected)
+    decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
+    assert decoder.codec.duration_timing == "absolute"
+    with pytest.raises(Exception, match="e1_dur"):  # Hydra wraps the ValueError
+        instantiate(cfg.evaluator, token_layout="e1_profile")

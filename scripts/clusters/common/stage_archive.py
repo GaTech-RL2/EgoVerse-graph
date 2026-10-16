@@ -24,30 +24,33 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
         ["findmnt", "-n", "-o", "FSTYPE", "-T", str(scratch_root)], text=True).strip()
     if filesystem not in {"ext4", "xfs", "btrfs", "tmpfs", "overlay"}:
         raise ValueError(f"Refusing non-local staging filesystem: {filesystem}")
-    free = shutil.disk_usage(scratch_root).free
-    if free < archive.stat().st_size + reserve_bytes:
-        raise RuntimeError("Insufficient local disk for archive copy plus reserve")
-    # Copy and hash sequentially once. Tar inspection/extraction then performs
-    # all header and small-file operations on local storage, not NFS.
-    with tempfile.TemporaryDirectory(prefix=".archive-", dir=scratch_root) as spool_root:
-        spool = Path(spool_root) / "input.tar"
-        with archive.open("rb") as stream, spool.open("wb") as local_stream:
-            checksum = hashlib.sha256()
-            for block in iter(lambda: stream.read(8 * 1024**2), b""):
-                checksum.update(block)
-                local_stream.write(block)
-            digest = checksum.hexdigest()
-        if digest != expected_sha256:
-            raise ValueError("Archive checksum differs from approved input")
-        target = scratch_root / digest
-        with (scratch_root / ".stage.lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            receipt = target / ".stage-receipt.json"
-            if target.exists():
-                value = json.loads(receipt.read_text())
-                if value["sha256"] != digest or not value["complete"]:
-                    raise ValueError("Existing staged directory lacks a matching receipt")
-                return target
+    if len(expected_sha256) != 64 or any(c not in "0123456789abcdef" for c in expected_sha256):
+        raise ValueError("Expected a lowercase SHA-256 digest")
+    target = scratch_root / expected_sha256
+    archive_bytes = archive.stat().st_size
+    with (scratch_root / ".stage.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        receipt = target / ".stage-receipt.json"
+        if target.exists():
+            value = json.loads(receipt.read_text())
+            if (value["sha256"] != expected_sha256 or not value["complete"] or
+                    value.get("archive_bytes") != archive_bytes):
+                raise ValueError("Existing staged directory lacks a matching receipt")
+            return target
+        free = shutil.disk_usage(scratch_root).free
+        if free < archive_bytes + reserve_bytes:
+            raise RuntimeError("Insufficient local disk for archive copy plus reserve")
+        # Copy/hash once, then inspect/extract locally. A concurrent consumer
+        # waits on the lock and reuses this verified content-addressed stage.
+        with tempfile.TemporaryDirectory(prefix=".archive-", dir=scratch_root) as spool_root:
+            spool = Path(spool_root) / "input.tar"
+            with archive.open("rb") as stream, spool.open("wb") as local_stream:
+                checksum = hashlib.sha256()
+                for block in iter(lambda: stream.read(8 * 1024**2), b""):
+                    checksum.update(block)
+                    local_stream.write(block)
+            if checksum.hexdigest() != expected_sha256:
+                raise ValueError("Archive checksum differs from approved input")
             with tarfile.open(spool) as bundle:
                 members = bundle.getmembers()
                 for member in members:
@@ -62,7 +65,8 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
                 temporary = Path(tempfile.mkdtemp(prefix=".staging-", dir=scratch_root))
                 try:
                     bundle.extractall(temporary, members=members, filter="data")
-                    value = {"complete": True, "sha256": digest, "archive": str(archive),
+                    value = {"complete": True, "sha256": expected_sha256, "archive": str(archive),
+                             "archive_bytes": archive_bytes,
                              "unpacked_bytes": unpacked, "free_bytes_before": free,
                              "reserve_bytes": reserve_bytes, "filesystem": filesystem,
                              "job_id": os.environ["SLURM_JOB_ID"], "node": os.uname().nodename}
@@ -71,7 +75,7 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
                 except BaseException:
                     shutil.rmtree(temporary)
                     raise
-        return target
+    return target
 
 
 if __name__ == "__main__":

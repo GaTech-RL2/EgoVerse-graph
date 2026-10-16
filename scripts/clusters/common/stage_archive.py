@@ -24,46 +24,54 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
         ["findmnt", "-n", "-o", "FSTYPE", "-T", str(scratch_root)], text=True).strip()
     if filesystem not in {"ext4", "xfs", "btrfs", "tmpfs", "overlay"}:
         raise ValueError(f"Refusing non-local staging filesystem: {filesystem}")
-    with archive.open("rb") as stream:
-        checksum = hashlib.sha256()
-        for block in iter(lambda: stream.read(8 * 1024**2), b""):
-            checksum.update(block)
-        digest = checksum.hexdigest()
-    if digest != expected_sha256:
-        raise ValueError("Archive checksum differs from approved input")
-    target = scratch_root / digest
-    with (scratch_root / ".stage.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        receipt = target / ".stage-receipt.json"
-        if target.exists():
-            value = json.loads(receipt.read_text())
-            if value["sha256"] != digest or not value["complete"]:
-                raise ValueError("Existing staged directory lacks a matching receipt")
-            return target
-        with tarfile.open(archive) as bundle:
-            members = bundle.getmembers()
-            for member in members:
-                name = PurePosixPath(member.name)
-                if name.is_absolute() or ".." in name.parts or not (member.isfile() or member.isdir()):
-                    raise ValueError(f"Unsafe archive member: {member.name}")
-            unpacked = sum(member.size for member in members)
-            free = shutil.disk_usage(scratch_root).free
-            required = 2 * unpacked + reserve_bytes
-            if free < required:
-                raise RuntimeError(f"Local disk needs {required} bytes; only {free} free")
-            temporary = Path(tempfile.mkdtemp(prefix=".staging-", dir=scratch_root))
-            try:
-                bundle.extractall(temporary, members=members, filter="data")
-                value = {"complete": True, "sha256": digest, "archive": str(archive),
-                         "unpacked_bytes": unpacked, "free_bytes_before": free,
-                         "reserve_bytes": reserve_bytes, "filesystem": filesystem,
-                         "job_id": os.environ["SLURM_JOB_ID"], "node": os.uname().nodename}
-                (temporary / ".stage-receipt.json").write_text(json.dumps(value, indent=2) + "\n")
-                temporary.rename(target)
-            except BaseException:
-                shutil.rmtree(temporary)
-                raise
-    return target
+    free = shutil.disk_usage(scratch_root).free
+    if free < archive.stat().st_size + reserve_bytes:
+        raise RuntimeError("Insufficient local disk for archive copy plus reserve")
+    # Copy and hash sequentially once. Tar inspection/extraction then performs
+    # all header and small-file operations on local storage, not NFS.
+    with tempfile.TemporaryDirectory(prefix=".archive-", dir=scratch_root) as spool_root:
+        spool = Path(spool_root) / "input.tar"
+        with archive.open("rb") as stream, spool.open("wb") as local_stream:
+            checksum = hashlib.sha256()
+            for block in iter(lambda: stream.read(8 * 1024**2), b""):
+                checksum.update(block)
+                local_stream.write(block)
+            digest = checksum.hexdigest()
+        if digest != expected_sha256:
+            raise ValueError("Archive checksum differs from approved input")
+        target = scratch_root / digest
+        with (scratch_root / ".stage.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            receipt = target / ".stage-receipt.json"
+            if target.exists():
+                value = json.loads(receipt.read_text())
+                if value["sha256"] != digest or not value["complete"]:
+                    raise ValueError("Existing staged directory lacks a matching receipt")
+                return target
+            with tarfile.open(spool) as bundle:
+                members = bundle.getmembers()
+                for member in members:
+                    name = PurePosixPath(member.name)
+                    if name.is_absolute() or ".." in name.parts or not (member.isfile() or member.isdir()):
+                        raise ValueError(f"Unsafe archive member: {member.name}")
+                unpacked = sum(member.size for member in members)
+                free = shutil.disk_usage(scratch_root).free
+                required = 2 * unpacked + reserve_bytes
+                if free < required:
+                    raise RuntimeError(f"Local disk needs {required} bytes; only {free} free")
+                temporary = Path(tempfile.mkdtemp(prefix=".staging-", dir=scratch_root))
+                try:
+                    bundle.extractall(temporary, members=members, filter="data")
+                    value = {"complete": True, "sha256": digest, "archive": str(archive),
+                             "unpacked_bytes": unpacked, "free_bytes_before": free,
+                             "reserve_bytes": reserve_bytes, "filesystem": filesystem,
+                             "job_id": os.environ["SLURM_JOB_ID"], "node": os.uname().nodename}
+                    (temporary / ".stage-receipt.json").write_text(json.dumps(value, indent=2) + "\n")
+                    temporary.rename(target)
+                except BaseException:
+                    shutil.rmtree(temporary)
+                    raise
+        return target
 
 
 if __name__ == "__main__":

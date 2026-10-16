@@ -159,6 +159,65 @@ def _fixed_endpoint(
     return result, evaluations
 
 
+def _fixed_decoder_singular_values(
+    decoder: nn.Module,
+    fixed_states: torch.Tensor,
+    clean: torch.Tensor,
+    noise: torch.Tensor,
+    clean_singular: torch.Tensor,
+    noise_singular: torch.Tensor,
+    sample_count: int,
+    *,
+    jacobian_method: str,
+) -> torch.Tensor:
+    """Reuse an endpoint spectrum only for an identical deterministic input.
+
+    The native decoder has no random operations in evaluation mode. Arbitrary
+    decoders (including subclasses overriding forward) and training mode keep
+    the original call sequence. Compare the actual sampled input bytes rather
+    than assuming a particular noise level constructs an identical endpoint.
+    This changes neither the Jacobian method nor the number of sampled rows.
+    """
+    from egomimic.models.unite_action_decoder import UniteActionDecoder
+
+    reusable = type(decoder) is UniteActionDecoder and not any(
+        module.training or module._forward_hooks or module._forward_pre_hooks
+        for module in decoder.modules()
+    )
+    references = ()
+    if reusable:
+        references = tuple(
+            (
+                value.dtype,
+                value.device,
+                tuple(value[:sample_count].shape),
+                value[:sample_count].detach().contiguous().view(torch.uint8),
+                spectrum,
+            )
+            for value, spectrum in ((clean, clean_singular), (noise, noise_singular))
+        )
+    result = []
+    for value in fixed_states:
+        spectrum = None
+        if reusable:
+            sampled = value[:sample_count].detach().contiguous().view(torch.uint8)
+            for dtype, device, shape, reference, cached in references:
+                if (
+                    value.dtype == dtype
+                    and value.device == device
+                    and tuple(value[:sample_count].shape) == shape
+                    and torch.equal(sampled, reference)
+                ):
+                    spectrum = cached
+                    break
+        if spectrum is None:
+            spectrum = _decoder_singular_values(
+                decoder, value, sample_count, jacobian_method=jacobian_method
+            )
+        result.append(spectrum)
+    return torch.stack(result)
+
+
 def _diagnostic_source(
     model: Any,
     source: str,
@@ -340,13 +399,15 @@ def _diagnostic_source(
     noise_singular = _decoder_singular_values(
         decoder, noise, jacobian_count, jacobian_method=jacobian_method
     )
-    fixed_singular = torch.stack(
-        [
-            _decoder_singular_values(
-                decoder, value, jacobian_count, jacobian_method=jacobian_method
-            )
-            for value in fixed_states_tensor
-        ]
+    fixed_singular = _fixed_decoder_singular_values(
+        decoder,
+        fixed_states_tensor,
+        clean,
+        noise,
+        clean_singular,
+        noise_singular,
+        jacobian_count,
+        jacobian_method=jacobian_method,
     )
 
     result: OrderedDict[str, Any] = OrderedDict(

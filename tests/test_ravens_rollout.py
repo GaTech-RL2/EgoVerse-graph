@@ -1,6 +1,8 @@
 """Rollout ABI transport and embodiment routing; no simulator needed."""
 
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +12,71 @@ path = Path(__file__).parents[1] / "egomimic/benchmarks/ravens/rollout.py"
 spec = importlib.util.spec_from_file_location("ravens_rollout", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+
+def training_scene_request(tmp_path):
+    manifest = {
+        "complete": True,
+        "episodes": [
+            {"seed": i * 2, "sha256": "a" * 64, "frames": 710, "reward": 1.0}
+            for i in range(500)
+        ],
+    }
+    raw = json.dumps(manifest).encode()
+    dataset_sha = hashlib.sha256(raw).hexdigest()
+    (tmp_path / "dataset.json").write_bytes(raw)
+    split = {
+        "train": [f"episode_{i:06d}" for i in range(450)],
+        "valid": [f"episode_{i:06d}" for i in range(450, 500)],
+        "seed": 42,
+        "dataset_manifest_sha256": dataset_sha,
+    }
+    raw_split = json.dumps(split).encode()
+    (tmp_path / "split.json").write_bytes(raw_split)
+    return {
+        "evaluation_split": "train",
+        "seeds": [0],
+        "collection_seeds": list(range(0, 1000, 2)),
+        "dataset_manifest": str(tmp_path / "dataset.json"),
+        "dataset_manifest_sha256": dataset_sha,
+        "split_manifest": str(tmp_path / "split.json"),
+        "split_manifest_sha256": hashlib.sha256(raw_split).hexdigest(),
+    }
+
+
+def test_training_scene_requires_actual_train_membership(tmp_path):
+    request = training_scene_request(tmp_path)
+    selected = module.validate_scene_selection(request)
+    assert selected[0]["episode_id"] == "episode_000000"
+    assert selected[0]["evaluation_split"] == "train"
+    request["seeds"] = [900]
+    with pytest.raises(ValueError, match="validation, not training"):
+        module.validate_scene_selection(request)
+    request["seeds"] = [20000]
+    with pytest.raises(ValueError, match="not recorded"):
+        module.validate_scene_selection(request)
+
+
+def test_unseen_default_keeps_collection_exclusion(tmp_path):
+    request = training_scene_request(tmp_path)
+    del request["evaluation_split"]
+    with pytest.raises(ValueError, match="overlap"):
+        module.validate_scene_selection(request)
+    request["seeds"] = [20000]
+    assert module.validate_scene_selection(request)[20000] == {
+        "evaluation_split": "unseen"
+    }
+
+
+def test_training_scene_rejects_changed_split_and_mapping(tmp_path):
+    request = training_scene_request(tmp_path)
+    request["collection_seeds"] = list(reversed(request["collection_seeds"]))
+    with pytest.raises(ValueError, match="mapping mismatch"):
+        module.validate_scene_selection(request)
+    request = training_scene_request(tmp_path)
+    Path(request["split_manifest"]).write_text("{}")
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        module.validate_scene_selection(request)
 
 
 def test_simulator_import_does_not_import_torch():

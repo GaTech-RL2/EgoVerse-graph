@@ -73,16 +73,69 @@ def receive(connection):
     return json.loads(connection.recv_bytes(4 * 1024 * 1024))
 
 
+def validate_scene_selection(request):
+    """Keep seen-scene diagnostics separate from unseen-scene previews."""
+    seeds = request["seeds"]
+    if not seeds or len(seeds) != len(set(seeds)):
+        raise ValueError("Preview requires unique scene seeds")
+    if "policy_seed" in request and (
+        type(request["policy_seed"]) is not int or request["policy_seed"] < 0
+    ):
+        raise ValueError("Policy RNG seed must be a nonnegative integer")
+    scope = request.get("evaluation_split", "unseen")
+    if scope == "unseen":
+        if set(seeds) & set(request["collection_seeds"]):
+            raise ValueError("Unseen preview seeds overlap the collection")
+        return {seed: {"evaluation_split": scope} for seed in seeds}
+    if scope != "train":
+        raise ValueError("Unknown scene evaluation split")
+    for key in ("dataset_manifest", "split_manifest"):
+        if sha256(request[key]) != request[key + "_sha256"]:
+            raise ValueError(f"Training scene {key} checksum mismatch")
+    manifest = json.loads(Path(request["dataset_manifest"]).read_text())
+    split = json.loads(Path(request["split_manifest"]).read_text())
+    episodes = manifest["episodes"]
+    train, valid = split["train"], split["valid"]
+    if (
+        not manifest.get("complete")
+        or split["dataset_manifest_sha256"] != request["dataset_manifest_sha256"]
+        or split["seed"] != 42
+        or len(train) != 450
+        or len(valid) != 50
+        or set(train) & set(valid)
+        or sorted(train + valid) != [f"episode_{i:06d}" for i in range(500)]
+        or len(episodes) != 500
+    ):
+        raise ValueError("Training scene requires the exact saved450/50 split")
+    recorded_seeds = [episode["seed"] for episode in episodes]
+    if (
+        len(set(recorded_seeds)) != 500
+        or recorded_seeds != sorted(recorded_seeds)
+        or recorded_seeds != request["collection_seeds"]
+    ):
+        raise ValueError("Training scene collection mapping mismatch")
+    selected = {}
+    for seed in seeds:
+        if seed not in recorded_seeds:
+            raise ValueError("Requested training scene was not recorded")
+        index = recorded_seeds.index(seed)
+        episode_id = f"episode_{index:06d}"
+        if episode_id not in train:
+            raise ValueError("Requested scene is validation, not training")
+        selected[seed] = {
+            "evaluation_split": scope,
+            "episode_id": episode_id,
+            "demonstration_sha256": episodes[index]["sha256"],
+            "demonstration_frames": episodes[index]["frames"],
+            "demonstration_reward": episodes[index]["reward"],
+        }
+    return selected
+
+
 def validate_request(request):
     if request["protocol"] != "ravens-continuous-policy-preview-v1":
         raise ValueError("Unknown rollout contract")
-    seeds = request["seeds"]
-    if (
-        not seeds
-        or len(seeds) != len(set(seeds))
-        or set(seeds) & set(request["collection_seeds"])
-    ):
-        raise ValueError("Preview requires unique seeds outside the collection")
+    validate_scene_selection(request)
     if not 1 <= request["max_actions"] <= 4000:
         raise ValueError("Continuous controller budget must be at most4000")
     if request["precision"] != "bf16-mixed" or request["use_ema"] is not True:
@@ -193,6 +246,22 @@ def load_policy(request, *, device="cuda"):
     algo = instantiate(config.model.pipeline, device=device)
     normalizer = RavensNormalizer(state=payload["normalizer_state"])
     normalizer.assert_tokenizer_context(payload["benchmark_data_context"])
+    if request.get("evaluation_split") == "train":
+        if (
+            sha256(request["training_normalization"])
+            != request["training_normalization_sha256"]
+        ):
+            raise ValueError("Training normalization checksum mismatch")
+        native = torch.load(
+            request["training_normalization"], map_location="cpu", weights_only=False
+        )
+        if native["dataset_manifest_sha256"] != request[
+            "dataset_manifest_sha256"
+        ] or native["split"] != json.loads(Path(request["split_manifest"]).read_text()):
+            raise ValueError("Training scene differs from saved normalization dataset")
+        normalizer.assert_tokenizer_context(
+            RavensNormalizer(state=native["normalizer_state"]).tokenizer_context()
+        )
     if (
         normalizer.context.get("suite") != protocol["suite"]
         or normalizer.context.get("action_contract")
@@ -275,6 +344,7 @@ def simulate(request, output):
 
     from egomimic.benchmarks.ravens.continuous import make_environment
 
+    scene_selection = validate_scene_selection(request)
     env = make_environment(
         request["cliport_source"],
         task_module="place_red_in_green",
@@ -327,7 +397,9 @@ def simulate(request, output):
                                 connection,
                                 {
                                     "command": "predict",
-                                    "seed": seed if first else None,
+                                    "seed": request.get("policy_seed", seed)
+                                    if first
+                                    else None,
                                     "history": [pack(row) for row in history],
                                 },
                             )
@@ -369,6 +441,8 @@ def simulate(request, output):
                         writer.release()
                     record = {
                         "seed": seed,
+                        "policy_seed": request.get("policy_seed", seed),
+                        **scene_selection[seed],
                         "success": reward >= 0.999,
                         "reward": reward,
                         "actions": env.action_count,

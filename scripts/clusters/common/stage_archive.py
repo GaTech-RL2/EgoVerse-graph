@@ -20,9 +20,12 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
         raise RuntimeError("Archive staging requires a scheduled job step")
     archive, scratch_root = Path(archive).resolve(), Path(scratch_root).resolve()
     scratch_root.mkdir(parents=True, exist_ok=True)
-    filesystem = subprocess.check_output(
-        ["findmnt", "-n", "-o", "FSTYPE", "-T", str(scratch_root)], text=True).strip()
-    if filesystem not in {"ext4", "xfs", "btrfs", "tmpfs", "overlay"}:
+    filesystems = subprocess.check_output(
+        ["findmnt", "-n", "-o", "FSTYPE", "-T", str(scratch_root)], text=True).splitlines()
+    # Container bind mounts may report stacked entries (e.g. tmpfs + ext4).
+    # Accept only an entirely local stack; never hide a network mount entry.
+    filesystem = ",".join(filesystems)
+    if not filesystems or any(value not in {"ext4", "xfs", "btrfs", "tmpfs", "overlay"} for value in filesystems):
         raise ValueError(f"Refusing non-local staging filesystem: {filesystem}")
     if len(expected_sha256) != 64 or any(c not in "0123456789abcdef" for c in expected_sha256):
         raise ValueError("Expected a lowercase SHA-256 digest")

@@ -343,6 +343,16 @@ def test_actual_mot_phase_factory_and_profile_are_bound(tmp_path, monkeypatch, p
             OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True
         )
     assert joint_profile_for_config(c) == SPATIAL_MOT_JOINT_PROFILE
+    if phase == "preflight":
+        from scripts.train.libero_native_launch_contract import construct_joint_model
+
+        with pytest.raises(ValueError, match="source/config identity"):
+            construct_joint_model(c, tmp_path / "unopened.yaml", source_head="d" * 40)
+        gpu = copy.deepcopy(c)
+        gpu["trainer"]["accelerator"] = "gpu"
+        with pytest.raises(ValueError, match="CPU preflight"):
+            construct_joint_model(gpu, tmp_path / "unopened.yaml", source_head="c" * 40)
+
     assert c["callbacks"]["av_only_layer_norm"]["expected_norms_per_decoder"] == 48
     changed = copy.deepcopy(c)
     changed["model"]["pipeline"]["stages"][4]["encoders"]["action_dims"][
@@ -384,3 +394,45 @@ def test_checkpoint_owner_guard_allows_only_declared_mot_aliases():
     enc["libero_panda_sharpa"].blocks[0].action = enc["libero_panda"].blocks[0].action
     with pytest.raises(RuntimeError, match="escape shared latent"):
         _joint_checkpoint_owners(stages)
+
+
+def test_phase_cli_rejects_wrong_experiment_before_model_or_composition(
+    tmp_path, monkeypatch
+):
+    import hashlib
+    import json
+    import sys
+
+    from scripts.train import libero_native_launch_contract as adapter
+
+    path = tmp_path / "inputs.json"
+    path.write_text(
+        json.dumps({"profile_name": "action_flow_libero_spatial_sharpa_mot_s42"})
+    )
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    monkeypatch.setenv("SLURM_STEP_ID", "0")
+    monkeypatch.setenv(
+        "AF_EXPERIMENT",
+        "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "adapter",
+            "--action",
+            "joint-compose",
+            "--repo",
+            str(tmp_path),
+            "--output",
+            str(tmp_path),
+            "--phase",
+            "preflight",
+            "--phase-inputs",
+            str(path),
+            "--expected-phase-inputs-sha256",
+            hashlib.sha256(path.read_bytes()).hexdigest(),
+        ],
+    )
+    with pytest.raises(ValueError, match="experiment/environment mismatch"):
+        adapter.main()

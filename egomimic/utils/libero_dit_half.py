@@ -8,6 +8,21 @@ unchanged on retained blocks; unsupported options fail before direct execution.
 from lightning import Callback
 
 
+def _checkpoint_periods(value, depth):
+    periods = {"encoder": 2, "velocity": 2} if value is None else dict(value)
+    if set(periods) != {"encoder", "velocity"} or any(
+        isinstance(period, bool)
+        or not isinstance(period, int)
+        or not 2 <= period <= depth
+        or depth % period
+        for period in periods.values()
+    ):
+        raise ValueError(
+            "checkpoint periods must divide the depth and retain direct and checkpoint blocks"
+        )
+    return periods
+
+
 def resolve_backbones(module):
     stages = tuple(module.model.pipeline.stages)
     names = tuple(type(stage).__name__ for stage in stages)
@@ -38,10 +53,15 @@ def resolve_backbones(module):
 
 
 class HalfCheckpointScope:
-    def __init__(self, native_module, backbones, expected_depth=12):
+    def __init__(
+        self, native_module, backbones, expected_depth=12, checkpoint_periods=None
+    ):
         if set(backbones) != {"encoder", "velocity"}:
             raise ValueError("exact two DiT owners required")
         self.native_module = native_module
+        self.checkpoint_periods = _checkpoint_periods(
+            checkpoint_periods, expected_depth
+        )
         self.original = None
         self.inventory = {}
         self.counts = {
@@ -71,7 +91,11 @@ class HalfCheckpointScope:
                     "changed native checkpoint options: audit contexts/RNG before use"
                 )
             family, index = self.inventory[fn]
-            mode = "direct" if index % 2 == 0 else "checkpoint"
+            mode = (
+                "checkpoint"
+                if (index + 1) % self.checkpoint_periods[family] == 0
+                else "direct"
+            )
             self.counts[f"{family}/{mode}"] += 1
             if mode == "checkpoint":
                 return self.original(fn, *args, **kwargs)
@@ -93,10 +117,11 @@ class HalfCheckpointScope:
 
 
 class LiberoDiTHalf(Callback):
-    def __init__(self, source_key="libero_panda"):
+    def __init__(self, source_key="libero_panda", checkpoint_periods=None):
         if not isinstance(source_key, str) or not source_key.strip():
             raise ValueError("a nonempty single-source batch key is required")
         self.source_key = source_key
+        self.checkpoint_periods = _checkpoint_periods(checkpoint_periods, 12)
         self.scope = None
 
     def on_fit_start(self, trainer, module):
@@ -105,6 +130,7 @@ class LiberoDiTHalf(Callback):
         self.scope = HalfCheckpointScope(
             __import__("egomimic.models.unite_dit", fromlist=["checkpoint"]),
             resolve_backbones(module),
+            checkpoint_periods=self.checkpoint_periods,
         )
         self.scope.install()
 
@@ -128,6 +154,8 @@ class LiberoDiTHalf(Callback):
         state = {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
         if self.source_key != "libero_panda":
             state["source_key"] = self.source_key
+        if self.checkpoint_periods != {"encoder": 2, "velocity": 2}:
+            state["checkpoint_periods"] = dict(self.checkpoint_periods)
         return state
 
     def load_state_dict(self, state):

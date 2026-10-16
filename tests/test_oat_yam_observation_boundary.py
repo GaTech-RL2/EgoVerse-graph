@@ -121,3 +121,78 @@ def test_single_source_checkpoint_callback_yam_and_legacy_identity():
         yam.on_train_batch_start(None, None, {"libero_panda": {}}, 0)
     with pytest.raises(ValueError, match="identity mismatch"):
         yam.load_state_dict(old.state_dict())
+
+
+def test_selective_checkpoint_periods_preserve_values_gradients_and_rng():
+    import copy
+    from types import SimpleNamespace
+
+    from torch.utils.checkpoint import checkpoint
+
+    from egomimic.utils.libero_dit_half import HalfCheckpointScope, LiberoDiTHalf
+
+    torch.manual_seed(7)
+    original = {
+        name: SimpleNamespace(
+            gradient_checkpointing=True,
+            blocks=torch.nn.ModuleList(
+                [
+                    torch.nn.Sequential(torch.nn.Linear(8, 8), torch.nn.Dropout(0.1))
+                    for _ in range(12)
+                ]
+            ),
+        )
+        for name in ("encoder", "velocity")
+    }
+    outputs = []
+    for periods in (None, {"encoder": 2, "velocity": 4}):
+        backbones = copy.deepcopy(original)
+        native = SimpleNamespace(checkpoint=checkpoint)
+        scope = HalfCheckpointScope(
+            native, backbones, checkpoint_periods=periods
+        ).install()
+        torch.manual_seed(17)
+        loss = 0
+        for backbone in backbones.values():
+            value = torch.ones(2, 8, requires_grad=True)
+            for block in backbone.blocks:
+                value = native.checkpoint(block, value, use_reentrant=False)
+            loss = loss + value.square().sum()
+        loss.backward()
+        outputs.append(
+            (
+                loss.detach(),
+                [p.grad for b in backbones.values() for p in b.blocks.parameters()],
+                torch.get_rng_state(),
+            )
+        )
+        assert scope.counts["encoder/checkpoint"] == 6
+        assert scope.counts["velocity/checkpoint"] == (6 if periods is None else 3)
+        scope.restore()
+        assert native.checkpoint is checkpoint
+    for a, b in zip(outputs[0], outputs[1]):
+        if isinstance(a, list):
+            for x, y in zip(a, b):
+                torch.testing.assert_close(x, y, rtol=0, atol=0)
+        else:
+            torch.testing.assert_close(a, b, rtol=0, atol=0)
+    candidate = LiberoDiTHalf(checkpoint_periods={"encoder": 2, "velocity": 4})
+    candidate.load_state_dict(candidate.state_dict())
+    with pytest.raises(ValueError, match="identity mismatch"):
+        candidate.load_state_dict(LiberoDiTHalf().state_dict())
+
+
+@pytest.mark.parametrize(
+    "periods",
+    [
+        {"encoder": 2},
+        {"encoder": 2, "velocity": True},
+        {"encoder": 2, "velocity": 5},
+        {"encoder": 2, "velocity": 1},
+    ],
+)
+def test_selective_checkpoint_periods_reject_invalid_settings(periods):
+    from egomimic.utils.libero_dit_half import LiberoDiTHalf
+
+    with pytest.raises(ValueError, match="checkpoint periods"):
+        LiberoDiTHalf(checkpoint_periods=periods)

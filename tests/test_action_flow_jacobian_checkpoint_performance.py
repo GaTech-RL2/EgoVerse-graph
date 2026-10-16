@@ -188,7 +188,18 @@ def test_checkpoint_training_execution_equivalence_and_timing():
         ema = instantiate(cfg.callbacks.ema)
         ema.on_load_checkpoint(None, holder, payload)
         ema.on_fit_start(SimpleNamespace(global_step=payload["global_step"]), holder)
-        policy = LiberoDiTHalf(source_key=request["source_key"])
+        policy = LiberoDiTHalf(
+            source_key=request["source_key"],
+            checkpoint_periods={
+                "encoder": 2,
+                "velocity": {
+                    "third_flow_recomputation": 3,
+                    "quarter_flow_recomputation": 4,
+                }[variant],
+            }
+            if variant in {"third_flow_recomputation", "quarter_flow_recomputation"}
+            else None,
+        )
         policy.on_fit_start(None, SimpleNamespace(model=algo))
         encoder, field, decoder = (
             algo.pipeline.stages[3].encoder,
@@ -203,7 +214,11 @@ def test_checkpoint_training_execution_equivalence_and_timing():
         elif variant == "shared_field_prediction":
             field.fm_field_execution = "shared"
         else:
-            assert variant == "baseline"
+            assert variant in {
+                "baseline",
+                "third_flow_recomputation",
+                "quarter_flow_recomputation",
+            }
         batch = algo.process_batch_for_training(
             {request["source_key"]: fixture["batch"]}
         )

@@ -708,6 +708,9 @@ def verify_joint_smoke(
 
     from omegaconf import OmegaConf
 
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        joint_profile_for_config,
+    )
     from egomimic.benchmarks.libero.saved_hydra_context import load_saved_native_config
     from scripts.train.libero_native_launch_contract import contract_sha
 
@@ -804,6 +807,7 @@ def verify_joint_smoke(
         source_head=expected_head,
         resolved_sha=preflight["resolved_config_sha256"],
         fingerprint=fingerprint,
+        parameter_count=joint_profile_for_config(config).parameter_count,
     )
     from scripts.train.libero_native_launch_contract import runtime_equivalent
 
@@ -817,7 +821,9 @@ def verify_joint_smoke(
         flow_weight=1.0,
         method=shared.STOPGRAD_UNITE_METHOD,
         config=cfg,
-        expected_parameter_count_override=78182614,
+        expected_parameter_count_override=joint_profile_for_config(
+            config
+        ).parameter_count,
         expected_optimizer_steps=8,
     )
     artifact_epoch = shared._joint_smoke_artifact_epoch(run_dir, cfg)

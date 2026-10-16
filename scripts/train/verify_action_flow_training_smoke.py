@@ -1240,11 +1240,39 @@ def _joint_checkpoint_owners(stages):
         {id(parameter) for parameter in owner.parameters()} for owner in owners
     ]
     _require(all(parameter_sets), "joint owner has no parameters")
-    for index, parameters in enumerate(parameter_sets):
+    from egomimic.models.mot_action_codec import MoTActionCodec
+
+    codecs = (*encoders.values(), *decoders.values())
+    if any(isinstance(codec, MoTActionCodec) for codec in codecs):
         _require(
-            not any(parameters & previous for previous in parameter_sets[:index]),
-            "joint owners share parameters",
+            all(type(codec) is MoTActionCodec for codec in codecs),
+            "mixed MoT/private codec owners",
         )
+        for bank, role, offset in ((encoders, "encoder", 0), (decoders, "decoder", 3)):
+            pair = [bank[name] for name in sorted(names)]
+            _require(
+                pair[0].shared is pair[1].shared and all(c.role == role for c in pair),
+                "MoT shared bank/role differs",
+            )
+            shared = {id(p) for p in pair[0].shared.parameters()}
+            _require(
+                parameter_sets[offset] & parameter_sets[offset + 1] == shared,
+                "MoT aliases escape shared latent stream",
+            )
+        _require(
+            not (
+                (parameter_sets[0] | parameter_sets[1])
+                & (parameter_sets[2] | parameter_sets[3] | parameter_sets[4])
+            )
+            and not (parameter_sets[2] & (parameter_sets[3] | parameter_sets[4])),
+            "MoT encoder/field/decoder banks must be disjoint",
+        )
+    else:
+        for index, parameters in enumerate(parameter_sets):
+            _require(
+                not any(parameters & previous for previous in parameter_sets[:index]),
+                "joint owners share parameters",
+            )
     return owners
 
 
@@ -1269,9 +1297,9 @@ def _validate_checkpoint(
             joint_profile_for_config,
         )
 
-        joint_profile_for_config(config)
+        profile = joint_profile_for_config(config)
         _require(
-            expected_parameter_count_override == 78182614,
+            expected_parameter_count_override == profile.parameter_count,
             "joint checkpoint parameter count contract differs",
         )
     checkpoint_dir = run_dir / "checkpoints"
@@ -2427,7 +2455,10 @@ def verify_smoke(
     expected_flow_weight: float | None = None,
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
-    if experiment == "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42":
+    if experiment in {
+        "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        "libero/action_flow_libero_spatial_sharpa_mot_s42",
+    }:
         from scripts.train.verify_libero_native_action_flow_smoke import (
             verify_joint_smoke,
         )
@@ -2609,6 +2640,7 @@ def _parser() -> argparse.ArgumentParser:
         choices=(
             *tuple(APPROVED_EXPERIMENTS),
             "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+            "libero/action_flow_libero_spatial_sharpa_mot_s42",
             "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
             "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
             "libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
@@ -2642,7 +2674,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.training_repo is not None:
             _require(
                 args.experiment
-                == "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                in {
+                    "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                    "libero/action_flow_libero_spatial_sharpa_mot_s42",
+                },
                 "separate verifier source requires explicit joint route",
             )
             verifier_root = REPOSITORY_ROOT

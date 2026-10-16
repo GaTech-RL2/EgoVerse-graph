@@ -123,6 +123,8 @@ class JointNativeLaunchProfile:
     name: str
     suite: str
     sources: tuple
+    codec_kind: str = "private"
+    parameter_count: int = 78182614
 
     @property
     def experiment(self):
@@ -134,6 +136,18 @@ SPATIAL_HAND_JOINT_PROFILE = JointNativeLaunchProfile(
     "libero_spatial",
     (("libero_panda", 21, 7, 2), ("libero_panda_sharpa", 22, 69, 22)),
 )
+
+
+SPATIAL_MOT_JOINT_PROFILE = JointNativeLaunchProfile(
+    "action_flow_libero_spatial_sharpa_mot_s42",
+    "libero_spatial",
+    SPATIAL_HAND_JOINT_PROFILE.sources,
+    codec_kind="mot",
+    parameter_count=83727398,
+)
+JOINT_PROFILES = {
+    p.name: p for p in (SPATIAL_HAND_JOINT_PROFILE, SPATIAL_MOT_JOINT_PROFILE)
+}
 
 
 def joint_phase_argv(
@@ -153,6 +167,7 @@ def joint_phase_argv(
     wandb_project,
     wandb_run_id,
     data_preparation_source_sha256=None,
+    profile_name=SPATIAL_HAND_JOINT_PROFILE.name,
 ):
     """One exact Hydra argv factory for the explicit 7/69 operational route.
 
@@ -165,6 +180,9 @@ def joint_phase_argv(
     import re
     from pathlib import Path
 
+    if profile_name not in JOINT_PROFILES:
+        raise ValueError("unsupported joint profile")
+    profile = JOINT_PROFILES[profile_name]
     if phase not in {"normalization", "preflight", "smoke", "full"}:
         raise ValueError("unsupported joint phase")
     data_only_snapshot = phase == "normalization" and source_commit is None
@@ -222,7 +240,7 @@ def joint_phase_argv(
     argv = [
         "--config-name=train_zarr_cartesian",
         "hydra/launcher=basic",
-        "+experiment=" + SPATIAL_HAND_JOINT_PROFILE.experiment,
+        "+experiment=" + profile.experiment,
         "mode=train",
         "ckpt_path=null",
         text("hydra.run.dir", output_root),
@@ -326,7 +344,9 @@ def joint_profile_for_config(config):
     Full context, source, runtime, smoke, storage and allocation proofs remain
     separate gates. This function alone never issues a launch-ready verdict.
     """
-    profile = SPATIAL_HAND_JOINT_PROFILE
+    profile = JOINT_PROFILES.get(config.get("name"))
+    if profile is None:
+        raise ValueError("joint LIBERO: unsupported experiment")
 
     def require(condition, message):
         if not condition:
@@ -362,10 +382,51 @@ def joint_profile_for_config(config):
         ),
         "dataset source identities differ",
     )
-    require(
-        set(stages[4]["encoders"]) == set(stages[7]["decoders"]) == source_names,
-        "private action codec routes differ",
-    )
+    if profile.codec_kind == "mot":
+        for index, key, role in (
+            (4, "encoders", "encoder"),
+            (7, "decoders", "decoder"),
+        ):
+            bank = stages[index][key]
+            require(
+                bank.get("_target_")
+                == "egomimic.models.mot_action_codec.make_mot_codecs",
+                "MoT factory differs",
+            )
+            require(
+                bank.get("action_dims")
+                == {source[0]: source[2] for source in profile.sources},
+                "MoT source widths differ",
+            )
+            require(
+                (
+                    bank.get("role"),
+                    bank.get("horizon"),
+                    bank.get("tokens"),
+                    bank.get("latent_dim"),
+                    bank.get("width"),
+                    bank.get("depth"),
+                    bank.get("heads"),
+                    bank.get("mlp_ratio"),
+                    bank.get("gradient_checkpointing"),
+                )
+                == (role, 32, 16, 16, 240, 12, 8, 4.0, True),
+                "MoT codec dimensions/checkpoint contract differs",
+            )
+            require(
+                not any("condition" in name for name in bank),
+                "MoT codec must be context-free",
+            )
+        require(
+            config["callbacks"]["av_only_layer_norm"]["expected_norms_per_decoder"]
+            == 48,
+            "MoT decoder AV normalization count differs",
+        )
+    else:
+        require(
+            set(stages[4]["encoders"]) == set(stages[7]["decoders"]) == source_names,
+            "private action codec routes differ",
+        )
     require(
         (stages[3]["num_tokens"], stages[3]["latent_dim"]) == (16, 16),
         "shared latent shape differs",
@@ -382,28 +443,29 @@ def joint_profile_for_config(config):
             == name,
             "embodiment route identity differs",
         )
-        encoder, decoder = stages[4]["encoders"][name], stages[7]["decoders"][name]
-        for codec in (encoder, decoder):
-            require(
-                (
-                    codec["action_dim"],
-                    codec["action_horizon"],
-                    codec["latent_dim"],
-                    codec["num_latent_tokens"],
+        if profile.codec_kind == "private":
+            encoder, decoder = stages[4]["encoders"][name], stages[7]["decoders"][name]
+            for codec in (encoder, decoder):
+                require(
+                    (
+                        codec["action_dim"],
+                        codec["action_horizon"],
+                        codec["latent_dim"],
+                        codec["num_latent_tokens"],
+                    )
+                    == (action_dim, 32, 16, 16),
+                    "private codec dimensions differ",
                 )
-                == (action_dim, 32, 16, 16),
-                "private codec dimensions differ",
-            )
-        for backbone in (encoder["backbone"], decoder):
+            for backbone in (encoder["backbone"], decoder):
+                require(
+                    (backbone["hidden_dim"], backbone["depth"], backbone["num_heads"])
+                    == (240, 12, 8),
+                    "private codec backbone differs",
+                )
             require(
-                (backbone["hidden_dim"], backbone["depth"], backbone["num_heads"])
-                == (240, 12, 8),
-                "private codec backbone differs",
+                "condition_dim" not in decoder and "condition_key" not in decoder,
+                "action decoder must remain context-free",
             )
-        require(
-            "condition_dim" not in decoder and "condition_key" not in decoder,
-            "action decoder must remain context-free",
-        )
         for mode in ("train", "valid"):
             dataset = config["data"][mode + "_datasets"][name]
             resolver = dataset["resolver"]

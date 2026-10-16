@@ -317,12 +317,18 @@ def compose_joint_phase(inputs, *, phase, output, repo):
     )
 
 
-def validate_joint_constructor(reference, *, source_head, resolved_sha, fingerprint):
+def validate_joint_constructor(
+    reference, *, source_head, resolved_sha, fingerprint, parameter_count=78182614
+):
     """Keep verified provenance distinct from an explicit human waiver."""
     from scripts.train.verify_libero_native_action_flow_smoke import checked_json
 
     proof = checked_json(reference)
     if proof.get("schema") == "libero-joint-constructor-provenance-waiver/v1":
+        if parameter_count != 78182614:
+            raise ValueError(
+                "historical constructor waiver cannot authorize a new architecture"
+            )
         if not (
             proof.get("authorization") == "explicit_human_override"
             and proof.get("waived_gate") == "cached_constructor_source_config_binding"
@@ -346,7 +352,7 @@ def validate_joint_constructor(reference, *, source_head, resolved_sha, fingerpr
     required = dict(
         status="PASS",
         full_model_constructor=True,
-        parameter_count=78182614,
+        parameter_count=parameter_count,
         source_commit=source_head,
         resolved_config_sha256=resolved_sha,
         model_contract_sha256=fingerprint,
@@ -387,6 +393,7 @@ def joint_preflight_evidence(
         source_head=source_head,
         resolved_sha=resolved_sha,
         fingerprint=fingerprint,
+        parameter_count=profile.parameter_count,
     )
     runtime = checked_json(runtime_ref)
     runtime_equivalent(runtime, runtime)
@@ -652,7 +659,8 @@ def joint_prepare_evidence(
             and smoke.get("identities") == smoke_identities
             and smoke.get("preflight") == smoke_preflight_ref
             and smoke.get("strict_online_and_alias_safe_ema_reload") is True
-            and smoke.get("checkpoint", {}).get("parameter_count") == 78182614
+            and smoke.get("checkpoint", {}).get("parameter_count")
+            == profile.parameter_count
             and smoke["checkpoint"].get("global_step") == 8
             and smoke["checkpoint"].get("joint_ema", {}).get("alias_safe_strict_reload")
             is True

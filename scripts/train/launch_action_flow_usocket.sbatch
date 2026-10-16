@@ -126,7 +126,7 @@ if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_TIME_LIMIT
 fi
 # Explicit unequal-width joint route reuses the maintained phase/child adapters.
-if test "$AF_EXPERIMENT" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42; then
+if [[ "$AF_EXPERIMENT" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42 || "$AF_EXPERIMENT" = libero/action_flow_libero_spatial_sharpa_mot_s42 ]]; then
   test "$AF_LAUNCH_MODE" != schema || die "joint route uses typed preflight, not historical native schema"
   test -z "${AF_INITIAL_CHECKPOINT:-}" || die "joint fresh launch cannot use historical resume adapter"
   if test -z "${SLURM_STEP_ID:-}" || test "$SLURM_STEP_ID" = batch; then

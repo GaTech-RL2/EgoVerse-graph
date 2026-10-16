@@ -37,10 +37,10 @@ def _block_outputs(
 
     def capture(block_index: int):
         def hook(_module, _inputs, output):
-            if not torch.is_tensor(output):
-                raise TypeError(f"Action Flow {label} block output must be a tensor")
             if callable(canonicalize):
                 output = canonicalize(output, block_index)
+            if not torch.is_tensor(output):
+                raise TypeError(f"Action Flow {label} block output must be a tensor")
             captured.append(output)
 
         return hook

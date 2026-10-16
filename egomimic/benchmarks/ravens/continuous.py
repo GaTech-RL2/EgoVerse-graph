@@ -112,7 +112,18 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
 
         def tip_pose(self):
             state = p.getLinkState(self.ur5, self.ee_tip, computeForwardKinematics=True)
-            return np.asarray(state[4]), np.asarray(state[5])
+            # Native Ravens IK targets the tool's inertial/COM frame. Its URDF
+            # tool_tip inertial orientation differs from the link frame by pi;
+            # feeding back [4:6] makes the Cartesian servo chase that offset.
+            return np.asarray(state[0]), np.asarray(state[1])
+
+        def assert_native_tip_frame(self):
+            state = p.getLinkState(self.ur5, self.ee_tip, computeForwardKinematics=True)
+            expected = p.multiplyTransforms(state[4], state[5], state[2], state[3])
+            xyz, quat = self.tip_pose()
+            if (np.linalg.norm(xyz - expected[0]) > 1e-5 or
+                    (Rotation.from_quat(quat) * Rotation.from_quat(expected[1]).inv()).magnitude() > 1e-5):
+                raise ValueError("Controller feedback differs from the native tool inertial frame")
 
         def policy_observation(self):
             xyz, quat = self.tip_pose()
@@ -189,6 +200,7 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
             self.action_count = 0
             self.samples = []
             result = super().reset()
+            self.assert_native_tip_frame()
             self.raw_activate, self.raw_release = self.ee.activate, self.ee.release
             # Native primitives change suction between movep calls. Capture that
             # decision BEFORE it changes the observed gripper state; otherwise
@@ -287,6 +299,7 @@ def main():
     manifest = {"upstream_commit": UPSTREAM_COMMIT,
                 "task": {"module": args.task_module, "class": args.task_class},
                 "contract": "custom continuous absolute XYZ/rotvec/suction",
+                "action_frame": "world-frame UR5 tool_tip inertial pose, matching native IK",
                 "control_hz": args.control_hz, "physics_hz": 240,
                 "policy_inputs": "two RGB images, tip pose, suction state; constant task_uid=0",
                 "oracle_privileged_inputs": "demonstration generation only",

@@ -476,18 +476,222 @@ def simulate(request, output):
     )
 
 
+def overlay_frames(length, stride):
+    """Complete H32 windows, including the last eligible observation."""
+    if length < 32 or stride < 1:
+        raise ValueError("Overlay requires complete H32 windows and positive stride")
+    frames = list(range(0, length - 31, stride))
+    if frames[-1] != length - 32:
+        frames.append(length - 32)
+    return frames
+
+
+def center_crop_for_overlay(nets):
+    """Use the existing native OAT center crop after strict weight restoration."""
+    import robomimic.models.base_nets as rmbn
+    import torch
+    from torchvision.transforms.functional import center_crop
+
+    from egomimic.models.oat.common.pytorch_util import replace_submodules
+    from egomimic.models.oat.perception.crop_randomizer import CropRandomizer
+
+    old = [m for m in nets.modules() if isinstance(m, rmbn.CropRandomizer)]
+    if any(list(m.parameters()) for m in old):
+        raise ValueError("A crop adapter must not replace learned parameters")
+    replace_submodules(
+        nets,
+        lambda m: isinstance(m, rmbn.CropRandomizer),
+        lambda m: CropRandomizer(
+            m.input_shape, m.crop_height, m.crop_width, m.num_crops, m.pos_enc
+        ),
+    )
+    nets.eval()
+    receipt = []
+    with torch.random.fork_rng(devices=[]):
+        for name, module in nets.named_modules():
+            if "crop" not in type(module).__name__.lower():
+                continue
+            if not isinstance(module, CropRandomizer) or module.training:
+                raise ValueError(f"Unverified active crop path: {name}")
+            if module.num_crops != 1 or module.pos_enc:
+                raise ValueError(
+                    "Overlay supports native single crops without position channels"
+                )
+            pixels = torch.arange(3 * 128 * 128, dtype=torch.float32).reshape(
+                1, 3, 128, 128
+            )
+            torch.manual_seed(1)
+            first = module.forward_in(pixels)
+            torch.manual_seed(999)
+            second = module.forward_in(pixels)
+            expected = center_crop(pixels, [module.crop_height, module.crop_width])
+            if not torch.equal(first, second) or not torch.equal(first, expected):
+                raise ValueError(f"Crop pixels depend on RNG: {name}")
+            receipt.append(
+                {
+                    "name": name,
+                    "class": type(module).__module__,
+                    "crop": [module.crop_height, module.crop_width],
+                    "cross_seed_bit_exact": True,
+                }
+            )
+    if len(receipt) != 2:
+        raise ValueError("Ravens requires exactly two verified camera crop paths")
+    return {
+        "mode": "fixed_center",
+        "replaced_random_modules": len(old),
+        "modules": receipt,
+    }
+
+
+def overlay_episode(request):
+    """Bind a recorded training episode to its exact split and collection hash."""
+    import numpy as np
+
+    options = request["overlay"]
+    selected = validate_scene_selection(request)
+    if len(selected) != 1 or request.get("evaluation_split") != "train":
+        raise ValueError(
+            "Recorded overlay requires one explicitly selected training episode"
+        )
+    record = next(iter(selected.values()))
+    if sha256(options["episode_file"]) != record["demonstration_sha256"]:
+        raise ValueError("Recorded episode differs from selected training scene")
+    with np.load(options["episode_file"], allow_pickle=False) as arrays:
+        data = {key: arrays[key].copy() for key in arrays.files}
+    length = record["demonstration_frames"]
+    if data["action"].shape != (length, 7) or any(
+        len(value) != length or not np.isfinite(value).all() for value in data.values()
+    ):
+        raise ValueError("Invalid finite recorded observation/action arrays")
+    return data, record, overlay_frames(length, options["frame_stride"])
+
+
+def capture_overlay(request):
+    """Teacher-forced native H32 actions; never execute expert or predicted actions."""
+    import numpy as np
+    import torch
+
+    validate_request(request)
+    data, episode, frames = overlay_episode(request)
+    output = Path(request["output"])
+    output.mkdir(parents=True, exist_ok=False)
+    policy, protocol = load_policy(request)
+    crop = center_crop_for_overlay(policy.algo.nets)
+    write(output / "CROP_VERIFIED.json", crop)
+    # GraphPolicy still computes its native H32 output. This only retains all
+    # output rows instead of the execute16 slice used by closed-loop control.
+    policy.n_action_steps = protocol["horizon"]
+    seed = request.get("policy_seed", request["seeds"][0])
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    aliases = {
+        "front_rgb": "agentview_rgb",
+        "side_rgb": "robot0_eye_in_hand_rgb",
+        "eef_pos": "robot0_eef_pos",
+        "eef_quat": "robot0_eef_quat",
+        "suction_state": "robot0_gripper_qpos",
+        "task_uid": "task_uid",
+    }
+
+    def observation(index):
+        return {alias: data[key][index] for key, alias in aliases.items()}
+
+    predictions, targets, latencies = [], [], []
+    for index in frames:
+        policy.reset(observation(max(0, index - 1)))
+        policy.observe(observation(index))
+        started = time.perf_counter()
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            prediction = policy.predict()
+        if prediction.shape != (32, 7) or not np.isfinite(prediction).all():
+            raise ValueError("Invalid finite native H32 overlay prediction")
+        latencies.append(time.perf_counter() - started)
+        predictions.append(prediction.astype(np.float32))
+        targets.append(data["action"][index : index + 32])
+        print(
+            json.dumps(
+                {
+                    "overlay_frame": index,
+                    "captured": len(predictions),
+                    "expected": len(frames),
+                }
+            ),
+            flush=True,
+        )
+    predictions, targets = np.stack(predictions), np.stack(targets)
+    np.savez_compressed(
+        output / "predictions.npz",
+        frames=np.asarray(frames),
+        prediction=predictions,
+        target=targets,
+        image=data["front_rgb"][frames],
+        eef_pos=data["eef_pos"][frames],
+    )
+    write(
+        output / "SUMMARY.json",
+        {
+            "status": "COMPLETE_TEACHER_FORCED_OVERLAY_CAPTURE",
+            "request": request,
+            "protocol": protocol,
+            "episode": episode,
+            "frames": frames,
+            "frame_count": len(frames),
+            "crop": crop,
+            "precision": "bf16-mixed",
+            "parameters_dtype": str(next(policy.algo.nets.parameters()).dtype),
+            "horizon": 32,
+            "batch_size": 1,
+            "policy_seed": seed,
+            "sampler": "checkpoint-native Euler50 CFG4",
+            "inference_seconds": latencies,
+            "mean_xyz_error_m": float(
+                np.linalg.norm(predictions[..., :3] - targets[..., :3], axis=-1).mean()
+            ),
+            "prediction_sha256": sha256(output / "predictions.npz"),
+            "scope": "Sampled ground-truth observations across one training episode; no simulation, execution, reconstruction or success-rate claim",
+        },
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", type=Path, required=True)
     parser.add_argument(
         "--mode",
-        choices=["preflight", "preflight-model", "serve", "simulate"],
+        choices=[
+            "preflight",
+            "preflight-model",
+            "preflight-overlay",
+            "capture-overlay",
+            "serve",
+            "simulate",
+        ],
         required=True,
     )
     args = parser.parse_args()
     request = json.loads(args.request.read_text())
     output = Path(request["output"])
-    if args.mode == "preflight":
+    if args.mode == "preflight-overlay":
+        validate_request(request)
+        _, episode, frames = overlay_episode(request)
+        if output.exists():
+            raise FileExistsError(output)
+        print(
+            json.dumps(
+                {
+                    "status": "READY_OVERLAY",
+                    "episode": episode,
+                    "frames": frames,
+                    "request": request,
+                }
+            ),
+            flush=True,
+        )
+    elif args.mode == "capture-overlay":
+        capture_overlay(request)
+    elif args.mode == "preflight":
         validate_request(request)
         if output.exists():
             raise FileExistsError(output)

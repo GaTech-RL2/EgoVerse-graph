@@ -225,3 +225,37 @@ def test_protocol_rejects_wrong_trained_history():
     )
     with pytest.raises(ValueError, match="trained action/history"):
         module.resolve_protocol(saved, trained)
+
+
+def test_overlay_frames_complete_native_horizon():
+    assert module.overlay_frames(32, 16) == [0]
+    frames = module.overlay_frames(710, 16)
+    assert frames[0] == 0 and frames[-1] == 678
+    assert len(frames) == len(set(frames)) == 44
+    assert all(i + 32 <= 710 for i in frames)
+    with pytest.raises(ValueError):
+        module.overlay_frames(31, 16)
+    with pytest.raises(ValueError):
+        module.overlay_frames(710, 0)
+
+
+def test_overlay_center_crop_replaces_random_paths_without_weights():
+    import robomimic.models.base_nets as rmbn
+    import torch
+
+    nets = torch.nn.ModuleDict(
+        {
+            "front": rmbn.CropRandomizer([3, 128, 128], 76, 76, 1, False),
+            "side": rmbn.CropRandomizer([3, 128, 128], 76, 76, 1, False),
+            "weights": torch.nn.Linear(2, 2),
+        }
+    )
+    before = {name: value.detach().clone() for name, value in nets.state_dict().items()}
+    receipt = module.center_crop_for_overlay(nets)
+    assert receipt["mode"] == "fixed_center"
+    assert receipt["replaced_random_modules"] == 2
+    assert len(receipt["modules"]) == 2
+    assert all(
+        torch.equal(value, nets.state_dict()[name]) for name, value in before.items()
+    )
+    assert module.center_crop_for_overlay(nets)["replaced_random_modules"] == 0

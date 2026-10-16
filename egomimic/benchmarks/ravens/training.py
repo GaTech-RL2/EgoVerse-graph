@@ -74,7 +74,7 @@ def inspect(cfg):
     return result
 
 
-def make_run_guard(expected_total, expected_trainable, expected_context=None):
+def make_run_guard(expected_total, expected_trainable, report_path, expected_context=None):
     from lightning import Callback
 
     class RavensRunGuard(Callback):
@@ -86,6 +86,12 @@ def make_run_guard(expected_total, expected_trainable, expected_context=None):
             context = model.model.pipeline.stages[0].normalizer_state["benchmark_context"]
             if expected_context is not None and context != dict(expected_context):
                 raise ValueError("Dataset/observation/normalizer context differs from smoke")
+            result = {"status": "PASS_REAL_INITIALIZED_MODEL", "total": actual[0], "trainable": actual[1],
+                      "initial_optimizer_group_lrs": [float(group["lr"]) for optimizer in trainer.optimizers
+                                                      for group in optimizer.param_groups],
+                      "precision": str(trainer.precision)}
+            write(report_path, result)
+            print(json.dumps({"stage": "REAL_CONSTRUCTOR_PASS", **result}), flush=True)
     return RavensRunGuard()
 
 
@@ -118,13 +124,14 @@ def main():
     output.mkdir(parents=True)
     cfg, commit, identity = compose(args.family, dataset, output, args.wandb_run_id)
     OmegaConf.save(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), output / "FULL_CONFIG.yaml", resolve=True)
-    counts = inspect(cfg)
-    if args.phase != "inspect" and (counts["total"], counts["trainable"]) != (args.expected_total, args.expected_trainable):
-        raise ValueError("Constructed parameter counts differ from verified preflight")
-    write(output / "CONSTRUCTOR.json", counts)
-    print(json.dumps({"stage": "CONSTRUCTOR_PASS", **counts}), flush=True)
     if args.phase == "inspect":
+        counts = inspect(cfg)
+        write(output / "CONSTRUCTOR.json", counts)
+        print(json.dumps({"stage": "SHAPE_INVENTORY_PASS", **counts}), flush=True)
         return
+    # Reuse the verified blueprint count receipt. The actual model is built once
+    # by trainHydra, then checked by the callback before any optimizer update.
+    counts = {"total": args.expected_total, "trainable": args.expected_trainable}
     if not os.environ.get("SLURM_STEP_ID"):
         raise RuntimeError("Training requires a scheduled GPU-bound step")
     dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=source, text=True).strip()
@@ -176,6 +183,7 @@ def main():
         cfg.callbacks.ravens_guard = {"_target_": "egomimic.benchmarks.ravens.training.make_run_guard",
                                       "expected_total": counts["total"],
                                       "expected_trainable": counts["trainable"],
+                                      "report_path": str(output / "CONSTRUCTOR.json"),
                                       "expected_context": proof["normalizer_context"] if proof else None}
     OmegaConf.save(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), output / "RUN_CONFIG.yaml", resolve=True)
     from egomimic.trainHydra import train as train_runner
@@ -186,6 +194,9 @@ def main():
         return
     if trainer.global_step != 2:
         raise ValueError("Smoke did not perform two real optimizer updates")
+    counts = json.loads((output / "CONSTRUCTOR.json").read_text())
+    if counts["status"] != "PASS_REAL_INITIALIZED_MODEL":
+        raise ValueError("Missing actual initialized-model count proof")
     values = {key: float(value.detach().cpu()) if torch.is_tensor(value) else float(value)
               for key, value in metrics.items() if torch.is_tensor(value) or isinstance(value, (int, float))}
     if not all(np_isfinite(value) for value in values.values()):

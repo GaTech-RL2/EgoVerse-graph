@@ -155,8 +155,17 @@ def verify_libero_installation():
 
 
 class GraphPolicy:
-    def __init__(self, algo, normalizer, n_obs_steps=2, n_action_steps=16, horizon=32):
+    def __init__(
+        self,
+        algo,
+        normalizer,
+        n_obs_steps=2,
+        n_action_steps=16,
+        horizon=32,
+        embodiment="libero_panda",
+    ):
         self.algo, self.normalizer = algo, normalizer
+        self.embodiment = embodiment
         self.n_obs_steps, self.n_action_steps, self.horizon = (
             n_obs_steps,
             n_action_steps,
@@ -175,7 +184,10 @@ class GraphPolicy:
 
     @torch.inference_mode()
     def predict(self):
-        from egomimic.rldb.zarr.libero_dataset import EMBODIMENT, OBS_KEYS
+        from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+        from egomimic.rldb.zarr.libero_dataset import OBS_KEYS
+
+        embodiment_id = get_embodiment_id(self.embodiment)
 
         batch = {
             key: torch.from_numpy(np.stack([obs[key] for obs in self.history]))
@@ -183,12 +195,14 @@ class GraphPolicy:
             .unsqueeze(0)
             for key in OBS_KEYS
         }
-        batch = self.normalizer.normalize(batch, EMBODIMENT)
-        processed = self.algo.process_batch_for_training({"libero_panda": batch})
-        result = self.algo.forward_eval(processed)["libero_panda"]["pred_action"]
+        batch = self.normalizer.normalize(batch, embodiment_id)
+        processed = self.algo.process_batch_for_training({self.embodiment: batch})
+        result = self.algo.forward_eval(processed)[self.embodiment]["pred_action"]
         if result.shape != (1, self.horizon, 7):
             raise ValueError(f"Invalid policy action shape {tuple(result.shape)}")
-        native = self.normalizer.unnormalize({"actions": result}, EMBODIMENT)["actions"]
+        native = self.normalizer.unnormalize({"actions": result}, embodiment_id)[
+            "actions"
+        ]
         if not torch.isfinite(native).all():
             raise ValueError("Non-finite rollout actions")
         return native[0, : self.n_action_steps].cpu().numpy()

@@ -71,3 +71,43 @@ def test_policy_routing_is_configurable():
     }
     policy.reset(obs)
     assert policy.predict().shape == (16, 7)
+
+
+def test_protocol_from_actual_af_model_only_checkpoint():
+    from omegaconf import OmegaConf
+
+    saved = OmegaConf.create({"model": {"action_horizon": 32, "action_dim": 7}})
+    trained = OmegaConf.create(
+        {
+            "model": {"action_horizon": 32, "action_dim": 7},
+            "benchmark": {
+                "suite": "ravens-continuous-v1",
+                "horizon": 32,
+                "n_obs_steps": 2,
+                "n_action_steps": 16,
+            },
+        }
+    )
+    assert module.resolve_protocol(saved, trained)["horizon"] == 32
+    trained.model.action_horizon = 100
+    with pytest.raises(ValueError, match="differs from checkpoint"):
+        module.resolve_protocol(saved, trained)
+
+
+def test_protocol_rejects_wrong_trained_history():
+    from omegaconf import OmegaConf
+
+    saved = OmegaConf.create({"model": {"action_dim": 7}})
+    trained = OmegaConf.create(
+        {
+            "model": {"action_dim": 7},
+            "benchmark": {
+                "suite": "ravens-continuous-v1",
+                "horizon": 32,
+                "n_obs_steps": 1,
+                "n_action_steps": 16,
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="trained action/history"):
+        module.resolve_protocol(saved, trained)

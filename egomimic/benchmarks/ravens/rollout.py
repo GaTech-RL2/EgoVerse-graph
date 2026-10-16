@@ -136,7 +136,35 @@ def validate_request(request):
     return source
 
 
-def load_policy(request):
+def resolve_protocol(saved_config, training_config):
+    """AF checkpoints save model-only metadata; bind benchmark fields separately."""
+    from omegaconf import OmegaConf
+
+    saved = OmegaConf.to_container(saved_config.model, resolve=True)
+    trained = OmegaConf.to_container(training_config.model, resolve=True)
+    if saved != trained:
+        raise ValueError("Training configuration model differs from checkpoint")
+    protocol = {
+        key: training_config.benchmark[key]
+        for key in ("suite", "horizon", "n_obs_steps", "n_action_steps")
+    }
+    expected = {
+        "suite": "ravens-continuous-v1",
+        "horizon": 32,
+        "n_obs_steps": 2,
+        "n_action_steps": 16,
+    }
+    if protocol != expected:
+        raise ValueError("Unexpected trained action/history contract")
+    embedded = OmegaConf.select(saved_config, "model.benchmark_protocol")
+    if embedded is not None and any(
+        embedded.get(key) != value for key, value in protocol.items()
+    ):
+        raise ValueError("Embedded benchmark protocol conflicts with training")
+    return protocol
+
+
+def load_policy(request, *, device="cuda"):
     import torch
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
@@ -145,9 +173,11 @@ def load_policy(request):
     from egomimic.benchmarks.ravens.replay import RavensNormalizer
     from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
 
-    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+    if device == "cuda" and (
+        not torch.cuda.is_available() or torch.cuda.device_count() != 1
+    ):
         raise RuntimeError("Exactly one allocated CUDA GPU is required")
-    if not torch.cuda.is_bf16_supported():
+    if device == "cuda" and not torch.cuda.is_bf16_supported():
         raise RuntimeError("BF16 inference unsupported")
     payload = torch.load(request["checkpoint"], map_location="cpu", weights_only=False)
     if (
@@ -156,28 +186,19 @@ def load_policy(request):
     ):
         raise ValueError("Checkpoint/EMA optimizer step mismatch")
     config = OmegaConf.create(payload["hyper_parameters"]["config_tree"])
-    protocol = dict(config.model.benchmark_protocol)
-    if protocol != {
-        "suite": "ravens-continuous-v1",
-        "horizon": 32,
-        "n_obs_steps": 2,
-        "n_action_steps": 16,
-        "policy_family": "action_flow",
-    }:
-        # Preserve exact family labels but independently enforce every dimension.
-        if any(
-            protocol.get(k) != v
-            for k, v in {
-                "suite": "ravens-continuous-v1",
-                "horizon": 32,
-                "n_obs_steps": 2,
-                "n_action_steps": 16,
-            }.items()
-        ):
-            raise ValueError("Unexpected checkpoint action/history contract")
-    algo = instantiate(config.model.pipeline, device="cuda")
+    if sha256(request["training_config"]) != request["training_config_sha256"]:
+        raise ValueError("Training configuration checksum mismatch")
+    full_config = OmegaConf.load(request["training_config"])
+    protocol = resolve_protocol(config, full_config)
+    algo = instantiate(config.model.pipeline, device=device)
     normalizer = RavensNormalizer(state=payload["normalizer_state"])
     normalizer.assert_tokenizer_context(payload["benchmark_data_context"])
+    if (
+        normalizer.context.get("suite") != protocol["suite"]
+        or normalizer.context.get("action_contract")
+        != "world_absolute_xyz_rotvec_suction_20hz"
+    ):
+        raise ValueError("Normalizer does not describe native Ravens absolute actions")
     algo.bind_data_context(normalizer=normalizer)
     strict_load_pipeline_checkpoint(algo, payload, use_ema=True)
     policy = GraphPolicy(
@@ -384,7 +405,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", type=Path, required=True)
     parser.add_argument(
-        "--mode", choices=["preflight", "serve", "simulate"], required=True
+        "--mode",
+        choices=["preflight", "preflight-model", "serve", "simulate"],
+        required=True,
     )
     args = parser.parse_args()
     request = json.loads(args.request.read_text())
@@ -394,6 +417,17 @@ def main():
         if output.exists():
             raise FileExistsError(output)
         print(json.dumps({"status": "READY_METADATA", "request": request}), flush=True)
+    elif args.mode == "preflight-model":
+        validate_request(request)
+        _, protocol = load_policy(request, device="cpu")
+        write(
+            args.request.parent / "MODEL_PREFLIGHT.json",
+            {
+                "status": "PASS_STRICT_MODEL_EMA_AND_PROTOCOL",
+                "protocol": protocol,
+                "checkpoint_step": request["checkpoint_step"],
+            },
+        )
     elif args.mode == "serve":
         serve(request, output)
     else:

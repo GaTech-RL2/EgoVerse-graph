@@ -255,6 +255,8 @@ def main():
     parser.add_argument("--task-class", required=True)
     parser.add_argument("--replay-proof", action="store_true")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--diagnostic-only", action="store_true",
+                        help="Test one oracle episode without policy image recording; not a dataset")
     args = parser.parse_args()
     # Slow network assets or a controller stall must be distinguishable from
     # healthy collection. This is diagnostic only; no RNG/control changes.
@@ -268,8 +270,20 @@ def main():
         raise FileExistsError("Output already has a manifest; preserve previous collection")
     print(json.dumps({"phase": "construct_environment", "source": str(args.cliport_source)}), flush=True)
     env = make_environment(args.cliport_source, task_module=args.task_module,
-                           task_class=args.task_class, control_hz=args.control_hz)
+                           task_class=args.task_class, control_hz=args.control_hz,
+                           record=not args.diagnostic_only)
     print(json.dumps({"phase": "environment_ready"}), flush=True)
+    if args.diagnostic_only:
+        try:
+            success, reward = collect_episode(env, args.start_seed)
+            result = {"phase": "CONTROLLER_DIAGNOSTIC_NOT_DATASET", "seed": args.start_seed,
+                      "success": success, "reward": reward, "control_steps": env.action_count}
+            (args.output / "diagnostic.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result), flush=True)
+        finally:
+            env.close()
+            lock.close()
+        return
     manifest = {"upstream_commit": UPSTREAM_COMMIT,
                 "task": {"module": args.task_module, "class": args.task_class},
                 "contract": "custom continuous absolute XYZ/rotvec/suction",

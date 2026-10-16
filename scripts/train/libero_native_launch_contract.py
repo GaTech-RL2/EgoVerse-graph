@@ -450,7 +450,93 @@ def joint_preflight_evidence(
     )
 
 
-def joint_prepare_evidence(cfg, *, phase, preflight_ref, runtime_ref, smoke_ref=None):
+def joint_smoke_schedule_reuse(proof_ref, *, smoke_ref, target_source):
+    """Verify an explicitly audited scheduling repair without relabeling a smoke."""
+    from scripts.train.verify_libero_native_action_flow_smoke import checked_json
+
+    proof = checked_json(proof_ref)
+    smoke = checked_json(smoke_ref)
+    old = smoke["identities"]["source_commit"]
+    if (
+        proof.get("schema") != "libero-joint-smoke-schedule-reuse/v1"
+        or proof.get("scope") != "explicit_cross_epoch_validation_schedule"
+        or proof.get("from_source_commit") != old
+        or proof.get("to_source_commit") != target_source
+        or proof.get("smoke") != smoke_ref
+        or proof.get("cpu_regression_status") != "PASS"
+    ):
+        raise ValueError("joint scheduling repair smoke binding differs")
+    # Every source change must be accounted for by the independently audited
+    # diff. Model, data, objective, optimizer, sampler and config paths are never
+    # permitted through this operational compatibility route.
+    allowed = {
+        "egomimic/eval/eval.py",
+        "egomimic/trainHydra.py",
+        "scripts/train/libero_native_launch_contract.py",
+        "scripts/train/libero_native_launch_phases.sh",
+        "scripts/train/verify_action_flow_training_smoke.py",
+        "scripts/train/verify_libero_native_action_flow_smoke.py",
+        "tests/test_data_context_contract.py",
+        "tests/test_libero_native_suite_profiles.py",
+        "tests/test_action_flow_smoke_schedule.py",
+        "tests/test_libero_multi_embodiment_native.py",
+    }
+    repo = proof["target_repo"]
+    head = subprocess.check_output(
+        ["git", "-C", repo, "rev-parse", "HEAD"], text=True
+    ).strip()
+    dirty = subprocess.check_output(
+        ["git", "-C", repo, "status", "--porcelain=v1", "--untracked-files=all"],
+        text=True,
+    ).strip()
+    if head != target_source or dirty:
+        raise ValueError("joint scheduling repair needs exact clean target source")
+    paths = subprocess.check_output(
+        ["git", "-C", repo, "diff", "--name-only", old, head], text=True
+    ).splitlines()
+    if not paths or set(paths) - allowed or sorted(paths) != proof.get("changed_paths"):
+        raise ValueError("joint scheduling repair contains unaudited source paths")
+    diff = subprocess.check_output(
+        ["git", "-C", repo, "diff", "--no-ext-diff", "--binary", old, head]
+    )
+    if hashlib.sha256(diff).hexdigest() != proof.get("audited_diff_sha256"):
+        raise ValueError("joint scheduling repair audited diff differs")
+    tests = Path(proof["cpu_regression"]["path"])
+    if sha(tests) != proof["cpu_regression"]["sha256"]:
+        raise ValueError("joint scheduling repair regression evidence differs")
+    previous = checked_json(smoke["preflight"])
+    if previous.get("source_commit") != old:
+        raise ValueError("joint scheduling repair original preflight differs")
+    return old, previous
+
+
+def joint_contract_at_source(cfg, source):
+    """Compare complete contracts with only the audited source metadata rebound."""
+    import copy
+
+    previous = copy.deepcopy(cfg)
+    current = cfg["run_provenance"]["source_commit"]
+    bindings = [
+        previous["run_provenance"],
+        previous["evaluator"]["energy_score_provenance"],
+        previous["evaluator"]["action_flow_diagnostics"]["provenance"],
+    ]
+    if any(binding["source_commit"] != current for binding in bindings):
+        raise ValueError("joint scheduling repair source metadata differs")
+    for binding in bindings:
+        binding["source_commit"] = source
+    return contract_sha(previous)
+
+
+def joint_prepare_evidence(
+    cfg,
+    *,
+    phase,
+    preflight_ref,
+    runtime_ref,
+    smoke_ref=None,
+    smoke_source_repair_ref=None,
+):
     """Check immutable prerequisites before the common training child starts."""
     from egomimic.benchmarks.libero.native_launch_profiles import (
         joint_profile_for_config,
@@ -490,13 +576,59 @@ def joint_prepare_evidence(cfg, *, phase, preflight_ref, runtime_ref, smoke_ref=
         if smoke_ref is None:
             raise ValueError("joint full requires a genuine eight-update smoke proof")
         smoke = checked_json(smoke_ref)
+        smoke_identities = dict(identities)
+        smoke_preflight_ref = preflight_ref
+        smoke_fingerprint = fingerprint
+        if smoke_source_repair_ref is not None:
+            previous_source, previous_preflight = joint_smoke_schedule_reuse(
+                smoke_source_repair_ref,
+                smoke_ref=smoke_ref,
+                target_source=identities["source_commit"],
+            )
+            smoke_identities["source_commit"] = previous_source
+            smoke_preflight_ref = smoke["preflight"]
+            smoke_fingerprint = joint_contract_at_source(cfg, previous_source)
+            if previous_preflight.get(
+                "model_contract_sha256"
+            ) != smoke_fingerprint or any(
+                previous_preflight.get(k) != v for k, v in smoke_identities.items()
+            ):
+                raise ValueError("joint scheduling repair scientific contract differs")
+            previous_runtime = checked_json(previous_preflight["runtime_lock"])
+            current_runtime = checked_json(runtime_ref)
+            # The source transition is explicitly proved above; all runtime
+            # dependencies and precision fields must still match exactly.
+            old_source = previous_runtime["source"]
+            new_source = current_runtime["source"]
+            if (
+                old_source.get("head") != previous_source
+                or new_source.get("head") != identities["source_commit"]
+                or old_source.get("dirty") is not False
+                or old_source.get("submodules") != new_source.get("submodules")
+            ):
+                raise ValueError("joint scheduling repair runtime source differs")
+            dependency_inputs = []
+            for item in previous_runtime["dependency_inputs"]:
+                item = dict(item)
+                try:
+                    relative = Path(item["path"]).relative_to(old_source["repo"])
+                except ValueError:
+                    pass
+                else:
+                    item["path"] = str(Path(new_source["repo"]) / relative)
+                dependency_inputs.append(item)
+            previous_runtime = dict(
+                previous_runtime, dependency_inputs=dependency_inputs
+            )
+            previous_runtime = dict(previous_runtime, source=current_runtime["source"])
+            runtime_equivalent(previous_runtime, current_runtime)
         if not (
             smoke.get("schema") == "libero-joint-action-flow-smoke/v1"
             and smoke.get("status") == "PASS"
             and smoke.get("profile") == profile.experiment
-            and smoke.get("model_contract_sha256") == fingerprint
-            and smoke.get("identities") == identities
-            and smoke.get("preflight") == preflight_ref
+            and smoke.get("model_contract_sha256") == smoke_fingerprint
+            and smoke.get("identities") == smoke_identities
+            and smoke.get("preflight") == smoke_preflight_ref
             and smoke.get("strict_online_and_alias_safe_ema_reload") is True
             and smoke.get("checkpoint", {}).get("parameter_count") == 78182614
             and smoke["checkpoint"].get("global_step") == 8
@@ -511,6 +643,7 @@ def joint_prepare_evidence(cfg, *, phase, preflight_ref, runtime_ref, smoke_ref=
         preflight=preflight_ref,
         runtime_lock=runtime_ref,
         smoke=smoke_ref,
+        smoke_source_repair=smoke_source_repair_ref,
         launch_ready=False,
     )
 
@@ -601,6 +734,8 @@ def main():
     p.add_argument("--expected-preflight-sha256")
     p.add_argument("--smoke-proof", type=Path)
     p.add_argument("--expected-smoke-sha256")
+    p.add_argument("--smoke-source-repair-proof", type=Path)
+    p.add_argument("--expected-smoke-source-repair-sha256")
     p.add_argument(
         "--phase-inputs",
         type=Path,
@@ -653,6 +788,10 @@ def main():
             if not a.expected_smoke_sha256:
                 p.error("joint smoke proof requires its expected SHA")
             checked(a.smoke_proof, a.expected_smoke_sha256)
+        if a.smoke_source_repair_proof:
+            if not a.expected_smoke_source_repair_sha256:
+                p.error("joint smoke source repair proof requires its expected SHA")
+            checked(a.smoke_source_repair_proof, a.expected_smoke_source_repair_sha256)
         cfg = OmegaConf.to_container(OmegaConf.load(a.resolved_config), resolve=True)
         result = joint_prepare_evidence(
             cfg,
@@ -660,6 +799,11 @@ def main():
             preflight_ref=reference(a.preflight_proof),
             runtime_ref=reference(a.runtime_lock),
             smoke_ref=reference(a.smoke_proof) if a.smoke_proof else None,
+            smoke_source_repair_ref=(
+                reference(a.smoke_source_repair_proof)
+                if a.smoke_source_repair_proof
+                else None
+            ),
         )
         write(a.output / "JOINT_RUN_PREPARED.json", result)
         return

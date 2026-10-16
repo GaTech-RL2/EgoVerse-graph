@@ -14,6 +14,100 @@ from libero_maintained_dispatch_v1 import (  # noqa: E402 - task tool path initi
     validate_data_receipt,
 )
 
+
+def test_joint_schedule_reuse_hashes_exact_git_diff_and_rejects_model_changes(tmp_path):
+    import hashlib
+    import json
+    import subprocess
+
+    from scripts.train.libero_native_launch_contract import (
+        joint_smoke_schedule_reuse,
+        reference,
+    )
+
+    repo = tmp_path / "source"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "user.name=fixture",
+                "-c",
+                "user.email=fixture@example.invalid",
+                *args,
+            ]
+        )
+
+    git("init", "-q")
+    source = repo / "egomimic/eval/eval.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("old schedule\n")
+    git("add", ".")
+    git("commit", "-qm", "old")
+    old = git("rev-parse", "HEAD").decode().strip()
+    source.write_text("repaired schedule\n")
+    git("commit", "-qam", "repair")
+    head = git("rev-parse", "HEAD").decode().strip()
+    preflight_path = tmp_path / "preflight.json"
+    preflight_path.write_text(json.dumps({"source_commit": old}))
+    smoke_path = tmp_path / "smoke.json"
+    smoke_path.write_text(
+        json.dumps(
+            {
+                "identities": {"source_commit": old},
+                "preflight": reference(preflight_path),
+            }
+        )
+    )
+    regression = tmp_path / "regression.log"
+    regression.write_text("actual CPU evidence fixture\n")
+    proof = dict(
+        schema="libero-joint-smoke-schedule-reuse/v1",
+        scope="explicit_cross_epoch_validation_schedule",
+        from_source_commit=old,
+        to_source_commit=head,
+        target_repo=str(repo),
+        smoke=reference(smoke_path),
+        cpu_regression_status="PASS",
+        changed_paths=["egomimic/eval/eval.py"],
+        audited_diff_sha256=hashlib.sha256(
+            git("diff", "--no-ext-diff", "--binary", old, head)
+        ).hexdigest(),
+        cpu_regression=reference(regression),
+    )
+    proof_path = tmp_path / "proof.json"
+
+    def check():
+        proof_path.write_text(json.dumps(proof))
+        return joint_smoke_schedule_reuse(
+            reference(proof_path),
+            smoke_ref=reference(smoke_path),
+            target_source=proof["to_source_commit"],
+        )
+
+    assert check()[0] == old
+    proof["audited_diff_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="audited diff differs"):
+        check()
+    model = repo / "egomimic/model.py"
+    model.write_text("changed model\n")
+    git("add", ".")
+    git("commit", "-qm", "forbidden")
+    proof["to_source_commit"] = git("rev-parse", "HEAD").decode().strip()
+    proof["changed_paths"] = (
+        git("diff", "--name-only", old, "HEAD").decode().splitlines()
+    )
+    proof["audited_diff_sha256"] = hashlib.sha256(
+        git("diff", "--no-ext-diff", "--binary", old, "HEAD")
+    ).hexdigest()
+    with pytest.raises(ValueError, match="unaudited source paths"):
+        check()
+
+
 from egomimic.benchmarks.libero.native_launch_profiles import (  # noqa: E402 - task tool path initialized above
     PROFILES,
     profile_for_argv,
@@ -466,6 +560,7 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
                 "torch_runtime",
             )
         }
+        runtime["dependency_inputs"] = []
         runtime_path = tmp_path / "synthetic-runtime.json"
         runtime_path.write_text(json.dumps(runtime))
         identity = {
@@ -513,6 +608,52 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
             kwargs["smoke_ref"] = reference(smoke_path)
         assert joint_prepare_evidence(resolved, **kwargs)["launch_ready"] is False
         if phase == "full":
+            from scripts.train import libero_native_launch_contract as adapter
+
+            original_smoke = copy.deepcopy(smoke)
+            previous = dict(preflight, source_commit="d" * 40)
+            previous["model_contract_sha256"] = adapter.joint_contract_at_source(
+                resolved, "d" * 40
+            )
+            previous_runtime = dict(runtime, source={"head": "d" * 40, "dirty": False})
+            old_runtime_path = tmp_path / "previous-runtime.json"
+            old_runtime_path.write_text(json.dumps(previous_runtime))
+            previous["runtime_lock"] = reference(old_runtime_path)
+            runtime["source"] = {"head": identity["source_commit"], "dirty": False}
+            runtime_path.write_text(json.dumps(runtime))
+            preflight["runtime_lock"] = reference(runtime_path)
+            preflight_path.write_text(json.dumps(preflight))
+            kwargs["runtime_ref"] = reference(runtime_path)
+            kwargs["preflight_ref"] = reference(preflight_path)
+            previous_path = tmp_path / "previous-preflight.json"
+            previous_path.write_text(json.dumps(previous))
+            smoke["identities"] = dict(identity, source_commit="d" * 40)
+            smoke["model_contract_sha256"] = previous["model_contract_sha256"]
+            smoke["preflight"] = reference(previous_path)
+            smoke_path.write_text(json.dumps(smoke))
+            kwargs["smoke_ref"] = reference(smoke_path)
+            with pytest.raises(ValueError, match="smoke proof differs"):
+                joint_prepare_evidence(resolved, **kwargs)
+            repair_ref = {"path": "separate-repair-proof", "sha256": "e" * 64}
+            monkeypatch.setattr(
+                adapter,
+                "joint_smoke_schedule_reuse",
+                lambda *a, **k: ("d" * 40, previous),
+            )
+            reused = joint_prepare_evidence(
+                resolved, **kwargs, smoke_source_repair_ref=repair_ref
+            )
+            assert reused["smoke_source_repair"] == repair_ref
+            assert (
+                json.loads(smoke_path.read_text())["identities"]["source_commit"]
+                == "d" * 40
+            )
+            previous["model_contract_sha256"] = "wrong"
+            with pytest.raises(ValueError, match="scientific contract differs"):
+                joint_prepare_evidence(
+                    resolved, **kwargs, smoke_source_repair_ref=repair_ref
+                )
+            smoke = original_smoke
             smoke["checkpoint"]["global_step"] = 2
             smoke_path.write_text(json.dumps(smoke))
             kwargs["smoke_ref"] = reference(smoke_path)
@@ -543,8 +684,6 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
                 )
             assert contract_sha(resolved) == contract_sha(other_resolved)
     if phase == "smoke":
-        import copy
-
         from scripts.train.libero_native_launch_contract import joint_prepare_evidence
 
         assert resolved["model"]["gradient_telemetry_cadence"] == 1

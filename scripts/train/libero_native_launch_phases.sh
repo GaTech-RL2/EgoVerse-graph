@@ -52,6 +52,11 @@ fi
 if test "${AF_JOINT_LIBERO:-false}" = true; then
  joint_smoke_args=()
  if test "$phase" = full; then joint_smoke_args=(--smoke-proof "$AF_SMOKE_RESULT" --expected-smoke-sha256 "$AF_EXPECTED_SMOKE_SHA256"); fi
+ if test -n "${AF_SMOKE_SOURCE_REPAIR_PROOF:-}"; then
+  test "$phase" = full || die "smoke source repair is full-only"
+  required AF_EXPECTED_SMOKE_SOURCE_REPAIR_SHA256
+  joint_smoke_args+=(--smoke-source-repair-proof "$AF_SMOKE_SOURCE_REPAIR_PROOF" --expected-smoke-source-repair-sha256 "$AF_EXPECTED_SMOKE_SOURCE_REPAIR_SHA256")
+ fi
  "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action joint-prepare --repo "$AF_REPO" --output "$ATTEMPT" --phase "$phase" --resolved-config "$ATTEMPT/resolved.yaml" --runtime-lock "$ATTEMPT/runtime-lock.json" --preflight-proof "$AF_PREFLIGHT_RESULT" --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256" "${joint_smoke_args[@]}"
 else
 "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action prepare --repo "$AF_REPO" --output "$ATTEMPT" --argv "$ATTEMPT/exact-phase.argv0" --phase "$phase"

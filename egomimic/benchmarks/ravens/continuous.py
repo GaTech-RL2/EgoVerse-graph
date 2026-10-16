@@ -13,6 +13,7 @@ import fcntl
 import hashlib
 import importlib
 import importlib.util
+from importlib.metadata import version
 import json
 from pathlib import Path
 import random
@@ -306,6 +307,9 @@ def main():
                 "task": {"module": args.task_module, "class": args.task_class},
                 "contract": "custom continuous absolute XYZ/rotvec/suction",
                 "action_frame": "world-frame UR5 tool_tip inertial pose, matching native IK",
+                "simulation_runtime": {"python": f"{sys.version_info.major}.{sys.version_info.minor}",
+                                       **{name: version(name) for name in
+                                          ("numpy", "scipy", "pybullet", "opencv-python-headless")}},
                 "control_hz": args.control_hz, "physics_hz": 240,
                 "policy_inputs": "two RGB images, tip pose, suction state; constant task_uid=0",
                 "oracle_privileged_inputs": "demonstration generation only",

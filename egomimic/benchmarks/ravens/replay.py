@@ -66,7 +66,8 @@ def convert(input_dirs, output, expected_episodes=500):
         manifest = json.loads((directory / "manifest.json").read_text())
         if not manifest.get("complete"):
             raise ValueError(f"Incomplete collection: {directory}")
-        contract = {key: manifest[key] for key in ("upstream_commit", "task", "collector_sha256", "control_hz")}
+        contract = {key: manifest[key] for key in ("upstream_commit", "task", "collector_sha256", "control_hz",
+                                                 "action_frame", "simulation_runtime")}
         if common_contract is not None and contract != common_contract:
             raise ValueError("Collection shards differ in task, source or control rate")
         common_contract = contract

@@ -61,8 +61,12 @@ def prepare_training_profile(request):
     normalizer = MultiDataset.from_state(state)
     fixture_path = Path(request["fixture"])
     if fixture_path.exists():
+        if request.get("fixture_sha256"):
+            assert _digest(fixture_path) == request["fixture_sha256"]
         fixture = torch.load(fixture_path, weights_only=False)
-        assert fixture["checkpoint"] == request["checkpoint"]
+        assert fixture["checkpoint"] == request.get(
+            "fixture_checkpoint", request["checkpoint"]
+        )
         assert fixture["source_key"] == request["source_key"]
     else:
         dataset = instantiate(cfg.data.train_datasets[request["source_key"]])

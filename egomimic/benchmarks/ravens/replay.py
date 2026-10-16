@@ -99,13 +99,13 @@ class RavensNormalizer(LiberoNormalizer):
         import inspect
         import torch
         from scripts.ice.validate_lightning_checkpoint import (
-            finite_scan, _allowed_lightning_callback_sentinel_paths,
+            finite_scan, allowed_fixed_nonfinite_paths,
         )
         checkpoint, dataset, output = map(Path, (checkpoint, dataset, output))
         if output.exists():
             raise FileExistsError(output)
         payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        allowed = _allowed_lightning_callback_sentinel_paths(payload)
+        allowed = allowed_fixed_nonfinite_paths(payload)
         finite_scan(payload, allowed_nonfinite_paths=allowed)
         stage = json.loads((dataset.parent / ".stage-receipt.json").read_text())
         if not stage["complete"]:
@@ -122,7 +122,7 @@ class RavensNormalizer(LiberoNormalizer):
                     "fit_checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest()}, output)
         return {"status": "PASS_EXACT_NATIVE_STATISTICS_EXPORT",
                 "path": str(output), "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-                "allowed_callback_sentinel_count": len(allowed)}
+                "verified_fixed_nonfinite_paths": [list(path) for path in sorted(allowed)]}
 
     def tokenizer_context(self):
         stats = self.norm_stats[get_embodiment_id("ravens_ur5")]["actions"]

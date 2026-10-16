@@ -232,9 +232,9 @@ def main():
             or not payload.get("optimizer_states") or "ema_state_dict" not in payload):
         raise ValueError("Incomplete model/EMA/optimizer smoke checkpoint")
     from scripts.ice.validate_lightning_checkpoint import (
-        finite_scan, _allowed_lightning_callback_sentinel_paths,
+        finite_scan, allowed_fixed_nonfinite_paths,
     )
-    allowed = _allowed_lightning_callback_sentinel_paths(payload)
+    allowed = allowed_fixed_nonfinite_paths(payload)
     finite_scan(payload, allowed_nonfinite_paths=allowed)
     from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=False)

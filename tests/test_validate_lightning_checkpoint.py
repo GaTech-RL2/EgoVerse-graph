@@ -33,6 +33,33 @@ NORMALIZATION = "d" * 64
 RUN = "planar-bc-smoke"
 
 
+@pytest.mark.parametrize("corruption", [None, "mask_nan", "mask_wrong", "memory_nan", "learned_inf"])
+def test_fixed_oat_attention_masks_are_exact_and_other_nonfinite_values_fail(corruption):
+    prefix = "nets.pipeline.stages.3.policy.model."
+    state = {prefix + "pos_emb": torch.zeros(1, 4, 8),
+             prefix + "cond_pos_emb": torch.zeros(1, 3, 8),
+             prefix + "input_emb.weight": torch.zeros(8, 7),
+             prefix + "head.weight": torch.zeros(7, 8),
+             prefix + "mask": torch.zeros(4, 4).masked_fill(torch.triu(torch.ones(4, 4), diagonal=1).bool(), -torch.inf),
+             prefix + "memory_mask": torch.zeros(4, 3).masked_fill(torch.arange(4)[:, None] < torch.arange(3)[None, :] - 1, -torch.inf)}
+    if corruption == "mask_nan":
+        state[prefix + "mask"][0, 1] = torch.nan
+    elif corruption == "mask_wrong":
+        state[prefix + "mask"][0, 0] = -torch.inf
+    elif corruption == "memory_nan":
+        state[prefix + "memory_mask"][0, 2] = torch.nan
+    elif corruption == "learned_inf":
+        state[prefix + "head.weight"][0, 0] = torch.inf
+    candidate = {"state_dict": state}
+    allowed = MODULE.allowed_fixed_nonfinite_paths(candidate)
+    if corruption:
+        with pytest.raises(RuntimeError, match="non-finite tensor"):
+            MODULE.finite_scan(candidate, allowed_nonfinite_paths=allowed)
+    else:
+        assert len(allowed) == 2
+        MODULE.finite_scan(candidate, allowed_nonfinite_paths=allowed)
+
+
 def payload(*, scheduler: bool = True) -> dict:
     scheduler_config = (
         {"_target_": "example.scheduler", "max_steps": 100}

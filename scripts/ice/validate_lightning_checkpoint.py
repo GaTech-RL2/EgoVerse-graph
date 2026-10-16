@@ -398,6 +398,51 @@ def _allowed_lightning_callback_sentinel_paths(
     return frozenset(allowed)
 
 
+def allowed_fixed_nonfinite_paths(payload: Mapping[Any, Any]) -> frozenset[tuple[Any, ...]]:
+    """Verify fixed OAT additive masks; never exempt learned weights or NaNs.
+
+    The native TransformerForDiffusion stores exact zero/-inf causal buffers.
+    Bind dimensions to its neighboring embedding/head tensors, then compare
+    every entry to the native mask formula before granting an exception.
+    """
+    allowed = set(_allowed_lightning_callback_sentinel_paths(payload))
+    for name in ("state_dict", "ema_state_dict"):
+        state = payload.get(name, {})
+        if not isinstance(state, Mapping):
+            continue
+        for key, value in state.items():
+            if not isinstance(key, str) or not key.endswith(".policy.model.mask"):
+                continue
+            prefix = key[:-4]
+            pos, stem, head = (state.get(prefix + field)
+                               for field in ("pos_emb", "input_emb.weight", "head.weight"))
+            if not all(torch.is_tensor(item) for item in (value, pos, stem, head)):
+                continue
+            if (pos.ndim != 3 or pos.shape[0] != 1 or stem.ndim != 2 or head.ndim != 2 or
+                    stem.shape[0] != pos.shape[2] or head.shape[1] != pos.shape[2] or
+                    value.layout != torch.strided or not value.is_floating_point()):
+                continue
+            length = pos.shape[1]
+            expected = torch.zeros(length, length, dtype=value.dtype, device=value.device)
+            future = torch.arange(length, device=value.device)[None, :] > torch.arange(length, device=value.device)[:, None]
+            expected.masked_fill_(future, float("-inf"))
+            if value.shape != expected.shape or not torch.equal(value, expected):
+                continue
+            allowed.add((name, key))
+            memory = state.get(prefix + "memory_mask")
+            cond = state.get(prefix + "cond_pos_emb")
+            if (not torch.is_tensor(memory) or not torch.is_tensor(cond) or cond.ndim != 3 or
+                    cond.shape[0] != 1 or cond.shape[2] != pos.shape[2] or
+                    memory.layout != torch.strided or not memory.is_floating_point()):
+                continue
+            expected = torch.zeros(length, cond.shape[1], dtype=memory.dtype, device=memory.device)
+            future = torch.arange(length, device=memory.device)[:, None] < torch.arange(cond.shape[1], device=memory.device)[None, :] - 1
+            expected.masked_fill_(future, float("-inf"))
+            if memory.shape == expected.shape and torch.equal(memory, expected):
+                allowed.add((name, prefix + "memory_mask"))
+    return frozenset(allowed)
+
+
 def _strict_model_reload(
     checkpoint: Path,
     payload: Mapping[Any, Any],
@@ -638,13 +683,15 @@ def validate_checkpoint(
             "checkpoint carries lr_schedulers while its model config disables them"
         )
 
-    state_scan = finite_scan(state_dict, "root.state_dict")
+    allowed_paths = allowed_fixed_nonfinite_paths(payload)
+    state_scan = finite_scan(state_dict, "root.state_dict", allowed_nonfinite_paths=frozenset(
+        path[1:] for path in allowed_paths if path[0] == "state_dict"))
     if state_scan.tensor_count == 0:
         raise RuntimeError("state_dict contains no tensors")
     callback_sentinel_paths = _allowed_lightning_callback_sentinel_paths(payload)
     full_scan = finite_scan(
         payload,
-        allowed_nonfinite_paths=callback_sentinel_paths,
+        allowed_nonfinite_paths=allowed_paths,
     )
     strict_reload_metadata: dict[str, int | bool]
     if strict_model_reload:

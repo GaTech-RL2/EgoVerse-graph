@@ -173,6 +173,12 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
                 rotation = Rotation.from_rotvec(rotvec * min(1., .15 / max(np.linalg.norm(rotvec), 1e-12))) * current_rot
                 action = np.r_[xyz + step, rotation.as_rotvec(), 1. if self.ee.activated else -1.]
                 self.control(action)
+            xyz, quat = self.tip_pose()
+            print(json.dumps({"phase": "motion_timeout", "target_xyz": target_pos.tolist(),
+                              "actual_xyz": xyz.tolist(),
+                              "position_error": float(np.linalg.norm(target_pos - xyz)),
+                              "rotation_error": float(np.linalg.norm(
+                                  (target_rot * Rotation.from_quat(quat).inv()).as_rotvec()))}), flush=True)
             return True
 
         def seeded_reset(self, seed):

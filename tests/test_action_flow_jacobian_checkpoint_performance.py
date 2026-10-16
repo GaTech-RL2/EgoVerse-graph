@@ -44,7 +44,10 @@ def prepare_training_profile(request):
         request["checkpoint"], map_location="cpu", mmap=True, weights_only=False
     )
     assert payload["global_step"] == request["checkpoint_step"]
-    cfg = OmegaConf.create(payload["hyper_parameters"]["config_tree"])
+    cfg = OmegaConf.load(request["config"])
+    assert payload["hyper_parameters"]["config_tree"][
+        "model"
+    ] == OmegaConf.to_container(cfg.model, resolve=True)
     assert [int(cfg.model.num_latent_tokens), int(cfg.model.latent_dim)] == request[
         "latent_shape"
     ]

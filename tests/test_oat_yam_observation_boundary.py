@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from egomimic.pipeline.stages_oat import OATObservationStage
 
 
@@ -103,6 +104,7 @@ def test_yam_openloop_horizon32_preserves_native_backend():
 
 def test_single_source_checkpoint_callback_yam_and_legacy_identity():
     from types import SimpleNamespace
+
     from egomimic.utils.libero_dit_half import LiberoDiTHalf
 
     old = LiberoDiTHalf()

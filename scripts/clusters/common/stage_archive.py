@@ -25,7 +25,10 @@ def stage(archive, expected_sha256, scratch_root, reserve_bytes):
     if filesystem not in {"ext4", "xfs", "btrfs", "tmpfs", "overlay"}:
         raise ValueError(f"Refusing non-local staging filesystem: {filesystem}")
     with archive.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        checksum = hashlib.sha256()
+        for block in iter(lambda: stream.read(8 * 1024**2), b""):
+            checksum.update(block)
+        digest = checksum.hexdigest()
     if digest != expected_sha256:
         raise ValueError("Archive checksum differs from approved input")
     target = scratch_root / digest

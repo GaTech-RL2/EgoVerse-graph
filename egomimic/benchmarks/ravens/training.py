@@ -22,7 +22,7 @@ def write(path, value):
     Path(path).write_text(json.dumps(value, indent=2) + "\n")
 
 
-def compose(family, dataset, output, run_id):
+def compose(family, dataset, output, run_id, normalizer_state=None, normalizer_sha256=None):
     source = Path(__file__).resolve().parents[3]
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
     with hydra.initialize_config_dir(version_base="1.2", config_dir=str(source / "egomimic/hydra_configs")):
@@ -33,6 +33,12 @@ def compose(family, dataset, output, run_id):
             "evaluator.config_sha256=UNBOUND", f"logger.wandb.id={run_id}",
             "logger.wandb.entity=rl2-group", "logger.wandb.project=pushshapes-action-flow",
             "+logger.wandb.resume=never"])
+    if (normalizer_state is None) != (normalizer_sha256 is None):
+        raise ValueError("Saved normalization requires both path and SHA-256")
+    if normalizer_state is not None:
+        with open_dict(cfg.normalizer):
+            cfg.normalizer.saved_state_path = str(normalizer_state)
+            cfg.normalizer.saved_state_sha256 = normalizer_sha256
     cfg.hydra.runtime.output_dir = str(output)
     HydraConfig.instance().set_config(cfg)
     job = OmegaConf.to_container(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True)
@@ -111,6 +117,8 @@ def main():
     parser.add_argument("--expected-trainable", type=int)
     parser.add_argument("--smoke-result", type=Path)
     parser.add_argument("--smoke-sha256")
+    parser.add_argument("--normalizer-state", type=Path)
+    parser.add_argument("--normalizer-sha256")
     args = parser.parse_args()
     if not os.environ.get("SLURM_JOB_ID") or not os.environ.get("SLURM_STEP_ID"):
         raise RuntimeError("Construction and training both require a scheduled allocation")
@@ -126,7 +134,8 @@ def main():
     if output.is_relative_to(source) or output.exists():
         raise ValueError("Use a fresh output directory outside the exact source checkout")
     output.mkdir(parents=True)
-    cfg, commit, identity = compose(args.family, dataset, output, args.wandb_run_id)
+    cfg, commit, identity = compose(args.family, dataset, output, args.wandb_run_id,
+                                    args.normalizer_state, args.normalizer_sha256)
     OmegaConf.save(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), output / "FULL_CONFIG.yaml", resolve=True)
     if args.phase == "inspect":
         counts = inspect(cfg)
@@ -222,16 +231,11 @@ def main():
     if (payload["global_step"] != SMOKE_UPDATES or payload.get("ema_num_updates") != SMOKE_UPDATES
             or not payload.get("optimizer_states") or "ema_state_dict" not in payload):
         raise ValueError("Incomplete model/EMA/optimizer smoke checkpoint")
-    def finite_tensors(value):
-        if torch.is_tensor(value):
-            return bool(torch.isfinite(value).all())
-        if isinstance(value, dict):
-            return all(finite_tensors(item) for item in value.values())
-        if isinstance(value, (list, tuple)):
-            return all(finite_tensors(item) for item in value)
-        return True
-    if not finite_tensors(payload):
-        raise ValueError("Non-finite tensor in full-state smoke checkpoint")
+    from scripts.ice.validate_lightning_checkpoint import (
+        finite_scan, _allowed_lightning_callback_sentinel_paths,
+    )
+    allowed = _allowed_lightning_callback_sentinel_paths(payload)
+    finite_scan(payload, allowed_nonfinite_paths=allowed)
     from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=False)
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=True)

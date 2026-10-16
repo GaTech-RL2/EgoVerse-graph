@@ -15,6 +15,7 @@ def distance(a, b):
 
 class LiberoComparisonEvaluator(LiberoActionEvaluator):
     """32 fixed samples on an ordered eight-condition panel shared by both families."""
+    requires_lightning_context = True
     def __init__(self, artifact_root, source_commit, config_sha256, diagnostic_config=None, panel_size=8, embodiment="libero_panda"):
         super().__init__()
         from egomimic.rldb.embodiment.embodiment import get_embodiment_id

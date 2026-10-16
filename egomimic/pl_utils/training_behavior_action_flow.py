@@ -744,7 +744,8 @@ class ActionFlowTrainingBehavior(TrainingBehavior):
         if self.context.evaluator is None:
             return
         self.context.model.device = self.context.device
-        if self._diagnostics_enabled(self.context.evaluator):
+        if (self._diagnostics_enabled(self.context.evaluator) or
+                getattr(self.context.evaluator, "requires_lightning_context", False)):
             self.context.evaluator.model = self.context
         self.context.evaluator.on_validation_start()
 

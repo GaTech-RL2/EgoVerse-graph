@@ -634,9 +634,12 @@ class _LifecycleEvaluator:
         self.ended += 1
 
 
-def test_action_flow_validation_logs_components_and_processes_once(monkeypatch):
+@pytest.mark.parametrize("diagnostics,requires_context", [(True, False), (False, True)])
+def test_action_flow_validation_logs_components_and_processes_once(monkeypatch, diagnostics, requires_context):
     algo = _ToyAlgo(reconstruction_weight=10.0)
     evaluator = _LifecycleEvaluator()
+    evaluator.action_flow_diagnostics_enabled = diagnostics
+    evaluator.requires_lightning_context = requires_context
     wrapper = _action_flow_wrapper(
         pipeline=algo,
         evaluator=evaluator,

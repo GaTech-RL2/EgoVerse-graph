@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 from .native_launch_profiles import (
-    SPATIAL_HAND_JOINT_PROFILE,
+    JOINT_PROFILES,
     joint_profile_for_config,
     profile_for_config,
 )
@@ -61,7 +61,7 @@ def load_saved_native_config(run_dir, repo=None):
     config = OmegaConf.load(root / ".hydra/config.yaml")
     saved = OmegaConf.load(root / ".hydra/hydra.yaml")
     literal = OmegaConf.to_container(config, resolve=False)
-    joint = literal.get("name") == SPATIAL_HAND_JOINT_PROFILE.name
+    joint = literal.get("name") in JOINT_PROFILES
     profile = None if joint else profile_for_config(config)
     require(
         str(saved.hydra.runtime.cwd) == str(repo), "saved Hydra cwd/source mismatch"

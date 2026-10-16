@@ -317,12 +317,57 @@ def compose_joint_phase(inputs, *, phase, output, repo):
     )
 
 
-def validate_joint_constructor(reference, *, source_head, resolved_sha, fingerprint):
+def construct_joint_model(cfg, resolved_path, *, source_head):
+    """Construct the exact CPU graph once, without opening replay datasets."""
+    import hydra
+    import torch
+
+    from egomimic.benchmarks.libero.native_launch_profiles import (
+        joint_profile_for_config,
+    )
+    from scripts.train.verify_action_flow_training_smoke import _joint_checkpoint_owners
+
+    profile = joint_profile_for_config(cfg)
+    if cfg["run_provenance"].get("source_commit") != source_head:
+        raise ValueError("joint constructor source/config identity differs")
+    if cfg["trainer"]["accelerator"] != "cpu":
+        raise ValueError("joint constructor requires a CPU preflight config")
+    algo = hydra.utils.instantiate(cfg["model"]["pipeline"], device="cpu")
+    parameters = tuple(algo.nets.parameters())
+    count = sum(parameter.numel() for parameter in parameters)
+    if count != profile.parameter_count:
+        raise ValueError("joint constructor parameter count differs")
+    if not all(bool(torch.isfinite(parameter).all()) for parameter in parameters):
+        raise ValueError("joint constructor has nonfinite parameters")
+    owners = _joint_checkpoint_owners(algo.pipeline.stages)
+    return dict(
+        schema="libero-joint-model-constructor/v1",
+        status="PASS",
+        full_model_constructor=True,
+        parameter_count=count,
+        source_commit=source_head,
+        resolved_config_sha256=sha(resolved_path),
+        model_contract_sha256=contract_sha(cfg),
+        resolved_config=reference(resolved_path),
+        codec_kind=profile.codec_kind,
+        distinct_codec_and_field_owners=len(owners),
+        all_parameters_finite=True,
+        scope="Exact scheduled CPU neural graph; no replay traversal, normalization fit, optimizer, inference, or GPU smoke",
+    )
+
+
+def validate_joint_constructor(
+    reference, *, source_head, resolved_sha, fingerprint, parameter_count=78182614
+):
     """Keep verified provenance distinct from an explicit human waiver."""
     from scripts.train.verify_libero_native_action_flow_smoke import checked_json
 
     proof = checked_json(reference)
     if proof.get("schema") == "libero-joint-constructor-provenance-waiver/v1":
+        if parameter_count != 78182614:
+            raise ValueError(
+                "historical constructor waiver cannot authorize a new architecture"
+            )
         if not (
             proof.get("authorization") == "explicit_human_override"
             and proof.get("waived_gate") == "cached_constructor_source_config_binding"
@@ -346,7 +391,7 @@ def validate_joint_constructor(reference, *, source_head, resolved_sha, fingerpr
     required = dict(
         status="PASS",
         full_model_constructor=True,
-        parameter_count=78182614,
+        parameter_count=parameter_count,
         source_commit=source_head,
         resolved_config_sha256=resolved_sha,
         model_contract_sha256=fingerprint,
@@ -387,6 +432,7 @@ def joint_preflight_evidence(
         source_head=source_head,
         resolved_sha=resolved_sha,
         fingerprint=fingerprint,
+        parameter_count=profile.parameter_count,
     )
     runtime = checked_json(runtime_ref)
     runtime_equivalent(runtime, runtime)
@@ -652,7 +698,8 @@ def joint_prepare_evidence(
             and smoke.get("identities") == smoke_identities
             and smoke.get("preflight") == smoke_preflight_ref
             and smoke.get("strict_online_and_alias_safe_ema_reload") is True
-            and smoke.get("checkpoint", {}).get("parameter_count") == 78182614
+            and smoke.get("checkpoint", {}).get("parameter_count")
+            == profile.parameter_count
             and smoke["checkpoint"].get("global_step") == 8
             and smoke["checkpoint"].get("joint_ema", {}).get("alias_safe_strict_reload")
             is True
@@ -737,6 +784,7 @@ def main():
             "joint-split",
             "joint-normalize",
             "joint-preflight",
+            "joint-construct",
             "joint-compose",
             "joint-prepare",
         ],
@@ -781,6 +829,7 @@ def main():
         "joint-split",
         "joint-normalize",
         "joint-preflight",
+        "joint-construct",
         "joint-compose",
         "joint-prepare",
     }:
@@ -836,6 +885,13 @@ def main():
                 "joint-compose requires --phase-inputs, --expected-phase-inputs-sha256 and --phase"
             )
         inputs = checked(a.phase_inputs, a.expected_phase_inputs_sha256)
+        from egomimic.benchmarks.libero.native_launch_profiles import (
+            SPATIAL_HAND_JOINT_PROFILE,
+        )
+
+        profile_name = inputs.get("profile_name", SPATIAL_HAND_JOINT_PROFILE.name)
+        if os.environ.get("AF_EXPERIMENT") != "libero/" + profile_name:
+            raise ValueError("joint exact factory experiment/environment mismatch")
         for key, envkey in {
             "source_root": "AF_REPO",
             "source_commit": "AF_EXPECTED_HEAD",
@@ -858,6 +914,35 @@ def main():
             inputs, phase=a.phase, output=a.output, repo=a.repo
         )
         write(a.output / "JOINT_PHASE_COMPOSITION.json", result)
+        return
+
+    if a.action == "joint-construct":
+        if not a.resolved_config:
+            p.error("joint-construct requires --resolved-config")
+        target = a.output / "MODEL_CONSTRUCTION.json"
+        if target.exists():
+            raise FileExistsError(
+                "constructor output already exists; reuse its immutable proof"
+            )
+        head = subprocess.check_output(
+            ["git", "-C", str(a.repo), "rev-parse", "HEAD"], text=True
+        ).strip()
+        if subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(a.repo),
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+            ],
+            text=True,
+        ):
+            raise ValueError("joint constructor source must be clean")
+        cfg = OmegaConf.to_container(OmegaConf.load(a.resolved_config), resolve=True)
+        result = construct_joint_model(cfg, a.resolved_config, source_head=head)
+        a.output.mkdir(parents=True, exist_ok=True)
+        write(target, result)
         return
 
     if a.action == "joint-preflight":

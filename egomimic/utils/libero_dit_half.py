@@ -36,8 +36,23 @@ def resolve_backbones(module):
         encoders = routed_encoders[0].encoder
         if len(encoders) < 2:
             raise ValueError("routed checkpoint policy requires private encoders")
+        from egomimic.models.mot_action_codec import MoTActionCodec
+
+        mot = [isinstance(encoder, MoTActionCodec) for encoder in encoders.values()]
+        if any(mot) and not all(mot):
+            raise ValueError("mixed MoT/native encoder banks are not audited")
+        if all(mot):
+            shared = next(iter(encoders.values())).shared
+            if any(
+                encoder.role != "encoder" or encoder.shared is not shared
+                for encoder in encoders.values()
+            ):
+                raise ValueError("MoT encoder routes must own one shared latent bank")
         return {
-            **{"encoder/" + name: module.backbone for name, module in encoders.items()},
+            **{
+                "encoder/" + name: (encoder if all(mot) else encoder.backbone)
+                for name, encoder in encoders.items()
+            },
             "velocity": shared_fields[0].field.backbone,
         }
     if native:

@@ -648,6 +648,36 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
                 json.loads(smoke_path.read_text())["identities"]["source_commit"]
                 == "d" * 40
             )
+            # Source-local assets move with immutable checkout roots. Compare
+            # their actual bytes against the configured SHA before rebinding
+            # this one path, keeping every other scientific field exact.
+            asset = Path(resolved["evaluator"]["seed_bank_path"])
+            payload = asset.read_bytes()
+            old_repo, new_repo = tmp_path / "old-source", tmp_path / "new-source"
+            old_repo.mkdir()
+            new_repo.mkdir()
+            old_seed, new_seed = old_repo / "seeds.json", new_repo / "seeds.json"
+            old_seed.write_bytes(payload)
+            new_seed.write_bytes(payload)
+            before = copy.deepcopy(resolved)
+            before["evaluator"]["seed_bank_path"] = str(old_seed)
+            expected = adapter.joint_contract_at_source(before, "d" * 40)
+            after = copy.deepcopy(resolved)
+            after["evaluator"]["seed_bank_path"] = str(new_seed)
+            rebound = dict(source_repo=old_repo, current_repo=new_repo)
+            assert (
+                adapter.joint_contract_at_source(after, "d" * 40, **rebound) == expected
+            )
+            assert after["evaluator"]["seed_bank_path"] == str(new_seed)
+            for changed in (old_seed, new_seed):
+                changed.write_bytes(b"changed seed bank")
+                with pytest.raises(ValueError, match="seed asset SHA differs"):
+                    adapter.joint_contract_at_source(after, "d" * 40, **rebound)
+                changed.write_bytes(payload)
+            after["model"]["cfg_scale"] += 1
+            assert (
+                adapter.joint_contract_at_source(after, "d" * 40, **rebound) != expected
+            )
             previous["model_contract_sha256"] = "wrong"
             with pytest.raises(ValueError, match="scientific contract differs"):
                 joint_prepare_evidence(

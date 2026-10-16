@@ -510,8 +510,8 @@ def joint_smoke_schedule_reuse(proof_ref, *, smoke_ref, target_source):
     return old, previous
 
 
-def joint_contract_at_source(cfg, source):
-    """Compare complete contracts with only the audited source metadata rebound."""
+def joint_contract_at_source(cfg, source, *, source_repo=None, current_repo=None):
+    """Rebind audited metadata and byte-identical source-local seed assets."""
     import copy
 
     previous = copy.deepcopy(cfg)
@@ -525,6 +525,23 @@ def joint_contract_at_source(cfg, source):
         raise ValueError("joint scheduling repair source metadata differs")
     for binding in bindings:
         binding["source_commit"] = source
+    if source_repo is not None or current_repo is not None:
+        if source_repo is None or current_repo is None:
+            raise ValueError("joint scheduling repair requires both source roots")
+        seed = Path(previous["evaluator"]["seed_bank_path"])
+        try:
+            relative = seed.resolve(strict=True).relative_to(
+                Path(current_repo).resolve(strict=True)
+            )
+        except ValueError:
+            # An external seed remains bound by its exact existing path.
+            pass
+        else:
+            original = Path(source_repo).resolve(strict=True) / relative
+            expected = previous["evaluator"]["seed_bank_sha256"]
+            if sha(seed) != expected or sha(original) != expected:
+                raise ValueError("joint scheduling repair seed asset SHA differs")
+            previous["evaluator"]["seed_bank_path"] = str(original)
     return contract_sha(previous)
 
 
@@ -587,15 +604,20 @@ def joint_prepare_evidence(
             )
             smoke_identities["source_commit"] = previous_source
             smoke_preflight_ref = smoke["preflight"]
-            smoke_fingerprint = joint_contract_at_source(cfg, previous_source)
+            previous_runtime = checked_json(previous_preflight["runtime_lock"])
+            current_runtime = checked_json(runtime_ref)
+            smoke_fingerprint = joint_contract_at_source(
+                cfg,
+                previous_source,
+                source_repo=previous_runtime["source"].get("repo"),
+                current_repo=current_runtime["source"].get("repo"),
+            )
             if previous_preflight.get(
                 "model_contract_sha256"
             ) != smoke_fingerprint or any(
                 previous_preflight.get(k) != v for k, v in smoke_identities.items()
             ):
                 raise ValueError("joint scheduling repair scientific contract differs")
-            previous_runtime = checked_json(previous_preflight["runtime_lock"])
-            current_runtime = checked_json(runtime_ref)
             # The source transition is explicitly proved above; all runtime
             # dependencies and precision fields must still match exactly.
             old_source = previous_runtime["source"]

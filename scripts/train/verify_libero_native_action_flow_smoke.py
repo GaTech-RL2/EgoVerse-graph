@@ -599,8 +599,15 @@ def validate_joint_wandb_records(
             == config["run_provenance"][key],
             "joint online W&B identity differs: " + key,
         )
+    # Lightning logs nested DictConfig values without resolving Hydra references.
+    # Resolve the logged model only in the exact saved configuration context;
+    # equality still covers every resulting model field.
+    logged_context = OmegaConf.create(config)
+    logged_context.model = online_config.get("model")
+    logged_model = OmegaConf.to_container(logged_context.model, resolve=True)
     require(
-        online_config.get("model") == config["model"], "joint online W&B model differs"
+        json.loads(json.dumps(logged_model)) == json.loads(json.dumps(config["model"])),
+        "joint online W&B model differs",
     )
     # Generic diagnostics have no U-Socket-specific native-error adapter.
     diagnostics = tuple(

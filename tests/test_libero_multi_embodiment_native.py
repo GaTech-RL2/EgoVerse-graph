@@ -1216,6 +1216,17 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
         shared=MODULE,
     )
     assert validate_joint_wandb_records(**histories)["online"]["valid_step"] == 7
+    import copy
+
+    logged = copy.deepcopy(resolved)
+    logged["model"] = json.loads(json.dumps(logged["model"]))
+    logged["model"]["action_horizon"] = "${libero_blueprint.action_horizon}"
+    histories["online_config"] = logged
+    assert validate_joint_wandb_records(**histories)["online"]["valid_step"] == 7
+    logged["model"]["action_horizon"] = 999
+    with pytest.raises(ValueError, match="online W&B model differs"):
+        validate_joint_wandb_records(**histories)
+    histories["online_config"] = resolved
     histories["online_state"] = "running"
     with pytest.raises(ValueError, match="finished online"):
         validate_joint_wandb_records(**histories)

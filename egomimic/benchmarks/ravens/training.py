@@ -34,7 +34,12 @@ def compose(family, dataset, output, run_id):
     job = OmegaConf.to_container(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), resolve=True)
     # Output paths and logger IDs do not change the smoke-relevant scientific identity.
     selected = {key: job[key] for key in ("model", "data", "normalizer", "norm_stats", "trainer", "callbacks", "benchmark", "seed")}
-    encoded = json.dumps(selected, sort_keys=True).replace(str(output), "<RUN_OUTPUT>")
+    # A node-local copy has the same data identity, verified separately by its
+    # immutable manifest and complete normalizer context. Mount paths are not
+    # scientific settings, and differ between smoke/full allocations.
+    encoded = (json.dumps(selected, sort_keys=True)
+               .replace(str(output), "<RUN_OUTPUT>")
+               .replace(str(dataset), "<DATASET_ROOT>"))
     digest = hashlib.sha256(encoded.encode()).hexdigest()
     cfg.evaluator.config_sha256 = digest
     return cfg, commit, digest

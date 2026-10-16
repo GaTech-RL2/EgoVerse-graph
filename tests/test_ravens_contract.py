@@ -10,6 +10,14 @@ from egomimic.benchmarks.ravens.continuous import validate_suction_transitions
 from egomimic.benchmarks.ravens.continuous import defer_dependency
 
 
+def test_staged_mount_paths_do_not_change_scientific_identity(tmp_path):
+    from egomimic.benchmarks.ravens.training import compose
+    first, _, first_hash = compose("dp", tmp_path / "node-one", tmp_path / "smoke", "smoke")
+    second, _, second_hash = compose("dp", tmp_path / "node-two", tmp_path / "full", "full")
+    assert first_hash == second_hash
+    assert first.benchmark.dataset != second.benchmark.dataset
+
+
 def test_optional_dependency_loads_actual_module_only_when_used(tmp_path, monkeypatch):
     import importlib
     import sys

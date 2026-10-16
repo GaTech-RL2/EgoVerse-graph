@@ -13,6 +13,10 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf, open_dict
 
+# Zero-initialized UNITE heads and a zero-start LR need several updates before
+# the action-velocity gradient is observable. Match the existing eight-update gate.
+SMOKE_UPDATES = 8
+
 
 def write(path, value):
     Path(path).write_text(json.dumps(value, indent=2) + "\n")
@@ -164,7 +168,7 @@ def main():
         proof = json.loads(args.smoke_result.read_text())
         expected = {"status": "PASS_REAL_OPTIMIZER_VALIDATION_RELOAD", "source_commit": commit,
                     "scientific_config_sha256": identity, "dataset_manifest_sha256": dataset_sha,
-                    "family": args.family}
+                    "family": args.family, "optimizer_updates": SMOKE_UPDATES}
         if any(proof.get(key) != value for key, value in expected.items()):
             raise ValueError("Smoke does not match the full scientific identity")
         checkpoint = Path(proof["checkpoint"])
@@ -172,11 +176,11 @@ def main():
             raise ValueError("Smoke checkpoint bytes changed")
     else:
         with open_dict(cfg):
-            cfg.trainer.max_steps = 2
-            cfg.trainer.val_check_interval = 2
+            cfg.trainer.max_steps = SMOKE_UPDATES
+            cfg.trainer.val_check_interval = SMOKE_UPDATES
             cfg.trainer.limit_val_batches = 1
             cfg.trainer.log_every_n_steps = 1
-            cfg.callbacks.model_checkpoint.every_n_train_steps = 2
+            cfg.callbacks.model_checkpoint.every_n_train_steps = SMOKE_UPDATES
             if args.family == "action_flow":
                 cfg.model.gradient_telemetry_cadence = 1
     with open_dict(cfg):
@@ -192,8 +196,8 @@ def main():
     if args.phase == "full":
         write(output / "TRAINER_RETURNED.json", {"global_step": trainer.global_step, "source_commit": commit})
         return
-    if trainer.global_step != 2:
-        raise ValueError("Smoke did not perform two real optimizer updates")
+    if trainer.global_step != SMOKE_UPDATES:
+        raise ValueError("Smoke did not perform the required real optimizer updates")
     counts = json.loads((output / "CONSTRUCTOR.json").read_text())
     if counts["status"] != "PASS_REAL_INITIALIZED_MODEL":
         raise ValueError("Missing actual initialized-model count proof")
@@ -215,7 +219,7 @@ def main():
         raise ValueError("No immutable checkpoint")
     checkpoint = checkpoints[-1]
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    if (payload["global_step"] != 2 or payload.get("ema_num_updates") != 2
+    if (payload["global_step"] != SMOKE_UPDATES or payload.get("ema_num_updates") != SMOKE_UPDATES
             or not payload.get("optimizer_states") or "ema_state_dict" not in payload):
         raise ValueError("Incomplete model/EMA/optimizer smoke checkpoint")
     def finite_tensors(value):

@@ -6,6 +6,8 @@ train_datasets:
       _target_: egomimic.benchmarks.ravens.replay.RavensReplayResolver
       folder_path: ${benchmark.dataset}
       suite: ${benchmark.suite}
+      task_module: ${benchmark.task_module}
+      task_class: ${benchmark.task_class}
       decoded_cache: ${benchmark.decoded_replay_cache}
       key_map:
         _target_: egomimic.rldb.zarr.libero_dataset.keymap

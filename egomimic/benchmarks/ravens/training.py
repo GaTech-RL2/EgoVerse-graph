@@ -45,7 +45,10 @@ def inspect(cfg):
     from egomimic.pl_utils.pl_model import ModelWrapper
 
     torch.set_num_threads(4)
-    model = ModelWrapper(config_tree=cfg, enable_grad_norm=False)
+    # Exact module/optimizer inventory without expensive numerical initialization.
+    # Real initialized parameters are constructed and checked by train_runner.
+    with torch.device("meta"):
+        model = ModelWrapper(config_tree=cfg, enable_grad_norm=False)
     optimizer = model.configure_optimizers()
     optimizer = optimizer["optimizer"] if isinstance(optimizer, dict) else optimizer
     parameters = [p for group in optimizer.param_groups for p in group["params"]]
@@ -54,7 +57,7 @@ def inspect(cfg):
         raise ValueError("Optimizer misses trainable parameters")
     if len(parameters) != len({id(p) for p in parameters}):
         raise ValueError("Optimizer repeats a parameter")
-    result = {"total": sum(p.numel() for p in model.parameters()),
+    result = {"construction_device": "meta", "total": sum(p.numel() for p in model.parameters()),
               "trainable": sum(p.numel() for p in model.parameters() if p.requires_grad),
               "initial_optimizer_group_lrs": sorted({float(g["lr"]) for g in optimizer.param_groups}),
               "precision": cfg.trainer.precision,
@@ -159,8 +162,19 @@ def main():
         raise ValueError("No immutable checkpoint")
     checkpoint = checkpoints[-1]
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    if payload["global_step"] != 2 or not payload.get("optimizer_states") or "ema_state_dict" not in payload:
+    if (payload["global_step"] != 2 or payload.get("ema_num_updates") != 2
+            or not payload.get("optimizer_states") or "ema_state_dict" not in payload):
         raise ValueError("Incomplete model/EMA/optimizer smoke checkpoint")
+    def finite_tensors(value):
+        if torch.is_tensor(value):
+            return bool(torch.isfinite(value).all())
+        if isinstance(value, dict):
+            return all(finite_tensors(item) for item in value.values())
+        if isinstance(value, (list, tuple)):
+            return all(finite_tensors(item) for item in value)
+        return True
+    if not finite_tensors(payload):
+        raise ValueError("Non-finite tensor in full-state smoke checkpoint")
     from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=False)
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=True)

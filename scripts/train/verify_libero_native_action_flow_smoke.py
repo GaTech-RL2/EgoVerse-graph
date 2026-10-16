@@ -427,21 +427,34 @@ def validate_joint_ema_reload(restored, payload, cfg):
             "joint EMA tensor differs: " + name,
         )
     aliases = list(restored.named_parameters(remove_duplicate=False))
-    for alias, parameter in aliases:
-        state[alias] = ema[canonical_by_id[id(parameter)]]
+    canonical_by_alias = {
+        alias: canonical_by_id[id(parameter)] for alias, parameter in aliases
+    }
+    for alias, canonical in canonical_by_alias.items():
+        state[alias] = ema[canonical]
+
+    def assert_reloaded_ema():
+        # Native normalizers recreate ParameterDict entries on load. Names and
+        # alias groups remain the contract; Python object IDs need not survive.
+        current = dict(restored.named_parameters(remove_duplicate=False))
+        require(set(current) == set(canonical_by_alias), "joint EMA aliases changed")
+        require(
+            set(dict(restored.named_parameters())) == set(parameters),
+            "joint EMA canonical inventory changed",
+        )
+        for alias, parameter in current.items():
+            canonical = canonical_by_alias[alias]
+            require(
+                parameter is current[canonical], "joint EMA alias ownership changed"
+            )
+            torch.testing.assert_close(
+                parameter.detach().cpu(), ema[canonical].detach().cpu(), rtol=0, atol=0
+            )
+
     restored.load_state_dict(state, strict=True)
-    for alias, parameter in restored.named_parameters(remove_duplicate=False):
-        torch.testing.assert_close(
-            parameter.detach().cpu(),
-            ema[canonical_by_id[id(parameter)]].detach().cpu(),
-            rtol=0,
-            atol=0,
-        )
+    assert_reloaded_ema()
     restored.nets.load_state_dict(restored.nets.state_dict(), strict=True)
-    for name, parameter in restored.named_parameters():
-        torch.testing.assert_close(
-            parameter.detach().cpu(), ema[name].detach().cpu(), rtol=0, atol=0
-        )
+    assert_reloaded_ema()
     return dict(
         global_step=8,
         ema_num_updates=8,

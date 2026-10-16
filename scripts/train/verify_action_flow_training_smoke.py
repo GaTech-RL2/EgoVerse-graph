@@ -2697,6 +2697,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "scripts/train/libero_native_launch_contract.py",
                 "tests/test_libero_saved_hydra_context.py",
                 "tests/test_libero_multi_embodiment_native.py",
+                "tests/test_action_flow_smoke_schedule.py",
             }
             _require(
                 changed <= allowed,
@@ -2762,6 +2763,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_preflight_sha256=args.expected_preflight_sha256,
         )
     except Exception as error:
+        import traceback
+
+        traceback.print_exc()
         print(f"[action-flow-smoke] FAIL: {error}", file=sys.stderr)
         return 1
     print(f"[action-flow-smoke] PASS {result['run_dir']}/SMOKE_RESULT.json")

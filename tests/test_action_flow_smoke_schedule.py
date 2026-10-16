@@ -231,6 +231,17 @@ def test_joint_ema_reload_updates_every_alias_and_rejects_wrong_updates():
     model = torch.nn.Module()
     model.model = torch.nn.Sequential(torch.nn.Linear(3, 2))
     model.nets = model.model
+    # The native normalizer rebuilds its ParameterDict during strict reload.
+    from egomimic.models.oat.model.common.dict_of_tensor_mixin import DictOfTensorMixin
+
+    model.model.add_module(
+        "normalizer",
+        DictOfTensorMixin(
+            torch.nn.ParameterDict(
+                {"scale": torch.nn.Parameter(torch.ones(2), requires_grad=False)}
+            )
+        ),
+    )
     settings = dict(
         decay=0.9978,
         use_warmup=False,

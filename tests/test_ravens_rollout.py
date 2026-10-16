@@ -3,7 +3,12 @@
 import hashlib
 import importlib.util
 import json
+import sys
+import tempfile
+import threading
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -12,6 +17,48 @@ path = Path(__file__).parents[1] / "egomimic/benchmarks/ravens/rollout.py"
 spec = importlib.util.spec_from_file_location("ravens_rollout", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+
+def test_server_close_after_listener_unlinks_socket(monkeypatch):
+    from multiprocessing.connection import Client
+
+    # Exercise the real server lifecycle without loading a model or using CUDA.
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace())
+    monkeypatch.setattr(module, "validate_request", lambda request: None)
+    nets = SimpleNamespace(
+        parameters=lambda: iter([SimpleNamespace(dtype="torch.float32")])
+    )
+    monkeypatch.setattr(
+        module,
+        "load_policy",
+        lambda request: (SimpleNamespace(algo=SimpleNamespace(nets=nets)), {}),
+    )
+    errors = []
+    # Short socket paths work within the Unix address limit on Linux and macOS.
+    with tempfile.TemporaryDirectory(prefix="rv-", dir="/tmp") as directory:
+        path = Path(directory)
+        request = {"socket": str(path / "p.sock"), "checkpoint_step": 60000}
+
+        def target():
+            try:
+                module.serve(request, path)
+            except BaseException as error:
+                errors.append(error)
+
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        deadline = time.monotonic() + 5
+        while not (path / "MODEL_READY.json").exists() and not errors:
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+        assert not errors
+        with Client(request["socket"], family="AF_UNIX") as connection:
+            module.send(connection, {"command": "close"})
+            assert module.receive(connection) == {"status": "closed"}
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+        assert not errors
+        assert not Path(request["socket"]).exists()
 
 
 def training_scene_request(tmp_path):

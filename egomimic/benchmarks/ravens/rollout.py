@@ -333,7 +333,8 @@ def serve(request, output):
                         "seconds": time.perf_counter() - started,
                     },
                 )
-    socket.unlink()
+    # Listener.close() normally removes its Unix socket already.
+    socket.unlink(missing_ok=True)
 
 
 def simulate(request, output):

@@ -174,6 +174,8 @@ def main():
         raise ValueError("Smoke did not perform two real optimizer updates")
     values = {key: float(value.detach().cpu()) if torch.is_tensor(value) else float(value)
               for key, value in metrics.items() if torch.is_tensor(value) or isinstance(value, (int, float))}
+    if not all(np_isfinite(value) for value in values.values()):
+        raise ValueError("Non-finite train/validation smoke telemetry")
     for key in ("Valid/normalized_reconst_mse", "Valid/reconst_mse", "Valid/energy_score32"):
         if key not in values or not np_isfinite(values[key]):
             raise ValueError(f"Missing/non-finite smoke metric: {key}")
@@ -206,6 +208,8 @@ def main():
     strict_load_pipeline_checkpoint(objects["model"].model, payload, use_ema=True)
     optimizer = trainer.optimizers[0]
     optimizer.load_state_dict(payload["optimizer_states"][0])
+    if len(trainer.lr_scheduler_configs) != len(payload.get("lr_schedulers", [])):
+        raise ValueError("Checkpoint scheduler count differs from the configured optimizer")
     for configured, saved in zip(trainer.lr_scheduler_configs, payload.get("lr_schedulers", [])):
         configured.scheduler.load_state_dict(saved)
     write(output / "RESULT.json", {"status": "PASS_REAL_OPTIMIZER_VALIDATION_RELOAD",

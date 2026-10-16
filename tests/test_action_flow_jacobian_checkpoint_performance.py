@@ -111,9 +111,11 @@ def _compare_training_tree(actual, expected):
         nonlocal tensor_count
         if torch.is_tensor(a):
             tensor_count += 1
-            assert (
-                torch.is_tensor(b) and a.shape == b.shape and a.dtype == b.dtype
-            ), path
+            if not (torch.is_tensor(b) and a.shape == b.shape and a.dtype == b.dtype):
+                mismatches.append(
+                    {"path": path, "max_abs": 0.0, "contract_changed": True}
+                )
+                return
             if not torch.equal(a, b):
                 diff = (a.double() - b.double()).abs()
                 mismatches.append(
@@ -224,6 +226,10 @@ def test_checkpoint_training_execution_equivalence_and_timing():
                 gradients = _cpu_tree(
                     {name: p.grad for name, p in holder.named_parameters()}
                 )
+                assert all(
+                    value is None or bool(torch.isfinite(value).all())
+                    for value in gradients.values()
+                )
                 components = _cpu_tree(
                     {
                         k: v
@@ -298,7 +304,13 @@ def test_checkpoint_training_execution_equivalence_and_timing():
         }
         records.append(record)
         (out / "TRAINING_PROGRESS.json").write_text(json.dumps(records, indent=2))
+        prediction = loss = actual = gradients = components = None
         del (
+            prediction,
+            loss,
+            actual,
+            gradients,
+            components,
             algo,
             holder,
             optimizer,

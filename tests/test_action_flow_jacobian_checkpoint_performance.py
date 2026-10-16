@@ -6,12 +6,15 @@ Ordinary CPU suites skip the GPU benchmark. No optimizer or policy sampler runs.
 
 from __future__ import annotations
 
+import copy
+import gc
 import hashlib
 import json
 import os
 import statistics
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -21,6 +24,299 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 import egomimic.eval.action_flow_diagnostic_forward as owner
+
+
+def prepare_training_profile(request):
+    """Restore native data/model state on CPU; capture one real training batch."""
+    from torch.utils.data import default_collate
+
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    assert _digest(request["split"]) == request["split_sha256"]
+    split = json.loads(Path(request["split"]).read_text())
+    for domain in ("yam", "human"):
+        for part in ("train", "valid"):
+            os.environ[f"{domain.upper()}_{part.upper()}_IDS_SHA256"] = split[domain][
+                "summary"
+            ][f"{part}_ids_sha256"]
+    assert _digest(request["checkpoint"]) == request["checkpoint_sha256"]
+    payload = torch.load(
+        request["checkpoint"], map_location="cpu", mmap=True, weights_only=False
+    )
+    assert payload["global_step"] == request["checkpoint_step"]
+    cfg = OmegaConf.create(payload["hyper_parameters"]["config_tree"])
+    assert [int(cfg.model.num_latent_tokens), int(cfg.model.latent_dim)] == request[
+        "latent_shape"
+    ]
+    assert (
+        int(cfg.data.train_dataloader_params[request["source_key"]].batch_size)
+        == request["batch_size"]
+    )
+    state = copy.deepcopy(payload["data_context"]["normalizer_state"])
+    for field in ("key_types", "zarr_keys", "shapes", "norm_stats"):
+        state[field] = {int(k): v for k, v in state[field].items()}
+    normalizer = MultiDataset.from_state(state)
+    fixture_path = Path(request["fixture"])
+    if fixture_path.exists():
+        fixture = torch.load(fixture_path, weights_only=False)
+        assert fixture["checkpoint"] == request["checkpoint"]
+        assert fixture["source_key"] == request["source_key"]
+    else:
+        dataset = instantiate(cfg.data.train_datasets[request["source_key"]])
+        dataset.set_norm_stats_from(normalizer)
+        indices = np.linspace(
+            0, len(dataset) - 1, request["batch_size"], dtype=int
+        ).tolist()
+        flat = default_collate([dataset[index] for index in indices])
+        fixture = {
+            "checkpoint": request["checkpoint"],
+            "source_key": request["source_key"],
+            "indices": indices,
+            "batch": flat,
+        }
+        torch.save(fixture, fixture_path)
+    algo = instantiate(cfg.model.pipeline, device="cpu")
+    algo.bind_data_context(normalizer=normalizer)
+    weights = {
+        k.removeprefix("nets."): v
+        for k, v in payload["state_dict"].items()
+        if k.startswith("nets.")
+    }
+    algo.nets.load_state_dict(weights, strict=True)
+    return cfg, payload, algo, fixture
+
+
+def _cpu_tree(value):
+    if torch.is_tensor(value):
+        return value.detach().cpu().clone()
+    if isinstance(value, dict):
+        return {k: _cpu_tree(v) for k, v in value.items()}
+    if isinstance(value, (tuple, list)):
+        return type(value)(_cpu_tree(v) for v in value)
+    return copy.deepcopy(value)
+
+
+def _compare_training_tree(actual, expected):
+    """Compare every tensor; retain exact mismatch counts and largest errors."""
+    mismatches, tensor_count = [], 0
+
+    def visit(a, b, path):
+        nonlocal tensor_count
+        if torch.is_tensor(a):
+            tensor_count += 1
+            assert (
+                torch.is_tensor(b) and a.shape == b.shape and a.dtype == b.dtype
+            ), path
+            if not torch.equal(a, b):
+                diff = (a.double() - b.double()).abs()
+                mismatches.append(
+                    {
+                        "path": path,
+                        "max_abs": float(diff.max()),
+                        "different_elements": int(torch.count_nonzero(diff)),
+                        "relative_rms": float(
+                            torch.linalg.vector_norm(diff)
+                            / torch.linalg.vector_norm(b.double()).clamp_min(1e-30)
+                        ),
+                    }
+                )
+        elif isinstance(a, dict):
+            assert a.keys() == b.keys(), path
+            for k in a:
+                visit(a[k], b[k], path + "/" + str(k))
+        elif isinstance(a, (tuple, list)):
+            assert len(a) == len(b), path
+            for k, (x, y) in enumerate(zip(a, b)):
+                visit(x, y, path + "/" + str(k))
+        elif torch.is_tensor(b) or a != b:
+            mismatches.append(
+                {"path": path, "actual": str(a), "expected": str(b), "max_abs": 0.0}
+            )
+
+    visit(actual, expected, "")
+    return {
+        "bit_exact": not mismatches,
+        "tensor_count": tensor_count,
+        "mismatch_count": len(mismatches),
+        "largest_errors": sorted(mismatches, key=lambda x: x["max_abs"], reverse=True)[
+            :12
+        ],
+    }
+
+
+@pytest.mark.skipif(
+    not os.environ.get("ACTION_FLOW_TRAINING_PROFILE_REQUEST"),
+    reason="Opt-in native checkpoint training test",
+)
+def test_checkpoint_training_execution_equivalence_and_timing():
+    """Test existing execution options without changing/adopting model weights."""
+    from egomimic.utils.libero_dit_half import LiberoDiTHalf
+
+    assert torch.cuda.is_available() and torch.cuda.device_count() == 1
+    request = json.loads(
+        Path(os.environ["ACTION_FLOW_TRAINING_PROFILE_REQUEST"]).read_text()
+    )
+    out = Path(request["output_root"])
+    out.mkdir(parents=True, exist_ok=True)
+    cfg, payload, initial, fixture = prepare_training_profile(request)
+    assert str(cfg.trainer.precision) == "bf16-mixed"
+    baseline, records = [], []
+    initial_state = _cpu_tree(initial.nets.state_dict())
+    del initial
+    for case_index, variant in enumerate(request["variants"]):
+        algo = instantiate(cfg.model.pipeline, device="cpu")
+        algo.nets.load_state_dict(initial_state, strict=True)
+        holder = torch.nn.Module()
+        holder.nets = algo.nets
+        holder.cuda().train()
+        algo.device = torch.device("cuda")
+        optimizer = instantiate(
+            cfg.model.optimizer, named_params=tuple(holder.named_parameters())
+        )()
+        scheduler = instantiate(cfg.model.scheduler, optimizer=optimizer)()
+        optimizer.load_state_dict(copy.deepcopy(payload["optimizer_states"][0]))
+        scheduler.load_state_dict(copy.deepcopy(payload["lr_schedulers"][0]))
+        ema = instantiate(cfg.callbacks.ema)
+        ema.on_load_checkpoint(None, holder, payload)
+        ema.on_fit_start(SimpleNamespace(global_step=payload["global_step"]), holder)
+        policy = LiberoDiTHalf(source_key=request["source_key"])
+        policy.on_fit_start(None, SimpleNamespace(model=algo))
+        encoder, field, decoder = (
+            algo.pipeline.stages[3].encoder,
+            algo.pipeline.stages[5],
+            algo.pipeline.stages[6].decoder,
+        )
+        if variant == "no_dit_recomputation":
+            encoder.backbone.gradient_checkpointing = False
+            field.field.backbone.gradient_checkpointing = False
+        elif variant == "no_reconstruction_recomputation":
+            decoder.gradient_checkpointing = False
+        elif variant == "shared_field_prediction":
+            field.fm_field_execution = "shared"
+        else:
+            assert variant == "baseline"
+        batch = algo.process_batch_for_training(
+            {request["source_key"]: fixture["batch"]}
+        )
+        timings, comparisons = [], []
+        failure = None
+        try:
+            for step in range(request["steps"]):
+                torch.manual_seed(request["seed"] + step)
+                torch.cuda.synchronize()
+                torch.cuda.reset_peak_memory_stats()
+                started = time.perf_counter()
+                optimizer.zero_grad(set_to_none=True)
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    prediction = algo.forward_training(batch)
+                    loss = algo.compute_losses(prediction, batch)["loss"]
+                assert bool(torch.isfinite(loss))
+                loss.backward()
+                torch.cuda.synchronize()
+                backward_done = time.perf_counter()
+                gradients = _cpu_tree(
+                    {name: p.grad for name, p in holder.named_parameters()}
+                )
+                components = _cpu_tree(
+                    {
+                        k: v
+                        for k, v in prediction[request["source_key"]].items()
+                        if k.startswith("log/action_flow_") or k == "loss/action_flow"
+                    }
+                )
+                # Copying proof tensors is deliberately outside measured GPU work.
+                optimizer_start = time.perf_counter()
+                clip = float(cfg.trainer.get("gradient_clip_val", 0) or 0)
+                if clip:
+                    assert cfg.trainer.get("gradient_clip_algorithm", "norm") == "norm"
+                    torch.nn.utils.clip_grad_norm_(holder.parameters(), clip)
+                optimizer.step()
+                scheduler.step()
+                ema._update(holder)
+                torch.cuda.synchronize()
+                ended = time.perf_counter()
+                timings.append(
+                    {
+                        "step": step,
+                        "forward_backward_seconds": backward_done - started,
+                        "optimizer_scheduler_ema_seconds": ended - optimizer_start,
+                        "seconds": backward_done - started + ended - optimizer_start,
+                        "peak_cuda_bytes": torch.cuda.max_memory_allocated(),
+                    }
+                )
+                actual = {
+                    "gradients": gradients,
+                    "components": components,
+                    "state": _cpu_tree(holder.state_dict()),
+                    "optimizer": _cpu_tree(optimizer.state_dict()),
+                    "scheduler": _cpu_tree(scheduler.state_dict()),
+                    "ema": _cpu_tree(ema._shadow),
+                    "rng_cpu": torch.get_rng_state(),
+                    "rng_cuda": torch.cuda.get_rng_state(),
+                }
+                if case_index == 0:
+                    baseline.append(actual)
+                else:
+                    comparisons.append(
+                        {
+                            section: _compare_training_tree(
+                                value, baseline[step][section]
+                            )
+                            for section, value in actual.items()
+                        }
+                    )
+                print(
+                    "TRAINING_PROFILE_STEP",
+                    variant,
+                    json.dumps(timings[-1]),
+                    flush=True,
+                )
+                del prediction, loss, actual, gradients, components
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as exc:
+            failure = {"type": type(exc).__name__, "message": str(exc)}
+            if case_index == 0:
+                raise
+        finally:
+            policy.on_fit_end(None, None)
+        record = {
+            "variant": variant,
+            "timings": timings,
+            "comparisons": comparisons,
+            "failure": failure,
+            "bit_exact": failure is None
+            and all(all(s["bit_exact"] for s in step.values()) for step in comparisons),
+            "median_seconds": statistics.median(t["seconds"] for t in timings[1:])
+            if len(timings) > 1
+            else None,
+        }
+        records.append(record)
+        (out / "TRAINING_PROGRESS.json").write_text(json.dumps(records, indent=2))
+        del (
+            algo,
+            holder,
+            optimizer,
+            scheduler,
+            ema,
+            batch,
+            policy,
+            encoder,
+            field,
+            decoder,
+        )
+        gc.collect()
+        torch.cuda.empty_cache()
+    result = {
+        "status": "COMPLETE",
+        "checkpoint_step": request["checkpoint_step"],
+        "batch_size": request["batch_size"],
+        "latent_shape": request["latent_shape"],
+        "precision": "bf16-mixed_native_FP32_decoder_JVP",
+        "torch": torch.__version__,
+        "gpu": torch.cuda.get_device_name(),
+        "records": records,
+        "scope": "native full pipeline forward/backward/optimizer/scheduler/EMA; frozen real training batch; excludes data-loader, telemetry and proof-copy overhead; no weights adopted",
+    }
+    (out / "TRAINING_RESULT.json").write_text(json.dumps(result, indent=2))
 
 
 def _digest(path):

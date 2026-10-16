@@ -96,10 +96,22 @@ def main():
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--wandb-run-id", required=True)
+    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--expected-total", type=int)
+    parser.add_argument("--expected-trainable", type=int)
     parser.add_argument("--smoke-result", type=Path)
     parser.add_argument("--smoke-sha256")
     args = parser.parse_args()
+    if not os.environ.get("SLURM_JOB_ID") or not os.environ.get("SLURM_STEP_ID"):
+        raise RuntimeError("Construction and training both require a scheduled allocation")
     source = Path(__file__).resolve().parents[3]
+    actual_source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+    if actual_source != args.source_commit:
+        raise ValueError("Source differs from the exact approved preflight binding")
+    if subprocess.check_output(["git", "status", "--porcelain"], cwd=source, text=True).strip():
+        raise RuntimeError("Construction and training require a clean committed source")
+    if args.phase != "inspect" and (args.expected_total is None or args.expected_trainable is None):
+        raise ValueError("Training requires the verified parameter counts from preflight")
     output, dataset = args.output.resolve(), args.dataset.resolve()
     if output.is_relative_to(source) or output.exists():
         raise ValueError("Use a fresh output directory outside the exact source checkout")
@@ -107,6 +119,8 @@ def main():
     cfg, commit, identity = compose(args.family, dataset, output, args.wandb_run_id)
     OmegaConf.save(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), output / "FULL_CONFIG.yaml", resolve=True)
     counts = inspect(cfg)
+    if args.phase != "inspect" and (counts["total"], counts["trainable"]) != (args.expected_total, args.expected_trainable):
+        raise ValueError("Constructed parameter counts differ from verified preflight")
     write(output / "CONSTRUCTOR.json", counts)
     print(json.dumps({"stage": "CONSTRUCTOR_PASS", **counts}), flush=True)
     if args.phase == "inspect":

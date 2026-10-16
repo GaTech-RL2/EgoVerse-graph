@@ -177,7 +177,13 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
                 difference = target_pos - xyz
                 current_rot = Rotation.from_quat(quat)
                 rotvec = (target_rot * current_rot.inv()).as_rotvec()
-                if index and np.linalg.norm(difference) < .001 and np.linalg.norm(rotvec) < .03:
+                # The native oracle terminates movej at 0.01 rad joint error.
+                # Its null-space IK has a small Cartesian residual, so demanding
+                # 1 mm here can never converge even with correct frame feedback.
+                goal_joints = self.solve_ik((target_pos, target_rot.as_quat()))
+                current_joints = np.array([p.getJointState(self.ur5, joint)[0]
+                                           for joint in self.joints])
+                if index and np.all(np.abs(goal_joints - current_joints) < 1e-2):
                     return False
                 # Bounded oracle targets; exactly the same control() drives replay/policies.
                 step = difference * min(1., max(float(speed), .003) / max(np.linalg.norm(difference), 1e-12))

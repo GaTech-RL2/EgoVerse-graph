@@ -7,6 +7,26 @@ from omegaconf import OmegaConf
 import pytest
 
 from egomimic.benchmarks.ravens.continuous import validate_suction_transitions
+from egomimic.benchmarks.ravens.continuous import defer_dependency
+
+
+def test_optional_dependency_loads_actual_module_only_when_used(tmp_path, monkeypatch):
+    import importlib
+    import sys
+    name = "ravens_lazy_dependency_fixture"
+    (tmp_path / f"{name}.py").write_text("VALUE = 42\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    proxy = defer_dependency(name)
+    try:
+        assert "VALUE" not in vars(proxy)
+        assert importlib.import_module(name) is proxy
+        assert proxy.VALUE == 42
+        loaded = sys.modules[name]
+        assert loaded is not proxy
+        assert proxy.VALUE == loaded.VALUE
+        assert sys.modules[name] is loaded
+    finally:
+        sys.modules.pop(name, None)
 
 
 def test_suction_recording_requires_decisions_before_state_changes():

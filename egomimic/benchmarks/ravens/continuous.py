@@ -11,6 +11,7 @@ import argparse
 import fcntl
 import hashlib
 import importlib
+import importlib.util
 import json
 from pathlib import Path
 import random
@@ -21,6 +22,36 @@ import types
 import numpy as np
 
 UPSTREAM_COMMIT = "2be5c47b5bb9bb7040ad90693288b87b1e18e7ad"
+
+
+def defer_dependency(name, submodules=()):
+    """Defer optional training/UI imports while retaining their actual APIs on use."""
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.find_spec(name)
+    module = types.ModuleType(name)
+    if spec and spec.submodule_search_locations:
+        module.__path__ = list(spec.submodule_search_locations)
+    loaded = None
+
+    def resolve(attribute):
+        nonlocal loaded
+        if attribute.startswith("__"):
+            raise AttributeError(attribute)
+        if attribute in submodules:
+            return importlib.import_module(f"{name}.{attribute}")
+        if loaded is None:
+            current = sys.modules.get(name)
+            if current is not None and current is not module:
+                loaded = current
+            else:
+                sys.modules.pop(name, None)
+                loaded = importlib.import_module(name)
+        return getattr(loaded, attribute)
+
+    module.__getattr__ = resolve
+    sys.modules[name] = module
+    return module
 
 
 def load_simulator(source, task_module, task_class):
@@ -36,6 +67,11 @@ def load_simulator(source, task_module, task_class):
     ).strip()
     if dirty:
         raise ValueError("CLIPort source has tracked modifications")
+    # The upstream utility module also serves neural agents and a live meshcat
+    # viewer. Neither is used by the simulator/oracle, so avoid multi-GB eager
+    # Torch imports on shared storage. Actual attribute use loads the real API.
+    deferred = {name: defer_dependency(name) for name in ("torch", "kornia")}
+    defer_dependency("meshcat", submodules=("geometry", "transformations"))
     # Upstream __init__ eagerly imports unrelated CLIP/agent training packages.
     # Namespace packages preserve the exact simulator files without patching them.
     for name in ("cliport", "cliport.tasks", "cliport.utils", "cliport.environments"):
@@ -47,6 +83,11 @@ def load_simulator(source, task_module, task_class):
         sys.modules[name] = package
     env_class = importlib.import_module("cliport.environments.environment").Environment
     selected_class = getattr(importlib.import_module(f"cliport.tasks.{task_module}"), task_class)
+    # SciPy's optional array-library detection must not mistake unloaded Torch
+    # for an active tensor backend. Upstream utils retains the deferred object.
+    for name, proxy in deferred.items():
+        if sys.modules.get(name) is proxy and "__getattr__" in vars(proxy):
+            sys.modules.pop(name)
     return env_class, selected_class
 
 

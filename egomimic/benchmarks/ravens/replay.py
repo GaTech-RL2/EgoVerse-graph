@@ -61,6 +61,8 @@ def convert(input_dirs, output, expected_episodes=500):
     seen_seeds = set()
     for directory in map(Path, input_dirs):
         manifest = json.loads((directory / "manifest.json").read_text())
+        if not manifest.get("complete"):
+            raise ValueError(f"Incomplete collection: {directory}")
         if manifest["control_hz"] != 20:
             raise ValueError("Dataset requires 20 Hz controls")
         for episode in manifest["episodes"]:

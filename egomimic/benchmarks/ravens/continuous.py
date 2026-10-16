@@ -8,6 +8,7 @@ This is a custom continuous-control adaptation, not the native CLIPort metric.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import importlib
 import json
@@ -73,8 +74,18 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
 
         def policy_observation(self):
             xyz, quat = self.tip_pose()
-            images = [cv2.resize(self.render_camera(c)[0], (128, 128),
-                                 interpolation=cv2.INTER_AREA) for c in self.agent_cams[:2]]
+            images = []
+            for camera in self.agent_cams[:2]:
+                # Same FOV/aspect/extrinsics at the model's input resolution.
+                # Keep full-resolution oracle rendering completely independent.
+                small = dict(camera)
+                scale = 128 / camera["image_size"][1]
+                small["image_size"] = (round(camera["image_size"][0] * scale), 128)
+                intrinsics = np.asarray(camera["intrinsics"]).reshape(3, 3).copy()
+                intrinsics[:2] *= scale
+                small["intrinsics"] = tuple(intrinsics.reshape(-1))
+                image = self.render_camera(small)[0]
+                images.append(cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA))
             return {"front_rgb": images[0], "side_rgb": images[1],
                     "eef_pos": xyz.astype(np.float32),
                     "eef_quat": quat.astype(np.float32),
@@ -192,10 +203,13 @@ def main():
     parser.add_argument("--task-module", required=True)
     parser.add_argument("--task-class", required=True)
     parser.add_argument("--replay-proof", action="store_true")
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    lock = (args.output / ".collector.lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     manifest_path = args.output / "manifest.json"
-    if manifest_path.exists():
+    if manifest_path.exists() and not args.resume:
         raise FileExistsError("Output already has a manifest; preserve previous collection")
     env = make_environment(args.cliport_source, task_module=args.task_module,
                            task_class=args.task_class, control_hz=args.control_hz)
@@ -205,9 +219,18 @@ def main():
                 "control_hz": args.control_hz, "physics_hz": 240,
                 "policy_inputs": "two RGB images, tip pose, suction state; constant task_uid=0",
                 "oracle_privileged_inputs": "demonstration generation only",
+                "collector_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "complete": False,
                 "episodes": [], "failures": []}
+    if manifest_path.exists():
+        existing = json.loads(manifest_path.read_text())
+        for key in ("upstream_commit", "task", "contract", "control_hz", "collector_sha256"):
+            if existing.get(key) != manifest[key]:
+                raise ValueError(f"Resume contract changed: {key}")
+        manifest = existing
     try:
-        seed = args.start_seed
+        used_seeds = [e["seed"] for e in manifest["episodes"] + manifest["failures"]]
+        seed = max(used_seeds, default=args.start_seed - 1) + 1
         while len(manifest["episodes"]) < args.episodes:
             if seed >= args.start_seed + max(10, args.episodes * 5):
                 raise RuntimeError("Too many failed oracle demonstrations")
@@ -240,11 +263,15 @@ def main():
                                               "frames": len(actions), "reward": reward, "replay": replay})
             else:
                 manifest["failures"].append({"seed": seed, "reward": reward})
-            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+            manifest["complete"] = len(manifest["episodes"]) == args.episodes
+            temporary = manifest_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(manifest, indent=2) + "\n")
+            temporary.replace(manifest_path)
             print(json.dumps({"seed": seed, "success": success, "collected": len(manifest["episodes"])}), flush=True)
             seed += 1
     finally:
         env.close()
+        lock.close()
 
 
 if __name__ == "__main__":

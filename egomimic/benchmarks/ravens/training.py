@@ -69,6 +69,21 @@ def inspect(cfg):
     return result
 
 
+def make_run_guard(expected_total, expected_trainable, expected_context=None):
+    from lightning import Callback
+
+    class RavensRunGuard(Callback):
+        def on_fit_start(self, trainer, model):
+            actual = (sum(p.numel() for p in model.parameters()),
+                      sum(p.numel() for p in model.parameters() if p.requires_grad))
+            if actual != (expected_total, expected_trainable):
+                raise ValueError("Real initialized model differs from parameter inventory")
+            context = model.model.pipeline.stages[0].normalizer_state["benchmark_context"]
+            if expected_context is not None and context != dict(expected_context):
+                raise ValueError("Dataset/observation/normalizer context differs from smoke")
+    return RavensRunGuard()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--family", choices=("action_flow", "dp"), required=True)
@@ -114,6 +129,7 @@ def main():
     write(output / "SPLIT.json", split)
     del train, valid, resolver
     gc.collect()
+    proof = None
     if args.phase == "full":
         if args.smoke_result is None or args.smoke_sha256 is None:
             raise ValueError("Full training requires a hash-bound passing real-data smoke")
@@ -137,6 +153,11 @@ def main():
             cfg.callbacks.model_checkpoint.every_n_train_steps = 2
             if args.family == "action_flow":
                 cfg.model.gradient_telemetry_cadence = 1
+    with open_dict(cfg):
+        cfg.callbacks.ravens_guard = {"_target_": "egomimic.benchmarks.ravens.training.make_run_guard",
+                                      "expected_total": counts["total"],
+                                      "expected_trainable": counts["trainable"],
+                                      "expected_context": proof["normalizer_context"] if proof else None}
     OmegaConf.save(OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"]), output / "RUN_CONFIG.yaml", resolve=True)
     from egomimic.trainHydra import train as train_runner
     metrics, objects = train_runner(cfg)
@@ -186,6 +207,7 @@ def main():
           "source_commit": commit, "family": args.family, "scientific_config_sha256": identity,
           "dataset_manifest_sha256": dataset_sha, "parameters": counts,
           "optimizer_updates": trainer.global_step, "metrics": values,
+          "normalizer_context": payload["normalizer_state"]["benchmark_context"],
           "checkpoint": str(checkpoint), "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest()})
 
 

@@ -8,6 +8,7 @@ This is a custom continuous-control adaptation, not the native CLIPort metric.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import fcntl
 import hashlib
 import importlib
@@ -153,6 +154,9 @@ def make_environment(source, *, task_module, task_class, control_hz=20, record=T
             if self.record_actions:
                 self.samples.append({**observation, "action": action.astype(np.float32)})
             self.action_count += 1
+            if self.action_count % 100 == 0:
+                print(json.dumps({"phase": "record" if self.record_actions else "replay",
+                                  "control_steps": self.action_count}), flush=True)
 
         def movep(self, pose, speed=.01):
             target_pos = np.asarray(pose[0])
@@ -246,14 +250,20 @@ def main():
     parser.add_argument("--replay-proof", action="store_true")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    # Slow network assets or a controller stall must be distinguishable from
+    # healthy collection. This is diagnostic only; no RNG/control changes.
+    faulthandler.enable()
+    faulthandler.dump_traceback_later(180, repeat=True)
     args.output.mkdir(parents=True, exist_ok=True)
     lock = (args.output / ".collector.lock").open("a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     manifest_path = args.output / "manifest.json"
     if manifest_path.exists() and not args.resume:
         raise FileExistsError("Output already has a manifest; preserve previous collection")
+    print(json.dumps({"phase": "construct_environment", "source": str(args.cliport_source)}), flush=True)
     env = make_environment(args.cliport_source, task_module=args.task_module,
                            task_class=args.task_class, control_hz=args.control_hz)
+    print(json.dumps({"phase": "environment_ready"}), flush=True)
     manifest = {"upstream_commit": UPSTREAM_COMMIT,
                 "task": {"module": args.task_module, "class": args.task_class},
                 "contract": "custom continuous absolute XYZ/rotvec/suction",
@@ -276,6 +286,7 @@ def main():
             if seed >= args.start_seed + max(10, args.episodes * 5):
                 raise RuntimeError("Too many failed oracle demonstrations")
             try:
+                print(json.dumps({"phase": "begin_episode", "seed": seed}), flush=True)
                 success, reward = collect_episode(env, seed)
             except RuntimeError as exc:
                 success, reward = False, 0.

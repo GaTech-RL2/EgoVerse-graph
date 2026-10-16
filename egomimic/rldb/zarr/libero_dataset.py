@@ -56,6 +56,11 @@ def validation_mask(n_episodes, val_ratio=0.1, seed=42):
 
 
 class LiberoReplayResolver:
+    embodiment = "libero_panda"
+
+    def validate_task_ids(self, task_ids):
+        validate_task_coverage(task_ids, self.suite)
+
     def __init__(self, folder_path, key_map, suite, decoded_cache=False):
         self.folder_path = str(folder_path)
         self.key_map = dict(key_map)
@@ -85,7 +90,7 @@ class LiberoReplayResolver:
         for info in self.key_map.values():
             if data[info["zarr_key"]].shape[0] != ends[-1]:
                 raise ValueError("Replay array lengths differ")
-        validate_task_coverage(np.unique(data["task_uid"][:]), self.suite)
+        self.validate_task_ids(np.unique(data["task_uid"][:]))
         if self.decoded_cache:
             self.open_arrays()
         return {
@@ -96,6 +101,7 @@ class LiberoReplayResolver:
                 self.key_map,
                 index,
                 decoded=self._decoded,
+                embodiment=self.embodiment,
             )
             for index, (start, end) in enumerate(zip(np.r_[0, ends[:-1]], ends))
         }
@@ -104,12 +110,14 @@ class LiberoReplayResolver:
 class _ReplayEpisode(torch.utils.data.Dataset):
     embodiment = "libero_panda"
 
-    def __init__(self, path, start, end, key_map, index, decoded=None):
+    def __init__(self, path, start, end, key_map, index, decoded=None, embodiment="libero_panda"):
         self.path, self.start, self.end = path, start, end
         self.key_map = key_map
         self.episode_path = Path(path) / f"episode_{index:06d}"
         self._arrays = None
         self._decoded = decoded
+        self.embodiment = embodiment
+        self.embodiment_id = get_embodiment_id(embodiment)
 
     def __len__(self):
         return self.end - self.start
@@ -148,7 +156,7 @@ class _ReplayEpisode(torch.utils.data.Dataset):
                 raise ValueError(f"Non-finite {key} in {self.episode_path}")
             result[key] = torch.from_numpy(np.ascontiguousarray(values)).float()
         result.update(
-            embodiment=EMBODIMENT, episode_hash=self.episode_path.name, frame_index=idx
+            embodiment=self.embodiment_id, episode_hash=self.episode_path.name, frame_index=idx
         )
         return result
 
@@ -180,7 +188,7 @@ class LiberoDataset(MultiDataset):
         # Benchmarks fail on corrupt samples; never replace a validation frame.
         name, offset = self.index_map[idx]
         sample = self.datasets[name][offset]
-        return self.normalize(sample, EMBODIMENT)
+        return self.normalize(sample, sample["embodiment"])
 
     def _apply_norm_one(self, tensor, stats):
         scale = torch.as_tensor(
@@ -239,7 +247,7 @@ class LiberoNormalizer(LiberoDataset):
             "split_seed": dataset.split_seed,
             "val_ratio": dataset.val_ratio,
         }
-        stats = self.norm_stats.setdefault(EMBODIMENT, {})
+        stats = self.norm_stats.setdefault(get_embodiment_id(dataset.resolver.embodiment), {})
         observation_digest = hashlib.sha256()
         for key, info in dataset.resolver.key_map.items():
             array = arrays[info["zarr_key"]]

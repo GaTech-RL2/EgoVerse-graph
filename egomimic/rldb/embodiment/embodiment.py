@@ -32,6 +32,7 @@ class EMBODIMENT(Enum):
     PUSHSHAPES_SIM_U_SOCKET = 19
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
     LIBERO_PANDA = 21
+    RAVENS_UR5 = 22
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

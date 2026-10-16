@@ -15,8 +15,10 @@ def distance(a, b):
 
 class LiberoComparisonEvaluator(LiberoActionEvaluator):
     """32 fixed samples on an ordered eight-condition panel shared by both families."""
-    def __init__(self, artifact_root, source_commit, config_sha256, diagnostic_config=None, panel_size=8):
+    def __init__(self, artifact_root, source_commit, config_sha256, diagnostic_config=None, panel_size=8, embodiment="libero_panda"):
         super().__init__()
+        from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+        self.embodiment_id = get_embodiment_id(embodiment)
         self.artifact_root=Path(artifact_root)
         self.panel_size=int(panel_size)
         if self.panel_size != 8: raise ValueError('paired validation requires the same ordered eight-condition panel')
@@ -30,6 +32,9 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
                        'action_contract':'normalized raw OSC commands (7D), not absolute rotations'}
         self.action_flow_diagnostics_enabled=self.shared_diagnostics is not None
         self._completed_validation_step=None
+
+    def native_metrics(self, prediction, target):
+        return action_metrics(prediction, target)
 
     @torch.inference_mode()
     def on_validation_step(self,batch,batch_idx,dataloader_idx=0):
@@ -52,9 +57,9 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
         for source,values in batch.items():
             target=values['actions'];pred=first[source]['pred_action']
             assert pred.shape == target.shape and target.shape[-2:] == (32,7)
-            native_target=self.normalizer.unnormalize({'actions':target},EMBODIMENT)['actions']
-            native_pred=self.normalizer.unnormalize({'actions':pred},EMBODIMENT)['actions']
-            metrics=action_metrics(native_pred,native_target)
+            native_target=self.normalizer.unnormalize({'actions':target},self.embodiment_id)['actions']
+            native_pred=self.normalizer.unnormalize({'actions':pred},self.embodiment_id)['actions']
+            metrics=self.native_metrics(native_pred,native_target)
             metrics['normalized_reconst_mse']=(pred-target).square().mean()
             if batch_idx == 0:
                 samples=torch.stack([p[source]['pred_action'] for p in predictions])
@@ -76,8 +81,8 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
                         noise_seed=SEEDS[0],max_samples=8,jacobian_samples=2,capture_activations=True)
                     self.shared_diagnostics.reset()
                     def native_error(left,right):
-                        left=self.normalizer.unnormalize({'actions':left},EMBODIMENT)['actions']
-                        right=self.normalizer.unnormalize({'actions':right},EMBODIMENT)['actions']
+                        left=self.normalizer.unnormalize({'actions':left},self.embodiment_id)['actions']
+                        right=self.normalizer.unnormalize({'actions':right},self.embodiment_id)['actions']
                         return sum((left[...,a:b]-right[...,a:b]).square().mean(dim=(-2,-1))
                                    for a,b in ((0,3),(3,6),(6,7))) / 3
                     analysis=self.shared_diagnostics.analyze_precomputed(

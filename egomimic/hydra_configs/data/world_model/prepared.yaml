@@ -1,0 +1,16 @@
+_target_: egomimic.rldb.world_model_datamodule.WorldModelDataModule
+manifest_path: ???
+batch_size: 1
+num_workers: 0
+mode: continuous
+seed: 42
+min_frames: 2
+# Requested continuous count range; the independent model token guard still applies.
+# This is not evidence that 16 full image/track timestamps fit GPU memory.
+max_frames: 16
+discrete_frames: 4
+stride: 1
+forecasting_probability: 0.5
+# Physical offsets from the current/anchor frame, clipped to recorded times.
+max_past_seconds: 3.0
+max_future_seconds: 3.0

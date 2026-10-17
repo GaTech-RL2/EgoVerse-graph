@@ -19,6 +19,54 @@ _RESUME_VARIABLES = (
 )
 
 
+@pytest.fixture
+def preserve_precision_flags():
+    precision = torch.get_float32_matmul_precision()
+    matmul = torch.backends.cuda.matmul.allow_tf32
+    cudnn = torch.backends.cudnn.allow_tf32
+    yield
+    torch.set_float32_matmul_precision(precision)
+    torch.backends.cuda.matmul.allow_tf32 = matmul
+    torch.backends.cudnn.allow_tf32 = cudnn
+
+
+def test_strict_fp32_opt_out_preserves_backend_flags(preserve_precision_flags):
+    torch.set_float32_matmul_precision("high")
+    torch.backends.cudnn.allow_tf32 = True
+    before = (torch.get_float32_matmul_precision(),
+              torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+    train_hydra._configure_strict_fp32(OmegaConf.create({}))
+    assert before == (torch.get_float32_matmul_precision(),
+                      torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+
+
+@pytest.mark.parametrize("precision", [32, "32-true"])
+def test_strict_fp32_disables_both_backends(monkeypatch, preserve_precision_flags, precision):
+    monkeypatch.setenv("NVIDIA_TF32_OVERRIDE", "0")
+    torch.set_float32_matmul_precision("high")
+    torch.backends.cudnn.allow_tf32 = True
+    train_hydra._configure_strict_fp32(OmegaConf.create({
+        "runtime": {"strict_fp32": True}, "trainer": {"precision": precision}}))
+    assert torch.get_float32_matmul_precision() == "highest"
+    assert not torch.backends.cuda.matmul.allow_tf32
+    assert not torch.backends.cudnn.allow_tf32
+
+
+@pytest.mark.parametrize("precision,override", [("bf16-mixed", "0"), ("32-true", None), ("32-true", "1")])
+def test_strict_fp32_rejects_incompatible_runtime(monkeypatch, precision, override):
+    monkeypatch.delenv("NVIDIA_TF32_OVERRIDE", raising=False)
+    if override is not None:
+        monkeypatch.setenv("NVIDIA_TF32_OVERRIDE", override)
+    with pytest.raises(ValueError):
+        train_hydra._configure_strict_fp32(OmegaConf.create({
+            "runtime": {"strict_fp32": True}, "trainer": {"precision": precision}}))
+
+
+def test_strict_fp32_rejects_string_boolean():
+    with pytest.raises(ValueError, match="must be a boolean"):
+        train_hydra._configure_strict_fp32(OmegaConf.create({"runtime": {"strict_fp32": "false"}}))
+
+
 def _clear_ownership(monkeypatch):
     for name in _OWNERSHIP_VARIABLES:
         monkeypatch.delenv(name, raising=False)
@@ -56,6 +104,7 @@ def test_base_config_records_lightning_as_default_requeue_owner():
 
     assert cfg.runtime.slurm_requeue_owner == "lightning"
     assert cfg.runtime.slurm_save_signal == "SIGUSR2"
+    assert cfg.runtime.slurm_signal_train_batch_only is False
     assert (
         cfg.runtime.slurm_signal_checkpoint_dir
         == "/tmp/egomimic-test-output/checkpoints"
@@ -98,6 +147,9 @@ def test_runner_owned_job_adds_one_save_only_sigusr2_callback(monkeypatch, tmp_p
 
     assert len(callbacks) == 1
     assert isinstance(callbacks[0], SaveOnlySignalCheckpoint)
+    assert callbacks[0].train_batch_only is False
+    cfg.runtime.slurm_signal_train_batch_only = True
+    assert train_hydra._instantiate_slurm_callbacks(cfg)[0].train_batch_only is True
     assert callbacks[0].save_signal == signal.SIGUSR2
     assert callbacks[0].checkpoint_dir == (tmp_path / "checkpoints").resolve()
 

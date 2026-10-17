@@ -58,6 +58,9 @@ def _build_transform(args: argparse.Namespace) -> ZarrKeyTransform:
         kwargs["output_keys"] = args.output_keys
     if args.model_name is not None:
         kwargs["model_name"] = args.model_name
+    if args.transform == "dinov3":
+        kwargs["revision"] = args.revision
+        kwargs["image_side"] = args.image_side
     return cls(**kwargs)
 
 
@@ -110,11 +113,24 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--model-name", default=None)
     parser.add_argument(
+        "--revision", default=None, help="DINO model and processor revision"
+    )
+    parser.add_argument(
+        "--image-side",
+        type=int,
+        default=None,
+        help="DINO full-FOV letterbox square side; must be patch divisible",
+    )
+    parser.add_argument(
         "--device",
         default="cuda" if torch.cuda.is_available() else "cpu",
     )
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+    if args.transform != "dinov3" and (
+        args.revision is not None or args.image_side is not None
+    ):
+        parser.error("--revision and --image-side apply only to dinov3")
 
     if args.output_keys is not None and len(args.input_keys) != len(args.output_keys):
         parser.error("--input-keys and --output-keys must have the same length")

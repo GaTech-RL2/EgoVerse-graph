@@ -223,7 +223,7 @@ def stage_raw_dataset(root, suite, evidence):
     return raw / suite
 
 
-def rebase_demo_xml(xml, robosuite_root, assets_root):
+def rebase_demo_xml(xml, robosuite_root, assets_root, asset_remaps=()):
     """Relocate saved asset paths, preserving every model and physics parameter."""
     tree = ET.fromstring(xml)
     for element in tree.iter():
@@ -231,7 +231,14 @@ def rebase_demo_xml(xml, robosuite_root, assets_root):
         if old is None:
             continue
         parts = Path(old).parts
-        if "robosuite" in parts:
+        matches = [(Path(prefix), Path(target).resolve()) for prefix, target in asset_remaps
+                   if Path(old).is_relative_to(Path(prefix))]
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous demonstration asset remap: {old}")
+        if matches:
+            prefix, target = matches[0]
+            new = target / Path(old).relative_to(prefix)
+        elif "robosuite" in parts:
             index = max(i for i, part in enumerate(parts) if part == "robosuite")
             new = Path(robosuite_root).joinpath(*parts[index + 1 :])
         elif "assets" in parts:

@@ -1,0 +1,38 @@
+# @package _global_
+# Offline world-model recipe. Requires a separately verified prepared-data manifest.
+defaults:
+  - override /model: world_model/base
+  - override /data: world_model/prepared
+  - override /trainer: default
+
+name: mot_world_model
+norm_stats: null
+normalizer: null
+data:
+  # Smoke may cap each embodiment; full validation remains exhaustive.
+  validation_batches_per_embodiment: null
+inference_config:
+  enabled: false  # This is not the generic action-policy robot deployment adapter.
+evaluator:
+  _target_: egomimic.eval.world_model_eval.WorldModelEval
+  sample_seed: 42
+trainer:
+  accelerator: gpu
+  precision: 32-true  # User-selected FP32; inherited by the discrete comparison.
+  devices: 1
+  min_epochs: 0
+  max_epochs: -1
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  val_check_interval: 15000
+  check_val_every_n_epoch: null
+  max_steps: 150000  # User-selected budget for the five MoT experiments.
+  num_sanity_val_steps: 0
+callbacks:
+  model_checkpoint:
+    filename: "epoch_{epoch:04d}-step_{step:09d}"
+    every_n_epochs: 0
+    every_n_train_steps: 15000
+    save_on_train_epoch_end: false
+    save_top_k: -1
+    save_last: true

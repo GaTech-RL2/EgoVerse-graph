@@ -40,11 +40,17 @@ launch_params:
   nodes: 1
 
 runtime:
+  # Opt in to disabling TF32 as well as autocast; requires precision=32-true
+  # and NVIDIA_TF32_OVERRIDE=0 in the launch environment.
+  strict_fp32: false
   # Lightning owns SIGUSR1/scontrol by default. An external ICE runner must
   # opt in explicitly and prove that child/framework requeue is disabled.
   slurm_requeue_owner: lightning
   # Runner-owned mode forwards SIGUSR2 only to request a full-state save.
   slurm_save_signal: SIGUSR2
+  # Opt in when mid-validation checkpoints cannot be resumed exactly.
+  # Timer lead must cover complete validation plus the next optimizer step.
+  slurm_signal_train_batch_only: false
   slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
 
 seed: 42

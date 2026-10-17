@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - /experiment/world_model/continuous
+  - _self_
+data:
+  mode: discrete
+  max_past_seconds: null
+  max_future_seconds: null

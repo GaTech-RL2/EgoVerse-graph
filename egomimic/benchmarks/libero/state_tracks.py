@@ -517,6 +517,76 @@ def export_rgb(args):
     return receipt
 
 
+def _export_rgb_episode(options):
+    target = Path(options["rgb_cache"])
+    receipt_path = target.with_suffix(target.suffix + ".json")
+    if target.exists() and receipt_path.exists():
+        receipt = json.loads(receipt_path.read_text())
+        source = Path(options["output"]).resolve()
+        if (receipt.get("status") != "PASS" or
+                receipt.get("preparation_source_sha256") != digest(__file__) or
+                receipt.get("source") != str(source) or
+                receipt.get("source_manifest_sha256") != digest(source / "manifest.json") or
+                receipt.get("source_aligned_sha256") != digest(source / "aligned.npz") or
+                receipt.get("rgb_cache_sha256") != digest(target) or
+                receipt.get("height") != options["height"] or
+                receipt.get("width") != options["width"] or
+                receipt.get("low_resolution_replay", {}).get("rgb_replay", {}).get("policy") != options["rgb_policy"] or
+                receipt.get("native_geometry_replay_exact") is not True):
+            raise ValueError("Native RGB reuse identity/proof mismatch")
+        receipt["reused"] = True
+    else:
+        receipt = export_rgb(argparse.Namespace(**options))
+    return {key: receipt[key] for key in ("status", "native_geometry_replay_exact", "frames",
+                                         "height", "width", "rgb_cache_sha256", "low_resolution_replay")}
+
+
+def export_rgb_corpus(args):
+    """Parallel native RGB export over an explicit inventory, with resumable proof."""
+    spec_path = Path(args.spec).resolve()
+    spec = json.loads(spec_path.read_text())
+    status_path = Path(args.status).resolve()
+    if args.workers < 1 or not spec.get("episodes"):
+        raise ValueError("Need positive workers and explicit native cache inventory")
+    if status_path.exists() and json.loads(status_path.read_text())["spec_sha256"] != digest(spec_path):
+        raise ValueError("Native RGB inventory changed; preserve previous status")
+    targets, identities, options_list = set(), set(), []
+    for episode in spec["episodes"]:
+        key = (episode["embodiment"], episode["episode_id"])
+        options = {**spec.get("common", {}), "output": episode["output"], "rgb_cache": episode["rgb_cache"]}
+        target = str(Path(options["rgb_cache"]).resolve())
+        if target in targets or key in identities or Path(options["output"]).resolve() == Path(target):
+            raise ValueError("Duplicate native RGB identity/output")
+        targets.add(target); identities.add(key); options_list.append((key, options))
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    status = {"spec_sha256": digest(spec_path), "status": "RUNNING", "expected": len(options_list),
+              "episodes": [], "training_ready": False, "preparation_source_sha256": digest(__file__)}
+
+    def save():
+        temporary = status_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(status, indent=2) + "\n")
+        temporary.replace(status_path)
+
+    save()
+    with ProcessPoolExecutor(max_workers=args.workers,
+                             mp_context=multiprocessing.get_context("spawn")) as pool:
+        futures = {pool.submit(_export_rgb_episode, options): key for key, options in options_list}
+        for future in as_completed(futures):
+            key = futures[future]
+            row = {"embodiment": key[0], "episode_id": key[1]}
+            try:
+                row.update(future.result())
+            except Exception as error:
+                row.update(status="FAILED", error=f"{type(error).__name__}: {error}")
+            status["episodes"].append(row); save()
+            print(json.dumps({"completed": len(status["episodes"]), **row}), flush=True)
+    status["status"] = "PASS" if all(row["status"] == "PASS" for row in status["episodes"]) else "FAILED"
+    save()
+    if status["status"] != "PASS":
+        raise RuntimeError("Native RGB export failed episodes; preserve status and outputs")
+    return {key: value for key, value in status.items() if key != "episodes"}
+
+
 def _prepare_corpus_episode(options):
     """Reuse verified completed episodes; never accept a changed request as a hit."""
     deadline = time.monotonic() + options.get("wait_input_seconds", 0)
@@ -634,6 +704,10 @@ def main():
     rgb.add_argument("--height", type=int, required=True)
     rgb.add_argument("--width", type=int, required=True)
     rgb.add_argument("--rgb-policy", choices=RGB_POLICIES, default="exact")
+    rgb_corpus = commands.add_parser("export-rgb-corpus")
+    rgb_corpus.add_argument("--spec", required=True)
+    rgb_corpus.add_argument("--status", required=True)
+    rgb_corpus.add_argument("--workers", type=int, default=1)
     corpus = commands.add_parser("prepare-corpus")
     corpus.add_argument("--spec", required=True)
     corpus.add_argument("--output", required=True)
@@ -647,6 +721,7 @@ def main():
             if args.command == "prepare"
             else prepare_corpus(args) if args.command == "prepare-corpus"
             else export_rgb(args) if args.command == "export-rgb"
+            else export_rgb_corpus(args) if args.command == "export-rgb-corpus"
             else validate_cache(args.output, args.replay, args.rgb_policy),
             indent=2,
         )

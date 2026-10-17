@@ -21,6 +21,8 @@ from egomimic.benchmarks.libero.state_tracks import (
     prepare_corpus,
     compare_rgb,
     export_rgb,
+    _export_rgb_episode,
+    export_rgb_corpus,
 )
 
 XML = """<mujoco><worldbody>
@@ -120,6 +122,12 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
         assert cache["rgb"].shape == (3, 1, 64, 64, 3)
         np.testing.assert_array_equal(cache["time"][:], states[:, 0])
         assert cache["camera_K"][0, 0, 0] > 0
+    reused_rgb = _export_rgb_episode(dict(output=str(args.output), rgb_cache=str(highres),
+                                          height=64, width=64, rgb_policy="exact"))
+    assert reused_rgb["status"] == "PASS"
+    with pytest.raises(ValueError, match="mismatch"):
+        _export_rgb_episode(dict(output=str(args.output), rgb_cache=str(highres),
+                                  height=128, width=128, rgb_policy="exact"))
     with pytest.raises(FileExistsError):
         export_rgb(Namespace(output=args.output, rgb_cache=highres,
                              height=64, width=64, rgb_policy="exact"))
@@ -178,6 +186,16 @@ def test_rgb_roundoff_policy_is_explicit_bounded_and_never_modifies_pixels():
         compare_rgb(original, repeated, "uint8-roundoff-v1")
     with pytest.raises(ValueError, match="policy"):
         compare_rgb(original, repeated, "anything")
+
+
+def test_rgb_corpus_rejects_duplicate_output_before_processing(tmp_path):
+    spec = {"common": {"height": 64, "width": 64, "rgb_policy": "exact"}, "episodes": [
+        {"embodiment": "one", "episode_id": "first", "output": "source", "rgb_cache": str(tmp_path / "rgb.h5")},
+        {"embodiment": "two", "episode_id": "second", "output": "source2", "rgb_cache": str(tmp_path / "rgb.h5")}]}
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(spec))
+    with pytest.raises(ValueError, match="Duplicate"):
+        export_rgb_corpus(Namespace(spec=path, status=tmp_path / "status.json", workers=2))
 
 
 def test_reject_unknown_or_duplicate_pose_joint():

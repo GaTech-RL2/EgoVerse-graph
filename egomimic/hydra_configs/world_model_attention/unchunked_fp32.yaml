@@ -5,6 +5,8 @@ defaults:
 # Exact full fused efficient attention, FP32 when the trainer is 32-true.
 world_model_attention:
   backend: efficient
+  strict_fp32: true
+  disable_tf32: true
 trainer:
   precision: 32-true
 runtime:

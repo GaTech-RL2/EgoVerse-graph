@@ -1276,7 +1276,7 @@ def test_attention_execution_profiles_preserve_science(mode, profile, backend, d
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     def config(selected):
         with initialize_config_dir(config_dir=str(root), version_base=None):
-            return compose(config_name="train_zarr_cartesian", overrides=[f"+experiment=world_model/{mode}", "hydra/launcher=basic", f"+world_model_attention={selected}"])
+            return compose(config_name="train_zarr_cartesian", overrides=[f"+experiment=world_model/{mode}", "hydra/launcher=basic", f"world_model_attention={selected}"])
     cfg, baseline = config(profile), config("native")
     model = cfg.model.pipeline.stages[0].model
     assert model.attention_backend == backend and model.attention_dtype == dtype
@@ -1287,6 +1287,31 @@ def test_attention_execution_profiles_preserve_science(mode, profile, backend, d
     assert cfg.trainer.precision == "32-true"
     if profile == "flash4_bf16":
         assert not cfg.runtime.strict_fp32 and cfg.runtime.disable_tf32
+
+
+@pytest.mark.parametrize("mode", ["continuous", "discrete"])
+def test_world_model_defaults_to_combined_attention_without_override(mode):
+    from pathlib import Path
+
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf
+
+    root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
+    overrides = [f"+experiment=world_model/{mode}", "hydra/launcher=basic"]
+    with initialize_config_dir(config_dir=str(root), version_base=None):
+        default = compose(config_name="train_zarr_cartesian", overrides=overrides)
+        explicit = compose(config_name="train_zarr_cartesian", overrides=[
+            *overrides, "world_model_attention=flash4_bf16"
+        ])
+    # Same complete recipe without requiring an attention command-line flag.
+    assert OmegaConf.to_container(default, resolve=False) == OmegaConf.to_container(explicit, resolve=False)
+    model = default.model.pipeline.stages[0].model
+    assert model.attention_backend == "flash4"
+    assert model.attention_dtype == "bfloat16"
+    assert model.attention_query_chunk_size == 0
+    assert not model.activation_checkpointing and not model.strict_fp32
+    assert not default.runtime.strict_fp32 and default.runtime.disable_tf32
+    assert default.trainer.precision == "32-true"
 
 
 def test_attention_precision_contract_rejects_bf16_labeled_strict_fp32():

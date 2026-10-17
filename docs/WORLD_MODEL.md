@@ -431,17 +431,23 @@ Do not treat this code milestone as a prepared four-domain training dataset.
 
 ## Selectable attention execution
 
-The default execution preserves native SDPA arithmetic.
-Existing checkpoint-bound sources and resolved configs remain unchanged.
-For either continuous or discrete experiments, select one of:
+New continuous and discrete MoT experiments default to the combined Flash4 BF16
+attention profile. No attention override is needed: select the experiment normally.
+Weights, FFNs and losses remain FP32; TF32 stays disabled. Whole-block activation
+checkpointing is off and queries are unchunked.
+
+Explicit alternatives remain available through the already-selected config group:
 
 ```text
-+world_model_attention=unchunked_fp32
-+world_model_attention=flash4_bf16
+world_model_attention=unchunked_fp32
+world_model_attention=native
 ```
 
-Add the execution profile after selecting the experiment so it overrides root
-runtime defaults. Inconsistent explicit strict-FP32/BF16 declarations are rejected.
+The shared continuous recipe selects the default and the discrete recipe inherits
+it. Historical checkpoint-bound sources/resolved configs and direct Python model
+constructor defaults remain unchanged. Inconsistent explicit strict-FP32/BF16
+declarations are rejected. Existing explicit per-model overrides still take
+precedence and must be inspected during a future launch preflight.
 
 Both optimized profiles disable whole-block activation checkpointing and set
 query chunk size zero. Every query still attends to every valid key across

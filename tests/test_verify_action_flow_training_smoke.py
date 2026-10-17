@@ -956,3 +956,71 @@ def test_checkpoint_gate_rejects_missing_scheduler(tmp_path):
         MODULE._validate_checkpoint(
             tmp_path, reconstruction_weight=1.0, flow_weight=1.0
         )
+
+
+def _raw_multiplier_verifier():
+    import importlib.util
+
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts/train/verify_scaled_action_flow_training_smoke.py"
+    )
+    spec = importlib.util.spec_from_file_location("raw_multiplier_verifier", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    "damage", [None, "missing", "decay", "updates", "shape", "nan"]
+)
+def test_raw_multiplier_native_ema_verification(damage):
+    from types import SimpleNamespace
+
+    from omegaconf import OmegaConf
+
+    from egomimic.utils.ema_callback import EMACallback
+
+    verifier = _raw_multiplier_verifier()
+    row = verifier.EXPERIMENTS["pusht/action_flow_cotrain_uc_multiplier_interpolation"]
+    assert row["parameter_count"] == 471549402 and row["hidden_dim"] == 696
+    model = torch.nn.Linear(2, 2)
+    callback = EMACallback(decay=0.9978)
+    trainer = SimpleNamespace(global_step=0)
+    callback.on_fit_start(trainer, model)
+    callback._update(model)
+    callback._update(model)
+    checkpoint = {"global_step": 2, "state_dict": model.state_dict()}
+    callback.on_save_checkpoint(trainer, model, checkpoint)
+    cfg = OmegaConf.create(
+        {
+            "callbacks": {
+                "ema": {
+                    "_target_": "egomimic.utils.ema_callback.EMACallback",
+                    "decay": 0.9978,
+                    "validate_with_ema": True,
+                    "use_warmup": False,
+                }
+            }
+        }
+    )
+    if damage == "missing":
+        checkpoint.pop("ema_state_dict")
+    elif damage == "decay":
+        checkpoint["ema_config"]["decay"] = 0.9
+    elif damage == "updates":
+        checkpoint["ema_num_updates"] = 1
+    elif damage == "shape":
+        checkpoint["ema_state_dict"]["weight"] = torch.zeros(3, 3)
+    elif damage == "nan":
+        checkpoint["ema_state_dict"]["weight"].fill_(float("nan"))
+    if damage:
+        with pytest.raises((RuntimeError, verifier.VerificationError)):
+            verifier.validate_raw_multiplier_ema(cfg, model, checkpoint)
+    else:
+        assert (
+            verifier.validate_raw_multiplier_ema(cfg, model, checkpoint)[
+                "strict_ema_reload"
+            ]
+            == "passed"
+        )

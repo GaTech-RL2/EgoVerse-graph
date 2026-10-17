@@ -15,7 +15,7 @@ evaluator:
   sample_seed: 42
 trainer:
   accelerator: gpu
-  precision: bf16-mixed
+  precision: 32-true  # User-selected FP32; inherited by the discrete comparison.
   devices: 1
   min_epochs: 0
   max_epochs: -1

@@ -316,6 +316,10 @@ proposal's first-version decision, rather than an accidentally missing component
 
 ## Data inspection and remaining work
 
+Training uses Lightning `32-true` (FP32), explicitly selected by the user.
+The discrete recipe inherits this setting from the continuous parent. Historical
+BF16 fixture tests remain compatibility checks, not the selected training mode.
+
 Live shell inspection confirmed both500-episode LIBERO Spatial Zarr roots exist.
 Sharpa data has61535 rows, EEF position3/quaternion, hand state22, two RGB cameras,
 and action/observation host-nanosecond timestamps. Original gripper data has62250

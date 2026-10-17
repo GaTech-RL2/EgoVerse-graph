@@ -121,6 +121,23 @@ same s. With alpha=cos(pi*s/2), sigma=sin(pi*s/2):
     v_target = alpha*epsilon - sigma*x_0
     x0_estimate = alpha*x_s - sigma*v_prediction
 
+This is the default `image_prediction_type: v`. The opt-in `x0` setting instead
+interprets the image head as a clean-feature estimate and applies image MSE
+directly against x_0. Track targets remain v in both modes. The pose readout
+receives the corresponding differentiable clean estimate. The setting is part
+of checkpoint/config identity: matching weight shapes do not make v and x0
+checkpoints interchangeable.
+
+A linear image output head narrower than the DINO feature dimension cannot
+represent arbitrary full-dimensional noise in v. The x0 alternative lets the
+head model structured clean features while the sampler carries noise outside
+the head analytically. Its DDIM update uses
+`alpha_next*x0 + (sigma_next/sigma)*(x_s-alpha*x0)` with zero-level anchors
+handled separately; this avoids overflow at tiny positive refinement strengths.
+Clean-feature MSE corresponds to sigma-squared-weighted v MSE, so this is an
+explicit objective ablation, not a numerically equivalent optimization. It
+preserves all image channels but does not guarantee improved generalization.
+
 Observed tokens remain clean. The image and track losses are weighted mean MSE
 on supervised withheld tokens. Track confidence is a loss weight; unknown-future
 visibility is NOT an attention mask or input signal. Padding is separately

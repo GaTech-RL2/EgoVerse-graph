@@ -10,6 +10,9 @@ test "$SLURM_JOB_QOS" = "$AF_EXPECTED_QOS" || die "unexpected Slurm QoS"
 test "$SLURM_JOB_NUM_NODES" = 1 && test "$SLURM_NTASKS" = 1 || die "one node/task required"
 test "$SLURM_CPUS_PER_TASK" -eq 8 || die "exact eight CPUs required"
 phase=$AF_NATIVE_PHASE
+if test "${AF_JOINT_LIBERO:-false}" = true; then
+ (AF_CHILD_TRANSPORT_AUDIT_ONLY=true; source "$AF_REPO/scripts/train/action_flow_run_child.sh")
+fi
 if test "$AF_LAUNCH_MODE" = preflight; then
  test "$phase" = preflight && test "$RESTART_COUNT" = 0 || die "native preflight phase/restart mismatch"
  test ! -e "$AF_OUTPUT_DIR" || die "preflight output collision"
@@ -24,16 +27,40 @@ else
  test ! -e "$ATTEMPT" || die "native attempt collision"
  mkdir "$ATTEMPT"
 fi
+if test "${AF_JOINT_LIBERO:-false}" = true; then
+ "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action joint-compose --repo "$AF_REPO" --output "$ATTEMPT" --phase "$phase" --phase-inputs "$AF_JOINT_PHASE_INPUTS" --expected-phase-inputs-sha256 "$AF_EXPECTED_JOINT_PHASE_INPUTS_SHA256"
+ BASE_OVERRIDES=()
+ while IFS= read -r -d '' joint_arg; do BASE_OVERRIDES+=("$joint_arg"); done < "$ATTEMPT/exact-phase.argv0"
+ unset joint_arg
+else
 (set -o noclobber; printf '%s\0' "${BASE_OVERRIDES[@]}" > "$ATTEMPT/exact-phase.argv0")
+fi
 "$AF_PYTHON" "$AF_RUNTIME_LOCK_CAPTURE" --repo "$AF_REPO" --expected-head "$AF_EXPECTED_HEAD" --lock-input "$AF_REPO/pyproject.toml" --lock-input "$AF_REPO/uv.lock" --output "$ATTEMPT/runtime-lock.json"
 export AF_PREFLIGHT_RESULT AF_EXPECTED_PREFLIGHT_SHA256 AF_SMOKE_RESULT AF_EXPECTED_SMOKE_SHA256
 if test "$AF_LAUNCH_MODE" = preflight; then
+ if test "${AF_JOINT_LIBERO:-false}" = true; then
+  required AF_JOINT_CONSTRUCTOR_PROOF; required AF_EXPECTED_JOINT_CONSTRUCTOR_SHA256
+  test "$(sha256 "$AF_JOINT_CONSTRUCTOR_PROOF")" = "$AF_EXPECTED_JOINT_CONSTRUCTOR_SHA256" || die "joint constructor proof SHA mismatch"
+  "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action joint-preflight --repo "$AF_REPO" --output "$ATTEMPT" --resolved-config "$ATTEMPT/resolved.yaml" --constructor-proof "$AF_JOINT_CONSTRUCTOR_PROOF" --runtime-lock "$ATTEMPT/runtime-lock.json"
+ else
  "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action preflight --repo "$AF_REPO" --output "$ATTEMPT" --argv "$ATTEMPT/exact-phase.argv0" --phase "$phase"
+ fi
  printf '[native preflight] CPU contract passed: %s\n' "$ATTEMPT/PREFLIGHT_RESULT.json"
  return 0
 fi
 # Prove official phase composition/cache identity before GPU initialization.
+if test "${AF_JOINT_LIBERO:-false}" = true; then
+ joint_smoke_args=()
+ if test "$phase" = full; then joint_smoke_args=(--smoke-proof "$AF_SMOKE_RESULT" --expected-smoke-sha256 "$AF_EXPECTED_SMOKE_SHA256"); fi
+ if test -n "${AF_SMOKE_SOURCE_REPAIR_PROOF:-}"; then
+  test "$phase" = full || die "smoke source repair is full-only"
+  required AF_EXPECTED_SMOKE_SOURCE_REPAIR_SHA256
+  joint_smoke_args+=(--smoke-source-repair-proof "$AF_SMOKE_SOURCE_REPAIR_PROOF" --expected-smoke-source-repair-sha256 "$AF_EXPECTED_SMOKE_SOURCE_REPAIR_SHA256")
+ fi
+ "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action joint-prepare --repo "$AF_REPO" --output "$ATTEMPT" --phase "$phase" --resolved-config "$ATTEMPT/resolved.yaml" --runtime-lock "$ATTEMPT/runtime-lock.json" --preflight-proof "$AF_PREFLIGHT_RESULT" --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256" "${joint_smoke_args[@]}"
+else
 "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action prepare --repo "$AF_REPO" --output "$ATTEMPT" --argv "$ATTEMPT/exact-phase.argv0" --phase "$phase"
+fi
 scontrol show job -dd -o "$SLURM_JOB_ID" > "$ATTEMPT/slurm_job.txt"
 SRUN=$(command -v srun);test -x "$SRUN" || die "srun unavailable";export SRUN
 "$SRUN" --overlap --nodes=1 --ntasks=1 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" --kill-on-bad-exit=1 --unbuffered "$AF_PYTHON" "$AF_GPU_PROBE" --expected-world-size 1 --allowed-gpu-name 'NVIDIA H100 80GB HBM3' --allowed-gpu-name 'NVIDIA H200' --output "$ATTEMPT/gpu_probe.json"
@@ -47,7 +74,7 @@ source "$AF_REPO/scripts/train/action_flow_run_child.sh"
 if test "${ICE_BATCH_BOUNDARY_FORWARDED:-0}" = 1 && test ! -s "$AF_OUTPUT_DIR/COMPLETE.json"; then return 0; fi
 test -s "$AF_OUTPUT_DIR/COMPLETE.json" || die "native child completion missing"
 if test "$phase" = smoke; then
- "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action finalize --repo "$AF_REPO" --output "$AF_OUTPUT_DIR"
+ "$AF_PYTHON" "$AF_REPO/scripts/train/libero_native_launch_contract.py" --action finalize --repo "$AF_REPO" --output "$AF_OUTPUT_DIR" --runtime-lock "$ATTEMPT/runtime-lock.json"
  "$AF_PYTHON" "$AF_SMOKE_VERIFIER" "$AF_OUTPUT_DIR" --experiment "$AF_EXPERIMENT" --expected-head "$AF_EXPECTED_HEAD" --expected-config-sha256 "$(sha256 "$AF_OUTPUT_DIR/.hydra/config.yaml")" --expected-split-sha256 "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" --expected-normalization-sha256 "$AF_EXPECTED_NORM_SHA256" --expected-preflight-sha256 "$AF_EXPECTED_PREFLIGHT_SHA256"
  test -s "$AF_OUTPUT_DIR/SMOKE_RESULT.json" || die "native smoke verifier did not publish a nonempty SMOKE_RESULT.json"
 fi

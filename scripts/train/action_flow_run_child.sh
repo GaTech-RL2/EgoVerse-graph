@@ -1,3 +1,30 @@
+# The explicit joint route may never inherit the historical step-wide save transport.
+if test "${AF_EXPERIMENT:-}" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42; then
+  test "${AF_CHECKPOINT_TRANSPORT:-}" = trainer-pidfd || {
+    printf '%s\n' 'joint child requires audited trainer-pidfd checkpoint transport' >&2; exit 2;
+  }
+  for joint_signal_variable in AF_REQUEUE_RUNNER AF_EXPECTED_PID_RUNNER_SHA256 \
+    ICE_CANONICAL_REQUEUE_RUNNER ICE_NATIVE_RUNNER_SHA256 ICE_TRAINER_REPO \
+    ICE_TRAINER_PYTHON ICE_TRAINER_HEAD ICE_TRAINER_SIGNAL_ADAPTER_SHA256; do
+    test -n "${!joint_signal_variable:-}" || {
+      printf 'joint PIDfd binding missing: %s\n' "$joint_signal_variable" >&2; exit 2;
+    }
+  done
+  test "$ICE_TRAINER_REPO" = "$AF_REPO" && test "$ICE_TRAINER_PYTHON" = "$AF_PYTHON" \
+    && test "$ICE_TRAINER_HEAD" = "$AF_EXPECTED_HEAD" || {
+    printf '%s\n' 'joint PIDfd runtime/source binding differs' >&2; exit 2;
+  }
+  test "$ICE_CANONICAL_REQUEUE_RUNNER" = "$AF_REPO/scripts/ice/ice_requeue_runner.py" || exit 2
+  test "$(sha256 "$AF_REQUEUE_RUNNER")" = "$AF_EXPECTED_PID_RUNNER_SHA256" || exit 2
+  test "$(sha256 "$ICE_CANONICAL_REQUEUE_RUNNER")" = "$ICE_NATIVE_RUNNER_SHA256" || exit 2
+  joint_signal_adapter=$(dirname "$AF_REQUEUE_RUNNER")/trainer_pid_signal.py
+  test "$(sha256 "$joint_signal_adapter")" = "$ICE_TRAINER_SIGNAL_ADAPTER_SHA256" || exit 2
+  unset joint_signal_variable joint_signal_adapter
+fi
+
+# The phase adapter can check transport before output creation or a GPU probe.
+if test "${AF_CHILD_TRANSPORT_AUDIT_ONLY:-false}" = true; then return 0; fi
+
 read -r -d '' CHILD_CODE <<'BASH' || true
 set -Eeuo pipefail
 checkpoint_override=ckpt_path=null

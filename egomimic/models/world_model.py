@@ -24,7 +24,11 @@ def masked_mse(pred, target, weight):
         raise ValueError("Non-finite supervised target")
     safe_target = torch.where(active[..., None], target, torch.zeros_like(target))
     error = (pred.float() - safe_target.float()).square().mean(-1)
-    return (error * weight.float()).sum() / weight.float().sum().clamp_min(1)
+    total_weight = weight.float().sum()
+    # Confidence weights can sum to less than one. Preserve a weighted mean;
+    # use one only for an empty objective so its value and gradients stay zero.
+    denominator = torch.where(total_weight > 0, total_weight, 1.0)
+    return (error * weight.float()).sum() / denominator
 
 
 def noise_coefficients(level):

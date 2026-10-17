@@ -140,6 +140,14 @@ class PreparedWorldDataset(Dataset):
         for key in ("model", "revision", "image_size", "patch_grid", "feature_layer"):
             if not m["dino_identity"].get(key):
                 raise ValueError(f"Missing DINO identity field {key}")
+        for key in ("image_size", "patch_grid"):
+            shape = m["dino_identity"][key]
+            if (
+                not isinstance(shape, list)
+                or len(shape) != 2
+                or any(type(x) is not int or x < 1 for x in shape)
+            ):
+                raise ValueError(f"DINO {key} must contain two positive integers")
         if (
             m["normalization"].get("scope") != "train_only"
             or not re.fullmatch(r"[0-9a-f]{64}", m["normalization"].get("sha256", ""))
@@ -269,6 +277,9 @@ class PreparedWorldDataset(Dataset):
             ):
                 raise ValueError("Pose schema width mismatch")
             f, v, p, _ = image.shape
+            grid_h, grid_w = self.manifest["dino_identity"]["patch_grid"]
+            if p != grid_h * grid_w:
+                raise ValueError("DINO patch grid differs from cached image tokens")
             q = track.shape[1]
             if (
                 data["image_xy"].shape != (p, 2)
@@ -293,8 +304,12 @@ class PreparedWorldDataset(Dataset):
                 observed = {
                     k: rng.random(f) < 0.5 for k in ("image", "track", "proprio")
                 }
-                observed["image"][0] = True
-                observed["image"][-1] = False
+                # Ensure context and a target without privileging either edge:
+                # random conditioning must include backcasting/interpolation.
+                if not observed["image"].any():
+                    observed["image"][rng.integers(f)] = True
+                if observed["image"].all():
+                    observed["image"][rng.integers(f)] = False
 
             def base(values, repeats, name):
                 n = f * repeats

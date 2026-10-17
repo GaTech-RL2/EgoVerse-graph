@@ -691,3 +691,63 @@ def test_noise_levels_are_per_frame_and_observed_are_clean():
     assert torch.equal(levels[:, 3], levels[:, 4])
     assert torch.equal(levels[:, 4], levels[:, 5])
     assert ((levels[:, 3:] > 0) & (levels[:, 3:] < 1)).all()
+
+
+def test_arbitrary_conditioning_includes_backcasting_and_endpoint_interpolation(
+    tmp_path,
+):
+    torch.manual_seed(42)
+    dataset = PreparedWorldDataset(
+        cache_manifest(tmp_path),
+        min_frames=4,
+        max_frames=4,
+        forecasting_probability=0,
+    )
+    backcast = interpolation = False
+    for i in range(100):
+        stream = dataset[i % len(dataset)]["world"]["image"]
+        times, mask = stream["time"], stream["observed"]
+        unique = torch.unique(times, sorted=True)
+        observed = torch.stack([mask[times == t].all() for t in unique])
+        assert observed.any() and (~observed).any()
+        backcast |= bool(~observed[0] & observed[-1])
+        interpolation |= bool(observed[0] & observed[-1] & (~observed[1:-1]).any())
+    assert backcast, "No image query before the earliest image observation"
+    assert interpolation, "No withheld image between observed endpoint images"
+
+
+def test_fractional_confidence_mse_is_a_weighted_mean():
+    from egomimic.models.world_model import masked_mse
+
+    pred = torch.tensor([[[2.0], [4.0]]], requires_grad=True)
+    target = torch.zeros_like(pred)
+    weight = torch.tensor([[0.1, 0.2]])
+    loss = masked_mse(pred, target, weight)
+    torch.testing.assert_close(loss, torch.tensor(12.0))
+    torch.testing.assert_close(loss, masked_mse(pred, target, weight * 0.1))
+    loss.backward()
+    assert torch.isfinite(pred.grad).all()
+    pred.grad = None
+    empty = masked_mse(pred, torch.full_like(target, float("nan")), weight * 0)
+    assert empty.item() == 0
+    empty.backward()
+    assert torch.equal(pred.grad, torch.zeros_like(pred))
+
+
+def test_declared_dino_patch_grid_must_match_cache(tmp_path):
+    path = cache_manifest(tmp_path)
+    manifest = json.loads(path.read_text())
+    manifest["dino_identity"]["patch_grid"] = [2, 3]
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="patch grid"):
+        PreparedWorldDataset(path)[0]
+
+
+@pytest.mark.parametrize("shape", [[0, 3], [True, 3], [3], "1x3", [1.0, 3]])
+def test_declared_dino_grid_requires_positive_integer_shape(tmp_path, shape):
+    path = cache_manifest(tmp_path)
+    manifest = json.loads(path.read_text())
+    manifest["dino_identity"]["patch_grid"] = shape
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="two positive integers"):
+        PreparedWorldDataset(path)

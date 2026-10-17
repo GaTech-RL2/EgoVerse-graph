@@ -57,11 +57,17 @@ Set image_adapter_dim=0 explicitly for an adapter-free ablation or the original
 adapter-free checkpoint architecture. Strict loading rejects a missing adapter
 state; enabling adapters is an architecture change, not transparent resume.
 
-The feature path reuses `scripts/embedding_process/dinov3_embedding.py` and its
-DINOv3 ViT-B/16 default. A proposed224x224 processing contract yields196 patch
-positions; the actual processor/checkpoint revision and produced grid must be
-pinned and checked during preprocessing. No weights were downloaded for these
-tests and no frozen-DINO parameter count is inferred here.
+The maintained upstream feature extractor is
+`scripts/embedding_process/dinov3_embedding.py`, with a DINOv3 ViT-B/16 default.
+It still needs an audit/extension for pinned revisions and explicit high-resolution
+processing: its patch count currently comes from model config, rather than the
+actual processed pixel grid. The proposal explicitly favors high-resolution
+features for small gripper detail. The earlier224x224/196-patch estimate is only
+a debugging budget, NOT an approved scientific preprocessing choice. The actual
+processor/checkpoint revision, resolution and produced grid must be pinned and
+checked during preprocessing. The prepared loader rejects declared patch grids
+that disagree with the cache. No weights were downloaded for these tests and no
+frozen-DINO parameter count is inferred here.
 
 A proposed1120-point28x40 grid is selected in ONE reference camera, with its
 3D positions expressed in the common reference frame. It is not1120 tracks
@@ -70,6 +76,10 @@ per camera. Four timestamps, three cameras and196 image patches produce
 budget guard, not evidence the full-size model fits a particular GPU. Joint
 attention scales quadratically in this token count; memory/time need a scheduled
 GPU measurement before training. No silent point subsampling or pooling occurs.
+For comparison,448x448/784 patches at four timestamps gives13892 tokens and
+exceeds this guard; two timestamps gives6946. Resolution and temporal/track
+coverage must be budgeted together, without silently reducing the requested
+image detail. Neither example is an approved full training resolution.
 
 Warm-up10000/ramp10000, AdamW1e-4/weight-decay0.01, loss weights1/1/1 and20 sampler
 steps are provisional configurable defaults. No CFG, Action Flow Jacobian loss,
@@ -98,6 +108,19 @@ Observed tokens remain clean. The image and track losses are weighted mean MSE
 on supervised withheld tokens. Track confidence is a loss weight; unknown-future
 visibility is NOT an attention mask or input signal. Padding is separately
 masked. Inputs never contain withheld clean poses.
+
+Half of sampled masks are past-only forecasting by default. The other half can
+condition/query before, between or after observations, with at least one observed
+and one withheld image frame. Neither endpoint is forced in this random branch.
+The50/50 mixture is provisional. Fractional confidence weights are normalized
+by their actual sum, including sums below one; empty objectives return zero.
+
+Unresolved missing-track treatment: unavailable targets are currently filled
+with zero before forward noising and excluded from the track loss, but remain
+in joint attention. Thus masking the loss alone does not establish a correct
+conditional distribution for missing geometry. Before real-data training, define
+and test missing-track conditioning without exposing future visibility as an
+input shortcut; do not mistake this finite-loss behavior for a verified solution.
 
 After warm-up a second forward through the SAME backbone uses differentiable
 same-trajectory x0 estimates plus empty pose queries. Its regression loss updates
@@ -215,6 +238,14 @@ and padded collation preserve actual times and masks. Different query schedules
 per modality are supported by the model token contract; the initial prepared
 loader samples the same timestamp set for all three modalities.
 
+NPZ is a correctness/prototype interface: selecting a few frames currently reads
+the entire episode field before slicing. Dense high-resolution caches require
+an efficient chunked reader (reuse the existing Zarr infrastructure), or a
+measured bounded cache strategy, before full training. Metadata assertions are
+not proof of actual calibration or leakage-free normalization; preprocessing
+receipts must establish those properties. Exact data-RNG continuation across
+checkpoint resume is not implemented or claimed.
+
 Single-device loading only: distributed training fails explicitly until source
 sampling and data sharding are implemented and tested. Training source choice
 is proportional to eligible windows, with replacement; validation enumerates
@@ -235,6 +266,10 @@ invalid bottleneck rejection and strict checkpoint restoration.
 
 These are synthetic fixtures. They do not establish real-data performance,
 CUDA numerical equivalence, full-size memory fit or GPU training readiness.
+Regression tests also cover backward/interpolated image queries, fractional
+confidence normalization, empty objectives and declared-versus-actual patch grids.
+Ordered hierarchical plan tokens are intentionally deferred by the original
+proposal's first-version decision, rather than an accidentally missing component.
 
 ## Data inspection and remaining work
 

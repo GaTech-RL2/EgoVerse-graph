@@ -590,24 +590,30 @@ class MoTWorldModel(nn.Module):
             prediction = self(sampling_batch, embodiment, current, levels)
             for name in current:
                 alpha, sigma = noise_coefficients(levels[name])
+                next_level = starts[name] * ((j - 1) / steps)
+                an, sn = noise_coefficients(next_level)
                 if name == "image" and self.image_prediction_type == "x0":
-                    # Predict structured clean features directly. The analytic
-                    # epsilon recovery retains the full input dimension instead
-                    # of forcing isotropic noise through a narrow output head.
+                    # Predict structured clean features directly. The bounded
+                    # ratio avoids forming epsilon at tiny positive strengths:
+                    # division first can overflow, followed by zero * infinity.
                     x0 = prediction[name]
                     denominator = torch.where(
                         levels[name][..., None] > 0, sigma, torch.ones_like(sigma)
                     )
-                    eps = (current[name] - alpha * x0) / denominator
+                    candidate = an * x0 + (sn / denominator) * (
+                        current[name] - alpha * x0
+                    )
+                    candidate = candidate.masked_fill(
+                        ~sampling_batch[name]["valid"][..., None], 0
+                    )
                 else:
                     x0 = alpha * current[name] - sigma * prediction[name]
                     eps = sigma * current[name] + alpha * prediction[name]
-                next_level = starts[name] * ((j - 1) / steps)
-                an, sn = noise_coefficients(next_level)
+                    candidate = an * x0 + sn * eps
                 current[name] = torch.where(
                     sampling_batch[name]["observed"][..., None],
                     anchors[name],
-                    an * x0 + sn * eps,
+                    candidate,
                 )
         zeros = {n: torch.zeros_like(batch[n]["time"]) for n in current}
         pose = self(sampling_batch, embodiment, current, zeros)["proprio"]

@@ -119,3 +119,15 @@ def test_x0_missing_track_completion_still_uses_explicit_policy():
 def test_invalid_image_parameterization_rejected():
     with pytest.raises(ValueError, match="image_prediction_type"):
         make_model(image_prediction_type="epsilon")
+
+
+@pytest.mark.parametrize("strength", [1e-40, 1e-20, 0.4])
+def test_x0_tiny_refinement_strength_does_not_overflow(strength):
+    model, batch = make_model(image_prediction_type="x0"), make_batch()
+    stream = batch["image"]
+    levels = torch.full_like(stream["time"], strength).masked_fill(stream["observed"], 0)
+    batch["refinement"] = {"image": {"strength": levels, "prediction": stream["value"].clone()}}
+    original = stream["value"].clone()
+    result = model.sample(batch, "robot", steps=3)
+    assert all(torch.isfinite(v).all() for v in result.values())
+    torch.testing.assert_close(result["image"][stream["observed"]], original[stream["observed"]], rtol=0, atol=0)

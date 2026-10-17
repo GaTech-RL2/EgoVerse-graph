@@ -13,6 +13,7 @@ from omegaconf import OmegaConf
 
 from egomimic.eval.action_flow_diagnostic_forward import (
     _decoder_singular_values,
+    _fixed_decoder_singular_values,
     collect_action_flow_diagnostics,
 )
 from egomimic.eval.action_flow_diagnostics import ActionFlowDiagnostics
@@ -73,6 +74,141 @@ def test_forward_math_decoder_jacobian_matches_reverse_for_transformer():
         decoder, values, sample_count=2, jacobian_method="reverse_chunked"
     )
     torch.testing.assert_close(forward, reverse, rtol=1e-4, atol=1e-5)
+
+
+def _endpoint_decoder():
+    return UniteActionDecoder(
+        latent_dim=4,
+        action_dim=2,
+        num_latent_tokens=2,
+        action_horizon=3,
+        hidden_dim=24,
+        depth=2,
+        num_heads=4,
+        dropout=0.0,
+        gradient_checkpointing=False,
+    ).eval()
+
+
+def test_exact_endpoint_reuse_preserves_spectra_state_and_rng(monkeypatch):
+    import egomimic.eval.action_flow_diagnostic_forward as owner
+
+    torch.manual_seed(51)
+    decoder = _endpoint_decoder()
+    clean, noise = torch.randn(2, 2, 4), torch.randn(2, 2, 4)
+    levels = (0.0, 0.25, 0.5, 0.75, 1.0)
+    fixed = torch.stack([(1 - t) * clean + t * noise for t in levels])
+    method = "forward_math_chunk4"
+    clean_s = _decoder_singular_values(decoder, clean, 2, jacobian_method=method)
+    noise_s = _decoder_singular_values(decoder, noise, 2, jacobian_method=method)
+    expected = torch.stack(
+        [
+            _decoder_singular_values(decoder, value, 2, jacobian_method=method)
+            for value in fixed
+        ]
+    )
+    weights = {k: v.clone() for k, v in decoder.state_dict().items()}
+    flags = [p.requires_grad for p in decoder.parameters()]
+    rng = torch.get_rng_state().clone()
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return _decoder_singular_values(*args, **kwargs)
+
+    monkeypatch.setattr(owner, "_decoder_singular_values", counted)
+    actual = _fixed_decoder_singular_values(
+        decoder,
+        fixed,
+        clean,
+        noise,
+        clean_s,
+        noise_s,
+        2,
+        jacobian_method=method,
+    )
+    assert len(calls) == 3
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    assert torch.equal(rng, torch.get_rng_state())
+    assert flags == [p.requires_grad for p in decoder.parameters()]
+    assert all(torch.equal(v, weights[k]) for k, v in decoder.state_dict().items())
+    assert all(p.grad is None for p in decoder.parameters())
+
+
+@pytest.mark.parametrize(
+    "unsupported", ["training", "child_training", "hook", "subclass", "other"]
+)
+def test_endpoint_reuse_keeps_legacy_calls_for_unproven_decoders(
+    monkeypatch, unsupported
+):
+    import egomimic.eval.action_flow_diagnostic_forward as owner
+
+    decoder = _endpoint_decoder()
+    if unsupported == "training":
+        decoder.train()
+    elif unsupported == "child_training":
+        next(iter(decoder.children())).train()
+    elif unsupported == "hook":
+        decoder.register_forward_hook(lambda module, inputs, output: output)
+    elif unsupported == "subclass":
+
+        class CustomDecoder(UniteActionDecoder):
+            pass
+
+        decoder.__class__ = CustomDecoder
+    else:
+        decoder = nn.Identity().eval()
+    clean, noise = torch.ones(2, 2, 4), torch.zeros(2, 2, 4)
+    fixed = torch.stack([clean, 0.5 * clean, noise])
+    calls = []
+
+    def counted(_decoder, _value, count, **kwargs):
+        calls.append(True)
+        return torch.ones(count, 2)
+
+    monkeypatch.setattr(owner, "_decoder_singular_values", counted)
+    _fixed_decoder_singular_values(
+        decoder,
+        fixed,
+        clean,
+        noise,
+        torch.ones(2, 2),
+        torch.ones(2, 2),
+        2,
+        jacobian_method="forward_math_chunk4",
+    )
+    assert len(calls) == 3
+
+
+def test_endpoint_reuse_requires_exact_selected_input_bytes(monkeypatch):
+    import egomimic.eval.action_flow_diagnostic_forward as owner
+
+    decoder = _endpoint_decoder()
+    clean, noise = torch.ones(2, 2, 4), torch.zeros(2, 2, 4)
+    changed = clean.clone()
+    changed[0, 0, 0] = torch.nextafter(changed[0, 0, 0], torch.tensor(2.0))
+    negative_zero = noise.clone()
+    negative_zero[0, 0, 0] = -0.0
+    unsampled_change = clean.clone()
+    unsampled_change[1] += 1
+    calls = []
+
+    def counted(_decoder, _value, count, **kwargs):
+        calls.append(True)
+        return torch.ones(count, 2)
+
+    monkeypatch.setattr(owner, "_decoder_singular_values", counted)
+    _fixed_decoder_singular_values(
+        decoder,
+        torch.stack([changed, negative_zero, unsampled_change]),
+        clean,
+        noise,
+        torch.ones(1, 2),
+        torch.ones(1, 2),
+        1,
+        jacobian_method="forward_math_chunk4",
+    )
+    assert len(calls) == 2  # Only the unchanged sampled row can reuse its spectrum.
 
 
 @pytest.fixture(autouse=True)

@@ -65,15 +65,26 @@ Preprocessing geometry, normalization, precision and revision are saved with eac
 output. The correspondence diagnostic in `dinov3_correspondence.py` uses hashed
 native frames and independent visible-point labels, excludes padding, and saves
 feature caches. Its tests and a tiny untrained Transformers DINOv3 runtime check
-verify geometry, not pretrained accuracy. Official pretrained access remains
-pending; no finger-resolution recommendation has been measured.
+verify geometry, not pretrained accuracy. Official pretrained access has now
+been verified in the task's FP32 DINO pilot. Whole-hand correspondence uses
+estimated projected Aria references with unknown occlusion; it does not measure
+independently verified visible-joint accuracy or establish a final resolution.
 The proposal explicitly favors high-resolution
 features for small gripper detail. The earlier224x224/196-patch estimate is only
 a debugging budget, NOT an approved scientific preprocessing choice. The actual
 processor/checkpoint revision, resolution and produced grid must be pinned and
 checked during preprocessing. The prepared loader rejects declared patch grids
-that disagree with the cache. No weights were downloaded for these tests and no
-frozen-DINO parameter count is inferred here.
+that disagree with the cache.
+
+The isolated `scripts/embedding_process/dinov3_pose_probe.py` diagnostic reuses
+SHA-verified image features and trains only a linear patch-to-landmark heatmap
+head. The world-model pose readout cannot express this control because it uses
+MoT context and track predictions. The probe belongs with the maintained DINO
+diagnostics, accepts paths and settings as arguments, and leaves entire episodes
+out. It compares training and held-out image-only predictions with a training-only
+mean-pose baseline and predictions from shuffled held-out images. It never selects
+a checkpoint on the test set. Projected references retain their uncertainty;
+this is current-image 2D landmark recovery, not future 3D pose forecasting.
 
 A proposed1120-point28x40 grid is selected in ONE reference camera, with its
 3D positions expressed in the common reference frame. It is not1120 tracks

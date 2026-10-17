@@ -321,3 +321,17 @@ def test_lightning_owned_restart_retains_last_checkpoint_fallback(
     expected = str(tmp_path / "lightning-root" / "checkpoints" / "last.ckpt")
     assert selected == expected
     assert cfg.ckpt_path == expected
+
+
+def test_disable_tf32_is_independent_of_explicit_model_precision(monkeypatch, preserve_precision_flags):
+    monkeypatch.setenv("NVIDIA_TF32_OVERRIDE", "0")
+    torch.set_float32_matmul_precision("high")
+    torch.backends.cudnn.allow_tf32 = True
+    train_hydra._configure_strict_fp32(OmegaConf.create({"runtime": {"strict_fp32": False, "disable_tf32": True}, "trainer": {"precision": "32-true"}}))
+    assert torch.get_float32_matmul_precision() == "highest"
+    assert not torch.backends.cuda.matmul.allow_tf32 and not torch.backends.cudnn.allow_tf32
+
+
+def test_disable_tf32_rejects_nonboolean():
+    with pytest.raises(ValueError, match="disable_tf32"):
+        train_hydra._configure_strict_fp32(OmegaConf.create({"runtime": {"disable_tf32": "true"}}))

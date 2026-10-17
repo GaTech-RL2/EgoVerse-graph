@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - unchunked_fp32
+  - _self_
+# Default attention-only BF16; keep trainer32-true and FP32 weights/FFNs/loss.
+# Requires the separately verified optional Torch2.9 + FlashAttention4 runtime.
+world_model_attention:
+  backend: flash4
+  dtype: bfloat16
+  strict_fp32: false
+# Intentional BF16 attention is not a strict-all-FP32 execution contract.
+runtime:
+  strict_fp32: false

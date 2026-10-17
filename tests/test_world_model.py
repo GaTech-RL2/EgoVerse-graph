@@ -812,6 +812,7 @@ def test_validation_batch_cap_keeps_short_final_batch():
 @pytest.mark.parametrize("cap", [0, -1, True, 1.5, "2"])
 def test_validation_batch_cap_rejects_invalid_value(cap):
     from types import SimpleNamespace
+
     from egomimic.rldb.world_model_datamodule import WorldModelDataModule
     with pytest.raises(ValueError, match="positive integer"):
         HomogeneousWorldBatchSampler(SimpleNamespace(split="val"), shuffle=False,
@@ -912,6 +913,7 @@ def test_hydra_both_recipes_and_required_schema():
 
 def test_shared_lightning_fit_validate_and_resume(tmp_path):
     import inspect
+
     from lightning import Trainer
     from omegaconf import OmegaConf
 
@@ -1214,3 +1216,131 @@ def test_pipeline_exposes_missing_track_policy_and_cost():
     assert torch.isfinite(result["loss/world"])
     assert result["log/world_imputed_track_tokens"] == 2
     assert result["log/world_imputation_forwards"] == 3
+
+
+@pytest.mark.parametrize("backend,dtype", [("unknown", "native"), ("sdpa", "half"), ("flash4", "native")])
+def test_attention_execution_rejects_unknown_or_implicit_precision(backend, dtype):
+    with pytest.raises(ValueError):
+        make_model(attention_backend=backend, attention_dtype=dtype)
+
+
+def test_attention_execution_has_no_new_weights_and_native_default_is_exact():
+    torch.manual_seed(42)
+    original = make_model()
+    explicit = make_model(attention_backend="sdpa", attention_dtype="native")
+    explicit.load_state_dict(original.state_dict(), strict=True)
+    assert list(original.state_dict()) == list(explicit.state_dict())
+    batch = make_batch()
+    values = {n: batch[n]["value"] for n in ("image", "track")}
+    levels = {n: torch.zeros_like(batch[n]["time"]) for n in values}
+    expected, actual = original(batch, "robot", values, levels), explicit(batch, "robot", values, levels)
+    for key in expected:
+        assert torch.equal(expected[key], actual[key])
+
+
+def test_attention_only_bf16_matches_explicit_casts_and_keeps_fp32_gradients():
+    import torch.nn.functional as functional
+
+    from egomimic.models.world_model import MoTBlock
+    torch.manual_seed(7)
+    block = MoTBlock(24, 3, attention_dtype="bfloat16")
+    q = torch.randn(1, 3, 7, 8, requires_grad=True)
+    k = torch.randn(1, 3, 9, 8, requires_grad=True)
+    v = torch.randn_like(k, requires_grad=True)
+    mask = torch.ones(1, 1, 1, 9, dtype=torch.bool)
+    mask[..., 1::3] = False
+    actual = block._apply_attention(q, k, v, mask)
+    expected = functional.scaled_dot_product_attention(q.bfloat16(), k.bfloat16(), v.bfloat16(), attn_mask=mask).float()
+    assert actual.dtype == torch.float32
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    for grad in torch.autograd.grad(actual.square().mean(), [q, k, v]):
+        assert grad.dtype == torch.float32 and torch.isfinite(grad).all()
+
+
+def test_optional_gpu_attention_does_not_silently_fallback_on_cpu():
+    from egomimic.models.world_model import MoTBlock
+    q = torch.zeros(1, 3, 2, 8)
+    mask = torch.ones(1, 1, 1, 2, dtype=torch.bool)
+    for backend, dtype in (("efficient", "native"), ("flash4", "bfloat16")):
+        with pytest.raises(RuntimeError, match="CUDA"):
+            MoTBlock(24, 3, attention_backend=backend, attention_dtype=dtype)._apply_attention(q, q, q, mask)
+
+
+@pytest.mark.parametrize("mode", ["continuous", "discrete"])
+@pytest.mark.parametrize("profile,backend,dtype", [("native", "sdpa", "native"), ("unchunked_fp32", "efficient", "native"), ("flash4_bf16", "flash4", "bfloat16")])
+def test_attention_execution_profiles_preserve_science(mode, profile, backend, dtype):
+    from pathlib import Path
+
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf
+    root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
+    def config(selected):
+        with initialize_config_dir(config_dir=str(root), version_base=None):
+            return compose(config_name="train_zarr_cartesian", overrides=[f"+experiment=world_model/{mode}", "hydra/launcher=basic", f"world_model_attention={selected}"])
+    cfg, baseline = config(profile), config("native")
+    model = cfg.model.pipeline.stages[0].model
+    assert model.attention_backend == backend and model.attention_dtype == dtype
+    assert model.attention_query_chunk_size == 0 and not model.activation_checkpointing
+    assert OmegaConf.to_container(cfg.data, resolve=True) == OmegaConf.to_container(baseline.data, resolve=True)
+    assert cfg.model.optimizer.lr == baseline.model.optimizer.lr == .0001
+    assert cfg.model.pipeline.stages[0].warmup_steps == 10000
+    assert cfg.trainer.precision == "32-true"
+    if profile == "flash4_bf16":
+        assert not cfg.runtime.strict_fp32 and cfg.runtime.disable_tf32
+
+
+@pytest.mark.parametrize("mode", ["continuous", "discrete"])
+def test_world_model_defaults_to_combined_attention_without_override(mode):
+    from pathlib import Path
+
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf
+
+    root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
+    overrides = [f"+experiment=world_model/{mode}", "hydra/launcher=basic"]
+    with initialize_config_dir(config_dir=str(root), version_base=None):
+        default = compose(config_name="train_zarr_cartesian", overrides=overrides)
+        explicit = compose(config_name="train_zarr_cartesian", overrides=[
+            *overrides, "world_model_attention=flash4_bf16"
+        ])
+    # Same complete recipe without requiring an attention command-line flag.
+    assert OmegaConf.to_container(default, resolve=False) == OmegaConf.to_container(explicit, resolve=False)
+    model = default.model.pipeline.stages[0].model
+    assert model.attention_backend == "flash4"
+    assert model.attention_dtype == "bfloat16"
+    assert model.attention_query_chunk_size == 0
+    assert not model.activation_checkpointing and not model.strict_fp32
+    assert not default.runtime.strict_fp32 and default.runtime.disable_tf32
+    assert default.trainer.precision == "32-true"
+
+
+def test_attention_precision_contract_rejects_bf16_labeled_strict_fp32():
+    with pytest.raises(ValueError, match="conflicts with strict_fp32"):
+        make_model(attention_backend="flash4", attention_dtype="bfloat16", strict_fp32=True)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Optional real Flash4 CUDA proof")
+def test_flash4_real_padding_and_fp32_gradient_contract():
+    from packaging.version import Version
+    if Version(torch.__version__.split("+")[0]) < Version("2.9") or torch.cuda.get_device_capability(0)[0] < 9:
+        pytest.skip("Optional Flash4 profile needs Torch2.9 and Hopper")
+    pytest.importorskip("flash_attn.cute")
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
+    from egomimic.models.world_model import MoTBlock
+    torch.manual_seed(42)
+    q = torch.randn(1, 6, 97, 64, device="cuda", requires_grad=True)
+    k = torch.randn(1, 6, 137, 64, device="cuda", requires_grad=True)
+    v = torch.randn_like(k, requires_grad=True)
+    mask = torch.rand(1, 1, 1, 137, device="cuda") > .2
+    block = MoTBlock(384, 6, attention_backend="flash4", attention_dtype="bfloat16")
+    actual = block._apply_attention(q, k, v, mask)
+    with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+        expected = torch.nn.functional.scaled_dot_product_attention(q.bfloat16(), k.bfloat16(), v.bfloat16(), attn_mask=mask).float()
+    assert actual.dtype == torch.float32
+    torch.testing.assert_close(actual, expected, rtol=.02, atol=.002)
+    actual_grads = torch.autograd.grad(actual.square().mean(), [q,k,v])
+    expected_grads = torch.autograd.grad(expected.square().mean(), [q,k,v])
+    for a, e in zip(actual_grads, expected_grads):
+        assert a.dtype == torch.float32 and torch.isfinite(a).all()
+        assert float((a-e).norm()/e.norm().clamp_min(1e-30)) < .02

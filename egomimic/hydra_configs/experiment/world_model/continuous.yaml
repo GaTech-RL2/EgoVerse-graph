@@ -1,6 +1,7 @@
 # @package _global_
 # Offline world-model recipe. Requires a separately verified prepared-data manifest.
 defaults:
+  - /world_model_attention: flash4_bf16
   - override /model: world_model/base
   - override /data: world_model/prepared
   - override /trainer: default
@@ -18,7 +19,7 @@ evaluator:
   sample_seed: 42
 trainer:
   accelerator: gpu
-  precision: 32-true  # User-selected FP32; inherited by the discrete comparison.
+  precision: 32-true  # FP32 weights/loss; attention precision comes from the profile.
   devices: 1
   min_epochs: 0
   max_epochs: -1
@@ -36,3 +37,8 @@ callbacks:
     save_on_train_epoch_end: false
     save_top_k: -1
     save_last: true
+
+# Resolve after root defaults so profile selection controls the precision contract.
+runtime:
+  strict_fp32: ${world_model_attention.strict_fp32}
+  disable_tf32: ${world_model_attention.disable_tf32}

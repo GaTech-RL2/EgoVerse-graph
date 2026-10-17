@@ -138,6 +138,22 @@ class SaveOnlySignalCheckpoint(Callback):
         self._previous_handler = previous
         self._installed_handler = self._request_checkpoint
         signal.signal(self.save_signal, self._installed_handler)
+        if os.environ.get("ICE_CHECKPOINT_FORWARDING") == "trainer-pid":
+            from egomimic.utils.slurm_process_identity import ready_record
+            if _trainer.world_size != 1 or not _trainer.is_global_zero:
+                raise RuntimeError("trainer-pid requires a single-process trainer")
+            job_id = os.environ.get("SLURM_JOB_ID", "")
+            nonce = os.environ.get("ICE_TRAINER_NONCE", "")
+            ready = Path(os.environ.get("ICE_TRAINER_READY_FILE", ""))
+            attempt = Path(os.environ.get("ICE_ATTEMPT_DIR", ""))
+            if (_SLURM_JOB_ID_RE.fullmatch(job_id) is None
+                    or re.fullmatch(r"[0-9a-f]{64}", nonce) is None
+                    or not ready.is_absolute() or not attempt.is_absolute()
+                    or ready.parent.resolve() != attempt.resolve()):
+                raise RuntimeError("invalid trainer-pid readiness authority")
+            _atomic_json_no_overwrite(ready, ready_record(
+                nonce, job_id, int(os.environ.get("SLURM_RESTART_COUNT", "0"))))
+
 
     def teardown(
         self,

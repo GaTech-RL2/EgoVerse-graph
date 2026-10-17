@@ -364,7 +364,8 @@ def test_sampling_cursor_ignores_prefetched_unconsumed_batches(tmp_path):
         WorldModelDataModule(path, num_workers=1, checkpointable_sampling=True)
 
 
-def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path):
+@pytest.mark.parametrize("signal_boundary", [False, True])
+def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path, monkeypatch, signal_boundary):
     import inspect
     from lightning import Trainer, seed_everything
     from omegaconf import OmegaConf
@@ -372,6 +373,7 @@ def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path):
     path = tmp_path / "prepared.json"
     finalize(make_inventory(tmp_path), path)
     cfg = OmegaConf.create({"model": {
+        "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
         "pipeline": {"_target_": "egomimic.pipeline.algo.PipelineAlgo", "device": "cpu", "stages": [{
             "_target_": "egomimic.pipeline.stages_world_model.WorldModelStage",
             "warmup_steps": 0, "pose_ramp_steps": 0, "sampler_steps": 2,
@@ -380,7 +382,18 @@ def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path):
         "training_behavior": {"_target_": "egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior"},
         "optimizer": {"_target_": "torch.optim.AdamW", "_partial_": True, "lr": .001}}})
 
-    def make(steps, checkpoint=None):
+    def make(steps, checkpoint=None, request_signal=False):
+        callbacks = []
+        if request_signal:
+            import signal
+            from lightning import Callback
+            from egomimic.utils.slurm_requeue import SaveOnlySignalCheckpoint
+            class RequestDuringBackward(Callback):
+                def on_before_backward(self, trainer, module, loss):
+                    if trainer.global_step == 0:
+                        os.kill(os.getpid(), signal.SIGUSR2)
+                        assert not list((tmp_path / "signals").glob("*.ckpt"))
+            callbacks = [SaveOnlySignalCheckpoint(tmp_path / "signals"), RequestDuringBackward()]
         seed_everything(123)
         data = WorldModelDataModule(path, max_frames=3, checkpointable_sampling=True)
         context = data.prepare_context(mode="train", normalization=None, normalizer=None)
@@ -389,16 +402,27 @@ def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path):
         context.bind(model.model, None)
         trainer = Trainer(accelerator="cpu", devices=1, max_steps=steps, max_epochs=-1,
                           limit_val_batches=0, logger=False, enable_checkpointing=False,
-                          enable_progress_bar=False, num_sanity_val_steps=0)
+                          enable_progress_bar=False, num_sanity_val_steps=0, callbacks=callbacks)
         kwargs = {"weights_only": False} if "weights_only" in inspect.signature(trainer.fit).parameters else {}
         trainer.fit(model, datamodule=data, ckpt_path=checkpoint, **kwargs)
         return model, trainer, data
 
     reference, uninterrupted, _ = make(4)
-    _, first, data = make(2)
+    monkeypatch.setenv("SLURM_JOB_ID", "123456")
+    monkeypatch.setenv("SLURM_RESTART_COUNT", "0")
+    monkeypatch.delenv("ICE_CHECKPOINT_FORWARDING", raising=False)
+    _, first, data = make(2, request_signal=signal_boundary)
     assert data.consumed_batches == 2
-    checkpoint = tmp_path / "resume.ckpt"
-    first.save_checkpoint(checkpoint)
+    if signal_boundary:
+        checkpoint, = (tmp_path / "signals").glob("*.ckpt")
+        payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        assert payload["global_step"] == 1
+        from scripts.ice.validate_lightning_checkpoint import validate_checkpoint
+        proof = validate_checkpoint(checkpoint, environment={})
+        assert proof["strict_model_reload"] and proof["global_step"] == 1
+    else:
+        checkpoint = tmp_path / "resume.ckpt"
+        first.save_checkpoint(checkpoint)
     resumed, continued, restored_data = make(4, str(checkpoint))
     assert continued.global_step == 4 and restored_data.consumed_batches == 4
     for name, expected in reference.state_dict().items():

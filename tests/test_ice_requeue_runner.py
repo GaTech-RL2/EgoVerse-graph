@@ -241,6 +241,12 @@ class CheckpointSelectionTest(unittest.TestCase):
 
 
 class RunnerSafetyTest(unittest.TestCase):
+    def setUp(self):
+        # Scheduled tests must not inherit the enclosing allocation identity.
+        patcher = mock.patch.dict(os.environ, {"SLURM_JOB_ID": ""})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_signal_handlers_are_installed_before_child_spawn(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -1474,3 +1480,66 @@ class RunnerSafetyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_trainer_pid_backend_requeue_and_target_guard(tmp_path):
+    """Real child signal transport; fake scontrol never mutates the allocation."""
+    if not hasattr(os, "pidfd_open"):
+        import pytest
+        pytest.skip("Linux pidfd required")
+    source = MODULE_PATH.parents[2]
+    state = tmp_path / "state"
+    checkpoints = tmp_path / "checkpoints"
+    checkpoints.mkdir()
+    validator = make_validator(tmp_path)
+    control = tmp_path / "scontrol"
+    control.write_text("#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$REQUEUE_LOG\"\n")
+    control.chmod(0o700)
+    child = tmp_path / "child.py"
+    child.write_text('''import json, os, signal, time
+from pathlib import Path
+from egomimic.utils.slurm_process_identity import ready_record
+root = Path(os.environ["TEST_CHECKPOINTS"])
+if os.environ["ICE_RESTART_COUNT"] == "1":
+    assert os.environ["ICE_RESUME_GLOBAL_STEP"] == os.environ.get("EXPECTED_STEP", "2")
+    (root / "step-3.ckpt").write_text(json.dumps({"global_step":3}))
+else:
+    def save(*_):
+        (root / "step-2.ckpt").write_text(json.dumps({"global_step":2}))
+    signal.signal(signal.SIGUSR2, save)
+    Path(os.environ["ICE_TRAINER_READY_FILE"]).write_text(json.dumps(ready_record(
+        os.environ["ICE_TRAINER_NONCE"], os.environ["SLURM_JOB_ID"], 0)))
+    os.kill(os.getppid(), signal.SIGUSR1)
+    time.sleep(30)
+''')
+    env = os.environ.copy()
+    env.update(SLURM_JOB_ID="123456", SLURM_RESTART_COUNT="0", SLURM_NTASKS="1",
+               SLURM_JOB_NUM_NODES="1", WORLD_SIZE="1", TEST_CHECKPOINTS=str(checkpoints),
+               REQUEUE_LOG=str(tmp_path / "requeue.log"),
+               PATH=str(Path(sys.executable).parent)+os.pathsep+env["PATH"])
+    args = [sys.executable, str(MODULE_PATH), "--state-dir", str(state),
+            "--checkpoint-glob", str(checkpoints / "*.ckpt"),
+            "--checkpoint-validator", str(validator), "--checkpoint-signal", "USR2",
+            "--checkpoint-forwarding", "trainer-pid", "--checkpoint-grace-seconds", "10",
+            "--poll-seconds", "0.02", "--requeue-owner", "runner",
+            "--confirm-child-requeue-disabled", "--scontrol", str(control),
+            "--scancel", "/must-never-resolve-scancel", "--completion-sentinel", str(tmp_path / "COMPLETE.json"),
+            "--target-global-step", "3", "--", sys.executable, str(child)]
+    first = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
+    assert first.returncode == 0, first.stderr
+    assert (tmp_path / "requeue.log").read_text().strip() == "requeue 123456"
+    event = (state / "requeue/job-123456-restart-000/events.jsonl").read_text()
+    assert '"transport": "trainer-pid"' in event
+    assert not (tmp_path / "COMPLETE.json").exists()
+    env["SLURM_RESTART_COUNT"] = "1"
+    second = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
+    assert second.returncode == 0, second.stderr
+    assert json.loads((tmp_path / "COMPLETE.json").read_text())["checkpoint"]["global_step"] == 3
+    # A previously complete shorter run cannot satisfy a larger target.
+    args[args.index("--target-global-step")+1] = "4"
+    refused = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=10)
+    assert refused.returncode != 0 and "target-global-step" in refused.stderr
+    (tmp_path / "COMPLETE.json").unlink()
+    env["EXPECTED_STEP"] = "3"
+    refused = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
+    assert refused.returncode == 78 and not (tmp_path / "COMPLETE.json").exists()

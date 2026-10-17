@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shlex
 import shutil
 import signal
@@ -645,7 +646,7 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument(
         "--checkpoint-forwarding",
-        choices=("slurm-steps",),
+        choices=("slurm-steps", "trainer-pid"),
         required=True,
         help="explicit checkpoint signal transport; slurm-steps excludes the batch shell",
     )
@@ -666,6 +667,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--scontrol", default="scontrol")
     result.add_argument("--scancel", default="scancel")
     result.add_argument("--completion-sentinel", type=Path)
+    result.add_argument("--target-global-step", type=int, help="refuse completion before this exact optimizer step")
     result.add_argument("--dry-run", action="store_true")
     result.add_argument("command", nargs=argparse.REMAINDER)
     return result
@@ -945,6 +947,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(
             "slurm-step checkpoint forwarding requires --checkpoint-signal USR2"
         )
+    pid_transport = args.checkpoint_forwarding == "trainer-pid"
+    pid_api = None
+    if pid_transport:
+        # Import only after the early signal latch. This module is stdlib-only.
+        from egomimic.utils import slurm_process_identity as pid_api
+        if args.requeue_owner != "runner" or args.checkpoint_signal != signal.SIGUSR2:
+            raise SystemExit("trainer-pid requires runner ownership and SIGUSR2")
+        if Path(args.command[0]).resolve() != Path(sys.executable).resolve():
+            raise SystemExit("trainer-pid requires a direct child using the runner Python executable")
+        if Path.cwd().resolve() != Path(pid_api.source_identity()["root"]):
+            raise SystemExit("trainer-pid requires the pinned source working directory")
+        for key in ("SLURM_NTASKS", "SLURM_JOB_NUM_NODES", "WORLD_SIZE"):
+            if int(os.environ.get(key, "1")) != 1:
+                raise SystemExit("trainer-pid supports exactly one task/node/process")
+    if args.target_global_step is not None:
+        if args.target_global_step < 1 or args.completion_sentinel is None:
+            raise SystemExit("target-global-step requires a positive step and completion-sentinel")
     if args.require_initial_checkpoint and args.initial_checkpoint is None:
         raise SystemExit(
             "--require-initial-checkpoint requires an exact --initial-checkpoint"
@@ -991,7 +1010,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     if completion_sentinel is not None and completion_sentinel.exists():
-        validated_completion_sentinel(completion_sentinel)
+        completed = validated_completion_sentinel(completion_sentinel)
+        if (args.target_global_step is not None
+                and completed["checkpoint"]["global_step"] != args.target_global_step):
+            raise SystemExit("completion sentinel does not match target-global-step")
         print(
             json.dumps(
                 {"status": "ALREADY_COMPLETE", "sentinel": str(completion_sentinel)}
@@ -999,6 +1021,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    child = None
     lock_stream = (state_dir / "runner.lock").open("a+")
     try:
         try:
@@ -1009,7 +1032,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ) from exc
 
         scancel = None
-        if not args.dry_run:
+        if not args.dry_run and not pid_transport:
             scancel = resolve_executable(args.scancel)
         scontrol = None
         if args.requeue_owner == "runner" and not args.dry_run:
@@ -1158,6 +1181,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else "0",
             }
         )
+        if pid_transport:
+            trainer_ready = attempt_dir / "trainer-ready.json"
+            trainer_nonce = secrets.token_hex(32)
+            expected_source = pid_api.source_identity()
+            parent_identity = pid_api.process_identity(os.getpid())
+            child_env.update({"ICE_CHECKPOINT_FORWARDING": "trainer-pid",
+                              "ICE_TRAINER_READY_FILE": str(trainer_ready),
+                              "ICE_TRAINER_NONCE": trainer_nonce})
         if completion_sentinel is not None:
             child_env["ICE_COMPLETION_SENTINEL"] = str(completion_sentinel)
         if args.dry_run:
@@ -1195,6 +1226,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             finally:
                 os.close(gate_read_fd)
 
+            if pid_transport:
+                expected_process = pid_api.process_identity(child.pid)
             if termination_signal is None and boundary_requested_at is None:
                 try:
                     written = os.write(gate_write_fd, b"G")
@@ -1429,51 +1462,73 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 if termination_signal is not None or child.poll() is not None:
                     continue
-                assert scancel is not None
-                try:
-                    signal_result = forward_checkpoint_to_slurm_steps(
-                        scancel,
-                        job_id,
-                        args.checkpoint_signal,
-                    )
-                except OSError as exc:
-                    record.update(
+                if pid_transport:
+                    ready_deadline = time.monotonic() + args.checkpoint_grace_seconds
+                    while not trainer_ready.exists() and time.monotonic() < ready_deadline:
+                        if termination_signal is not None or child.poll() is not None:
+                            break
+                        time.sleep(args.poll_seconds)
+                    if termination_signal is not None:
+                        continue
+                    try:
+                        delivery = pid_api.signal_ready_trainer(
+                            trainer_ready, pid=child.pid, nonce=trainer_nonce,
+                            job_id=job_id, restart=restart_count,
+                            parent_identity=parent_identity, expected_source=expected_source,
+                            expected_process=expected_process, sig=args.checkpoint_signal)
+                    except (OSError, ValueError, RuntimeError) as exc:
+                        record.update({"status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
+                                       "checkpoint_signal_error": str(exc)})
+                        atomic_json(attempt_dir / "attempt.json", record)
+                        return 75
+                    append_event(event_path, {"event": "checkpoint_signal_forwarded",
+                                              **delivery, "at_unix": time.time()})
+                else:
+                    assert scancel is not None
+                    try:
+                        signal_result = forward_checkpoint_to_slurm_steps(
+                            scancel,
+                            job_id,
+                            args.checkpoint_signal,
+                        )
+                    except OSError as exc:
+                        record.update(
+                            {
+                                "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
+                                "checkpoint_signal_argv": [
+                                    scancel,
+                                    "--signal=USR2",
+                                    job_id,
+                                ],
+                                "checkpoint_signal_error": str(exc),
+                            }
+                        )
+                        atomic_json(attempt_dir / "attempt.json", record)
+                        return 75
+                    if signal_result.returncode != 0:
+                        record.update(
+                            {
+                                "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
+                                "checkpoint_signal_argv": [
+                                    scancel,
+                                    "--signal=USR2",
+                                    job_id,
+                                ],
+                                "checkpoint_signal_returncode": signal_result.returncode,
+                                "checkpoint_signal_stdout": signal_result.stdout,
+                                "checkpoint_signal_stderr": signal_result.stderr,
+                            }
+                        )
+                        atomic_json(attempt_dir / "attempt.json", record)
+                        return signal_result.returncode or 75
+                    append_event(
+                        event_path,
                         {
-                            "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
-                            "checkpoint_signal_argv": [
-                                scancel,
-                                "--signal=USR2",
-                                job_id,
-                            ],
-                            "checkpoint_signal_error": str(exc),
-                        }
+                            "event": "checkpoint_signal_forwarded",
+                            "argv": [scancel, "--signal=USR2", job_id],
+                            "at_unix": time.time(),
+                        },
                     )
-                    atomic_json(attempt_dir / "attempt.json", record)
-                    return 75
-                if signal_result.returncode != 0:
-                    record.update(
-                        {
-                            "status": "CHECKPOINT_SIGNAL_FORWARD_FAILED",
-                            "checkpoint_signal_argv": [
-                                scancel,
-                                "--signal=USR2",
-                                job_id,
-                            ],
-                            "checkpoint_signal_returncode": signal_result.returncode,
-                            "checkpoint_signal_stdout": signal_result.stdout,
-                            "checkpoint_signal_stderr": signal_result.stderr,
-                        }
-                    )
-                    atomic_json(attempt_dir / "attempt.json", record)
-                    return signal_result.returncode or 75
-                append_event(
-                    event_path,
-                    {
-                        "event": "checkpoint_signal_forwarded",
-                        "argv": [scancel, "--signal=USR2", job_id],
-                        "at_unix": time.time(),
-                    },
-                )
                 # Give an early queued boundary a complete save window after
                 # forwarding; validator startup time must not consume grace.
                 deadline = time.time() + args.checkpoint_grace_seconds
@@ -1599,6 +1654,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                         )
                         atomic_json(attempt_dir / "attempt.json", record)
                         return 73
+                    if (args.target_global_step is not None
+                            and terminal.global_step != args.target_global_step):
+                        record.update({"status": "COMPLETE_REFUSED_TARGET_STEP",
+                                       "target_global_step": args.target_global_step,
+                                       "checkpoint": terminal.as_dict()})
+                        atomic_json(attempt_dir / "attempt.json", record)
+                        return 78
                     high_water = commit_checkpoint_state(
                         high_water_path=high_water_path,
                         observation_index_path=observation_index_path,
@@ -1636,6 +1698,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 128 - code if code < 0 else code
             time.sleep(args.poll_seconds)
     finally:
+        # The PID backend owns this direct child's new session. Never invoke
+        # scancel or discover other processes, even on a validation failure.
+        if pid_transport and child is not None and child.poll() is None:
+            try:
+                os.killpg(child.pid, signal.SIGTERM)
+                child.wait(timeout=5)
+            except ProcessLookupError:
+                pass
+            except subprocess.TimeoutExpired:
+                os.killpg(child.pid, signal.SIGKILL)
+                child.wait()
         lock_stream.close()
 
 

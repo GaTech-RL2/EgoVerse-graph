@@ -131,6 +131,29 @@ status and signal names and never requeues a cancellation or ordinary child
 failure. A failed upstream dependency automatically retires the dependent
 request; it does not permit bypassing its smoke gate.
 
+For a single-process trainer sharing the runner's Linux container, the generic
+`ice_requeue_runner.py` also supports opt-in `--checkpoint-forwarding trainer-pid`.
+Run the runner from the exact source root, and pass its own Python executable
+as the direct child command (no shell or `srun` wrapper). The existing
+`runtime.slurm_requeue_owner=runner` callback installs SIGUSR2 before publishing
+readiness. The runner binds that proof to its nonce, job/restart, source hashes,
+UID, node, boot ID, PID namespace, cgroup, executable, working directory and
+process start time; `pidfd` prevents signaling a reused PID. It signals only its
+known child and never invokes `scancel`, including on failure. This route requires
+one task/node/process and a working `scontrol` client inside the same container;
+verify the site's client/config/Munge-socket bindings with a read-only query and
+a dedicated requeue test before training. Do not expose or copy a Munge key.
+
+SIGUSR2 only latches a request; the callback saves at a completed batch hook,
+publishes an immutable full-state checkpoint and receipt, and the runner strictly
+validates a newer optimizer step before asking Slurm to requeue. Work after that
+checkpoint can be replayed after restart. Keep periodic checkpoint/validation
+cadences unchanged; allocation-boundary recovery saves are additional. Pass
+`--target-global-step` with a completion sentinel to reject an early zero exit or
+an older COMPLETE record. Boundary and validator time must fit the signal lead;
+restart limits must cover the measured run budget. Defaults and the existing
+`slurm-steps` transport remain unchanged.
+
 In this Action Flow branch, `egomimic/eval/artifact_paths.py` supplies the same
 namespace rule to EnergyScore, UNITE diagnostics, and Action Flow diagnostics.
 The Action Flow smoke verifier selects a matching active job/restart namespace

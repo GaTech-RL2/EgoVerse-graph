@@ -1,0 +1,6 @@
+# @package _global_
+defaults:
+  - /experiment/world_model/continuous
+  - _self_
+data:
+  mode: discrete

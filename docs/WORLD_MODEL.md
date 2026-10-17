@@ -1,0 +1,178 @@
+# Continuous-time MoT world model
+
+This is an independent research model, not an Action Flow variant. The implementation
+is on `codex/continuous-time-mot-world-model`, based on the verified common release
+7043c025. It uses the existing PipelineAlgo, ModelWrapper, DataContext and Eval
+interfaces. No existing model, launcher or run is changed.
+
+## Confirmed design
+
+- Human, YAM, LIBERO Sharpa and LIBERO gripper co-training.
+- Three modality experts: DINO image features, XYZ tracks and proprioception.
+  Each expert has its own Q/K/V/output projections, normalization and FFN.
+  All valid tokens within one example participate in joint attention. Experts
+  are shared across embodiments; pose input/output adapters are private.
+- Frozen DINO targets; denoising objectives on both image features and tracks.
+- Pose readout sees observed context and predicted visual/track features. Pose
+  gradients propagate through those predictions to the visual generator.
+- Visual/track warm-up followed by a pose-loss ramp.
+- Poses and tracks expressed in one fixed reference frame per sequence.
+- Regular image-grid tracking, persistent point IDs and confidence/visibility.
+  Do not substitute interpolated endpoints for actual tracks.
+- Source sampling proportional to dataset size. This implementation defines
+  size as eligible temporal anchors/windows, and returns homogeneous source
+  batches. PipelineAlgo sees one source per update; it must not apply a second
+  source-balancing factor. Exact source probabilities depend on the corpus and
+  temporal mode and must be reported for a comparison.
+- Continuous: 2–4 random timestamps (provisional), irregular multi-scale gaps.
+  Discrete: four fixed-stride frames (provisional), integer temporal positions.
+  This compares complete recipes, not time encoding alone.
+
+## Proposed engineering defaults, not measured training settings
+
+Width384, depth8, heads6, FFN expansion4. There are 43,767,555 shared trainable
+parameters excluding embodiment pose input/output adapters and the frozen DINO
+backbone. Adapter count is sum_m(769*D_m + 384). Pose widths deliberately remain
+required config values until measured-pose schemas are verified; historical
+7D gripper or 69D Sharpa policy command widths are not measured-pose schemas.
+
+The feature path reuses `scripts/embedding_process/dinov3_embedding.py` and its
+DINOv3 ViT-B/16 default. A proposed224x224 processing contract yields196 patch
+positions; the actual processor/checkpoint revision and produced grid must be
+pinned and checked during preprocessing. No weights were downloaded for these
+tests and no frozen-DINO parameter count is inferred here.
+
+A proposed1120-point28x40 grid is selected in ONE reference camera, with its
+3D positions expressed in the common reference frame. It is not1120 tracks
+per camera. Four timestamps, three cameras and196 image patches produce
+4*(3*196 +1120 +1)=6836 tokens. The initial hard limit is8192 tokens. This is a
+budget guard, not evidence the full-size model fits a particular GPU. Joint
+attention scales quadratically in this token count; memory/time need a scheduled
+GPU measurement before training. No silent point subsampling or pooling occurs.
+
+Warm-up10000/ramp10000, AdamW1e-4/weight-decay0.01, loss weights1/1/1 and20 sampler
+steps are provisional configurable defaults. No CFG, Action Flow Jacobian loss,
+velocity augmentation or historical policy-specific optimizer is inherited.
+Actual training duration, split/data identities and physical temporal span are
+not selected by the config. `max_steps`, `manifest_path` and `pose_dims` are
+mandatory before use. Both variants share the same parent recipe.
+
+## Training computation
+
+Physical time tau and diffusion noise s are separate. Temporal RoPE uses actual
+relative seconds in continuous mode, grid indices in discrete mode. A common
+random time-origin shift preserves all temporal differences. Image tokens also
+carry patch XY and camera ID; tracks carry reference XY, camera and point ID.
+Observed/query status and s have their own embedding.
+
+For each withheld visual frame and each modality, independently sample s in
+(0,1) and Gaussian epsilon. All image patches/cameras at that timestamp use the
+same s. With alpha=cos(pi*s/2), sigma=sin(pi*s/2):
+
+    x_s = alpha*x_0 + sigma*epsilon
+    v_target = alpha*epsilon - sigma*x_0
+    x0_estimate = alpha*x_s - sigma*v_prediction
+
+Observed tokens remain clean. The image and track losses are weighted mean MSE
+on supervised withheld tokens. Track confidence is a loss weight; unknown-future
+visibility is NOT an attention mask or input signal. Padding is separately
+masked. Inputs never contain withheld clean poses.
+
+After warm-up a second forward through the SAME backbone uses differentiable
+same-trajectory x0 estimates plus empty pose queries. Its regression loss updates
+both visual output heads and their upstream shared parameters. It must never
+pair an independently sampled alternative future with the recorded pose target.
+There are two network forwards per training batch after warm-up, one before;
+there is no unrolled differentiable sampler or higher-order/Jacobian objective.
+
+Inference uses deterministic DDIM updates from Gaussian initialization, clamps
+observed visual values at every step, then runs one pose readout. All unknown
+input values can be NaN placeholders without affecting output. The sampler never
+reads training confidence/target-valid fields. Image outputs are DINO FEATURES,
+not RGB video; no image decoder is included.
+
+Open scientific issues: the one-pass training x0 distribution differs from
+multi-step sampled features, direct context can provide a readout shortcut,
+frozen features may omit contact/gripper detail, track estimates may be biased,
+and deterministic pose regression can average ambiguous motions. Parameter
+sharing does not establish transfer. Evaluate forecasting and interpolation
+separately and compare matching physical query times. Do not label normalized
+feature/pose MSE as robot task success or action-distribution fidelity.
+
+## Prepared data interface
+
+`rldb/world_model.py` owns the typed adapter and timestamp sampling. It consumes
+an immutable JSON manifest plus per-episode NPZ arrays; it does not modify source
+Zarr datasets. The existing DINO extraction and raw dataset readers remain the
+upstream authorities. This new cache contract is necessary because the old policy
+loaders do not supply synchronized irregular image/track/pose targets.
+
+Manifest schema `mot-world-prepared-v1` requires:
+- `dino_identity`: checkpoint/revision, feature layer, preprocessing/grid identity.
+- `normalization`: train-only provenance and statistics SHA; arrays already normalized.
+- `pose_schemas`: per-embodiment dimension and coordinate/rotation/field semantics.
+- `track_provenance`: tracker/simulator identity, calibration and frame binding;
+  `interpolated_endpoints` must be false.
+- `episodes`: embodiment, episode_id, relative path, SHA256, frames, explicit
+  train/val assignment, frame=`fixed_reference`, pose_kind=`measured_pose`.
+  Duplicate IDs and resolved physical paths across splits are rejected.
+
+Per-episode arrays:
+
+| Array | Shape / semantics |
+| --- | --- |
+| time | [T], increasing physical seconds; subtract origin before casting float32 |
+| image | [T,V,P,D], frozen normalized DINO patch features |
+| image_xy | [P,2], patch positions |
+| track | [T,Q,3], normalized common-reference positions of persistent points |
+| track_xy | [Q,2], regular-grid reference image positions |
+| track_camera | [Q], integer reference camera identifiers |
+| track_confidence | [T,Q], [0,1], unavailable=0 |
+| pose | [T,Dm], normalized measured poses in same fixed reference frame |
+| pose_valid | [T], measured target availability |
+
+The current adapter assumes synchronized arrays on a verified physical timeline.
+Do not fabricate time from arbitrary indices or interpolate unseen trajectories.
+Do not copy policy action arrays into pose. Use original measured state and
+calibrated transforms. `points_to_reference` validates proper rigid transforms
+for XYZ; orientation conversions should use existing pose utilities. Sampling
+and padded collation preserve actual times and masks. Different query schedules
+per modality are supported by the model token contract; the initial prepared
+loader samples the same timestamp set for all three modalities.
+
+Single-device loading only: distributed training fails explicitly until source
+sampling and data sharding are implemented and tested. Training source choice
+is proportional to eligible windows, with replacement; validation enumerates
+anchors once with deterministic timestamp/mask choices. This is not a claim of
+exhaustive evaluation over every possible temporal subset.
+
+## What has been verified
+
+Tests cover real tiny optimizer updates for both embodiment heads, strict model
+and optimizer reload, shared Lightning fit/validation/resume, both Hydra recipes,
+BF16 mixed finite gradients on CPU, pose gradients into both visual heads,
+no withheld-target leakage at inference, clean observation clamping, padding
+invariance, temporal shift invariance, discrete indices, irregular sampling,
+proper reference-frame transforms and cache split/provenance rejection.
+
+These are synthetic fixtures. They do not establish real-data performance,
+CUDA numerical equivalence, full-size memory fit or GPU training readiness.
+
+## Data inspection and remaining work
+
+Live shell inspection confirmed both500-episode LIBERO Spatial Zarr roots exist.
+Sharpa data has61535 rows, EEF position3/quaternion, hand state22, two RGB cameras,
+and action/observation host-nanosecond timestamps. Original gripper data has62250
+rows, EEF position3/quaternion, gripper state2, joint state and two RGB cameras.
+Neither listed replay contains scene-wide tracks or saved simulator states.
+Sharpa host clocks are not automatically simulator physical time; original
+simulator timestep metadata must be verified. The gripper replay needs its
+original simulator timeline source. Raw replay/source archives may permit
+state reconstruction; that has not been verified here.
+
+Before any real training: resolve human/YAM camera poses and calibration, exact
+DINO runtime/weights, source simulator assets/state replay, 3D track extraction
+for each domain, synchronized physical clocks, measured-pose schemas, train-only
+normalization, dataset splits and complete preprocessing receipts. Then verify
+an actual batch and a scheduled full-size GPU optimizer/validation/reload check.
+Do not treat this code milestone as a prepared four-domain training dataset.

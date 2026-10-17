@@ -1,0 +1,11 @@
+_target_: egomimic.rldb.world_model_datamodule.WorldModelDataModule
+manifest_path: ???
+batch_size: 1
+num_workers: 0
+mode: continuous
+seed: 42
+min_frames: 2
+max_frames: 4
+discrete_frames: 4
+stride: 1
+forecasting_probability: 0.5

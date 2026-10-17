@@ -427,3 +427,49 @@ for each domain, synchronized physical clocks, measured-pose schemas, train-only
 normalization, dataset splits and complete preprocessing receipts. Then verify
 an actual batch and a scheduled full-size GPU optimizer/validation/reload check.
 Do not treat this code milestone as a prepared four-domain training dataset.
+
+
+## Selectable attention execution
+
+The default execution preserves native SDPA arithmetic.
+Existing checkpoint-bound sources and resolved configs remain unchanged.
+For either continuous or discrete experiments, select one of:
+
+```text
++world_model_attention=unchunked_fp32
++world_model_attention=flash4_bf16
+```
+
+Add the execution profile after selecting the experiment so it overrides root
+runtime defaults. Inconsistent explicit strict-FP32/BF16 declarations are rejected.
+
+Both optimized profiles disable whole-block activation checkpointing and set
+query chunk size zero. Every query still attends to every valid key across
+all modalities and timestamps. Image patchification, token counts, parameter
+counts, data sampling, normalization and loss weights are unchanged. The FP32
+profile requires fused efficient CUDA SDPA and rejects a math fallback.
+
+The Flash4 profile explicitly casts only attention Q/K/V to BF16 and converts
+its output back to the incoming dtype. With the existing `trainer.precision=32-true`,
+parameters, the remaining model and losses stay FP32. The Flash4 profile explicitly
+sets `runtime.strict_fp32=false` and `runtime.disable_tf32=true`: attention is
+intentionally BF16 while FP32 backend TF32 shortcuts remain disabled. It currently requires
+batch one and Hopper-or-newer CUDA hardware. Boolean padding (including holes)
+is handled by gathering all valid keys/values; all queries are retained.
+No implicit fallback, reduced attention window or token subsampling is used.
+
+The tested optional runtime is Torch2.9.1+cu126, torchvision0.24.1+cu126,
+FlashAttention4.0.0b35 (beta), CuTeDSL4.8.1, quack0.6.5, apache-tvm-ffi0.1.14.post1
+and cuda-bindings12.9.0. The ordinary project environment remains Torch2.7.1;
+**do not install Flash4 into it or replace its shared dependencies.** The
+optional backend is lazy imported only when selected and requires the separately
+verified runtime. The base package's Torch pins have not been relaxed; this is
+an explicit source/runtime execution profile rather than a claim that the
+standard dependency resolver installs that optional environment.
+
+The external beta API is checked for output container, shape, dtype and device.
+Numerical BF16 differences are intentional; finite gradients and short timings
+do not prove unchanged convergence or final task quality. A requested future
+full run must use its own resolved-source/config/runtime optimizer, validation
+and checkpoint compatibility preflight. No existing canceled run is resumed
+by selecting or adding these profiles.

@@ -1,0 +1,7 @@
+# @package _global_
+# Historical default model arithmetic; per-run memory overrides remain supported.
+world_model_attention:
+  backend: sdpa
+  dtype: native
+  query_chunk_size: 0
+  activation_checkpointing: false

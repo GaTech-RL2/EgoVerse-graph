@@ -53,6 +53,9 @@ def main():
     parser.add_argument("--pose-dims", type=json.loads, required=True)
     parser.add_argument("--embodiment", required=True)
     parser.add_argument("--query-chunk", type=int, default=512)
+    parser.add_argument("--activation-checkpointing", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--attention-backend", choices=["sdpa", "efficient", "flash4"], default="sdpa")
+    parser.add_argument("--attention-dtype", choices=["native", "bfloat16"], default="native")
     parser.add_argument("--width", type=int, default=384)
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--heads", type=int, default=6)
@@ -76,7 +79,7 @@ def main():
     report = {
         "scope": "Synthetic memory/backward diagnostic; not actual data, optimizer or reload proof",
         "torch": torch.__version__, "device": torch.cuda.get_device_name(0) if cuda else "cpu",
-        "precision": "FP32; autocast off; TF32 off", "results": [],
+        "precision": f"FP32 parameters/model/loss; attention={args.attention_dtype}; autocast/TF32 off", "results": [],
         "arguments": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
         "model_sha256": hashlib.sha256(Path(inspect.getfile(MoTWorldModel)).read_bytes()).hexdigest(),
     }
@@ -95,7 +98,8 @@ def main():
             model = MoTWorldModel(
                 args.pose_dims, width=args.width, depth=args.depth, heads=args.heads,
                 max_cameras=args.cameras, max_tracks=args.tracks, max_tokens=tokens,
-                attention_query_chunk_size=args.query_chunk, activation_checkpointing=True,
+                attention_query_chunk_size=args.query_chunk, activation_checkpointing=args.activation_checkpointing,
+                attention_backend=args.attention_backend, attention_dtype=args.attention_dtype,
             ).float().to(args.device)
             batch = synthetic_batch(frames, args.cameras, patches, args.tracks,
                                     args.pose_dims[args.embodiment], args.device)

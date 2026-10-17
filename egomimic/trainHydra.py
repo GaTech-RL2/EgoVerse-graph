@@ -43,17 +43,20 @@ _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def _configure_strict_fp32(cfg: DictConfig) -> None:
-    """Opt in to full FP32 math, including CUDA/cuDNN backend precision."""
+    """Configure FP32/TF32 backend policy; explicit model dtype stays declared."""
     enabled = OmegaConf.select(cfg, "runtime.strict_fp32", default=False)
     if not isinstance(enabled, bool):
         raise ValueError("runtime.strict_fp32 must be a boolean")
-    if not enabled:
+    disable_tf32 = OmegaConf.select(cfg, "runtime.disable_tf32", default=False)
+    if not isinstance(disable_tf32, bool):
+        raise ValueError("runtime.disable_tf32 must be a boolean")
+    if not enabled and not disable_tf32:
         return
     precision = OmegaConf.select(cfg, "trainer.precision")
-    if str(precision) not in {"32", "32-true"}:
+    if enabled and str(precision) not in {"32", "32-true"}:
         raise ValueError("runtime.strict_fp32 requires trainer.precision=32-true")
     if os.environ.get("NVIDIA_TF32_OVERRIDE") != "0":
-        raise ValueError("runtime.strict_fp32 requires NVIDIA_TF32_OVERRIDE=0")
+        raise ValueError("FP32/disable_tf32 backend policy requires NVIDIA_TF32_OVERRIDE=0")
     torch.set_float32_matmul_precision("highest")
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False

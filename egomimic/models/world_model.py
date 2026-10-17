@@ -55,7 +55,8 @@ def temporal_rope(x, times):
 class MoTBlock(nn.Module):
     """Private modality projections/FFNs, one joint attention operation."""
 
-    def __init__(self, width, heads, mlp_ratio=4, attention_query_chunk_size=0):
+    def __init__(self, width, heads, mlp_ratio=4, attention_query_chunk_size=0,
+                 attention_backend="sdpa", attention_dtype="native"):
         super().__init__()
         if width % heads or (width // heads) % 2:
             raise ValueError("RoPE requires an even attention head width")
@@ -63,6 +64,14 @@ class MoTBlock(nn.Module):
         if type(attention_query_chunk_size) is not int or attention_query_chunk_size < 0:
             raise ValueError("attention_query_chunk_size must be a nonnegative integer")
         self.attention_query_chunk_size = attention_query_chunk_size
+        if attention_backend not in ("sdpa", "efficient", "flash4"):
+            raise ValueError("attention_backend must be sdpa, efficient or flash4")
+        if attention_dtype not in ("native", "bfloat16"):
+            raise ValueError("attention_dtype must be native or bfloat16")
+        if attention_backend == "flash4" and attention_dtype != "bfloat16":
+            raise ValueError("flash4 requires explicit bfloat16 attention")
+        self.attention_backend = attention_backend
+        self.attention_dtype = attention_dtype
         self.norm1 = nn.ModuleList(nn.LayerNorm(width) for _ in MODALITIES)
         self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in MODALITIES)
         self.out = nn.ModuleList(nn.Linear(width, width) for _ in MODALITIES)
@@ -100,13 +109,13 @@ class MoTBlock(nn.Module):
             parts = []
             for q in query.split(chunk, dim=2):
                 if torch.is_grad_enabled() and any(t.requires_grad for t in (q, key, value)):
-                    part = checkpoint(self._attend, q, key, value, mask, use_reentrant=False)
+                    part = checkpoint(self._apply_attention, q, key, value, mask, use_reentrant=False)
                 else:
-                    part = self._attend(q, key, value, mask)
+                    part = self._apply_attention(q, key, value, mask)
                 parts.append(part)
             result = torch.cat(parts, dim=2)
         else:
-            result = self._attend(query, key, value, mask)
+            result = self._apply_attention(query, key, value, mask)
         result = result.transpose(1, 2).flatten(2).split(sizes, 1)
         outputs = []
         for i, (x, y) in enumerate(zip(streams, result)):
@@ -114,6 +123,63 @@ class MoTBlock(nn.Module):
             x = x + self.ffn[i](self.norm2[i](x))
             outputs.append(x.masked_fill(~valid[i][..., None], 0))
         return outputs
+
+    def _apply_attention(self, query, key, value, mask):
+        # Preserve historical default arithmetic and autocast behavior exactly.
+        if self.attention_backend == "sdpa" and self.attention_dtype == "native":
+            return self._attend(query, key, value, mask)
+        original_dtype = query.dtype
+        with torch.autocast(device_type=query.device.type, enabled=False):
+            if self.attention_dtype == "bfloat16":
+                query, key, value = (x.to(torch.bfloat16) for x in (query, key, value))
+            if self.attention_backend == "flash4":
+                result = self._flash4_attend(query, key, value, mask)
+            elif self.attention_backend == "efficient":
+                if query.device.type != "cuda":
+                    raise RuntimeError("efficient attention requires CUDA; no math fallback")
+                from torch.nn.attention import SDPBackend, sdpa_kernel
+                with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+                    result = self._attend(query, key, value, mask)
+            else:
+                result = self._attend(query, key, value, mask)
+        return result.to(original_dtype)
+
+    @staticmethod
+    def _flash4_attend(query, key, value, mask):
+        # Batch-one support is explicit until packed variable-length batches are
+        # validated. Removing padded keys preserves full joint attention,
+        # including noncontiguous padding; no queries or valid keys are dropped.
+        if query.device.type != "cuda":
+            raise RuntimeError("flash4 attention requires a CUDA Hopper/Blackwell GPU")
+        if query.shape[0] != 1 or mask.dtype != torch.bool or mask.shape != (1, 1, 1, key.shape[2]):
+            raise ValueError("flash4 currently requires batch1 and a boolean key-padding mask")
+        if any(x.dtype != torch.bfloat16 for x in (query, key, value)):
+            raise ValueError("flash4 requires bfloat16 Q/K/V")
+        from packaging.version import Version
+        if Version(torch.__version__.split("+")[0]) < Version("2.9"):
+            raise RuntimeError("flash4 profile requires the separately verified Torch>=2.9 runtime; see docs/WORLD_MODEL.md")
+        if torch.cuda.get_device_capability(query.device)[0] < 9:
+            raise RuntimeError("flash4 profile requires Hopper or newer CUDA hardware")
+        try:
+            from flash_attn.cute import flash_attn_func
+        except (ImportError, AttributeError) as error:
+            raise RuntimeError("Install the verified optional FlashAttention4 runtime; no silent backend fallback") from error
+        valid_keys = mask[0, 0, 0].nonzero(as_tuple=True)[0]
+        if valid_keys.numel() == 0:
+            raise ValueError("flash4 attention requires at least one valid key")
+        key = key.index_select(2, valid_keys)
+        value = value.index_select(2, valid_keys)
+        q, k, v = (x.transpose(1, 2).contiguous() for x in (query, key, value))
+        result = flash_attn_func(q, k, v, causal=False, return_lse=False)
+        # The tested 4.0.0b35 API returns (output, optional_lse). Reject unknown
+        # containers/shapes instead of assuming the README illustration's API.
+        if isinstance(result, tuple):
+            if len(result) != 2:
+                raise RuntimeError("Unsupported FlashAttention4 result tuple")
+            result = result[0]
+        if not torch.is_tensor(result) or result.shape != q.shape or result.dtype != q.dtype or result.device != q.device:
+            raise RuntimeError("Unsupported FlashAttention4 output shape/dtype/device")
+        return result.transpose(1, 2)
 
     @staticmethod
     def _attend(query, key, value, mask):
@@ -154,11 +220,18 @@ class MoTWorldModel(nn.Module):
         image_prediction_type="v",
         attention_query_chunk_size=0,
         activation_checkpointing=False,
+        attention_backend="sdpa",
+        attention_dtype="native",
+        strict_fp32=False,
     ):
         super().__init__()
         if type(activation_checkpointing) is not bool:
             raise ValueError("activation_checkpointing must be bool")
         self.activation_checkpointing = activation_checkpointing
+        if type(strict_fp32) is not bool:
+            raise ValueError("strict_fp32 must be a boolean")
+        if strict_fp32 and attention_dtype != "native":
+            raise ValueError("Explicit BF16 attention conflicts with strict_fp32; select the mixed-attention execution profile")
         if image_prediction_type not in ("v", "x0"):
             raise ValueError("image_prediction_type must be v or x0")
         self.image_prediction_type = image_prediction_type
@@ -203,7 +276,8 @@ class MoTWorldModel(nn.Module):
             nn.Linear(2, width), nn.SiLU(), nn.Linear(width, width)
         )
         self.blocks = nn.ModuleList(
-            MoTBlock(width, heads, mlp_ratio, attention_query_chunk_size)
+            MoTBlock(width, heads, mlp_ratio, attention_query_chunk_size,
+                     attention_backend, attention_dtype)
             for _ in range(depth)
         )
         # One private image adapter per embodiment per block. Zero disables the

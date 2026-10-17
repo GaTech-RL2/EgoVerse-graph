@@ -43,6 +43,8 @@ runtime:
   # Opt in to disabling TF32 as well as autocast; requires precision=32-true
   # and NVIDIA_TF32_OVERRIDE=0 in the launch environment.
   strict_fp32: false
+  # Disable TF32 without declaring every model operation FP32.
+  disable_tf32: false
   # Lightning owns SIGUSR1/scontrol by default. An external ICE runner must
   # opt in explicitly and prove that child/framework requeue is disabled.
   slurm_requeue_owner: lightning

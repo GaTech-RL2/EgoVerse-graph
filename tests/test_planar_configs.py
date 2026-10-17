@@ -249,6 +249,18 @@ def test_duration_arc_explicitly_separates_raw_and_token_horizons():
         assert transform.action_target_offset == 1
 
 
+def test_trainer_default_does_not_cap_train_batches():
+    trainer_path = (
+        Path(__file__).parents[1]
+        / "egomimic"
+        / "hydra_configs"
+        / "trainer"
+        / "default.yaml"
+    )
+
+    assert "limit_train_batches" not in OmegaConf.load(trainer_path)
+
+
 def test_ddp_device_count_is_per_node_without_eval_resolver():
     config_dir = Path(__file__).parents[1] / "egomimic/hydra_configs"
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):

@@ -1103,3 +1103,138 @@ class ActionFlowObjectiveStage(Stage):
         batch[self.moment_mean_log_key] = moment_mean
         batch[self.moment_covariance_log_key] = moment_covariance
         return batch
+
+
+class LatentDiffusionSchedule:
+    """DP-compatible discrete cosine corruption, with an explicit noise-time lift.
+
+    Latents have no action-coordinate bounds, so clipping is disabled. The
+    underlying DDIM implementation, 100-step schedule and epsilon target are
+    the same maintained scheduler used by the OAT DP recipe. Noise-time is a
+    piecewise linear interpolation of alpha/sigma knots, not execution time.
+    """
+
+    def __init__(self, num_train_timesteps=100, beta_schedule="squaredcos_cap_v2"):
+        from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+
+        self.scheduler = DDIMScheduler(
+            num_train_timesteps=num_train_timesteps,
+            beta_start=0.0001, beta_end=0.02, beta_schedule=beta_schedule,
+            clip_sample=False, set_alpha_to_one=True, steps_offset=0,
+            prediction_type="epsilon",
+        )
+        self.count = int(num_train_timesteps)
+        if self.count < 2:
+            raise ValueError("diffusion requires at least two noise levels")
+        self.alpha = torch.cat((torch.ones(1), self.scheduler.alphas_cumprod.sqrt()))
+        self.sigma = torch.cat((torch.zeros(1), (1 - self.scheduler.alphas_cumprod).sqrt()))
+
+    def coefficients(self, time, ndim):
+        if time.ndim != 1 or not bool(torch.isfinite(time).all()):
+            raise ValueError("diffusion noise-time must be a finite batch vector")
+        if bool(((time < 0) | (time > 1)).any()):
+            raise ValueError("diffusion noise-time must lie in [0,1]")
+        position = time.float() * self.count
+        left = position.floor().long().clamp(max=self.count - 1)
+        fraction = position - left
+        alpha, sigma = self.alpha.to(time.device), self.sigma.to(time.device)
+        da = (alpha[left + 1] - alpha[left]) * self.count
+        ds = (sigma[left + 1] - sigma[left]) * self.count
+        a = alpha[left] + fraction * (alpha[left + 1] - alpha[left])
+        s = sigma[left] + fraction * (sigma[left + 1] - sigma[left])
+        shape = (-1,) + (1,) * (ndim - 1)
+        return tuple(v.reshape(shape) for v in (a, s, da, ds))
+
+
+class LatentDiffusionBridgeStage(LatentBridgeStage):
+    """Corrupt the learned clean latent with DP-style independent Gaussian noise."""
+
+    def __init__(self, *, num_train_timesteps=100, beta_schedule="squaredcos_cap_v2", **kwargs):
+        if kwargs.get("time_sampling", "uniform") != "uniform":
+            raise ValueError("epsilon diffusion uses uniform discrete timesteps")
+        super().__init__(**kwargs)
+        self.diffusion = LatentDiffusionSchedule(num_train_timesteps, beta_schedule)
+        self.writes += ("action_flow/diffusion_target_epsilon",)
+
+    def _sample_time(self, count, device):
+        return (torch.randint(self.diffusion.count, (count,), device=device).float() + 1) / self.diffusion.count
+
+    def forward(self, batch):
+        super().forward(batch)
+        clean = batch[self.clean_key].index_select(0, batch[self.base_index_key])
+        noise = batch[self.expanded_noise_key]
+        a, s, da, ds = self.diffusion.coefficients(batch[self.time_key], clean.ndim)
+        batch[self.state_key] = a * clean + s * noise
+        batch[self.target_velocity_key] = da * clean + ds * noise
+        batch["action_flow/diffusion_target_epsilon"] = noise
+        return batch
+
+
+class ConditionalEpsilonDDIMStage(ConditionalVelocityStage):
+    """Train epsilon regression and decode the corresponding velocity residual.
+
+    FM telemetry keys retain their legacy names for optimizer/gradient routing;
+    their objective is epsilon MSE here. The action-velocity term uses
+    J_g(z_t) [v_hat - v_target], with the exact declared noise-time lift.
+    The original encoder attachment is retained for this term, while the
+    epsilon-only clean route respects all_stopgrad.
+    """
+
+    def __init__(self, *, num_train_timesteps=100, beta_schedule="squaredcos_cap_v2", inference_method="ddim", **kwargs):
+        if inference_method != "ddim":
+            raise ValueError("diffusion epsilon stage requires DDIM")
+        if kwargs.get("fm_field_execution", "separate") != "separate":
+            raise ValueError("diffusion epsilon stage requires separate gradient routes")
+        super().__init__(inference_method="euler", **kwargs)
+        self.inference_method = "ddim"
+        self.diffusion = LatentDiffusionSchedule(num_train_timesteps, beta_schedule)
+        self.reads = self.reads + ("action_flow/diffusion_target_epsilon",)
+
+    def _epsilon(self, state, time, condition, drop_mask):
+        return super()._predict(state, time, condition, drop_mask)
+
+    def _predict(self, state, time, condition, drop_mask):
+        epsilon = self._epsilon(state, time, condition, drop_mask)
+        a, s, da, ds = self.diffusion.coefficients(time, state.ndim)
+        return da / a * state + (ds - da / a * s) * epsilon
+
+    def _forward_train(self, batch):
+        state, time = batch[self.state_key], batch[self.time_key]
+        condition, mask = batch[self.condition_key], batch[self.condition_drop_mask_key]
+        target = batch["action_flow/diffusion_target_epsilon"]
+        epsilon = self._epsilon(state, time, condition, mask)
+        a, s, da, ds = self.diffusion.coefficients(time, state.ndim)
+        velocity = da / a * state + (ds - da / a * s) * epsilon
+        batch[self.predicted_velocity_key] = velocity
+        batch[self.residual_key] = (ds - da / a * s) * (epsilon - target)
+        regression = self._epsilon(state.detach(), time, condition, mask) if self.flow_clean_gradient_mode == "all_stopgrad" else epsilon
+        batch[self.flow_residual_key] = regression - target
+        return batch
+
+    def _forward_inference(self, batch):
+        # DDIM schedule arithmetic remains FP32; model autocast is owned by runtime.
+        state = _tensor(batch, self.inference_noise_key).float()
+        condition = _tensor(batch, self.inference_condition_key)
+        if state.device != condition.device or state.shape[0] != condition.shape[0]:
+            raise ValueError("DDIM noise and condition must share device/batch")
+        scheduler = self.diffusion.scheduler
+        scheduler.set_timesteps(self.num_inference_steps, device=state.device)
+        mask = torch.zeros(state.shape[0], dtype=torch.bool, device=state.device)
+        trajectory = [state]
+        for index in scheduler.timesteps:
+            time = torch.full((state.shape[0],), (int(index) + 1) / self.diffusion.count, device=state.device, dtype=torch.float32)
+            epsilon = self._epsilon(state, time, condition, mask).float()
+            if self.cfg_scale != 1.0:
+                unconditioned = self._epsilon(state, time, condition, ~mask).float()
+                start, end = self.cfg_interval
+                guided = unconditioned + self.cfg_scale * (epsilon - unconditioned)
+                active = ((time <= end) & (time >= start)).reshape(-1, *([1] * (state.ndim - 1)))
+                epsilon = torch.where(active, guided, epsilon)
+            state = scheduler.step(epsilon, index, state, eta=0.0).prev_sample
+            if not bool(torch.isfinite(state).all()):
+                raise RuntimeError("DDIM latent trajectory is non-finite")
+            trajectory.append(state)
+        batch[self.generated_latent_key] = state
+        batch[self.trajectory_key] = torch.stack(trajectory)
+        batch[self.inference_steps_log_key] = state.new_tensor(float(self.num_inference_steps))
+        return batch

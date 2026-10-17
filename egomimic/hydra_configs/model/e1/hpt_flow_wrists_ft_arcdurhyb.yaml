@@ -1,0 +1,17 @@
+# E1 hybrid: independent per-arm translation and rotation clocks, with an explicit full-turn budget.
+defaults:
+- /model/e1/hpt_flow_wrists_ft_arcdur@_here_
+- _self_
+action_token_dim: 18
+rotation_distance_unit: 6.283185307179586
+data_contracts:
+  yam:
+    preprocessing:
+      '7':
+        transforms:
+          rotation_distance_unit: ${model.rotation_distance_unit}
+  human:
+    preprocessing:
+      '3':
+        transforms:
+          rotation_distance_unit: ${model.rotation_distance_unit}

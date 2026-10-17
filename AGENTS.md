@@ -62,6 +62,7 @@ not imply a separate runtime for that task or model.
 | Strict weights-only initialization and freeze schedules | [pipeline/initialization.py](egomimic/pipeline/initialization.py), [pl_utils/trainability_behavior.py](egomimic/pl_utils/trainability_behavior.py) |
 | HPT, flow, ARC, PI and other graph stages | `egomimic/pipeline/stages_*.py` |
 | Neural network implementations | `egomimic/models/`; HPT stems in `models/stems/`, optional PI backend in `models/pi05/` |
+| Goal-conditioned chunked RL and replay calibration | [trainRL.py](egomimic/trainRL.py), [Q_CHUNKING.md](docs/Q_CHUNKING.md); shared graph and Lightning runtime |
 | Shared Lightning training and validation hooks | [pl_utils/pl_model.py](egomimic/pl_utils/pl_model.py), [pl_utils/pl_data_utils.py](egomimic/pl_utils/pl_data_utils.py) |
 | Episode loading, metadata, normalization, bounds and sampling | [rldb/zarr/zarr_dataset_multi.py](egomimic/rldb/zarr/zarr_dataset_multi.py) |
 | Embodiment keymaps and coordinate frames | `egomimic/rldb/embodiment/{human,eva,yam}.py`; see [data guide](egomimic/rldb/AGENTS.md) |

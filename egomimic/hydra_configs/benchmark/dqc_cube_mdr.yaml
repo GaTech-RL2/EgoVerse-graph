@@ -1,0 +1,98 @@
+# Tune only M/D/R of the existing uniform ShapeTimeControlChunkCodec.
+# This is exploratory simulator-replay fidelity, not the previous near-exact
+# native-control criterion. Always report both criteria and every failed row.
+domain: cube-quadruple
+base_recipe: dqc.yaml
+reference: {policy_native_steps: 5, teacher_native_steps: 25, kappa_b: 0.93, kappa_d: 0.8, q_agg: min}
+calibration:
+  seed: 749193
+  windows: 1024
+  replay_batch_size: 64
+  physics_windows: 128
+  physics_candidates: 100
+  physics_all_candidates: false
+  selection_objective: smallest_faithful
+  grid:
+    native_horizon: [25]
+    waypoints: [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+  duration_matching:
+    target_native_steps: 5
+    tolerance: 0.0
+    rotation_multipliers: [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
+  gates:
+    action_rmse_p90: 0.01
+    action_rmse_p99: 0.02
+    action_max_abs: 0.1
+    first_action_rmse_p99: 0.03
+    mean_native_steps: 1.0
+    qpos_rmse_p90: 0.001
+    qpos_rmse_max: 0.01
+strict_control_gates:
+  action_rmse_p90: 0.001
+  action_rmse_p99: 0.001
+  action_max_abs: 0.01
+  first_action_rmse_p99: 0.001
+confirmation:
+  seed: 429175
+  windows: 1024
+  physics_windows: 256
+  exclude_whole_calibration_windows: true
+refinement:
+  # Follow-up after M64 failed independent physics; reuse development windows.
+  waypoints: [48, 64, 80, 96, 112, 128]
+  rotation_multipliers: [0.25, 0.3535533905932738, 0.5, 0.7071067811865476, 1.0, 1.4142135623730951, 2.0, 2.8284271247461903, 4.0, 5.656854249492381, 8.0]
+  rank: [smallest_M, smallest_normalized_worst_physics_gate, action_rmse_p99]
+  physics_all_candidates: true
+final_confirmation:
+  seed: 631729
+  validation_shard: 1
+  windows: 2048
+  physics_windows: 256
+  source: previously_unused_validation_shard
+boundary_refinement:
+  # The midpoint proposals failed contacts on validation shard 001. Explore
+  # the full threshold interval giving a median of five, with codec unchanged.
+  waypoints: [32, 48, 64, 80, 96, 112, 128]
+  boundary_fractions: [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98]
+  relative_rotation_indices: [0, 2, 4, 6, 8, 10]
+  development_validation_shards: [0, 1]
+  untouched_confirmation_shard: 2
+motion_replay:
+  # Physical trajectory errors are measured at every native step. The former
+  # mixed-unit qpos criterion remains a separately reported diagnostic.
+  waypoints: [32, 48, 64]
+  refinement_waypoints: [36, 40, 44, 52, 56, 60, 72, 80, 96, 128]
+  object_position_keys: [privileged/block_0_pos, privileged/block_1_pos, privileged/block_2_pos, privileged/block_3_pos]
+  object_quaternion_keys: [privileged/block_0_quat, privileged/block_1_quat, privileged/block_2_quat, privileged/block_3_quat]
+  effector_key: proprio/effector_pos
+  opening_key: proprio/gripper_opening
+  gates:
+    object_position_m_p99: 0.005
+    object_position_m_max: 0.01
+    effector_position_m_p99: 0.002
+    effector_position_m_max: 0.005
+    gripper_opening_p99: 0.02
+    gripper_opening_max: 0.05
+  fresh_confirmation_shard: 3
+  fresh_confirmation_windows: 2048
+  fresh_confirmation_physics_windows: 256
+training:
+  seeds: [100001, 200002, 300003]
+  arms: [native_reference, native_window, arc]
+  steps: 1000000
+  batch_size: 4096
+  eval_interval: 100000
+  eval_episodes: 50
+  video_episodes: 1
+  eval_seed_start: 2000000
+  paper_success_reference: 0.92
+  selection_metric: fixed_final_step_mean_over_all_five_goal_tasks
+  claim_requires_independent_training_seeds: true
+smoke:
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1

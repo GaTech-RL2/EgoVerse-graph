@@ -1,0 +1,35 @@
+# Apply these dotted overrides to dqc.yaml AFTER the dqc_suite domain settings.
+# Two fresh arms: same native-time boundaries and direct TD, different codec.
+base_recipe: dqc.yaml
+suite_recipe: dqc_suite.yaml
+arms: [native_window, arc]
+overrides:
+  include_future_observations: true
+  model.pipeline.stages.0.backup_mode: policy_window
+  model.pipeline.stages.0.use_chunk_critic: false
+  model.pipeline.stages.0.kappa_d: 0.5
+  wandb.group: qc-arc-smdp-20260921
+protocol:
+  name: goal_conditioned_semi_markov_qc
+  time_unit: native_environment_step
+  goal_reward_interval: half_open_state_based
+  teacher: none
+  td_loss: symmetric_probability_bce_with_weight_0.5
+  allocation: uniform
+  inference_execution: full_decoded_chunk_until_environment_done
+smoke:
+  domain: cube-triple
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1
+  audit_samples: 1024
+  audit_seed: 749194
+data_gate:
+  generator_sha256: 120e84e88c046175301ce11c12e9fb0d64d3dece4b03855ec445b328f5b9a2fc
+  expected_transitions: 1000000000
+  poll_seconds: 60
+  timeout_seconds: 1641600  # 19 days, inside the 20-day workflow timeout

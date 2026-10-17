@@ -1,0 +1,81 @@
+# DQC reference recipe, upstream df898256a77f3594b54a7268bd5f89915981da35.
+# ARC and its matched uncompressed spatial-window control override codec only.
+run_id: ???
+env_name: ???
+seed: 100001
+steps: 1000000
+batch_size: 4096
+backup_horizon: 25
+discount: 0.999
+replace_interval: 1000
+log_interval: 1000
+checkpoint_interval: 10000
+# Retain all remote checkpoints; bound only this process's uploaded scratch copies.
+local_checkpoint_keep: 2
+eval_interval: 250000
+eval_episodes: 50
+eval_seed_start: 2000000
+video_episodes: 1
+require_gpu: true
+torch_threads: 4
+matmul_precision: highest
+device: cuda
+action_dim: ???
+observation_dim: ???
+goal_dim: ???
+output_dir: ???
+cache_dir: ???
+shards: ???
+resume: null
+artifacts:
+  bucket: rldb
+  prefix: ???
+wandb:
+  enabled: true
+  entity: rl2-group
+  project: egoverse-qchunk-arc
+  group: dqc-arc-20260921
+codec:
+  _target_: egomimic.rldb.action_codec.ControlChunkCodec
+  action_dim: ${action_dim}
+  native_horizon: 5
+  kind: native
+  waypoints: 4
+  distance: 0.1
+  rotation: 0.4188790204786391
+  translation_indices: [0, 1, 2]
+  rotation_indices: [3]
+  action_scale: [0.05, 0.05, 0.05, 0.3, 1.0]
+  path_mode: delta
+  temporal_floor: 0.01
+model:
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    device: ${device}
+    stages:
+      - _target_: egomimic.pipeline.stages_q_chunking.QChunkingStage
+        codec: ${codec}
+        observation_dim: ${observation_dim}
+        goal_dim: ${goal_dim}
+        action_dim: ${action_dim}
+        backup_horizon: ${backup_horizon}
+        discount: ${discount}
+        hidden_dims: [1024, 1024, 1024, 1024]
+        layer_norm: true
+        actor_layer_norm: true
+        num_qs: 2
+        tau: 0.005
+        kappa_b: 0.9
+        kappa_d: 0.5
+        q_agg: mean
+        use_chunk_critic: true
+        flow_steps: 10
+        best_of_n: 32
+  training_behavior:
+    _target_: egomimic.pl_utils.target_network_behavior.TargetNetworkBehavior
+    prediction_log_interval: ${log_interval}
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0003
+    eps: 1.0e-8
+    betas: [0.9, 0.999]

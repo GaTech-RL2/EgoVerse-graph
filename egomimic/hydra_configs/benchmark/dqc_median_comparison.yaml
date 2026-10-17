@@ -1,0 +1,59 @@
+# Fresh variable-duration policies calibrated around DQC's five-action policy.
+# Keep the fixed native 25-action teacher and per-domain DQC hyperparameters.
+base_recipe: dqc.yaml
+suite_recipe: dqc_suite.yaml
+arms: [native_reference, native_window, arc]
+overrides:
+  include_future_observations: false
+  model.pipeline.stages.0.backup_mode: fixed
+  model.pipeline.stages.0.use_chunk_critic: true
+  wandb.group: dqc-arc-median5-20260921
+protocol:
+  name: dqc_fixed_td_median_matched_policy
+  target_median_native_steps: 5
+  reference_policy_native_steps: 5
+  teacher_native_steps: 25
+  time_unit: native_environment_step
+  goal_reward_interval: half_open_state_based
+  teacher: original_native_action_chunk_critic
+  td_loss: original_dqc_with_domain_specific_asymmetric_distillation
+  optimizer_updates: 1000000
+  batch_size: 4096
+  allocation: uniform
+  inference_execution: full_decoded_chunk_until_environment_done
+calibration:
+  seed: 749193
+  windows: 1024
+  physics_windows: 64
+  physics_candidates: 64
+  grid:
+    native_horizon: [25]
+    waypoints: [2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24]
+  duration_matching:
+    target_native_steps: 5
+    tolerance: 0.0
+    rotation_multipliers: [0.5, 1.0, 2.0, 4.0, 8.0]
+  gates:
+    action_rmse_p90: 0.15
+    mean_native_steps: 1.0
+    # Fidelity at matched duration is mandatory; compression is measured,
+    # not obtained by lengthening the window. Expansion must be labeled.
+    scalar_compression_ratio: 0.0
+    qpos_rmse_p90: 0.05
+smoke:
+  domain: cube-triple
+  steps: 100
+  log_interval: 10
+  checkpoint_interval: 50
+  eval_interval: 100
+  eval_episodes: 2
+  eval_task_ids: [1]
+  video_episodes: 1
+  audit_samples: 1024
+  audit_seed: 749194
+workers_per_arm: 2
+data_gate:
+  generator_sha256: 120e84e88c046175301ce11c12e9fb0d64d3dece4b03855ec445b328f5b9a2fc
+  expected_transitions: 1000000000
+  poll_seconds: 60
+  timeout_seconds: 1641600

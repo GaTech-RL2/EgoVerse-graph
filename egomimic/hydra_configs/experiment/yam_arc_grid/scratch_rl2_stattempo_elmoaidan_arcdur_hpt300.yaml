@@ -1,0 +1,31 @@
+# @package _global_
+# HPT-300M twin of scratch_rl2_stattempo_elmoaidan_arcdur (Elmo + Aidan stationery, 218 train / 11 valid fixed split): same data, recipe and eval, only the
+# model is the lab HPT-300M dims (embed 840, trunk 19 blocks x 10 heads, flow CrossTransformer 6 x 320), as the towels394
+# hpt300 cell (scratch_rl2_towels394_arcdur_hpt300_lambda) did.
+defaults:
+- /experiment/yam_arc_grid/scratch_rl2_stattempo_elmoaidan_arcdur
+- _self_
+- override /model: e1/hpt300_flow_wrists_arcdur
+name: scratch_rl2_stattempo_elmoaidan_arcdur_hpt300
+description: hpt300_cos10k_240k_s42_scratch_rl2_stattempo_elmoaidan_arcdur_hpt300
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_elmoaidan_arcdur_hpt300_20260930_s42
+    tags:
+    - rl2
+    - stationery
+    - elmoaidan
+    - scratch
+    - arcdur
+    - hpt300
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  stem_specs:
+    cross_attn:
+      crossattn_heads: 10
+      crossattn_dim_head: 84
+      modality_embed_dim: 840
+e1:
+  policy_domain: yam

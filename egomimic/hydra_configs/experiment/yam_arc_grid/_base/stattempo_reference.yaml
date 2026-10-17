@@ -1,0 +1,66 @@
+# @package _global_
+# Reference streams share spatial ranges; each codec supplies its timing ranges.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_openloop
+- override /model: e1/hpt_flow_wrists_ft_arcdurref
+- _self_
+e1:
+  action_dim: 24
+hpt:
+  action_dim: 24
+evaluator:
+  action_mode: arc
+  tick_prefix: true
+norm_stats:
+  fixed_ranges:
+    actions_cartesian:
+      low:
+      - -0.75
+      - -0.75
+      - -0.75
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - 0.0
+      - -0.75
+      - -0.75
+      - -0.75
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - -1.0
+      - 0.0
+      - ${e1.reference_translation_range.0}
+      - ${e1.reference_translation_range.0}
+      - ${e1.reference_rotation_range.0}
+      - ${e1.reference_rotation_range.0}
+      high:
+      - 0.75
+      - 0.75
+      - 0.75
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 0.75
+      - 0.75
+      - 0.75
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - ${e1.reference_translation_range.1}
+      - ${e1.reference_translation_range.1}
+      - ${e1.reference_rotation_range.1}
+      - ${e1.reference_rotation_range.1}

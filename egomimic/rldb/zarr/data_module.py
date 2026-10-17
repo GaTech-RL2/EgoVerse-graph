@@ -85,6 +85,29 @@ def normalizer_from_state(state, *, normalizer_config=None):
     return normalizer
 
 
+def _check_fixed_ranges(owner, fixed):
+    """A restored normalizer must already carry norm_stats.fixed_ranges: a model sampled under a [-1, 1] clip is
+    only right with the fixed scale it was trained on, never with fitted quantiles."""
+    for identity, keys in owner.norm_stats.items():
+        for key, ranges in fixed.items():
+            saved = keys.get(key)
+            if saved is not None:
+                want, _ = MultiDataset._fixed_range_quantiles(
+                    saved, ranges["low"], ranges["high"]
+                )
+            if saved is None or any(
+                not np.array_equal(
+                    np.asarray(saved[q], dtype=np.float32),
+                    np.asarray(want[q], dtype=np.float32),
+                )
+                for q in ("quantile_1", "quantile_99")
+            ):
+                raise ValueError(
+                    f"saved normalization does not carry norm_stats.fixed_ranges for {identity}/{key}; "
+                    "recompute the statistics with the option set"
+                )
+
+
 def load_normalizer(path):
     """Restore this adapter's immutable export without resolving any episode."""
     payload = json.loads(Path(path).read_text())
@@ -204,6 +227,9 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 "Normalization-only mode requires norm_stats.save_cache_dir"
             )
         saved = restored_state
+        fixed = options.get("fixed_ranges")
+        if OmegaConf.is_config(fixed):
+            fixed = OmegaConf.to_container(fixed, resolve=True)
         path = options.get("precomputed_norm_path")
         if saved is None and path:
             path = Path(path)
@@ -273,6 +299,12 @@ class ZarrDataModule(MultiDataModuleWrapper):
             if options.get("norm_mode", owner.norm_mode) != owner.norm_mode:
                 raise ValueError(
                     "Requested normalization mode differs from saved data context"
+                )
+            if fixed:
+                _check_fixed_ranges(owner, fixed)
+            elif saved.get("fixed_ranges"):
+                raise ValueError(
+                    "Saved data context was fitted with norm_stats.fixed_ranges; set the same option to reuse it"
                 )
         else:
             kwargs = {"state": {}, "norm_mode": options.get("norm_mode", "quantile")}
@@ -372,6 +404,10 @@ class ZarrDataModule(MultiDataModuleWrapper):
             )
         if preprocessing:
             snapshot["preprocessing"] = preprocessing
+        # Marks a context whose action statistics are fixed constants, so a run without the option refuses it above.
+        # A restored context keeps the saved value verbatim: it is part of the fingerprint a checkpoint is bound to.
+        if ranges := saved.get("fixed_ranges") if saved is not None else fixed:
+            snapshot["fixed_ranges"] = copy.deepcopy(ranges)
         self.context = DataContext(
             owner, copy.deepcopy(owner.shapes), tuple(self.valid_group_names), snapshot
         )
@@ -460,6 +496,14 @@ class ZarrDataModule(MultiDataModuleWrapper):
             sample_frac=options.get("sample_frac", 1.0),
             num_workers=options.get("num_workers", 4),
             precomputed_norm_path=path,
+            widen_degenerate_quantiles=bool(
+                options.get("widen_degenerate_quantiles", False)
+            ),
+            fixed_ranges=OmegaConf.to_container(
+                OmegaConf.create(options["fixed_ranges"]), resolve=True
+            )
+            if options.get("fixed_ranges")
+            else None,
             resume_partial_norm_path=(
                 options.get("resume_partial_norm_path")
                 if mode == "normalization"

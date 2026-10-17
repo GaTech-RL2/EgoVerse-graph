@@ -1,0 +1,8 @@
+# @package _global_
+# Slow-pace YAM + RL2 Aria, robot-only complete-episode open-loop validation
+# (inherited from _base/stattempo_openloop).
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_openloop
+- override /model: e1/hpt_flow_wrists_ft_cotrain
+- override /data: abc_arc/stationery_slowpace_aria_cotrain_time
+- _self_

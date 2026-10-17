@@ -327,7 +327,7 @@ def plot_results(args):
     rows = {(r["side"], r["id"]): r for r in rows if r["split"] == "test"}
     # Predeclared middle frame per episode, not selected by error.
     for label, indices in (("heldout-examples", [1, 4, 7]), ("all-heldout", list(range(len(data))))):
-        fig, axes = plt.subplots(len(indices), 4, figsize=(16, 3.3 * len(indices)), squeeze=False)
+        fig, axes = plt.subplots(len(indices), 4, figsize=(16, 3.7 * len(indices) + 1), squeeze=False)
         fig.suptitle("Frozen DINOv3 hand segmentation | FP32 | held-out episodes\n"
                      "Exploratory Codex polygon labels; not independently human-annotated ground truth", fontsize=15)
         for y, i in enumerate(indices):
@@ -352,7 +352,9 @@ def plot_results(args):
                 axes[y, col].imshow(overlay)
                 axes[y, col].contour(mask, levels=[.5], colors="lime", linewidths=.5)
                 axes[y, col].set_title(f"{side} prediction • IoU {row['uncertainty_excluded']['iou']:.1%}")
-        fig.tight_layout(rect=(0, 0, 1, .95 if len(indices) == 3 else .98))
+        fig.subplots_adjust(left=.01, right=.99, bottom=.02,
+                            top=.90 if len(indices) == 3 else .96,
+                            hspace=.24, wspace=.04)
         fig.savefig(out / f"{label}.png", dpi=140)
         plt.close(fig)
 

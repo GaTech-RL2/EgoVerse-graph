@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+  - /experiment/e1/yam_human_af64_observation640_total180m_open_loop
+  - _self_
+name: yam_human_af64_unet1d_large_codecs
+description: Temporal U-Net action interfaces matched to AF180M private parameter budgets
+ckpt_path: null
+init_weights_from: null
+model:
+  pipeline:
+    action_codec_configs:
+      encoders:
+        yam_bimanual:
+          _target_: egomimic.models.temporal_action_codec.TemporalActionEncoder
+          action_dim: 14
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          channels: [180, 360, 720]
+          kernel_size: 3
+          groups: 4
+          gradient_checkpointing: true
+        human_bimanual:
+          _target_: egomimic.models.temporal_action_codec.TemporalActionEncoder
+          action_dim: 138
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          channels: [180, 360, 720]
+          kernel_size: 3
+          groups: 4
+          gradient_checkpointing: true
+      decoders:
+        yam_bimanual:
+          _target_: egomimic.models.temporal_action_codec.TemporalActionDecoder
+          action_dim: 14
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          channels: [140, 280, 560]
+          kernel_size: 3
+          groups: 4
+          gradient_checkpointing: true
+        human_bimanual:
+          _target_: egomimic.models.temporal_action_codec.TemporalActionDecoder
+          action_dim: 138
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          channels: [140, 280, 560]
+          kernel_size: 3
+          groups: 4
+          gradient_checkpointing: true
+run_provenance:
+  architecture:
+    parameter_count_candidate: 180170032
+    private_codec: TemporalUNet1D_encoder180_360_720_decoder140_280_560
+    codec_encoder_randomness: deterministic
+    denoiser: UniteDiTBackbone_h448_d10_h8
+    diagnostic_layer_map_contract: unet_entry_exit_resampled64_to_field0_9
+    codec_skip_connections: within_each_interface_only_no_encoder_decoder_bypass
+callbacks:
+  yam_dit_half:
+    _target_: egomimic.utils.yam_dit_half.YamHumanDiTHalf
+    velocity_depth: 10
+    encoder_kind: temporal_unet

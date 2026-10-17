@@ -18,6 +18,7 @@ def build_speed_conditioned_pipeline(
     conditioning_input="retiming_multiplier",
     flow_inference_method=None,
     dit_checkpoint_policy=None,
+    action_codec_configs=None,
 ):
     """Typed Action Flow graph adapter; leave the generic runner unchanged.
 
@@ -34,6 +35,8 @@ def build_speed_conditioned_pipeline(
             "Measured-speed conditioning was removed; use direct retiming_multiplier with speed_reference=null"
         )
     configs = OmegaConf.to_container(stages, resolve=True)
+    if action_codec_configs is not None:
+        replace_action_codec_configs(configs, action_codec_configs)
     bridges = [
         c for c in configs if c.get("_target_", "").endswith(".LatentBridgeStage")
     ]
@@ -79,6 +82,37 @@ def build_speed_conditioned_pipeline(
         ),
     )
     return PipelineAlgo(modules, device=device, compatibility_mode=compatibility_mode)
+
+
+def replace_action_codec_configs(stages, codec_configs):
+    """Replace declared private modules before construction, preserving routing.
+
+    This typed option avoids copying the complete observation/field/data graph
+    into each codec architecture experiment. All action and latent dimensions
+    must retain their original contracts; an omitted embodiment fails closed.
+    """
+    from omegaconf import OmegaConf
+
+    replacements = OmegaConf.to_container(codec_configs, resolve=True)
+    if set(replacements) != {"encoders", "decoders"}:
+        raise ValueError("Codec replacement requires encoders and decoders")
+    for key, stage_name in (("encoders", ".ContentEncoderStage"),
+                            ("decoders", ".ContentDecoderStage")):
+        matches = [s for s in stages if s.get("_target_", "").endswith(stage_name)]
+        if len(matches) != 1 or key not in matches[0]:
+            raise ValueError(f"Codec replacement requires one private {key} stage")
+        previous = matches[0][key]
+        selected = replacements[key]
+        if set(selected) != set(previous):
+            raise ValueError(f"Codec replacement {key} embodiment mismatch")
+        for domain, spec in selected.items():
+            if not spec.get("_target_"):
+                raise ValueError("Codec replacement needs an explicit module target")
+            for dimension in ("action_dim", "action_horizon", "latent_dim",
+                              "num_latent_tokens"):
+                if spec.get(dimension) != previous[domain].get(dimension):
+                    raise ValueError(f"Codec replacement changes {domain}.{dimension}")
+        matches[0][key] = selected
 
 
 def build_multiplier_conditioned_pipeline(

@@ -2157,6 +2157,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         transform_list: list | None = None,
         image_hw: tuple[int, int] | None = None,
         embodiment_override: str | None = None,
+        observation_history_steps: int = 1,
     ):
         """
         Args:
@@ -2164,6 +2165,13 @@ class ZarrDataset(torch.utils.data.Dataset):
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
         """
+        if (
+            isinstance(observation_history_steps, bool)
+            or not isinstance(observation_history_steps, int)
+            or observation_history_steps < 1
+        ):
+            raise ValueError("observation_history_steps must be a positive integer")
+        self.observation_history_steps = observation_history_steps
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
@@ -2338,6 +2346,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         idx: int,
         _fallback_origin: int | None = None,
         _attempts: int | None = None,
+        *,
+        _include_history: bool = True,
+        _strict_frame: bool = False,
     ) -> dict[str, torch.Tensor]:
         # Build keys_dict with ranges based on whether action chunking is enabled
         """
@@ -2354,7 +2365,7 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         def _next(reason: str, key: str = "") -> int:
             nonlocal attempts
-            if getattr(self, "_ordered_samples", False):
+            if _strict_frame or getattr(self, "_ordered_samples", False):
                 raise RuntimeError(
                     f"Ordered sample failed at {self.episode_path}/{idx}: {reason}; random fallback is disabled"
                 )
@@ -2484,6 +2495,37 @@ class ZarrDataset(torch.utils.data.Dataset):
             # caller's potentially rejected initial index.
             data["frame_index"] = int(idx)
             _ = origin  # preserved for symmetry with prior API
+            if _include_history and self.observation_history_steps > 1:
+                # Transform each observation at its own native frame. Stacking
+                # after transforms preserves the current action coordinate
+                # anchor and avoids applying action stride/retiming to history.
+                frames = [
+                    max(0, idx + offset)
+                    for offset in range(1 - self.observation_history_steps, 1)
+                ]
+                views = (
+                    self._view_transform.sample_views
+                    if self._view_transform is not None
+                    else 1
+                )
+                samples = [
+                    data
+                    if frame == idx
+                    else self.__getitem__(
+                        frame * views + view, _include_history=False, _strict_frame=True
+                    )
+                    for frame in frames
+                ]
+                keys = [key for key in data if key.startswith("observations.")]
+                if not keys:
+                    raise ValueError(
+                        "Observation history requires transformed observations.* keys"
+                    )
+                for key in keys:
+                    data[key] = torch.stack([sample[key] for sample in samples])
+                data["observation_frame_indices"] = torch.tensor(
+                    frames, dtype=torch.long
+                )
             return data
 
 

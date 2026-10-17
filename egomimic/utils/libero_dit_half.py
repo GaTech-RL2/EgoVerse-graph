@@ -31,7 +31,11 @@ def resolve_backbones(module):
         + ("LatentDiffusionBridgeStage", "ConditionalEpsilonDDIMStage")
         + oat_topology[6:]
     )
-    oat = names in (oat_topology, diffusion_topology)
+    embodied_topology = (
+        "EmbodimentOATObservationStage",
+        "EmbodimentActionTargetBuilder",
+    ) + oat_topology[2:]
+    oat = names in (oat_topology, diffusion_topology, embodied_topology)
     if native:
         encoder, velocity = stages[4], stages[6]
     elif oat:
@@ -40,12 +44,31 @@ def resolve_backbones(module):
         raise ValueError(
             "audited native or OAT-observation single-source LIBERO stage topology required"
         )
-    return {"encoder": encoder.encoder.backbone, "velocity": velocity.field.backbone}
+    if encoder.encoder is not None:
+        return {
+            "encoder": encoder.encoder.backbone,
+            "velocity": velocity.field.backbone,
+        }
+    return {
+        **{f"encoder:{key}": value.backbone for key, value in encoder.encoders.items()},
+        "velocity": velocity.field.backbone,
+    }
 
 
 class HalfCheckpointScope:
     def __init__(self, native_module, backbones, expected_depth=12):
-        if set(backbones) != {"encoder", "velocity"}:
+        if (
+            "velocity" not in backbones
+            or not any(
+                key == "encoder" or key.startswith("encoder:") for key in backbones
+            )
+            or any(
+                key != "velocity"
+                and key != "encoder"
+                and not key.startswith("encoder:")
+                for key in backbones
+            )
+        ):
             raise ValueError("exact two DiT owners required")
         self.native_module = native_module
         self.original = None
@@ -99,7 +122,15 @@ class HalfCheckpointScope:
 
 
 class LiberoDiTHalf(Callback):
-    def __init__(self):
+    def __init__(self, source_key="libero_panda", source_keys=None):
+        if not isinstance(source_key, str) or not source_key.strip():
+            raise ValueError("a nonempty single-source batch key is required")
+        self.source_key = source_key
+        self.source_keys = tuple(source_keys or (source_key,))
+        if len(set(self.source_keys)) != len(self.source_keys) or any(
+            not isinstance(key, str) or not key for key in self.source_keys
+        ):
+            raise ValueError("source_keys must be unique nonempty source names")
         self.scope = None
 
     def on_fit_start(self, trainer, module):
@@ -112,12 +143,21 @@ class LiberoDiTHalf(Callback):
         self.scope.install()
 
     def on_train_batch_start(self, trainer, module, batch, batch_idx):
-        if set(batch) != {"libero_panda"}:
-            raise ValueError("single LIBERO source32 required")
+        if len(batch) != 1 or not set(batch) <= set(self.source_keys):
+            raise ValueError(
+                "single source from configured homogeneous sources required"
+            )
+        self.active_source = next(iter(batch))
         self.before = dict(self.scope.counts)
 
     def on_train_batch_end(self, trainer, module, outputs, batch, batch_idx):
         for name, count in self.scope.counts.items():
+            if name.startswith("encoder:") and not name.startswith(
+                f"encoder:{self.active_source}/"
+            ):
+                if count != self.before[name]:
+                    raise ValueError("inactive source encoder executed")
+                continue
             if count <= self.before[name]:
                 raise ValueError(("DiT-half inactive in actual update", name))
             module.log(
@@ -128,7 +168,12 @@ class LiberoDiTHalf(Callback):
             )
 
     def state_dict(self):
-        return {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
+        state = {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
+        if self.source_keys != (self.source_key,):
+            state["source_keys"] = list(self.source_keys)
+        if self.source_key != "libero_panda":
+            state["source_key"] = self.source_key
+        return state
 
     def load_state_dict(self, state):
         if state != self.state_dict():

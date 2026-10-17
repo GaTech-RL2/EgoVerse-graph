@@ -1,0 +1,407 @@
+# @package _global_
+defaults:
+- /experiment/e1/yam_human_matched_af64_multiplier
+- _self_
+name: yam_human_af64_observation640_total180m
+description: Reference observation encoder with stationary multiplier AF64; fresh
+  initialization; matched total parameter count
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  training_behavior:
+    _target_: egomimic.pl_utils.training_behavior_action_flow.ActionFlowTrainingBehavior
+  diagnostic_provider:
+    _target_: egomimic.eval.pipeline_diagnostics.ActionFlowDiagnosticProvider
+  action_horizon: 100
+  action_dim: 14
+  num_latent_tokens: 64
+  latent_dim: 16
+  condition_dim: 640
+  hidden_dim: 448
+  private_hidden_dim: 384
+  private_depth: 6
+  private_num_heads: 8
+  denoiser_hidden_dim: 448
+  denoiser_num_heads: 8
+  flow_samples_per_content: 14
+  flow_mini_batch: 14
+  condition_dropout_probability: 0.1
+  flow_loss_aggregation: mean
+  cfg_scale: 1.0
+  cfg_interval:
+  - 0.0
+  - 1.0
+  num_inference_steps: 50
+  reconstruction_weight: 1.0
+  flow_weight: 1.0
+  decoded_noise_scale_weight: 0.0
+  decode_noise: false
+  action_flow_method: latent_fm_stopgrad_unite
+  optimizer_named_parameters: true
+  gradient_checkpointing: true
+  jvp_activation_checkpointing: true
+  pipeline:
+    _target_: egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline
+    stages:
+    - _target_: egomimic.pipeline.stages_hpt.HPTStemStage
+      stems:
+        observations.images.front_img_1:
+          _target_: egomimic.models.stems.e1_image.E1ImageStem
+          output_dim: 640
+          weights: DEFAULT
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 8
+              crossattn_dim_head: 80
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 640
+      domain_stems:
+        yam_bimanual:
+          observations.state.ee_pose:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 14
+            output_dim: 640
+            widths:
+            - 640
+            specs:
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 80
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 640
+          observations.images.left_wrist_img:
+            _target_: egomimic.models.stems.e1_image.E1ImageStem
+            output_dim: 640
+            weights: DEFAULT
+            specs:
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 80
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 640
+          observations.images.right_wrist_img:
+            _target_: egomimic.models.stems.e1_image.E1ImageStem
+            output_dim: 640
+            weights: DEFAULT
+            specs:
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 80
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 640
+        human_bimanual:
+          observations.state.keypoints:
+            _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+            input_dim: 138
+            output_dim: 640
+            widths:
+            - 640
+            specs:
+              random_horizon_masking: false
+              cross_attn:
+                crossattn_latent: 16
+                crossattn_heads: 8
+                crossattn_dim_head: 80
+                crossattn_modality_dropout: 0.1
+                modality_embed_dim: 640
+      selector_aliases:
+        '3': human_bimanual
+        '7': yam_bimanual
+    - _target_: egomimic.pipeline.stages_hpt.HPTTrunkStage
+      embed_dim: 640
+      token_postprocessing: action_token
+      use_position_embedding: true
+      max_tokens: 512
+      trunk:
+        _target_: egomimic.models.cores.hpt_transformer.SimpleTransformer
+        embed_dim: 640
+        num_blocks: 8
+        drop_path_rate: 0.1
+        weight_init_style: pytorch
+        attn_target:
+          _target_: egomimic.models.cores.hpt_transformer.MultiheadAttention
+          _partial_: true
+          embed_dim: 640
+          num_heads: 8
+          batch_first: true
+      use_domain_embedding: true
+      domains:
+      - yam_bimanual
+      - human_bimanual
+      selector_aliases:
+        '3': human_bimanual
+        '7': yam_bimanual
+    - _target_: egomimic.pipeline.stages_io.EmbodimentActionTargetBuilder
+      action_keys:
+        yam_bimanual: actions_cartesian
+        human_bimanual: actions_keypoints
+      selector_aliases:
+        '3': human_bimanual
+        '7': yam_bimanual
+    - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+      num_tokens: 64
+      latent_dim: 16
+    - _target_: egomimic.pipeline.stages_action_flow.ContentEncoderStage
+      selector_aliases:
+        '3': human_bimanual
+        '7': yam_bimanual
+      encoders:
+        yam_bimanual:
+          _target_: egomimic.models.action_flow_unite.UniteActionFlowContentEncoder
+          action_dim: 14
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          condition_dim: 640
+          tokenization_time_max: 0.01
+          backbone:
+            _target_: egomimic.models.unite_dit.UniteDiTBackbone
+            input_dim: 16
+            output_dim: 16
+            horizon: 64
+            condition_dim: 640
+            max_condition_tokens: 1
+            max_content_tokens: 100
+            hidden_dim: 384
+            depth: 6
+            num_heads: 8
+            mlp_ratio: 4.0
+            qk_norm: true
+            use_rope: true
+            use_rmsnorm: true
+            use_swiglu: true
+            block_norm: true
+            time_fourier_dim: 256
+            context_adaln_summary: false
+            in_context_start: 4
+            in_context_len: 32
+            trainable_position_embeddings: false
+            trainable_register_position_embeddings: true
+            trainable_content_position_embeddings: false
+            trainable_condition_position_embeddings: false
+            trainable_in_context_position_embeddings: true
+            gradient_checkpointing: true
+            checkpoint_policy: dit_half
+        human_bimanual:
+          _target_: egomimic.models.action_flow_unite.UniteActionFlowContentEncoder
+          action_dim: 138
+          action_horizon: 100
+          latent_dim: 16
+          num_latent_tokens: 64
+          condition_dim: 640
+          tokenization_time_max: 0.01
+          backbone:
+            _target_: egomimic.models.unite_dit.UniteDiTBackbone
+            input_dim: 16
+            output_dim: 16
+            horizon: 64
+            condition_dim: 640
+            max_condition_tokens: 1
+            max_content_tokens: 100
+            hidden_dim: 384
+            depth: 6
+            num_heads: 8
+            mlp_ratio: 4.0
+            qk_norm: true
+            use_rope: true
+            use_rmsnorm: true
+            use_swiglu: true
+            block_norm: true
+            time_fourier_dim: 256
+            context_adaln_summary: false
+            in_context_start: 4
+            in_context_len: 32
+            trainable_position_embeddings: false
+            trainable_register_position_embeddings: true
+            trainable_content_position_embeddings: false
+            trainable_condition_position_embeddings: false
+            trainable_in_context_position_embeddings: true
+            gradient_checkpointing: true
+            checkpoint_policy: dit_half
+    - _target_: egomimic.pipeline.stages_action_flow.LatentBridgeStage
+      samples_per_content: 14
+      condition_dropout_probability: 0.1
+      time_sampling: lognormal_shifted
+      lognorm_mu: 0.0
+      lognorm_sigma: 1.0
+      timestep_shift_alpha: 0.5
+      independent_noise_per_sample: true
+      independent_condition_dropout_per_sample: true
+    - _target_: egomimic.pipeline.stages_action_flow.ConditionalVelocityStage
+      flow_clean_gradient_mode: all_stopgrad
+      num_inference_steps: 50
+      inference_method: dopri5
+      timestep_shift_alpha: 0.5
+      dopri5_atol: 1.0e-06
+      dopri5_rtol: 0.001
+      cfg_scale: ${model.cfg_scale}
+      cfg_interval:
+      - 0.0
+      - 1.0
+      field:
+        _target_: egomimic.models.action_flow_unite.UniteActionFlowVelocityField
+        input_dim: 16
+        output_dim: 16
+        horizon: 64
+        condition_dim: 640
+        condition_dropout_probability: 0.1
+        backbone:
+          _target_: egomimic.models.unite_dit.UniteDiTBackbone
+          input_dim: 16
+          output_dim: 16
+          horizon: 64
+          condition_dim: 640
+          max_condition_tokens: 1
+          max_content_tokens: 100
+          hidden_dim: 448
+          depth: 10
+          num_heads: 8
+          mlp_ratio: 4.0
+          qk_norm: true
+          use_rope: true
+          use_rmsnorm: true
+          use_swiglu: true
+          block_norm: true
+          time_fourier_dim: 256
+          context_adaln_summary: false
+          in_context_start: 4
+          in_context_len: 32
+          trainable_position_embeddings: false
+          trainable_register_position_embeddings: true
+          trainable_content_position_embeddings: false
+          trainable_condition_position_embeddings: false
+          trainable_in_context_position_embeddings: true
+          gradient_checkpointing: true
+          checkpoint_policy: dit_half
+    - _target_: egomimic.pipeline.stages_action_flow.ContentDecoderStage
+      jvp_activation_checkpointing: true
+      reconstruction_noising_start: 0.7
+      reconstruction_noising_probability: 0.5
+      decode_noise: false
+      selector_aliases:
+        '3': human_bimanual
+        '7': yam_bimanual
+      decoders:
+        yam_bimanual:
+          _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+          latent_dim: 16
+          action_dim: 14
+          num_latent_tokens: 64
+          action_horizon: 100
+          hidden_dim: 384
+          depth: 6
+          num_heads: 8
+          mlp_ratio: 4.0
+          dropout: 0.0
+          gradient_checkpointing: true
+        human_bimanual:
+          _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+          latent_dim: 16
+          action_dim: 138
+          num_latent_tokens: 64
+          action_horizon: 100
+          hidden_dim: 384
+          depth: 6
+          num_heads: 8
+          mlp_ratio: 4.0
+          dropout: 0.0
+          gradient_checkpointing: true
+    - _target_: egomimic.pipeline.stages_action_flow.ActionFlowObjectiveStage
+      residual_key: action_flow/fm_velocity_residual
+      flow_weight: 1.0
+      reconstruction_weight: 1.0
+      action_velocity_weight: 1.0
+      moment_weight: 0.0
+      flow_aggregation: ${model.flow_loss_aggregation}
+      flow_samples_per_content: 14
+    _recursive_: false
+    conditioning_input: retiming_multiplier
+    speed_reference: null
+    encoding: scalar
+    condition_dim: 640
+    flow_inference_method: euler
+  enable_grad_norm: false
+  gradient_telemetry_cadence: 100
+  optimizer:
+    _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
+    _partial_: true
+    lr: 0.0001
+    betas:
+    - 0.9
+    - 0.999
+    eps: 1.0e-06
+    adamw_weight_decay: 0.0
+    muon_weight_decay: 0.0
+    muon_momentum: 0.95
+    muon_adjust_lr_fn: match_rms_adamw
+  scheduler:
+    _target_: egomimic.utils.unite_optim.released_unite_two_stage_scheduler
+    _partial_: true
+    warmup_steps: 8000
+    decay_start_1_steps: 12000
+    decay_end_1_steps: 20000
+    decay_start_2_steps: 1200000
+    decay_end_2_steps: 1200000
+    base_lr_1: 0.0001
+    base_lr_2: 5.0e-05
+    final_lr: 5.0e-05
+hpt:
+  embed_dim: 640
+  num_blocks: 8
+  num_heads: 8
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 80
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: 640
+ckpt_path: null
+init_weights_from: null
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          drop_wrist_images: false
+  valid_datasets:
+    yam:
+      yam_bimanual:
+        resolver:
+          key_map:
+            drop_wrist_images: false
+run_provenance:
+  architecture:
+    latent_shape:
+    - 64
+    - 16
+    parameter_count_candidate: 180232400
+    parameter_count_reference: 180384206
+    observation_condition_dim: 640
+    observation_blocks: 8
+    reference: stattempo_slowpace366_bc_time_lambda_20261005_s42
+    parameter_match_relative_difference: -0.0008415703534487936
+    private_codec: UniteDiTBackbone_h384_d6_h8
+    denoiser: UniteDiTBackbone_h448_d10_h8
+  checkpoint_initialization: fresh_required_pretrained_reference_overlaps_validation
+evaluator:
+  action_flow_diagnostics:
+    activation_layer_map:
+      0: 0
+      1: 9
+  _target_: egomimic.eval.yam_human_open_loop_eval.YamHumanOpenLoopEval
+  requires_ordered_validation: true
+  limit_val_batches: 1.0
+  robot_execute_fraction: 0.25
+  robot_control_dt: 0.03333333333333333
+trainer:
+  limit_val_batches: 1.0
+  num_sanity_val_steps: 0

@@ -70,7 +70,13 @@ def human_native_residual(
 class YamHumanKeypointsActionFlowEval(PlanarActionEval):
     """Use one evaluator with explicit action keys and native geometry."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, yam_action_horizon=100, human_action_horizon=100, **kwargs):
+        if type(yam_action_horizon) is not int or yam_action_horizon < 1:
+            raise ValueError("YAM action horizon must be positive integer")
+        if type(human_action_horizon) is not int or human_action_horizon < 1:
+            raise ValueError("Human action horizon must be positive integer")
+        self.human_action_horizon = human_action_horizon
+        self.yam_action_horizon = yam_action_horizon
         if kwargs.get("native_decoder") is not None or kwargs.get("native_decoders"):
             raise ValueError("YAM/human native actions do not use a private decoder")
         if kwargs.get("energy_score_distance") is not None:
@@ -91,6 +97,16 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
             "yam_bimanual": dict(YAM_ENERGY_DISTANCE_METADATA),
             "human_bimanual": dict(HUMAN_ENERGY_DISTANCE_METADATA),
         }
+
+        self.energy_score_distance_metadata["yam_bimanual"].update(
+            complete_normalized_chunk_shape=[yam_action_horizon, 14],
+            coverage=f"all_{yam_action_horizon}_steps_and_all_14_action_channels",
+        )
+
+        self.energy_score_distance_metadata["human_bimanual"].update(
+            complete_normalized_chunk_shape=[human_action_horizon, HUMAN_ACTION_DIM],
+            coverage=f"all_{human_action_horizon}_steps_and_all_138_action_channels",
+        )
 
     def set_validation_group(self, group_name) -> None:
         """Give each validation domain its own diagnostic budget and artifacts."""
@@ -128,11 +144,12 @@ class YamHumanKeypointsActionFlowEval(PlanarActionEval):
         if samples.ndim != 4 or samples.shape[0] != 32 or target.ndim != 3:
             raise ValueError("Human EnergyScore@32 requires 32 sampled chunks")
         if (
-            tuple(target.shape[-2:]) != (100, HUMAN_ACTION_DIM)
+            tuple(target.shape[-2:])
+            != (getattr(self, "human_action_horizon", 100), HUMAN_ACTION_DIM)
             or samples.shape[1:] != target.shape
         ):
             raise ValueError(
-                "Human EnergyScore requires complete matching (100,138) chunks"
+                "Human EnergyScore requires complete matching configured-horizon 138D chunks"
             )
         if not bool(torch.isfinite(samples).all()) or not bool(
             torch.isfinite(target).all()

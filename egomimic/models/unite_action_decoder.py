@@ -172,6 +172,13 @@ class UniteActionDecoder(nn.Module):
         self.action_projection = nn.Linear(self.hidden_dim, self.action_dim)
         self._initialize_weights()
 
+    def supports_diagnostic_endpoint_reuse(self) -> bool:
+        """Certify deterministic, unhooked native evaluation, not subclasses."""
+        return type(self) is UniteActionDecoder and not any(
+            module.training or module._forward_hooks or module._forward_pre_hooks
+            for module in self.modules()
+        )
+
     def _initialize_weights(self) -> None:
         nn.init.xavier_uniform_(self.latent_projection.weight)
         nn.init.zeros_(self.latent_projection.bias)

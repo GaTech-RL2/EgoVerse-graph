@@ -19,6 +19,8 @@ from egomimic.benchmarks.libero.state_tracks import (
     exclude_visualization_mocap,
     _prepare_corpus_episode,
     prepare_corpus,
+    compare_rgb,
+    export_rgb,
 )
 
 XML = """<mujoco><worldbody>
@@ -109,6 +111,18 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
     assert manifest["original_cache_max_eef_error_m"] > 100
     assert manifest["original_cache_repaired"] is False
     assert manifest["training_ready"] is False
+    highres = args.output / "rgb64.h5"
+    receipt = export_rgb(Namespace(output=args.output, rgb_cache=highres,
+                                   height=64, width=64, rgb_policy="exact"))
+    assert receipt["native_render"] and receipt["native_geometry_replay_exact"]
+    assert receipt["rgb_cache_sha256"] == digest(highres)
+    with h5py.File(highres) as cache:
+        assert cache["rgb"].shape == (3, 1, 64, 64, 3)
+        np.testing.assert_array_equal(cache["time"][:], states[:, 0])
+        assert cache["camera_K"][0, 0, 0] > 0
+    with pytest.raises(FileExistsError):
+        export_rgb(Namespace(output=args.output, rgb_cache=highres,
+                             height=64, width=64, rgb_policy="exact"))
     with pytest.raises(FileExistsError):
         prepare(args)
     with np.load(args.output / "aligned.npz") as z:
@@ -141,6 +155,29 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
     (args.output / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(AssertionError, match="pose"):
         validate_cache(args.output, replay=True)
+    with pytest.raises(AssertionError, match="pose"):
+        validate_cache(args.output, replay=True, rgb_policy="uint8-roundoff-v1")
+
+
+def test_rgb_roundoff_policy_is_explicit_bounded_and_never_modifies_pixels():
+    original = np.full((100000, 3), 100, dtype=np.uint8)
+    repeated = original.copy()
+    repeated[0, 0] += 2
+    before = repeated.copy()
+    with pytest.raises(AssertionError):
+        compare_rgb(original, repeated)
+    proof = compare_rgb(original, repeated, "uint8-roundoff-v1")
+    assert proof["max_abs"] == 2 and not proof["exact"]
+    np.testing.assert_array_equal(repeated, before)
+    repeated[0, 0] = 103
+    with pytest.raises(ValueError, match="exceeds"):
+        compare_rgb(original, repeated, "uint8-roundoff-v1")
+    repeated[0, 0] = 101
+    repeated[1:5, 0] += 1
+    with pytest.raises(ValueError, match="exceeds"):
+        compare_rgb(original, repeated, "uint8-roundoff-v1")
+    with pytest.raises(ValueError, match="policy"):
+        compare_rgb(original, repeated, "anything")
 
 
 def test_reject_unknown_or_duplicate_pose_joint():

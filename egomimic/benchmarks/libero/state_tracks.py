@@ -23,6 +23,30 @@ import numpy as np
 from egomimic.benchmarks.libero.replay import rebase_demo_xml
 
 CONTRACT = "libero-same-recorded-state-v1"
+RGB_POLICIES = ("exact", "uint8-roundoff-v1")
+
+
+def compare_rgb(original, repeated, policy="exact"):
+    """Separate bounded GPU raster rounding from exact physical-state replay.
+
+    The opt-in policy was measured on repeated native GPU renders. It never
+    changes cached pixels, geometry tolerances, or the historical exact default.
+    """
+    if policy not in RGB_POLICIES:
+        raise ValueError("Unknown RGB repeatability policy")
+    if original.shape != repeated.shape or original.dtype != np.uint8 or repeated.dtype != np.uint8:
+        raise ValueError("RGB replay requires matching uint8 arrays")
+    delta = np.abs(original.astype(np.int16) - repeated.astype(np.int16))
+    result = {"policy": policy, "exact": bool(not np.any(delta)),
+              "max_abs": int(delta.max(initial=0)),
+              "changed_channels": int(np.count_nonzero(delta)),
+              "total_channels": int(delta.size),
+              "changed_fraction": float(np.count_nonzero(delta) / max(1, delta.size))}
+    if policy == "exact":
+        np.testing.assert_array_equal(original, repeated, err_msg="rgb")
+    elif result["max_abs"] > 2 or result["changed_fraction"] > 0.00001:
+        raise ValueError(f"RGB replay exceeds measured uint8 rounding policy: {result}")
+    return result
 
 
 def digest(path):
@@ -372,7 +396,7 @@ def prepare(args):
     return validate_cache(output, replay=True)
 
 
-def validate_cache(output, replay=False):
+def validate_cache(output, replay=False, rgb_policy="exact"):
     output = Path(output)
     manifest = json.loads((output / "manifest.json").read_text())
     if manifest["schema"] != CONTRACT:
@@ -400,18 +424,97 @@ def validate_cache(output, replay=False):
             manifest["grid"],
             manifest.get("pose_joints", ()),
         )
-        # Prove geometry/state equality before reporting renderer differences.
-        # RGB remains bit-exact; only assertion order changes.
-        for key in [key for key in arrays if key != "rgb"] + ["rgb"]:
+        # Geometry always remains bit-exact, independent of RGB rounding policy.
+        for key in [key for key in arrays if key != "rgb"]:
             np.testing.assert_array_equal(arrays[key], repeated[key], err_msg=key)
-    return {
+        rgb_result = compare_rgb(arrays["rgb"], repeated["rgb"], rgb_policy)
+    result = {
         "status": "PASS",
         "contract": CONTRACT,
         "frames": len(arrays["time"]),
         "points": len(arrays["point_body_id"]),
-        "all_channels_native_replay_exact": replay,
+        "all_channels_native_replay_exact": bool(replay and rgb_result["exact"]),
+        "native_geometry_replay_exact": bool(replay),
         "training_ready": False,
     }
+    if replay:
+        result["rgb_replay"] = rgb_result
+    return result
+
+
+def export_rgb(args):
+    """Stream true high-resolution native RGB from verified saved states.
+
+    Low-resolution persistent tracks are preserved; this does not regenerate
+    the track grid or substitute upsampled images for high-resolution renders.
+    """
+    source = Path(args.output).resolve()
+    target = Path(args.rgb_cache).resolve()
+    receipt_path = target.with_suffix(target.suffix + ".json")
+    if target.exists() or receipt_path.exists():
+        raise FileExistsError("Preserve existing native RGB output and receipt")
+    if min(args.height, args.width) < 2:
+        raise ValueError("Invalid native RGB resolution")
+    proof = validate_cache(source, replay=True, rgb_policy=args.rgb_policy)
+    manifest = json.loads((source / "manifest.json").read_text())
+    with np.load(source / "aligned.npz", allow_pickle=False) as archive:
+        states = archive["state"]
+        times = archive["time"]
+        original_transforms = archive["world_from_camera"]
+    model = mujoco.MjModel.from_xml_path(str(source / "model.xml"))
+    # Increasing framebuffer capacity changes neither state nor visual settings.
+    model.vis.global_.offheight = max(model.vis.global_.offheight, args.height)
+    model.vis.global_.offwidth = max(model.vis.global_.offwidth, args.width)
+    data = mujoco.MjData(model)
+    cameras = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, name)
+               for name in manifest["cameras"]]
+    if min(cameras) < 0:
+        raise ValueError("Missing recorded native camera")
+    option = mujoco.MjvOption()
+    option.geomgroup[0] = 0
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".partial")
+    if temporary.exists():
+        raise FileExistsError("Preserve partial native RGB output for diagnosis")
+    renderer = mujoco.Renderer(model, height=args.height, width=args.width)
+    try:
+        with h5py.File(temporary, "x") as cache:
+            cache.attrs.update(schema="libero-native-rgb-v1", native_render=True,
+                               height=args.height, width=args.width)
+            cache["time"] = times
+            rgb = cache.create_dataset("rgb", (len(times), len(cameras), args.height,
+                                               args.width, 3), dtype="u1",
+                                       chunks=(1, 1, args.height, args.width, 3),
+                                       compression="lzf")
+            transforms = cache.create_dataset("camera_to_world", (len(times), len(cameras), 4, 4), dtype="f8")
+            intrinsics = []
+            for row, state in enumerate(states):
+                restore_state(model, data, state)
+                for view, camera in enumerate(cameras):
+                    K, transform = camera_geometry(model, data, camera, args.height, args.width)
+                    np.testing.assert_array_equal(transform, original_transforms[row, view],
+                                                  err_msg="High-resolution camera/state alignment")
+                    renderer.update_scene(data, camera=camera, scene_option=option)
+                    rgb[row, view] = renderer.render()
+                    transforms[row, view] = transform
+                    if row == 0:
+                        intrinsics.append(K)
+            cache["camera_K"] = np.asarray(intrinsics)
+            cache.flush()
+    finally:
+        renderer.close()
+    temporary.replace(target)
+    receipt = {"schema": "libero-native-rgb-v1", "status": "PASS",
+               "source_manifest_sha256": digest(source / "manifest.json"),
+               "source_aligned_sha256": digest(source / "aligned.npz"),
+               "rgb_cache_sha256": digest(target), "rgb_cache": str(target),
+               "native_render": True, "height": args.height, "width": args.width,
+               "cameras": manifest["cameras"], "frames": len(times),
+               "native_geometry_replay_exact": True, "low_resolution_replay": proof,
+               "source": str(source), "preparation_source_sha256": digest(__file__),
+               "mujoco_version": mujoco.__version__, "training_ready": False}
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n")
+    return receipt
 
 
 def _prepare_corpus_episode(options):
@@ -524,6 +627,13 @@ def main():
     check = commands.add_parser("validate")
     check.add_argument("--output", required=True)
     check.add_argument("--replay", action="store_true")
+    check.add_argument("--rgb-policy", choices=RGB_POLICIES, default="exact")
+    rgb = commands.add_parser("export-rgb")
+    rgb.add_argument("--output", required=True, help="Existing native aligned episode")
+    rgb.add_argument("--rgb-cache", required=True)
+    rgb.add_argument("--height", type=int, required=True)
+    rgb.add_argument("--width", type=int, required=True)
+    rgb.add_argument("--rgb-policy", choices=RGB_POLICIES, default="exact")
     corpus = commands.add_parser("prepare-corpus")
     corpus.add_argument("--spec", required=True)
     corpus.add_argument("--output", required=True)
@@ -536,7 +646,8 @@ def main():
             prepare(args)
             if args.command == "prepare"
             else prepare_corpus(args) if args.command == "prepare-corpus"
-            else validate_cache(args.output, args.replay),
+            else export_rgb(args) if args.command == "export-rgb"
+            else validate_cache(args.output, args.replay, args.rgb_policy),
             indent=2,
         )
     )

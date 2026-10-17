@@ -6,6 +6,29 @@ from scripts.audit_components import audit_components
 from scripts.audit_hydra_configs import CONFIGS, audit
 
 
+def test_ravens_audit_supplies_context_without_relaxing_production_identity():
+    from omegaconf import OmegaConf
+
+    from scripts.audit_hydra_configs import compose_for_audit
+
+    path = CONFIGS / "evaluator/ravens.yaml"
+    production = OmegaConf.load(path)
+    assert OmegaConf.is_missing(production, "source_commit")
+    assert OmegaConf.is_missing(production, "config_sha256")
+    for relative in (
+        "data/ravens/continuous.yaml",
+        "evaluator/ravens.yaml",
+        "experiment/ravens/action_flow.yaml",
+        "experiment/ravens/dp.yaml",
+    ):
+        with compose_for_audit(CONFIGS / relative) as cfg:
+            assert cfg.benchmark.suite == "ravens-continuous-v1"
+            assert cfg.evaluator.source_commit == "0" * 40
+            assert cfg.evaluator.config_sha256 == "0" * 64
+            assert cfg.benchmark.dataset == "/tmp/audit/libero"
+    assert OmegaConf.is_missing(OmegaConf.load(path), "source_commit")
+
+
 def test_diagnostic_constructor_fixture_preserves_production_seed_binding():
     import hashlib
     from pathlib import Path

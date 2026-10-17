@@ -8,7 +8,7 @@ import torch
 
 from egomimic.eval.energy_score import energy_score, semantic_chunk_distance
 from egomimic.eval.libero_eval import LiberoActionEvaluator, action_metrics
-from egomimic.rldb.zarr.libero_dataset import EMBODIMENT
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 SEEDS = tuple(730001 + i * 7919 for i in range(32))
 SEED_SHA = hashlib.sha256(json.dumps(SEEDS).encode()).hexdigest()
@@ -21,6 +21,8 @@ def distance(a, b):
 class LiberoComparisonEvaluator(LiberoActionEvaluator):
     """32 fixed samples on an ordered eight-condition panel shared by both families."""
 
+    requires_lightning_context = True
+
     def __init__(
         self,
         artifact_root,
@@ -28,8 +30,10 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
         config_sha256,
         diagnostic_config=None,
         panel_size=8,
+        embodiment="libero_panda",
     ):
         super().__init__()
+        self.embodiment_id = get_embodiment_id(embodiment)
         self.artifact_root = Path(artifact_root)
         self.panel_size = int(panel_size)
         if self.panel_size != 8:
@@ -53,6 +57,9 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
         }
         self.action_flow_diagnostics_enabled = self.shared_diagnostics is not None
         self._completed_validation_step = None
+
+    def native_metrics(self, prediction, target):
+        return action_metrics(prediction, target)
 
     @torch.inference_mode()
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
@@ -90,12 +97,12 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
             pred = first[source]["pred_action"]
             assert pred.shape == target.shape and target.shape[-2:] == (32, 7)
             native_target = self.normalizer.unnormalize(
-                {"actions": target}, EMBODIMENT
+                {"actions": target}, self.embodiment_id
             )["actions"]
-            native_pred = self.normalizer.unnormalize({"actions": pred}, EMBODIMENT)[
-                "actions"
-            ]
-            metrics = action_metrics(native_pred, native_target)
+            native_pred = self.normalizer.unnormalize(
+                {"actions": pred}, self.embodiment_id
+            )["actions"]
+            metrics = self.native_metrics(native_pred, native_target)
             metrics["normalized_reconst_mse"] = (pred - target).square().mean()
             if batch_idx == 0:
                 samples = torch.stack([p[source]["pred_action"] for p in predictions])
@@ -145,10 +152,10 @@ class LiberoComparisonEvaluator(LiberoActionEvaluator):
 
                     def native_error(left, right):
                         left = self.normalizer.unnormalize(
-                            {"actions": left}, EMBODIMENT
+                            {"actions": left}, self.embodiment_id
                         )["actions"]
                         right = self.normalizer.unnormalize(
-                            {"actions": right}, EMBODIMENT
+                            {"actions": right}, self.embodiment_id
                         )["actions"]
                         return (
                             sum(

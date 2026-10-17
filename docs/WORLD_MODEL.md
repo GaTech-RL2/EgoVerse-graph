@@ -305,7 +305,7 @@ feature/pose MSE as robot task success or action-distribution fidelity.
 ## Prepared data interface
 
 `rldb/world_model.py` owns the typed adapter and timestamp sampling. It consumes
-an immutable JSON manifest plus per-episode NPZ arrays; it does not modify source
+an immutable JSON manifest plus per-episode NPZ or HDF5 arrays; it does not modify source
 Zarr datasets. The existing DINO extraction and raw dataset readers remain the
 upstream authorities. This new cache contract is necessary because the old policy
 loaders do not supply synchronized irregular image/track/pose targets.
@@ -343,10 +343,14 @@ and padded collation preserve actual times and masks. Different query schedules
 per modality are supported by the model token contract; the initial prepared
 loader samples the same timestamp set for all three modalities.
 
-NPZ is a correctness/prototype interface: selecting a few frames currently reads
-the entire episode field before slicing. Dense high-resolution caches require
-an efficient chunked reader (reuse the existing Zarr infrastructure), or a
-measured bounded cache strategy, before full training. Metadata assertions are
+NPZ remains a correctness/prototype interface: selecting a few frames reads
+the entire episode field before slicing. Dense caches should use the supported
+HDF5 backend with one-frame image chunks; the reader selects frame indices on
+disk before materializing image/track/pose arrays. Both backends retain the same
+SHA-bound manifest, sampling, normalization and masks. Regression tests require
+bit-exact samples in both temporal modes and intercept image reads to reject
+whole-episode access. Initialization still verifies each immutable file hash
+once and reads the small timestamp vectors. Metadata assertions are
 not proof of actual calibration or leakage-free normalization; preprocessing
 receipts must establish those properties. Exact data-RNG continuation across
 checkpoint resume is not implemented or claimed.

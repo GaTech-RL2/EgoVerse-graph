@@ -9,11 +9,28 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+
+
+@contextmanager
+def open_prepared_episode(path):
+    """Keep historical NPZ support; HDF5 slices only selected frame chunks."""
+    path = Path(path)
+    if path.suffix in (".h5", ".hdf5"):
+        import h5py
+
+        with h5py.File(path, "r") as data:
+            yield data
+    elif path.suffix == ".npz":
+        with np.load(path, allow_pickle=False) as data:
+            yield data
+    else:
+        raise ValueError("Prepared episodes must use NPZ or HDF5")
 
 
 def points_to_reference(points, reference_from_source):
@@ -157,7 +174,7 @@ def collate_world(samples):
 
 
 class PreparedWorldDataset(Dataset):
-    """Read explicit per-episode NPZ feature/track caches with SHA-bound manifests.
+    """Read per-episode NPZ or sliced HDF5 caches with SHA-bound manifests.
 
     A flat global anchor index samples proportional to eligible frames/windows,
     NOT equally per embodiment. Use HomogeneousWorldBatchSampler for batches.
@@ -267,8 +284,8 @@ class PreparedWorldDataset(Dataset):
         self.anchor_indices = []
         for ep in self.episodes:
             if bounded:
-                with np.load(self.path.parent / ep["path"], allow_pickle=False) as saved:
-                    times = _physical_times(saved["time"], ep["frames"])
+                with open_prepared_episode(self.path.parent / ep["path"]) as saved:
+                    times = _physical_times(saved["time"][:], ep["frames"])
                 lo = np.searchsorted(times, times - max_past_seconds, side="left")
                 hi = np.searchsorted(times, times + max_future_seconds, side="right")
                 # An isolated frame cannot yield min_frames without leaving the
@@ -307,7 +324,7 @@ class PreparedWorldDataset(Dataset):
         ep = self.episodes[episode_index]
         offset = 0 if episode_index == 0 else int(self.ends[episode_index - 1])
         anchor = int(self.anchor_indices[episode_index][index - offset])
-        with np.load(self.path.parent / ep["path"], allow_pickle=False) as data:
+        with open_prepared_episode(self.path.parent / ep["path"]) as data:
             required = (
                 "time",
                 "image",
@@ -321,7 +338,7 @@ class PreparedWorldDataset(Dataset):
             )
             if any(k not in data for k in required):
                 raise ValueError("Prepared cache missing required arrays")
-            full_time = data["time"]
+            full_time = data["time"][:]
             if (
                 len(full_time) != ep["frames"]
                 or not np.isfinite(full_time).all()
@@ -403,15 +420,15 @@ class PreparedWorldDataset(Dataset):
                 "proprio": base(pose, 1, "proprio"),
             }
             streams["image"].update(
-                xy=np.tile(data["image_xy"].astype(np.float32), (f * v, 1)),
+                xy=np.tile(data["image_xy"][:].astype(np.float32), (f * v, 1)),
                 camera=np.tile(np.repeat(np.arange(v), p), f),
             )
             confidence = (
                 data["track_confidence"][indices].reshape(-1).astype(np.float32)
             )
             streams["track"].update(
-                xy=np.tile(data["track_xy"].astype(np.float32), (f, 1)),
-                camera=np.tile(data["track_camera"].astype(np.int64), f),
+                xy=np.tile(data["track_xy"][:].astype(np.float32), (f, 1)),
+                camera=np.tile(data["track_camera"][:].astype(np.int64), f),
                 point_id=np.tile(np.arange(q), f),
                 confidence=confidence,
             )

@@ -722,6 +722,46 @@ def cache_manifest(tmp_path):
     return path
 
 
+@pytest.mark.parametrize("mode", ["continuous", "discrete"])
+def test_hdf5_prepared_cache_reads_selected_frames_and_matches_npz(tmp_path, monkeypatch, mode):
+    import h5py
+
+    path = cache_manifest(tmp_path)
+    kwargs = dict(split="val", mode=mode)
+    if mode == "continuous":
+        kwargs.update(max_past_seconds=3, max_future_seconds=3)
+    original = PreparedWorldDataset(path, **kwargs)
+    expected = [original[i] for i in range(len(original))]
+    manifest = json.loads(path.read_text())
+    for ep in manifest["episodes"]:
+        target = (tmp_path / ep["path"]).with_suffix(".h5")
+        with np.load(tmp_path / ep["path"]) as data, h5py.File(target, "w") as out:
+            for name in data.files:
+                value = data[name]
+                out.create_dataset(name, data=value, chunks=(1, *value.shape[1:]))
+        ep.update(path=target.name, sha256=hashlib.sha256(target.read_bytes()).hexdigest())
+    path.write_text(json.dumps(manifest))
+    reads = []
+    native = h5py.Dataset.__getitem__
+
+    def sliced_read(dataset, key):
+        if dataset.name == "/image":
+            assert isinstance(key, np.ndarray)
+            assert len(key) <= 4
+            reads.append(key.copy())
+        return native(dataset, key)
+
+    monkeypatch.setattr(h5py.Dataset, "__getitem__", sliced_read)
+    actual = PreparedWorldDataset(path, **kwargs)
+    for i, reference in enumerate(expected):
+        result = actual[i]
+        assert result["embodiment"] == reference["embodiment"]
+        for stream, fields in reference["world"].items():
+            for name, value in fields.items():
+                assert torch.equal(result["world"][stream][name], value)
+    assert len(reads) == len(expected)
+
+
 def test_prepared_cache_pipeline_and_reject_overlap(tmp_path):
     path = cache_manifest(tmp_path)
     dataset = PreparedWorldDataset(path)

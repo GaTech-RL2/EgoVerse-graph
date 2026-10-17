@@ -226,6 +226,160 @@ def test_hidden_pose_does_not_condition_first_pass():
         torch.testing.assert_close(a[name], b[name], rtol=0, atol=0)
 
 
+def refinement_batch():
+    batch = make_batch(batch_size=1)
+    for stream in batch.values():
+        for key, value in list(stream.items()):
+            stream[key] = torch.cat((value, value.clone()), dim=1)
+        time = (
+            torch.arange(4)
+            .repeat_interleave(stream["value"].shape[1] // 4)[None]
+            .float()
+        )
+        stream["time"], stream["index"] = time, time.clone()
+        stream["observed"] = time == 0
+    batch["refinement"] = {}
+    for name in ("image", "track"):
+        s = batch[name]
+        strength = torch.tensor([0.0, 0.0, 0.4, 1.0])[s["time"].long()]
+        previous = torch.randn_like(s["value"])
+        previous[strength == 1] = float("nan")  # Fresh queries need no previous value.
+        batch["refinement"][name] = dict(strength=strength, prediction=previous)
+        s["value"][~s["observed"]] = float("nan")  # Never use held-out ground truth.
+    return batch
+
+
+@pytest.mark.parametrize("mode,mixed", [("continuous", False), ("discrete", True)])
+def test_selective_refinement_schedule_and_clean_anchor_clamping(mode, mixed):
+    from egomimic.models.world_model import noise_coefficients
+
+    model = make_model(time_mode=mode).eval()
+    batch = refinement_batch()
+    original = copy.deepcopy(batch)
+    calls = []
+    handle = model.register_forward_pre_hook(
+        lambda module, args: calls.append(
+            (
+                {k: v.clone() for k, v in args[2].items()},
+                {k: v.clone() for k, v in args[3].items()},
+            )
+        )
+    )
+    with torch.autocast("cpu", dtype=torch.bfloat16, enabled=mixed):
+        output = model.sample(batch, "robot", 4, torch.Generator().manual_seed(29))
+    handle.remove()
+    assert len(calls) == 5  # Four joint denoising passes, then pose readout.
+    rng = torch.Generator().manual_seed(29)
+    for name in ("image", "track"):
+        s, control = batch[name], batch["refinement"][name]
+        strength, previous = control["strength"], control["prediction"]
+        noise = torch.randn(s["value"].shape, generator=rng)
+        partial = strength == 0.4
+        alpha, sigma = noise_coefficients(strength)
+        expected = alpha * previous + sigma * noise
+        torch.testing.assert_close(calls[0][0][name][partial], expected[partial])
+        fresh = strength == 1
+        torch.testing.assert_close(
+            calls[0][0][name][fresh], noise[fresh], rtol=0, atol=0
+        )
+        retained = (strength == 0) & ~s["observed"]
+        for values, levels in calls:
+            torch.testing.assert_close(
+                values[name][retained], previous[retained], rtol=0, atol=0
+            )
+            torch.testing.assert_close(
+                values[name][s["observed"]], s["value"][s["observed"]], rtol=0, atol=0
+            )
+        for j, (_, levels) in enumerate(calls[:4]):
+            torch.testing.assert_close(
+                levels[name], strength * ((4 - j) / 4), rtol=0, atol=0
+            )
+        torch.testing.assert_close(
+            output[name][retained], previous[retained], rtol=0, atol=0
+        )
+        assert torch.isfinite(output[name]).all()
+        assert not torch.equal(output[name][partial], previous[partial])
+        for key in s:
+            torch.testing.assert_close(
+                s[key], original[name][key], rtol=0, atol=0, equal_nan=True
+            )
+    assert torch.isfinite(output["proprio"]).all()
+
+
+def test_refinement_fresh_controls_equal_default_and_ignore_seed_values():
+    model = make_model().eval()
+    batch = make_batch()
+    baseline = model.sample(batch, "robot", 3, torch.Generator().manual_seed(31))
+    for name in ("image", "track"):
+        s = batch[name]
+        batch.setdefault("refinement", {})[name] = dict(
+            strength=(~s["observed"]).float(),
+            prediction=torch.full_like(s["value"], float("nan")),
+        )
+    controlled = model.sample(batch, "robot", 3, torch.Generator().manual_seed(31))
+    for name in baseline:
+        torch.testing.assert_close(baseline[name], controlled[name], rtol=0, atol=0)
+
+
+def test_repeat_refinement_and_new_timestamps_through_pipeline():
+    model = make_model().eval()
+    batch = refinement_batch()
+    first = model.sample(batch, "robot", 2, torch.Generator().manual_seed(3))
+    # Preserve the generated frame at t=2, revise t=1, generate t=3 afresh.
+    for name in ("image", "track"):
+        batch["refinement"][name] = dict(
+            strength=torch.tensor([0.0, 0.6, 0.0, 1.0])[batch[name]["time"].long()],
+            prediction=first[name],
+        )
+        # Change the fresh query's physical time, preserving other token identities.
+        batch[name]["time"][batch[name]["time"] == 3] = 4.5
+    algo = PipelineAlgo([WorldModelStage(model, sampler_steps=2)], device="cpu")
+    raw = {"robot": {"world": batch, "embodiment": "robot"}}
+    second = algo.forward_eval(raw)["robot"]["world_prediction"]
+    for name in ("image", "track"):
+        retained = batch[name]["time"] == 2
+        torch.testing.assert_close(
+            second[name][retained], first[name][retained], rtol=0, atol=0
+        )
+        assert torch.isfinite(second[name]).all()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        "range",
+        "observed",
+        "missing",
+        "nan",
+        "frame",
+        "shape",
+        "proprio",
+    ],
+)
+def test_refinement_invalid_requests_fail_before_rng_use(error):
+    model, batch = make_model(), refinement_batch()
+    c = batch["refinement"]["image"]
+    if error == "range":
+        c["strength"][0, -1] = 1.1
+    elif error == "observed":
+        c["strength"][0, 0] = 0.1
+    elif error == "missing":
+        del c["prediction"]
+    elif error == "nan":
+        c["prediction"][0, 3] = float("nan")
+    elif error == "frame":
+        c["strength"][0, 3] = 0.2
+    elif error == "shape":
+        c["strength"] = c["strength"][:, :-1]
+    else:
+        batch["refinement"]["proprio"] = {}
+    generator = torch.Generator().manual_seed(19)
+    state = generator.get_state().clone()
+    with pytest.raises(ValueError):
+        model.sample(batch, "robot", 2, generator)
+    assert torch.equal(state, generator.get_state())
+
+
 def test_padding_invariance():
     model = make_model().eval()
     batch = make_batch()

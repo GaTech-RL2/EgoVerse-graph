@@ -112,6 +112,60 @@ input values can be NaN placeholders without affecting output. The sampler never
 reads training confidence/target-valid fields. Image outputs are DINO FEATURES,
 not RGB video; no image decoder is included.
 
+### Selective prediction refinement
+
+The same sampler optionally accepts `world["refinement"]`. Each image/track
+entry has `strength[B,N]` and, when retaining or revising existing predictions,
+`prediction[B,N,C]`. The ordinary pipeline stage passes these controls through
+inside its existing world input; there is no separate inference launcher.
+
+| Strength | Behavior |
+| --- | --- |
+| 0 | Keep the supplied clean prediction bit-exact as an anchor throughout sampling |
+| Between 0 and 1 | Add the corresponding noise to a supplied clean prediction, then refine |
+| 1 | Generate from fresh Gaussian noise, ignoring any supplied previous value |
+
+For a clean previous prediction y and strength s, initialization is
+`cos(pi*s/2)*y + sin(pi*s/2)*epsilon`. Each query then descends from its own s
+to zero over the configured number of DDIM steps. Strength is a noise level,
+not a percentage change or a guarantee of geometric closeness. All image patches
+and cameras at one unknown timestamp must agree on strength; track points at
+one timestamp must also agree, independently of image strength.
+
+Example for a caller that has already aligned previous outputs to the requested
+token layout:
+
+```python
+world["refinement"] = {
+    "image": {"prediction": previous["image"], "strength": image_levels},
+    "track": {"prediction": previous["track"], "strength": track_levels},
+}
+# e.g. frame levels: [0.0, 0.0, 0.4, 1.0], repeated over each frame's tokens
+result = model.sample(world, embodiment, steps=20, generator=generator)
+```
+
+Actual observations must have strength zero and always use their measured
+values, even if the supplied previous prediction disagrees. An unknown frame
+at strength below one requires an explicit finite prediction; the sampler never
+falls back to withheld values in the batch. Fresh-frame prediction placeholders
+may be NaN. Prediction arrays must match the value shape/device/dtype, normalized
+feature/track representation, timestamps, camera IDs and point ordering.
+The caller owns this alignment; shape checks cannot prove semantic alignment.
+Omitted modality controls retain ordinary fresh generation for that modality.
+
+Fixed generated anchors are marked clean only in a private sampling copy;
+caller inputs and observation masks are unchanged. Pose queries are regressed
+again from the refined visuals; pose diffusion/refinement is not introduced.
+Keeping a previously generated pose fixed requires explicitly treating it as
+conditioning rather than passing it to the visual refinement controls.
+
+Tests cover mixed keep/refine/generate requests in continuous and discrete time,
+CPU BF16 mixed, exact fixed anchors at every denoising call, repeated calls with
+changed query times, ordinary pipeline inference, and rejection before RNG use
+of invalid strengths, missing predictions or attempts to alter observations.
+Automatic timestamp insertion/reordering and observation-update orchestration
+remain separate future work. Learned refinement quality needs real-data tests.
+
 Open scientific issues: the one-pass training x0 distribution differs from
 multi-step sampled features, direct context can provide a readout shortcut,
 frozen features may omit contact/gripper detail, track estimates may be biased,

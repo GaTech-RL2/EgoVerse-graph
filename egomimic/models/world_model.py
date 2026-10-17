@@ -376,17 +376,86 @@ class MoTWorldModel(nn.Module):
         )
         return losses
 
-    @torch.no_grad()
-    def sample(self, batch, embodiment, steps=20, generator=None):
-        """Deterministic DDIM; randomness only in initial Gaussian draws.
+    def _refinement_state(self, batch, generator):
+        """Validate explicit clean predictions and build a private sampling batch.
 
-        Unknown values/target masks/confidence are never read by the sampler.
-        Physical query times stay fixed while diffusion time descends 1 -> 0.
+        Optional batch["refinement"][image|track] contains strength[B,N] and
+        prediction[B,N,C]. Strength is a diffusion noise level, not a linear
+        blend percentage. No withheld batch value supplies a starting estimate.
         """
-        self.validate(batch, embodiment)
-        if steps < 1:
-            raise ValueError("At least one denoising step is required")
+        controls = batch.get("refinement", {})
+        if not isinstance(controls, Mapping) or set(controls) - {"image", "track"}:
+            raise ValueError("Refinement controls support only image and track")
+        sampling_batch = {n: dict(batch[n]) for n in MODALITIES}
+        starts, anchors = {}, {}
+        for name in ("image", "track"):
+            s = batch[name]
+            valid, observed = s["valid"], s["observed"]
+            control = controls.get(name)
+            strength = torch.ones_like(s["time"]).masked_fill(observed | ~valid, 0)
+            anchor = torch.where(observed[..., None], s["value"], 0)
+            if control is not None:
+                if (
+                    not isinstance(control, Mapping)
+                    or "strength" not in control
+                    or set(control) - {"strength", "prediction"}
+                ):
+                    raise ValueError(
+                        "Refinement requires strength and optional prediction"
+                    )
+                supplied = control["strength"]
+                if (
+                    not isinstance(supplied, torch.Tensor)
+                    or supplied.shape != valid.shape
+                    or supplied.device != s["value"].device
+                    or not supplied.is_floating_point()
+                ):
+                    raise ValueError(
+                        "Refinement strength must be a floating token-shaped tensor"
+                    )
+                if (
+                    not torch.isfinite(supplied[valid]).all()
+                    or (supplied[valid] < 0).any()
+                    or (supplied[valid] > 1).any()
+                ):
+                    raise ValueError("Refinement strength must be finite in [0,1]")
+                if (supplied[observed] != 0).any():
+                    raise ValueError("Observed values cannot be revised")
+                # Match training's one noise level per modality/timestamp.
+                for b in range(valid.shape[0]):
+                    for time in torch.unique(s["time"][b][valid[b] & ~observed[b]]):
+                        selected = valid[b] & ~observed[b] & (s["time"][b] == time)
+                        if torch.unique(supplied[b][selected]).numel() != 1:
+                            raise ValueError(
+                                "Refinement strength must agree within each frame"
+                            )
+                strength = supplied.float().masked_fill(~valid, 0)
+                needs_prediction = valid & ~observed & (strength < 1)
+                previous = control.get("prediction")
+                if previous is not None:
+                    if (
+                        not isinstance(previous, torch.Tensor)
+                        or previous.shape != s["value"].shape
+                        or previous.device != s["value"].device
+                        or previous.dtype != s["value"].dtype
+                    ):
+                        raise ValueError(
+                            "Refinement prediction must match value shape/device/dtype"
+                        )
+                    if not torch.isfinite(previous[needs_prediction]).all():
+                        raise ValueError("Non-finite retained/refined prediction")
+                    anchor = torch.where(needs_prediction[..., None], previous, anchor)
+                elif needs_prediction.any():
+                    raise ValueError(
+                        "Retaining or refining requires an explicit prediction"
+                    )
+            fixed = valid & (strength == 0)
+            sampling_batch[name]["observed"] = fixed
+            # Fixed generated predictions act as clean anchors only in this call.
+            sampling_batch[name]["value"] = anchor
+            starts[name], anchors[name] = strength, anchor
         current = {}
+        # Validate all controls before consuming the caller's random generator.
         for name in ("image", "track"):
             s = batch[name]
             noise = torch.randn(
@@ -395,28 +464,47 @@ class MoTWorldModel(nn.Module):
                 dtype=s["value"].dtype,
                 generator=generator,
             )
-            current[name] = torch.where(s["observed"][..., None], s["value"], noise)
+            alpha, sigma = noise_coefficients(starts[name])
+            initial = alpha * anchors[name] + sigma * noise
+            # Explicit endpoints preserve old fresh-noise sampling and anchors exactly.
+            current[name] = torch.where(
+                (starts[name] == 1)[..., None],
+                noise,
+                torch.where((starts[name] == 0)[..., None], anchors[name], initial),
+            ).masked_fill(~s["valid"][..., None], 0)
+        return sampling_batch, current, starts, anchors
+
+    @torch.no_grad()
+    def sample(self, batch, embodiment, steps=20, generator=None):
+        """Deterministic DDIM; randomness only in initial Gaussian draws.
+
+        Unknown values/target masks/confidence are never read by the sampler.
+        Optional batch["refinement"] supplies explicit clean previous predictions
+        and per-frame start levels. Each level descends start -> 0 together.
+        Physical query times stay fixed. Omitted controls retain fresh sampling.
+        """
+        self.validate(batch, embodiment)
+        if steps < 1:
+            raise ValueError("At least one denoising step is required")
+        sampling_batch, current, starts, anchors = self._refinement_state(
+            batch, generator
+        )
         for j in range(steps, 0, -1):
-            levels = {
-                n: torch.full_like(batch[n]["time"], j / steps).masked_fill(
-                    batch[n]["observed"] | ~batch[n]["valid"], 0
-                )
-                for n in current
-            }
-            prediction = self(batch, embodiment, current, levels)
+            levels = {n: start * (j / steps) for n, start in starts.items()}
+            prediction = self(sampling_batch, embodiment, current, levels)
             for name in current:
                 alpha, sigma = noise_coefficients(levels[name])
                 x0 = alpha * current[name] - sigma * prediction[name]
                 eps = sigma * current[name] + alpha * prediction[name]
-                next_level = torch.full_like(levels[name], (j - 1) / steps)
+                next_level = starts[name] * ((j - 1) / steps)
                 an, sn = noise_coefficients(next_level)
                 current[name] = torch.where(
-                    batch[name]["observed"][..., None],
-                    batch[name]["value"],
+                    sampling_batch[name]["observed"][..., None],
+                    anchors[name],
                     an * x0 + sn * eps,
                 )
         zeros = {n: torch.zeros_like(batch[n]["time"]) for n in current}
-        pose = self(batch, embodiment, current, zeros)["proprio"]
+        pose = self(sampling_batch, embodiment, current, zeros)["proprio"]
         current["proprio"] = torch.where(
             batch["proprio"]["observed"][..., None], batch["proprio"]["value"], pose
         )

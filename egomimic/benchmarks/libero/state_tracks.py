@@ -55,7 +55,22 @@ def camera_geometry(model, data, camera, height, width):
     return K, transform
 
 
-def build_arrays(model, states, cameras, pose_site, height, width, grid):
+def pose_joint_addresses(model, names):
+    """Resolve explicitly named measured scalar joints; never infer policy actions."""
+    if len(set(names)) != len(names):
+        raise ValueError("Duplicate pose joint")
+    result = []
+    for name in names:
+        joint = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        if joint < 0 or model.jnt_type[joint] not in (
+            mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE
+        ):
+            raise ValueError(f"Pose joint must be a known scalar joint: {name}")
+        result.append(int(model.jnt_qposadr[joint]))
+    return result
+
+
+def build_arrays(model, states, cameras, pose_site, height, width, grid, pose_joints=()):
     if states.ndim != 2 or len(states) < 2 or not np.all(np.diff(states[:, 0]) > 0):
         raise ValueError(
             "Require at least two strictly increasing physical state times"
@@ -63,6 +78,7 @@ def build_arrays(model, states, cameras, pose_site, height, width, grid):
     if min(height, width, *grid) < 2:
         raise ValueError("Invalid image/grid dimensions")
     data = mujoco.MjData(model)
+    pose_addresses = pose_joint_addresses(model, pose_joints)
     camids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, c) for c in cameras]
     site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, pose_site)
     if not cameras or len(set(cameras)) != len(cameras) or min([site, *camids]) < 0:
@@ -150,7 +166,7 @@ def build_arrays(model, states, cameras, pose_site, height, width, grid):
                 visibles.append(visible)
             quaternion = np.zeros(4)
             mujoco.mju_mat2Quat(quaternion, data.site_xmat[site])
-            rows["pose"].append(np.r_[data.site_xpos[site], quaternion])
+            rows["pose"].append(np.r_[data.site_xpos[site], quaternion, data.qpos[pose_addresses]])
             for key, value in (
                 ("rgb", images),
                 ("xyz", world),
@@ -209,7 +225,8 @@ def validate_arrays(a):
     if (
         a["rgb"].dtype != np.uint8
         or a["rgb"].ndim != 5
-        or a["pose"].shape != (count, 7)
+        or a["pose"].ndim != 2
+        or a["pose"].shape[1] < 7
     ):
         raise ValueError("Invalid RGB/pose schema")
     if not np.isfinite(a["xyz"]).all() or not np.isfinite(a["pose"]).all():
@@ -223,7 +240,7 @@ def validate_arrays(a):
         + a["body_position"]
     )
     np.testing.assert_allclose(a["xyz"], expected, rtol=0, atol=1e-10)
-    np.testing.assert_allclose(np.linalg.norm(a["pose"][:, 3:], axis=-1), 1, atol=1e-10)
+    np.testing.assert_allclose(np.linalg.norm(a["pose"][:, 3:7], axis=-1), 1, atol=1e-10)
     np.testing.assert_allclose(
         a["uv"][0, 0], a["reference_grid_xy"][a["valid_grid_indices"]], atol=1e-8
     )
@@ -297,8 +314,9 @@ def prepare(args):
     )
     xml = exclude_visualization_mocap(xml, excluded)
     model = mujoco.MjModel.from_xml_string(xml)
+    pose_joints = getattr(args, "pose_joints", None) or []
     arrays = build_arrays(
-        model, states, args.cameras, args.pose_site, args.height, args.width, args.grid
+        model, states, args.cameras, args.pose_site, args.height, args.width, args.grid, pose_joints
     )
     assets = {
         str(Path(e.get("file")).resolve()): digest(e.get("file"))
@@ -326,10 +344,11 @@ def prepare(args):
         original_cache_repaired=False,
         cameras=args.cameras,
         pose_site=args.pose_site,
+        pose_joints=pose_joints,
         height=args.height,
         width=args.width,
         grid=args.grid,
-        pose_fields=["x_m", "y_m", "z_m", "qw", "qx", "qy", "qz"],
+        pose_fields=["x_m", "y_m", "z_m", "qw", "qx", "qy", "qz"] + [f"qpos:{name}" for name in pose_joints],
         reference_frame="recorded simulator world",
         time_unit="physical simulator seconds",
         rgb_origin="top_left",
@@ -361,6 +380,8 @@ def validate_cache(output, replay=False):
     with np.load(output / "aligned.npz", allow_pickle=False) as archive:
         arrays = dict(archive)
     validate_arrays(arrays)
+    if arrays["pose"].shape[1] != len(manifest["pose_fields"]):
+        raise ValueError("Pose schema width disagrees with arrays")
     if replay:
         for name, expected in manifest["asset_hashes"].items():
             if digest(name) != expected:
@@ -374,6 +395,7 @@ def validate_cache(output, replay=False):
             manifest["height"],
             manifest["width"],
             manifest["grid"],
+            manifest.get("pose_joints", ()),
         )
         for key in arrays:
             np.testing.assert_array_equal(arrays[key], repeated[key], err_msg=key)
@@ -398,6 +420,7 @@ def main():
     prepare_parser.add_argument("--asset-remap", nargs=2, action="append", metavar=("OLD_PREFIX", "NEW_ROOT"))
     prepare_parser.add_argument("--exclude-visualization-body", action="append")
     prepare_parser.add_argument("--cameras", nargs="+", required=True)
+    prepare_parser.add_argument("--pose-joints", nargs="+", help="Explicit measured scalar joint names appended after EEF pose")
     prepare_parser.add_argument("--height", type=int, required=True)
     prepare_parser.add_argument("--width", type=int, required=True)
     prepare_parser.add_argument("--grid", nargs=2, type=int, required=True)

@@ -71,7 +71,8 @@ def test_reject_missing_state_and_time_contracts():
         restore_state(model, mujoco.MjData(model), np.zeros(1))
 
 
-def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path):
+@pytest.mark.parametrize("pose_joints", [[], ["slide"]])
+def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path, pose_joints):
     _, states = fixture()
     original = tmp_path / "demo.hdf5"
     with h5py.File(original, "w") as f:
@@ -87,6 +88,7 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path)
         scene_assets=tmp_path,
         output=tmp_path / "aligned",
         pose_site="eef",
+        pose_joints=pose_joints,
         cameras=["view"],
         height=32,
         width=32,
@@ -102,6 +104,9 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path)
         prepare(args)
     with np.load(args.output / "aligned.npz") as z:
         arrays = dict(z)
+    assert arrays["pose"].shape[1] == 7 + len(pose_joints)
+    if pose_joints:
+        np.testing.assert_array_equal(arrays["pose"][:, 7], states[:, 1])
     arrays["rgb"] = np.roll(arrays["rgb"], 1, axis=0)
     np.savez_compressed(args.output / "aligned.npz", **arrays)
     with pytest.raises(ValueError, match="Cache hash mismatch"):
@@ -112,6 +117,13 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path)
     (args.output / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(AssertionError):
         validate_cache(args.output, replay=True)
+
+
+def test_reject_unknown_or_duplicate_pose_joint():
+    model, states = fixture()
+    for names in (["missing"], ["slide", "slide"]):
+        with pytest.raises(ValueError, match="joint"):
+            build_arrays(model, states, ["view"], "eef", 32, 32, [8, 8], names)
 
 
 def test_quest_recording_and_explicit_nonphysical_marker_exclusion(tmp_path):

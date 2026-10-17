@@ -15,7 +15,7 @@ TARGETS = {
 }
 
 
-def test_active_directory_contains_only_selected_eight_recipes():
+def test_active_directory_contains_selected_eight_and_explicit_joint_recipe():
     expected = {
         f"{family}_{suite}_{suffix}_s42.yaml"
         for suite in TARGETS
@@ -24,6 +24,9 @@ def test_active_directory_contains_only_selected_eight_recipes():
             ("dp", "oat_batch16_keep_steps"),
         )
     }
+    # The joint experiment is separate from the original four AF/DP pairs.
+    expected.add("action_flow_libero_spatial_sharpa_gripper_keypoints_s42.yaml")
+    expected.add("action_flow_libero_spatial_sharpa_mot_s42.yaml")
     assert {p.name for p in (CONFIG / "experiment/libero").glob("*.yaml")} == expected
 
 

@@ -5,6 +5,8 @@ checkpointing is untouched. Current native checkpoint options are forwarded
 unchanged on retained blocks; unsupported options fail before direct execution.
 """
 
+from collections.abc import Mapping
+
 from lightning import Callback
 
 
@@ -51,6 +53,35 @@ def resolve_backbones(module):
         "EmbodimentActionTargetBuilder",
     ) + oat_topology[2:]
     oat = names in (oat_topology, diffusion_topology, embodied_topology)
+    routed_encoders = [
+        stage for stage in stages if type(stage).__name__ == "RoutedContentEncoderStage"
+    ]
+    shared_fields = [
+        stage for stage in stages if type(stage).__name__ == "ConditionalVelocityStage"
+    ]
+    if len(routed_encoders) == len(shared_fields) == 1:
+        encoders = routed_encoders[0].encoder
+        if len(encoders) < 2:
+            raise ValueError("routed checkpoint policy requires private encoders")
+        from egomimic.models.mot_action_codec import MoTActionCodec
+
+        mot = [isinstance(encoder, MoTActionCodec) for encoder in encoders.values()]
+        if any(mot) and not all(mot):
+            raise ValueError("mixed MoT/native encoder banks are not audited")
+        if all(mot):
+            shared = next(iter(encoders.values())).shared
+            if any(
+                encoder.role != "encoder" or encoder.shared is not shared
+                for encoder in encoders.values()
+            ):
+                raise ValueError("MoT encoder routes must own one shared latent bank")
+        return {
+            **{
+                "encoder/" + name: (encoder if all(mot) else encoder.backbone)
+                for name, encoder in encoders.items()
+            },
+            "velocity": shared_fields[0].field.backbone,
+        }
     if native:
         encoder, velocity = stages[4], stages[6]
     elif oat:
@@ -77,12 +108,13 @@ class HalfCheckpointScope:
         if (
             "velocity" not in backbones
             or not any(
-                key == "encoder" or key.startswith("encoder:") for key in backbones
+                key == "encoder" or key.startswith(("encoder:", "encoder/"))
+                for key in backbones
             )
             or any(
                 key != "velocity"
                 and key != "encoder"
-                and not key.startswith("encoder:")
+                and not key.startswith(("encoder:", "encoder/"))
                 for key in backbones
             )
         ):
@@ -122,7 +154,9 @@ class HalfCheckpointScope:
             family, index = self.inventory[fn]
             mode = (
                 "checkpoint"
-                if (index + 1) % self.checkpoint_periods[family.split(":", 1)[0]] == 0
+                if (index + 1)
+                % self.checkpoint_periods[family.split(":", 1)[0].split("/", 1)[0]]
+                == 0
                 else "direct"
             )
             self.counts[f"{family}/{mode}"] += 1
@@ -147,8 +181,22 @@ class HalfCheckpointScope:
 
 class LiberoDiTHalf(Callback):
     def __init__(
-        self, source_key="libero_panda", source_keys=None, checkpoint_periods=None
+        self,
+        source_key="libero_panda",
+        source_keys=None,
+        checkpoint_periods=None,
+        source_batch_sizes=None,
     ):
+        if isinstance(source_key, Mapping):
+            if source_batch_sizes is not None or source_keys is not None:
+                raise ValueError("source batch sizes were supplied more than once")
+            source_batch_sizes, source_key = source_key, "libero_panda"
+        if source_batch_sizes is not None and (
+            source_keys is not None or source_key != "libero_panda"
+        ):
+            raise ValueError(
+                "choose homogeneous source keys or simultaneous source batch sizes"
+            )
         if not isinstance(source_key, str) or not source_key.strip():
             raise ValueError("a nonempty single-source batch key is required")
         self.source_key = source_key
@@ -159,6 +207,17 @@ class LiberoDiTHalf(Callback):
             raise ValueError("source_keys must be unique nonempty source names")
         self.checkpoint_periods = _checkpoint_periods(checkpoint_periods, 12)
         self.scope = None
+        self.source_batch_sizes = (
+            None if source_batch_sizes is None else dict(source_batch_sizes)
+        )
+        if self.source_batch_sizes is not None and (
+            not self.source_batch_sizes
+            or any(
+                not isinstance(k, str) or not k or type(v) is not int or v <= 0
+                for k, v in self.source_batch_sizes.items()
+            )
+        ):
+            raise ValueError("positive declared batch size required for every source")
 
     def on_fit_start(self, trainer, module):
         if self.scope is not None:
@@ -171,17 +230,29 @@ class LiberoDiTHalf(Callback):
         self.scope.install()
 
     def on_train_batch_start(self, trainer, module, batch, batch_idx):
-        if len(batch) != 1 or not set(batch) <= set(self.source_keys):
-            raise ValueError(
-                "single source from configured homogeneous sources required"
-            )
-        self.active_source = next(iter(batch))
+        if self.source_batch_sizes is None:
+            if len(batch) != 1 or not set(batch) <= set(self.source_keys):
+                raise ValueError(
+                    "single source from configured homogeneous sources required"
+                )
+        else:
+            if set(batch) != set(self.source_batch_sizes):
+                raise ValueError(
+                    "LIBERO source identities differ from checkpoint policy"
+                )
+            for name, size in self.source_batch_sizes.items():
+                if batch[name]["actions"].shape[0] != size:
+                    raise ValueError(
+                        "LIBERO per-source batch differs from checkpoint policy"
+                    )
+        self.active_sources = set(batch)
         self.before = dict(self.scope.counts)
 
     def on_train_batch_end(self, trainer, module, outputs, batch, batch_idx):
         for name, count in self.scope.counts.items():
-            if name.startswith("encoder:") and not name.startswith(
-                f"encoder:{self.active_source}/"
+            if name.startswith(("encoder:", "encoder/")) and not any(
+                name.startswith((f"encoder:{source}/", f"encoder/{source}/"))
+                for source in self.active_sources
             ):
                 if count != self.before[name]:
                     raise ValueError("inactive source encoder executed")
@@ -197,7 +268,14 @@ class LiberoDiTHalf(Callback):
 
     def state_dict(self):
         state = {"policy": "dit-half", "homogeneous": "not_applicable_single_source"}
-        if self.source_keys != (self.source_key,):
+        if self.source_batch_sizes is not None and self.source_batch_sizes != {
+            "libero_panda": 32
+        }:
+            state = {
+                "policy": "dit-half",
+                "source_batch_sizes": dict(self.source_batch_sizes),
+            }
+        elif self.source_keys != (self.source_key,):
             state["source_keys"] = list(self.source_keys)
         if self.source_key != "libero_panda":
             state["source_key"] = self.source_key

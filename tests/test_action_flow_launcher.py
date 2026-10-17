@@ -279,3 +279,36 @@ def test_raw_multiplier_smoke_bounds_actual_evaluator_override(run_kind, expecte
     actual = evaluator.trainer_overrides()["limit_val_batches"]
     assert type(actual) is (int if run_kind == "smoke" else float)
     assert actual == (1 if run_kind == "smoke" else 1.0)
+
+
+@pytest.mark.parametrize(
+    "mode,step,message",
+    [
+        ("schema", "0", "typed preflight"),
+        ("run", "extern", "numeric scheduled step"),
+        ("run", "0", "AF_JOINT_PHASE_INPUTS"),
+    ],
+)
+def test_joint_canonical_route_rejects_missing_operational_identity_before_runtime(
+    mode, step, message
+):
+    required = _source().split("for variable in ", 1)[1].split("; do", 1)[0]
+    variables = required.replace("\\", " ").split()
+    env = {key: value for key, value in os.environ.items() if not key.startswith("AF_")}
+    env.update(dict.fromkeys(variables, "fixture"))
+    env.update(
+        AF_REPO=str(ROOT),
+        AF_EXPERIMENT="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        AF_PYTHON="/must-not-execute",
+        AF_LAUNCH_MODE=mode,
+        AF_RUN_KIND="smoke",
+        AF_EXPECTED_MEMORY="128G",
+        AF_EXPECTED_TIME_LIMIT="1:00:00",
+        SLURM_STEP_ID=step,
+    )
+    result = subprocess.run(
+        ["bash", str(LAUNCHER)], env=env, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert message in result.stderr
+    assert "must-not-execute" not in result.stderr

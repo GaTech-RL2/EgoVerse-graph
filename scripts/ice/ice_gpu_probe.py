@@ -93,8 +93,10 @@ def parse_ecc_health(report: str) -> dict[str, Any]:
 
 def nvml_gpu_uuid(value: object) -> str:
     """Bind NVML health to the actual visible CUDA device, never physical index0."""
+    if type(value).__module__ == "torch._C" and type(value).__name__ == "_CUuuid":
+        value = str(value)
     if not isinstance(value, str):
-        raise RuntimeError("CUDA device UUID must be a string")
+        raise RuntimeError("CUDA device UUID must be a string or Torch _CUuuid")
     bare = value[4:] if value.startswith("GPU-") else value
     if (
         re.fullmatch(

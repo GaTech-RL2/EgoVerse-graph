@@ -236,3 +236,46 @@ def test_retired_and_parent_selectors_fail_before_runtime(selector):
     assert completed.returncode != 0
     assert "retired" in completed.stderr or "historical config" in completed.stderr
     assert "must-not-execute" not in completed.stderr
+
+
+@pytest.mark.parametrize(
+    "run_kind,expected",
+    [("smoke", ["evaluator.limit_val_batches=1"]), ("full", [])],
+)
+def test_raw_multiplier_smoke_bounds_actual_evaluator_override(run_kind, expected):
+    from omegaconf import OmegaConf
+
+    from egomimic.eval.planar_action_eval import PlanarActionEval
+
+    source = _source()
+    start = source.index("# Bound the evaluator too:")
+    end = source.index("fi\n\n", start) + len("fi\n\n")
+    block = source[start:end]
+    command = (
+        "BASE_OVERRIDES=(); "
+        + block
+        + '\nfor item in "${BASE_OVERRIDES[@]}"; do printf "%s\\n" "$item"; done'
+    )
+    completed = subprocess.run(
+        ["bash", "-c", command],
+        env={
+            **os.environ,
+            "AF_RUN_KIND": run_kind,
+            "AF_SPEED_DIAGNOSTIC": "true",
+            "LIMIT_VAL_BATCHES": "1" if run_kind == "smoke" else "8",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    overrides = completed.stdout.splitlines()
+    assert overrides == expected
+    limit = (
+        OmegaConf.from_dotlist(overrides).evaluator.limit_val_batches
+        if overrides
+        else 1.0
+    )
+    evaluator = PlanarActionEval(limit_val_batches=limit, energy_score_enabled=False)
+    actual = evaluator.trainer_overrides()["limit_val_batches"]
+    assert type(actual) is (int if run_kind == "smoke" else float)
+    assert actual == (1 if run_kind == "smoke" else 1.0)

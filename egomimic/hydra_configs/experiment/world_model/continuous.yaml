@@ -8,6 +8,9 @@ defaults:
 name: mot_world_model
 norm_stats: null
 normalizer: null
+data:
+  # Smoke may cap each embodiment; full validation remains exhaustive.
+  validation_batches_per_embodiment: null
 inference_config:
   enabled: false  # This is not the generic action-policy robot deployment adapter.
 evaluator:

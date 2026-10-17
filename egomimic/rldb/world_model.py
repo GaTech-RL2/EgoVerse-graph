@@ -486,9 +486,16 @@ class PreparedWorldDataset(Dataset):
 class HomogeneousWorldBatchSampler:
     """Choose an embodiment proportional to eligible anchors, then draw its batch."""
 
-    def __init__(self, dataset, batch_size=1, seed=42, shuffle=True, checkpointable=False):
+    def __init__(self, dataset, batch_size=1, seed=42, shuffle=True, checkpointable=False,
+                 validation_batches_per_embodiment=None):
         if batch_size < 1:
             raise ValueError("Positive batch size required")
+        if validation_batches_per_embodiment is not None:
+            if type(validation_batches_per_embodiment) is not int or validation_batches_per_embodiment < 1:
+                raise ValueError("validation_batches_per_embodiment must be a positive integer or None")
+            if shuffle or getattr(dataset, "split", None) != "val":
+                raise ValueError("Per-embodiment batch caps require unshuffled validation data")
+        self.validation_batches_per_embodiment = validation_batches_per_embodiment
         self.dataset, self.batch_size, self.seed, self.shuffle = (
             dataset,
             batch_size,
@@ -514,14 +521,20 @@ class HomogeneousWorldBatchSampler:
         if self.shuffle:
             return (len(self.dataset) + self.batch_size - 1) // self.batch_size
         return sum(
-            (len(v) + self.batch_size - 1) // self.batch_size
+            min((len(v) + self.batch_size - 1) // self.batch_size,
+                self.validation_batches_per_embodiment)
+            if self.validation_batches_per_embodiment is not None
+            else (len(v) + self.batch_size - 1) // self.batch_size
             for v in self.groups.values()
         )
 
     def __iter__(self):
         if not self.shuffle:
             for group in self.groups.values():
-                for i in range(0, len(group), self.batch_size):
+                end = len(group)
+                if self.validation_batches_per_embodiment is not None:
+                    end = min(end, self.validation_batches_per_embodiment * self.batch_size)
+                for i in range(0, end, self.batch_size):
                     yield group[i : i + self.batch_size].tolist()
             return
         if self.checkpointable:

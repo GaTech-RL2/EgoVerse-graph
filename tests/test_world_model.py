@@ -778,6 +778,56 @@ def test_prepared_cache_pipeline_and_reject_overlap(tmp_path):
         PreparedWorldDataset(path)
 
 
+def test_validation_batch_cap_covers_both_embodiments_and_preserves_training(tmp_path):
+    from egomimic.rldb.world_model_datamodule import WorldModelDataModule
+    path = cache_manifest(tmp_path)
+    full = WorldModelDataModule(path, batch_size=2)
+    capped = WorldModelDataModule(path, batch_size=2, validation_batches_per_embodiment=2)
+    full.setup()
+    capped.setup()
+    validation = capped.val_dataloader()
+    batches = list(validation)
+    labels = [next(iter(batch)) for batch in batches]
+    assert len(validation) == len(batches) == 4
+    assert {label: labels.count(label) for label in labels} == {"robot": 2, "human": 2}
+    assert len(full.val_dataloader()) > len(validation)
+    assert list(full.train_dataloader().batch_sampler) == list(capped.train_dataloader().batch_sampler)
+    default = HomogeneousWorldBatchSampler(full.datasets["val"], batch_size=2, shuffle=False)
+    explicit = HomogeneousWorldBatchSampler(full.datasets["val"], batch_size=2, shuffle=False,
+                                           validation_batches_per_embodiment=None)
+    assert len(default) == len(explicit)
+    assert list(default) == list(explicit)
+
+
+def test_validation_batch_cap_keeps_short_final_batch():
+    from types import SimpleNamespace
+    dataset = SimpleNamespace(split="val", episodes=[{"embodiment": "gripper"},
+                              {"embodiment": "sharpa"}], counts=[5, 1])
+    sampler = HomogeneousWorldBatchSampler(dataset, batch_size=2, shuffle=False,
+                                          validation_batches_per_embodiment=2)
+    assert len(sampler) == 3
+    assert list(sampler) == [[0, 1], [2, 3], [5]]
+
+
+@pytest.mark.parametrize("cap", [0, -1, True, 1.5, "2"])
+def test_validation_batch_cap_rejects_invalid_value(cap):
+    from types import SimpleNamespace
+    from egomimic.rldb.world_model_datamodule import WorldModelDataModule
+    with pytest.raises(ValueError, match="positive integer"):
+        HomogeneousWorldBatchSampler(SimpleNamespace(split="val"), shuffle=False,
+                                     validation_batches_per_embodiment=cap)
+    with pytest.raises(ValueError, match="positive integer"):
+        WorldModelDataModule("unused.json", validation_batches_per_embodiment=cap)
+
+
+@pytest.mark.parametrize("split,shuffle", [("train", False), ("train", True), ("val", True)])
+def test_validation_batch_cap_rejects_training_or_shuffle(split, shuffle):
+    from types import SimpleNamespace
+    with pytest.raises(ValueError, match="unshuffled validation"):
+        HomogeneousWorldBatchSampler(SimpleNamespace(split=split), shuffle=shuffle,
+                                     validation_batches_per_embodiment=2)
+
+
 def test_bounded_dataset_filters_isolated_anchors_and_restores_context(tmp_path):
     from egomimic.rldb.world_model_datamodule import WorldModelDataModule
     path = cache_manifest(tmp_path)

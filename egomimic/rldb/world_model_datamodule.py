@@ -31,9 +31,16 @@ class WorldModelDataModule(LightningDataModule):
         max_past_seconds=None,
         max_future_seconds=None,
         checkpointable_sampling=False,
+        validation_batches_per_embodiment=None,
     ):
         super().__init__()
         self.manifest_path = manifest_path
+        if validation_batches_per_embodiment is not None and (
+            type(validation_batches_per_embodiment) is not int
+            or validation_batches_per_embodiment < 1
+        ):
+            raise ValueError("validation_batches_per_embodiment must be a positive integer or None")
+        self.validation_batches_per_embodiment = validation_batches_per_embodiment
         self.batch_size, self.num_workers = batch_size, num_workers
         self.settings = dict(
             mode=mode,
@@ -85,6 +92,10 @@ class WorldModelDataModule(LightningDataModule):
         }
         if self.checkpointable_sampling:
             state["sampling_resume"] = {"schema": "mot-sampling-state-v1", "batch_size": self.batch_size}
+        if self.validation_batches_per_embodiment is not None:
+            state["validation_sampling"] = {
+                "batches_per_embodiment": self.validation_batches_per_embodiment,
+            }
         if restored_state is not None and restored_state != state:
             raise ValueError("World-model checkpoint/data context mismatch")
         return DataContext(
@@ -123,6 +134,9 @@ class WorldModelDataModule(LightningDataModule):
                 self.settings["seed"],
                 shuffle=split == "train",
                 checkpointable=self.checkpointable_sampling and split == "train",
+                validation_batches_per_embodiment=(
+                    self.validation_batches_per_embodiment if split == "val" else None
+                ),
             )
         if split == "train":
             self.train_sampler = sampler

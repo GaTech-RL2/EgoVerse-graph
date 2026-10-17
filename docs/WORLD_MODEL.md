@@ -59,9 +59,15 @@ state; enabling adapters is an architecture change, not transparent resume.
 
 The maintained upstream feature extractor is
 `scripts/embedding_process/dinov3_embedding.py`, with a DINOv3 ViT-B/16 default.
-It still needs an audit/extension for pinned revisions and explicit high-resolution
-processing: its patch count currently comes from model config, rather than the
-actual processed pixel grid. The proposal explicitly favors high-resolution
+It supports pinned model/processor revisions and explicit full-FOV letterboxing;
+patch counts are checked against the actual processed pixel grid and model output.
+Preprocessing geometry, normalization, precision and revision are saved with each
+output. The correspondence diagnostic in `dinov3_correspondence.py` uses hashed
+native frames and independent visible-point labels, excludes padding, and saves
+feature caches. Its tests and a tiny untrained Transformers DINOv3 runtime check
+verify geometry, not pretrained accuracy. Official pretrained access remains
+pending; no finger-resolution recommendation has been measured.
+The proposal explicitly favors high-resolution
 features for small gripper detail. The earlier224x224/196-patch estimate is only
 a debugging budget, NOT an approved scientific preprocessing choice. The actual
 processor/checkpoint revision, resolution and produced grid must be pinned and
@@ -314,11 +320,27 @@ Live shell inspection confirmed both500-episode LIBERO Spatial Zarr roots exist.
 Sharpa data has61535 rows, EEF position3/quaternion, hand state22, two RGB cameras,
 and action/observation host-nanosecond timestamps. Original gripper data has62250
 rows, EEF position3/quaternion, gripper state2, joint state and two RGB cameras.
-Neither listed replay contains scene-wide tracks or saved simulator states.
-Sharpa host clocks are not automatically simulator physical time; original
-simulator timestep metadata must be verified. The gripper replay needs its
-original simulator timeline source. Raw replay/source archives may permit
-state reconstruction; that has not been verified here.
+Neither listed processed replay contains scene-wide tracks. A bounded audit
+recovered original HDF5 simulator states and XML for one episode of each LIBERO
+embodiment; both physical clocks advance in 0.05-second steps. Exact state/image
+alignment, asset restoration and persistent-point extraction remain unverified.
+Use simulator time, not Sharpa host wall-clock timestamps.
+
+The human sample has real device timestamps, including dropped-frame gaps, and
+moving camera poses. Its 21 hand landmarks follow raw Aria-supported ordering:
+wrist index5 and fingertip indices0–4, not canonical MANO. Aria lacks MANO's thumb
+CMC joint, so conversion is not a full permutation. Prepared pose schemas must
+bind the original producer, input/output topology and any fitted conversion;
+63 coordinates alone are not topology evidence. Preserve original data.
+
+The inspected YAM sample has measured EEF/gripper/joint states, all three camera
+intrinsics and front-camera/inter-arm calibration, but no acquisition timestamps.
+Nominal30fps is not a verified physical clock. Wrist-camera metric extrinsics are
+needed if using those views for 3D geometry; front-reference tracks do not require
+them for image-only wrist-camera feature tokens. No inspected embodiment has a
+verified scene-grid track cache. Occlusion and coordinate availability differ:
+an occluded simulated point can still have valid XYZ. Keep visibility separate
+from coordinate confidence and never expose unknown future visibility as input.
 
 Before any real training: resolve human/YAM camera poses and calibration, exact
 DINO runtime/weights, source simulator assets/state replay, 3D track extraction

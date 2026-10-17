@@ -269,7 +269,8 @@ class PreparedWorldDataset(Dataset):
                 )
             if ep["split"] not in ("train", "val"):
                 raise ValueError("Explicit train/val episode assignment required")
-            verifier.verify(physical, ep["sha256"])
+            verifier.verify(physical, ep["sha256"],
+                            trusted_fingerprint=ep.get("verified_fingerprint"))
         self.episodes = [ep for ep in m["episodes"] if ep["split"] == split]
         if not self.episodes:
             raise ValueError("No episodes in selected split")

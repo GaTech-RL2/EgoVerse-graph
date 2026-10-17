@@ -60,8 +60,8 @@ class WorldModelDataModule(LightningDataModule):
 
     def setup(self, stage=None):
         if not self.datasets:
-            # Verify every payload once per setup, then reuse only while its
-            # inode/size/mtime/ctime and expected hash remain unchanged.
+            # Reuse finalized fingerprints only for unchanged exact files;
+            # otherwise hash once per setup and share that proof across splits.
             verification = ArtifactVerificationMemo()
             self.datasets = {
                 s: PreparedWorldDataset(self.manifest_path, split=s,

@@ -2,7 +2,10 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
+import shutil
+import time
 
 import h5py
 import numpy as np
@@ -15,6 +18,12 @@ from egomimic.rldb.world_model_preparation import (
     ArtifactVerificationMemo, finalize, StreamingMoments,
 )
 from egomimic.rldb.zarr.episode_split import split_dataset_names
+
+
+def aged_verification_clock(monkeypatch):
+    """Simulate already-immutable files without sleeping in the test suite."""
+    now = time.time_ns() + 2_000_000_000
+    monkeypatch.setattr(ArtifactVerificationMemo, "_now_ns", staticmethod(lambda: now))
 
 
 def make_inventory(tmp_path):
@@ -130,6 +139,11 @@ def test_setup_hashes_payloads_once_and_rejects_changed_memo_artifact(tmp_path, 
     inventory = make_inventory(tmp_path)
     output = tmp_path / "prepared.json"
     manifest = finalize(inventory, output)
+    # Historical manifests retain their full-hash behavior.
+    for episode in manifest["episodes"]:
+        episode.pop("verified_fingerprint")
+    output.write_text(json.dumps(manifest))
+    aged_verification_clock(monkeypatch)
     count = []
     original = hashlib.file_digest
 
@@ -149,6 +163,149 @@ def test_setup_hashes_payloads_once_and_rejects_changed_memo_artifact(tmp_path, 
         stream.write(b"changed")
     with pytest.raises(ValueError, match="hash mismatch"):
         memo.verify(artifact, sha)
+
+
+def test_finalized_fingerprints_skip_payload_reads_across_fresh_setups(tmp_path, monkeypatch):
+    inventory = make_inventory(tmp_path)
+    aged_verification_clock(monkeypatch)
+    output = tmp_path / "prepared.json"
+    calls, original = [], hashlib.file_digest
+
+    def digest(stream, *args, **kwargs):
+        calls.append(Path(stream.name).resolve())
+        return original(stream, *args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "file_digest", digest)
+    manifest = finalize(inventory, output)
+    assert len(calls) == len(manifest["episodes"])
+    calls.clear()
+    for _ in range(2):
+        WorldModelDataModule(output, min_frames=2, max_frames=2).setup()
+    # Each independent setup still verifies the small train-only statistics.
+    assert calls == [(tmp_path / manifest["normalization"]["path"]).resolve()] * 2
+    for episode in manifest["episodes"]:
+        fingerprint = episode["verified_fingerprint"]
+        assert fingerprint["sha256"] == episode["sha256"]
+        assert fingerprint["path"] == str((tmp_path / episode["path"]).resolve())
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "schema", "sha", "path", "bool_stat"])
+def test_malformed_fingerprint_falls_back_to_content_hash(tmp_path, monkeypatch, change):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    aged_verification_clock(monkeypatch)
+    fingerprint = ArtifactVerificationMemo().verify(path, expected)
+    if change == "missing":
+        fingerprint.pop("st_ctime_ns")
+    elif change == "extra":
+        fingerprint["unchecked"] = True
+    elif change == "schema":
+        fingerprint["schema"] = "unknown"
+    elif change == "sha":
+        fingerprint["sha256"] = "0" * 64
+    elif change == "path":
+        fingerprint["path"] = str(tmp_path / "elsewhere")
+    else:
+        fingerprint["st_dev"] = True
+    calls, original = [], hashlib.file_digest
+
+    def digest(stream, *args, **kwargs):
+        calls.append(stream.name)
+        return original(stream, *args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "file_digest", digest)
+    ArtifactVerificationMemo().verify(path, expected, trusted_fingerprint=fingerprint)
+    assert len(calls) == 1
+
+
+def test_changed_expected_hash_is_not_trusted(tmp_path, monkeypatch):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    aged_verification_clock(monkeypatch)
+    fingerprint = ArtifactVerificationMemo().verify(path, expected)
+    with pytest.raises(ValueError, match="hash mismatch"):
+        ArtifactVerificationMemo().verify(path, "0" * 64, trusted_fingerprint=fingerprint)
+
+
+def test_same_size_restored_mtime_mutation_fails_persistent_verification(tmp_path, monkeypatch):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    aged_verification_clock(monkeypatch)
+    fingerprint = ArtifactVerificationMemo().verify(path, expected)
+    before = path.stat()
+    path.write_bytes(b"modified")
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+    assert path.stat().st_size == before.st_size
+    assert path.stat().st_mtime_ns == before.st_mtime_ns
+    # Explicitly exercise the changed-ctime branch even on a coarse-clock tmpfs.
+    native_identity = ArtifactVerificationMemo.identity
+    monkeypatch.setattr(ArtifactVerificationMemo, "identity", staticmethod(
+        lambda candidate: (*native_identity(candidate)[:-1], before.st_ctime_ns + 1)))
+    with pytest.raises(ValueError, match="hash mismatch"):
+        ArtifactVerificationMemo().verify(path, expected, trusted_fingerprint=fingerprint)
+
+
+@pytest.mark.parametrize("change", ["replace_inode", "relocate"])
+def test_copy_or_relocation_rehashes_even_identical_payload(tmp_path, monkeypatch, change):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    aged_verification_clock(monkeypatch)
+    fingerprint = ArtifactVerificationMemo().verify(path, expected)
+    destination = tmp_path / "copy"
+    if change == "replace_inode":
+        shutil.copy2(path, destination)
+        destination.replace(path)
+        assert path.stat().st_ino != fingerprint["st_ino"]
+    else:
+        path.rename(destination)
+        path = destination
+    calls, original = [], hashlib.file_digest
+
+    def digest(stream, *args, **kwargs):
+        calls.append(stream.name)
+        return original(stream, *args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "file_digest", digest)
+    ArtifactVerificationMemo().verify(path, expected, trusted_fingerprint=fingerprint)
+    assert len(calls) == 1
+
+
+def test_recent_hash_cannot_become_trusted_after_same_tick_mutation(tmp_path, monkeypatch):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    identity = ArtifactVerificationMemo.identity(path)
+    # Simulate the observed coarse-clock case: the file keeps every stat field.
+    monkeypatch.setattr(ArtifactVerificationMemo, "identity", staticmethod(lambda _: identity))
+    monkeypatch.setattr(ArtifactVerificationMemo, "_now_ns", staticmethod(lambda: identity[-1]))
+    memo = ArtifactVerificationMemo()
+    fingerprint = memo.verify(path, expected)
+    assert fingerprint is None and not memo.verified
+    path.write_bytes(b"modified")
+    monkeypatch.setattr(ArtifactVerificationMemo, "_now_ns",
+                        staticmethod(lambda: identity[-1] + 2_000_000_000))
+    for verifier in (memo, ArtifactVerificationMemo()):
+        with pytest.raises(ValueError, match="hash mismatch"):
+            verifier.verify(path, expected, trusted_fingerprint=fingerprint)
+
+
+def test_recent_verification_timestamp_in_fingerprint_is_rejected(tmp_path, monkeypatch):
+    path = tmp_path / "artifact"
+    path.write_bytes(b"original")
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    aged_verification_clock(monkeypatch)
+    fingerprint = ArtifactVerificationMemo().verify(path, expected)
+    fingerprint["verification_started_ns"] = fingerprint["st_ctime_ns"]
+    # Even after aging, this malformed proof must trigger a new content hash.
+    path.write_bytes(b"modified")
+    identity = tuple(fingerprint[key] for key in ArtifactVerificationMemo._STAT_FIELDS)
+    monkeypatch.setattr(ArtifactVerificationMemo, "identity", staticmethod(lambda _: identity))
+    with pytest.raises(ValueError, match="hash mismatch"):
+        ArtifactVerificationMemo().verify(path, expected, trusted_fingerprint=fingerprint)
 
 
 @pytest.mark.parametrize("corruption", ["stats_hash", "train_identity", "missing_stats", "raw_without_path"])

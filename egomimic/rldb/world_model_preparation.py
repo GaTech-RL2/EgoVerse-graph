@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -18,28 +19,78 @@ from egomimic.rldb.zarr.episode_split import split_dataset_names
 
 
 class ArtifactVerificationMemo:
-    """One setup's hash cache; never a persistent receipt or an opt-out flag."""
+    """Reuse exact verified files, including fingerprints in a trusted manifest.
+
+    Persistent fingerprints are created only after a successful content hash.
+    They are a fast path for immutable files on the same filesystem, not an
+    independent authenticity proof: the prepared manifest must remain trusted.
+    Copies, relocations, metadata changes, and old manifests fall back to SHA.
+    """
+
+    _STAT_FIELDS = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    _FINGERPRINT_SCHEMA = "mot-verified-artifact-stat-v1"
+    _MINIMUM_CTIME_AGE_NS = 1_000_000_000
 
     def __init__(self):
         self.verified = {}
+        self.fingerprints = {}
+
+    @staticmethod
+    def _now_ns():
+        return time.time_ns()
 
     @staticmethod
     def identity(path):
         stat = path.stat()
         return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
 
-    def verify(self, path, expected):
+    @classmethod
+    def _fingerprint(cls, path, expected, identity, verification_started_ns):
+        return {"schema": cls._FINGERPRINT_SCHEMA, "path": str(path),
+                "sha256": expected, "verification_started_ns": verification_started_ns,
+                **dict(zip(cls._STAT_FIELDS, identity))}
+
+    @classmethod
+    def _matches_fingerprint(cls, fingerprint, path, expected, identity):
+        if not isinstance(fingerprint, dict):
+            return False
+        # Reject incomplete/extra fields and bool-as-int metadata. A malformed
+        # cache hint must never silently turn off content verification.
+        if any(type(fingerprint.get(key)) is not int for key in cls._STAT_FIELDS):
+            return False
+        started = fingerprint.get("verification_started_ns")
+        if (type(started) is not int or started > cls._now_ns()
+                or started - identity[-1] < cls._MINIMUM_CTIME_AGE_NS):
+            return False
+        return fingerprint == cls._fingerprint(path, expected, identity, started)
+
+    def verify(self, path, expected, *, trusted_fingerprint=None):
         path = Path(path).resolve(strict=True)
         before = self.identity(path)
+        started = self._now_ns()
         if self.verified.get((path, expected)) == before:
-            return
+            return self.fingerprints[(path, expected)].copy()
+        if self._matches_fingerprint(trusted_fingerprint, path, expected, before):
+            self.verified[(path, expected)] = before
+            self.fingerprints[(path, expected)] = trusted_fingerprint.copy()
+            return trusted_fingerprint.copy()
         with path.open("rb") as stream:
             actual = hashlib.file_digest(stream, "sha256").hexdigest()
         if before != self.identity(path):
             raise ValueError(f"Artifact changed while hashing: {path}")
         if actual != expected:
             raise ValueError(f"Artifact hash mismatch: {path}")
+        # A same-clock-tick rewrite can preserve ctime as well as restored mtime.
+        # Only author reusable proof when ctime was already old BEFORE hashing.
+        # Merely waiting after a recent hash must never turn it into a proof.
+        if started - before[-1] < self._MINIMUM_CTIME_AGE_NS:
+            self.verified.pop((path, expected), None)
+            self.fingerprints.pop((path, expected), None)
+            return None
+        fingerprint = self._fingerprint(path, expected, before, started)
         self.verified[(path, expected)] = before
+        self.fingerprints[(path, expected)] = fingerprint
+        return fingerprint.copy()
 
 
 def training_identities(episodes):
@@ -173,10 +224,11 @@ def finalize(inventory_path, output, *, valid_ratio=0.01, seed=42, std_floor=1e-
         if dino is not None and dino != receipt["dino_identity"]:
             raise ValueError("Mixed DINO extraction identities in corpus")
         dino = receipt["dino_identity"]
-        verifier.verify(artifact, receipt["output_sha256"])
+        fingerprint = verifier.verify(artifact, receipt["output_sha256"])
         episodes.append(dict(embodiment=identity[0], episode_id=identity[1],
                              path=os.path.relpath(artifact, output.parent), sha256=receipt["output_sha256"],
                              frames=receipt["frames"], frame="fixed_reference", pose_kind="measured_pose",
+                             verified_fingerprint=fingerprint,
                              native_source=native,
                              receipt_sha256=hashlib.sha256(receipt_path.read_bytes()).hexdigest()))
     if not episodes or set(schemas) != {e["embodiment"] for e in episodes}:

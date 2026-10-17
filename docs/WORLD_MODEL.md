@@ -349,8 +349,17 @@ HDF5 backend with one-frame image chunks; the reader selects frame indices on
 disk before materializing image/track/pose arrays. Both backends retain the same
 SHA-bound manifest, sampling, normalization and masks. Regression tests require
 bit-exact samples in both temporal modes and intercept image reads to reject
-whole-episode access. Initialization still verifies each immutable file hash
-once and reads the small timestamp vectors. Metadata assertions are
+whole-episode access. The finalizer hashes each new immutable payload and embeds
+its SHA-bound filesystem fingerprint in the trusted prepared manifest. Startup
+reuses that verification only when the resolved path, device, inode, byte size,
+mtime and ctime all match exactly. Copies, relocations, mutations, malformed
+fingerprints and historical manifests fall back to a full content hash. This
+proof is authored only if ctime was at least one second old when hashing began;
+recent files are hashed without creating a reusable proof, guarding against
+same-clock-tick rewrites. Aging later cannot revive a recent hash's proof. This
+fast path relies on a trusted immutable manifest and filesystem metadata; it is
+not a substitute for hashing new artifacts or an independent silent-bit-rot
+check. Startup also reads the small timestamp vectors. Metadata assertions are
 not proof of actual calibration or leakage-free normalization; preprocessing
 receipts must establish those properties. Exact data-RNG continuation across
 checkpoint resume is not implemented or claimed.

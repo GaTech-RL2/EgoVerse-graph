@@ -45,6 +45,11 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   activation after the open-then-squeeze gate, and validate-both-before-commanding
   guard. Do not add a GELLO repo dependency.
 - `rollout.py`: shared rollout loop. Inference uses only the local graph path.
+- `virtual_gello_teleop.py`: MuJoCo-only followers with generated or passive
+  real GELLO inputs. Reuse the shared leader reader/controller and the supplied
+  combined calibration/home; absolute checks must preserve full-turn errors.
+  Never add automatic live-pose reads, physical follower creation, CAN, cameras
+  or Quest to this diagnostic. Synthetic headless checks open no devices.
 - `graph_policy.py`: strict PipelineAlgo checkpoint loading, full normalization
   state, camera/proprio mapping and explicit Cartesian action-frame conversion.
 - `replay_policy.py`: read-only Zarr joint replay, including split

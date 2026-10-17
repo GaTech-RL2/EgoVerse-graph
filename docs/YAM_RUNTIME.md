@@ -216,6 +216,41 @@ disarms both followers and requires another explicit activation. Use
 reads the same single-key controls from the interactive terminal without
 requiring Enter.
 
+### Virtual YAM with GELLO
+
+Test the current calibration against a MuJoCo dual-YAM view without opening
+physical followers, CAN, cameras, or Quest:
+
+```bash
+python -m egomimic.robot.virtual_gello_teleop \
+  --input gello \
+  --config egomimic/hydra_configs/robot/yam_rl2_gello_collect.yaml \
+  --alignment absolute \
+  --duration 600
+```
+
+Real-input mode opens both passive leaders with torque disabled and uses the
+shared GELLO reader/controller. The combined profile supplies joint IDs,
+offsets, signs, gripper endpoints, input smoothing, speed limits and follower
+home. Absolute mode commands virtual home plus the calibrated leader angles;
+relative mode (`--alignment relative`) clutches at the starting pose and can
+therefore hide a zero-offset problem. The virtual runner activates both
+simulated arms immediately. Close the MuJoCo viewer to release the leader ports
+before starting physical teleop.
+
+For a test with no connected devices or display, use generated inputs:
+
+```bash
+python -m egomimic.robot.virtual_gello_teleop --headless --duration 1
+```
+
+Optional `--initial-left` / `--initial-right` take six simulated joint angles;
+they never read or move a physical arm. `--left-calibration` and
+`--right-calibration` are optional legacy overlays; omit them when checking the
+combined profile. The viewer performs kinematic updates, not a hardware or
+collision-safety validation. Do not wrap full-turn calibration errors to make
+the pose look correct; the first real-input angles are printed to the terminal.
+
 ### Preserved HDF5 format
 
 Files remain `demo_<id>.hdf5`, with `sim=False`. Each row uses left arm then

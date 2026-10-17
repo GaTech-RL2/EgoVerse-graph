@@ -6,7 +6,6 @@ fixed-frame measured poses. Never reinterpret policy commands as pose targets.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from contextlib import contextmanager
@@ -15,6 +14,11 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+
+from egomimic.rldb.world_model_preparation import (
+    ArtifactVerificationMemo,
+    load_normalization,
+)
 
 
 @contextmanager
@@ -193,6 +197,7 @@ class PreparedWorldDataset(Dataset):
         forecasting_probability=0.5,
         max_past_seconds=None,
         max_future_seconds=None,
+        verification_memo=None,
     ):
         self.path = Path(manifest_path)
         self.manifest = json.loads(self.path.read_text())
@@ -221,7 +226,7 @@ class PreparedWorldDataset(Dataset):
         if (
             m["normalization"].get("scope") != "train_only"
             or not re.fullmatch(r"[0-9a-f]{64}", m["normalization"].get("sha256", ""))
-            or m["normalization"].get("arrays_normalized") is not True
+            or type(m["normalization"].get("arrays_normalized")) is not bool
         ):
             raise ValueError("Require train-only normalization provenance")
         for schema in m["pose_schemas"].values():
@@ -237,6 +242,8 @@ class PreparedWorldDataset(Dataset):
                 raise ValueError(f"Missing track provenance {key}")
         if m["track_provenance"].get("interpolated_endpoints", True):
             raise ValueError("Endpoint interpolation is not actual tracked supervision")
+        verifier = verification_memo if verification_memo is not None else ArtifactVerificationMemo()
+        self.normalization = load_normalization(m, self.path.parent, verifier)
         ids, paths = set(), set()
         for ep in m["episodes"]:
             identity = (ep["embodiment"], ep["episode_id"])
@@ -256,9 +263,7 @@ class PreparedWorldDataset(Dataset):
                 )
             if ep["split"] not in ("train", "val"):
                 raise ValueError("Explicit train/val episode assignment required")
-            with physical.open("rb") as artifact:
-                if hashlib.file_digest(artifact, "sha256").hexdigest() != ep["sha256"]:
-                    raise ValueError(f"Episode hash mismatch: {physical}")
+            verifier.verify(physical, ep["sha256"])
         self.episodes = [ep for ep in m["episodes"] if ep["split"] == split]
         if not self.episodes:
             raise ValueError("No episodes in selected split")
@@ -356,6 +361,14 @@ class PreparedWorldDataset(Dataset):
             image, track, pose = (
                 data[k][indices].astype(np.float32) for k in ("image", "track", "pose")
             )
+            if self.normalization is not None:
+                values = []
+                for name, value in (("image", image), ("track", track), (f"pose/{ep['embodiment']}", pose)):
+                    mean, scale = self.normalization[name]
+                    if value.shape[-1] != len(mean):
+                        raise ValueError(f"Normalization schema width mismatch: {name}")
+                    values.append((value - mean) / scale)
+                image, track, pose = values
             if (
                 image.ndim != 4
                 or track.ndim != 3

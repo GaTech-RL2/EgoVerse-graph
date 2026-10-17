@@ -11,6 +11,7 @@ from egomimic.rldb.world_model import (
     PreparedWorldDataset,
     collate_world,
 )
+from egomimic.rldb.world_model_preparation import ArtifactVerificationMemo
 
 
 class WorldModelDataModule(LightningDataModule):
@@ -52,8 +53,12 @@ class WorldModelDataModule(LightningDataModule):
 
     def setup(self, stage=None):
         if not self.datasets:
+            # Verify every payload once per setup, then reuse only while its
+            # inode/size/mtime/ctime and expected hash remain unchanged.
+            verification = ArtifactVerificationMemo()
             self.datasets = {
-                s: PreparedWorldDataset(self.manifest_path, split=s, **self.settings)
+                s: PreparedWorldDataset(self.manifest_path, split=s,
+                                        verification_memo=verification, **self.settings)
                 for s in ("train", "val")
             }
 

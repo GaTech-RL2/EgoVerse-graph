@@ -861,6 +861,7 @@ def test_hydra_both_recipes_and_required_schema():
 
 
 def test_shared_lightning_fit_validate_and_resume(tmp_path):
+    import inspect
     from lightning import Trainer
     from omegaconf import OmegaConf
 
@@ -943,7 +944,10 @@ def test_shared_lightning_fit_validate_and_resume(tmp_path):
         enable_progress_bar=False,
         num_sanity_val_steps=0,
     )
-    trainer2.fit(restored, datamodule=data, ckpt_path=str(checkpoint))
+    # This is our own freshly saved full-state checkpoint. Match trainHydra's
+    # explicit restore mode on Lightning versions exposing weights_only.
+    load_options = {"weights_only": False} if "weights_only" in inspect.signature(trainer2.fit).parameters else {}
+    trainer2.fit(restored, datamodule=data, ckpt_path=str(checkpoint), **load_options)
     assert trainer2.global_step == 3
 
 

@@ -39,7 +39,7 @@ class EvaluationDataRequirements:
             raise ValueError("source_fps must be a finite positive number")
 
 
-def validation_trainer_overrides(evaluator):
+def validation_trainer_overrides(evaluator, *, trainer_options=None):
     """Validate evaluator-owned loop settings; resources belong to the launcher."""
     overrides = evaluator.trainer_overrides()
     allowed = {
@@ -55,6 +55,18 @@ def validation_trainer_overrides(evaluator):
             "Evaluator trainer_overrides may contain only validation-loop settings: "
             f"{sorted(allowed)}; got {overrides!r}"
         )
+    overrides = dict(overrides)
+    # An explicit integer batch interval with no epoch gate is a global,
+    # cross-epoch schedule. Evaluator defaults must not turn it back into an
+    # epoch-local interval (which Lightning rejects for short epochs).
+    if (
+        trainer_options is not None
+        and "check_val_every_n_epoch" in trainer_options
+        and trainer_options["check_val_every_n_epoch"] is None
+        and type(trainer_options.get("val_check_interval")) is int
+        and trainer_options["val_check_interval"] > 0
+    ):
+        overrides.pop("check_val_every_n_epoch", None)
     return overrides
 
 

@@ -217,6 +217,95 @@ def test_evaluator_cannot_change_cluster_policy():
         validation_trainer_overrides(Bad())
 
 
+@pytest.mark.parametrize("interval", [8, 15000])
+def test_actual_evaluator_preserves_explicit_cross_epoch_schedule(interval):
+    from egomimic.eval.planar_action_eval import PlanarActionEval
+
+    evaluator = PlanarActionEval(energy_score_enabled=False, limit_val_batches=1.0)
+    options = OmegaConf.create(
+        {"check_val_every_n_epoch": None, "val_check_interval": interval}
+    )
+    options.update(validation_trainer_overrides(evaluator, trainer_options=options))
+    assert options.check_val_every_n_epoch is None
+    assert options.val_check_interval == interval
+    assert options.limit_val_batches == 1.0
+    assert evaluator.trainer_overrides()["check_val_every_n_epoch"] == 1
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"check_val_every_n_epoch": 2},
+        {"check_val_every_n_epoch": None, "val_check_interval": 1.0},
+    ],
+)
+def test_evaluator_default_epoch_schedule_is_preserved(options):
+    from egomimic.eval.planar_action_eval import PlanarActionEval
+
+    assert (
+        validation_trainer_overrides(
+            PlanarActionEval(energy_score_enabled=False, limit_val_batches=1.0),
+            trainer_options=options,
+        )["check_val_every_n_epoch"]
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    "interval,epoch_batches,steps,validation_steps",
+    [(5, 3, 10, [5, 10]), (15000, 3491, 1, [])],
+)
+def test_lightning_validation_crosses_short_epoch_boundary(
+    tmp_path, interval, epoch_batches, steps, validation_steps
+):
+    import lightning.pytorch as pl
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from egomimic.eval.planar_action_eval import PlanarActionEval
+
+    class Tiny(pl.LightningModule):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.ones(()))
+            self.validation_steps = []
+
+        def training_step(self, batch, batch_idx):
+            return self.weight.square()
+
+        def validation_step(self, batch, batch_idx):
+            self.validation_steps.append(self.global_step)
+
+        def configure_optimizers(self):
+            return torch.optim.SGD(self.parameters(), lr=0.01)
+
+    options = {"check_val_every_n_epoch": None, "val_check_interval": interval}
+    options.update(
+        validation_trainer_overrides(
+            PlanarActionEval(energy_score_enabled=False, limit_val_batches=1.0),
+            trainer_options=options,
+        )
+    )
+    trainer = pl.Trainer(
+        accelerator="cpu",
+        devices=1,
+        max_steps=steps,
+        max_epochs=-1,
+        logger=False,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        num_sanity_val_steps=0,
+        default_root_dir=tmp_path,
+        **options,
+    )
+    model = Tiny()
+    loader = DataLoader(TensorDataset(torch.zeros(epoch_batches, 1)), batch_size=1)
+    trainer.fit(model, train_dataloaders=loader, val_dataloaders=loader)
+    assert sorted(set(model.validation_steps)) == validation_steps
+    assert trainer.global_step == steps
+
+
 def test_annotation_collation_does_not_mutate_dataset_cached_samples():
     sample = {"text": ["pick", "place"], "action": torch.zeros(2)}
     for _ in range(2):

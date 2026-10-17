@@ -94,6 +94,9 @@ AUDIT_ENVIRONMENT = {
             "LIBERO_GOAL_REPLAY_ROOT",
             "LIBERO_OBJECT_REPLAY_ROOT",
             "LIBERO_SPATIAL_REPLAY_ROOT",
+            "LIBERO_ORIGINAL_SPATIAL_ROOT",
+            "LIBERO_SHARPA_SPATIAL_ROOT",
+            "LIBERO_DIAGNOSTIC_SEED_BANK",
         )
     },
     **{

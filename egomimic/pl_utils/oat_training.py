@@ -10,17 +10,110 @@ from egomimic.pl_utils.training_behavior import TrainingBehavior
 from egomimic.utils.ema_callback import EMACallback
 
 
+class EarlyRecoveryCheckpoint(Callback):
+    """Keep an additional immutable full-state recovery save before normal cadence.
+
+    Extracted from the verified native LIBERO DurableCheckpointGuard; scheduled
+    cadence saves remain owned by Lightning ModelCheckpoint. No signal is sent.
+    """
+
+    def __init__(self, output, first_step=1000):
+        self.output = Path(output)
+        self.first_step = int(first_step)
+        if not self.output.is_absolute() or self.first_step <= 0:
+            raise ValueError(
+                "Recovery save requires an absolute output and positive step"
+            )
+        self.done = False
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        del pl_module, outputs, batch, batch_idx
+        step = int(trainer.global_step)
+        if self.done or step != self.first_step:
+            return
+        if int(trainer.world_size) != 1:
+            raise ValueError(
+                "Early recovery publication currently requires world size one"
+            )
+        path = (
+            self.output
+            / "checkpoints"
+            / (f"recovery-epoch-{int(trainer.current_epoch):04d}-step-{step:09d}.ckpt")
+        )
+        if path.exists():
+            raise FileExistsError("Refusing to overwrite an early recovery checkpoint")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        trainer.save_checkpoint(str(path), weights_only=False)
+        payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+        if (
+            payload.get("global_step") != step
+            or payload.get("ema_num_updates") != step
+            or not payload.get("optimizer_states")
+            or not payload.get("lr_schedulers")
+            or not payload.get("data_context")
+        ):
+            raise ValueError(
+                "Early recovery checkpoint lacks exact full training state"
+            )
+
+        def finite(value):
+            if torch.is_tensor(value):
+                return bool(torch.isfinite(value).all())
+            if isinstance(value, dict):
+                return all(finite(item) for item in value.values())
+            if isinstance(value, (list, tuple)):
+                return all(finite(item) for item in value)
+            if isinstance(value, float):
+                return bool(torch.isfinite(torch.tensor(value)))
+            return True
+
+        if not finite(payload):
+            raise ValueError("Nonfinite early recovery training state")
+        from egomimic.utils.slurm_requeue import _atomic_json_no_overwrite, _sha256
+
+        _atomic_json_no_overwrite(
+            path.with_suffix(".ckpt.recovery.json"),
+            {
+                "status": "PASS_DURABLE_STATE",
+                "global_step": step,
+                "ema_num_updates": step,
+                "path": str(path),
+                "bytes": path.stat().st_size,
+                "sha256": _sha256(path),
+                "full_state": True,
+            },
+        )
+        self.done = True
+
+
 class OATBatchBudgetCallback(Callback):
     """Match the released four-rank, drop-last optimizer budget on any device count."""
 
-    def __init__(self, global_batch_size=1024, report_path=None):
+    def __init__(
+        self, global_batch_size=1024, report_path=None, expected_source_batches=None
+    ):
         self.global_batch_size = int(global_batch_size)
         self.report_path = report_path
+        self.expected_source_batches = (
+            None
+            if expected_source_batches is None
+            else {
+                str(name): int(size) for name, size in expected_source_batches.items()
+            }
+        )
+        if self.expected_source_batches is not None and (
+            not self.expected_source_batches
+            or any(size <= 0 for size in self.expected_source_batches.values())
+        ):
+            raise ValueError("Every source batch must be positive")
         self.budget = None
 
     def on_fit_start(self, trainer, pl_module):
         del pl_module
         datasets = trainer.datamodule.train_datasets
+        if self.expected_source_batches is not None:
+            self._configure_joint_budget(trainer, datasets)
+            return
         if len(datasets) != 1:
             raise ValueError("OAT budget requires exactly one replay training dataset")
         name, dataset = next(iter(datasets.items()))
@@ -58,6 +151,70 @@ class OATBatchBudgetCallback(Callback):
             "max_steps": step_limit,
             "total_optimizer_steps": total_steps,
             "dropped_examples_per_epoch": len(dataset) % effective,
+        }
+        if trainer.is_global_zero:
+            encoded = json.dumps(self.budget, indent=2) + "\n"
+            print("OAT_TRAINING_BUDGET", encoded, flush=True)
+            if self.report_path:
+                path = Path(self.report_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(encoded)
+
+    def _configure_joint_budget(self, trainer, datasets):
+        """Preserve fixed per-source participation in max-size cycling loaders."""
+        if set(datasets) != set(self.expected_source_batches):
+            raise ValueError("Joint budget source identities differ from datasets")
+        if trainer.datamodule.train_loader_mode != "max_size_cycle":
+            raise ValueError("Fixed joint batches require max_size_cycle")
+        if trainer.limit_train_batches != 1.0:
+            raise ValueError(
+                "Disable the batch budget callback for limited smoke tests"
+            )
+        world = int(trainer.world_size)
+        accumulation = int(trainer.accumulate_grad_batches)
+        sources = {}
+        for name, size in self.expected_source_batches.items():
+            params = trainer.datamodule.train_dataloader_params[name]
+            if int(params["batch_size"]) != size or not params.get("drop_last", False):
+                raise ValueError(
+                    f"Joint source {name} must preserve batch size and drop_last"
+                )
+            effective = size * world * accumulation
+            # Lightning's distributed sampler pads to equal rank lengths.
+            rank_examples = (len(datasets[name]) + world - 1) // world
+            microbatches = rank_examples // size
+            if microbatches < accumulation:
+                raise ValueError(
+                    f"Joint source {name} is smaller than one optimizer batch"
+                )
+            sources[name] = {
+                "train_examples": len(datasets[name]),
+                "microbatch_size": size,
+                "global_batch_size": effective,
+                "available_microbatches": microbatches,
+            }
+        effective = sum(s["global_batch_size"] for s in sources.values())
+        if effective != self.global_batch_size:
+            raise ValueError("Joint source batches differ from configured global batch")
+        microbatches = max(s["available_microbatches"] for s in sources.values())
+        steps = microbatches // accumulation
+        trainer.limit_train_batches = steps * accumulation
+        epoch_limit = int(trainer.max_epochs)
+        step_limit = int(getattr(trainer, "max_steps", -1))
+        limits = [value for value in (steps * epoch_limit, step_limit) if value > 0]
+        if not limits:
+            raise ValueError("Joint budget requires a finite epoch or step budget")
+        self.budget = {
+            "sources": sources,
+            "loader_mode": "max_size_cycle",
+            "world_size": world,
+            "gradient_accumulation": accumulation,
+            "global_batch_size": effective,
+            "optimizer_steps_per_epoch": steps,
+            "microbatches_per_epoch": steps * accumulation,
+            "epochs": epoch_limit,
+            "max_steps": step_limit,
+            "total_optimizer_steps": min(limits),
         }
         if trainer.is_global_zero:
             encoded = json.dumps(self.budget, indent=2) + "\n"

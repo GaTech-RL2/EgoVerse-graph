@@ -170,6 +170,7 @@ def test_cotrain_av_norm_is_opt_in_and_hydra_reachable(monkeypatch):
             overrides=[
                 "+experiment=pusht/parents/action_flow_cotrain_uc_manual4919",
                 "callbacks=action_flow_avln_cotrain",
+                "hydra/launcher=basic",
                 "++paths.root_dir=.",
             ],
         )

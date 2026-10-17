@@ -521,7 +521,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     )
     if eval_obj is not None:
         requirements = eval_obj.data_requirements()
-        overrides = validation_trainer_overrides(eval_obj)
+        overrides = validation_trainer_overrides(eval_obj, trainer_options=cfg.trainer)
         with open_dict(cfg):
             for key, value in overrides.items():
                 cfg.trainer[key] = value

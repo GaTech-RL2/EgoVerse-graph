@@ -8,6 +8,7 @@ the production factories, strict reloads and launch guards are not changed.
 import hashlib
 import inspect
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import patch
 
 import torch
@@ -17,6 +18,23 @@ from omegaconf import OmegaConf
 
 def evaluator_inputs(config):
     cfg = OmegaConf.to_container(config, resolve=True)
+    if cfg.get("_target_") == "egomimic.eval.planar_action_eval.PlanarActionEval":
+        diagnostics = cfg.get("action_flow_diagnostics")
+        if diagnostics:
+            # Constructor-only stand-in, never a production diagnostic identity.
+            # Reuse the shipped unique-seed resource rather than task artifacts.
+            seed_path = (
+                Path(__file__).resolve().parents[1]
+                / "egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json"
+            )
+            diagnostics["noise_seed_bank_path"] = str(seed_path)
+            diagnostics["noise_seed_bank_sha256"] = hashlib.sha256(
+                seed_path.read_bytes()
+            ).hexdigest()
+            return cfg, {
+                "external_binding": "UNVERIFIED: constructor-only diagnostic seed stand-in",
+                "scope": "no diagnostic execution or production seed identity validation",
+            }
     if cfg.get("_target_") != (
         "egomimic.eval.libero_action_flow_eval.LiberoActionFlowEvaluator"
     ):

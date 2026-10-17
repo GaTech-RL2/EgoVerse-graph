@@ -43,7 +43,7 @@ def raw_equal(a, b):
     )
 
 
-@pytest.mark.parametrize("depth", [6, 12])
+@pytest.mark.parametrize("depth", [6, 8, 10, 12])
 def test_native_half_checkpoint_raw_higher_order_rng_and_state(depth):
     torch.set_num_threads(1)
     torch.manual_seed(42)
@@ -100,6 +100,28 @@ def test_native_half_checkpoint_raw_higher_order_rng_and_state(depth):
     for k, v in restored.state_dict().items():
         raw_equal(v, state[k])
     assert not torch.cuda.is_initialized()
+
+
+def test_callback_configurable_depth_state_is_checkpoint_bound():
+    from egomimic.utils.yam_dit_half import YamHumanDiTHalf
+
+    legacy = YamHumanDiTHalf()
+    assert legacy.state_dict()["encoder_depth"] == 6
+    assert legacy.state_dict()["velocity_depth"] == 12
+    candidate = YamHumanDiTHalf(encoder_depth=8, velocity_depth=10)
+    state = candidate.state_dict()
+    assert state["encoder_depth"] == 8 and state["velocity_depth"] == 10
+    candidate.load_state_dict(state)
+    with pytest.raises(ValueError, match="identity mismatch"):
+        candidate.load_state_dict(legacy.state_dict())
+
+
+@pytest.mark.parametrize("kwargs", [{"encoder_depth": 7}, {"velocity_depth": 9}])
+def test_callback_declared_depth_rejects_invalid_half_policy(kwargs):
+    from egomimic.utils.yam_dit_half import YamHumanDiTHalf
+
+    with pytest.raises(ValueError, match="positive even"):
+        YamHumanDiTHalf(**kwargs)
 
 
 @pytest.mark.parametrize(

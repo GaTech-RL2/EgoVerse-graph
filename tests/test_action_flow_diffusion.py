@@ -172,3 +172,31 @@ def test_dit_half_accepts_exact_diffusion_pair_but_rejects_mixed_topology():
     stages[4] = type("LatentBridgeStage", (), {})()
     with pytest.raises(ValueError, match="topology"):
         resolve_backbones(module)
+
+
+@pytest.mark.parametrize("embodied", [False, True])
+def test_dit_half_integration_retains_velocity_topologies(embodied):
+    from egomimic.utils.libero_dit_half import resolve_backbones
+
+    names = [
+        "EmbodimentOATObservationStage" if embodied else "OATObservationStage",
+        "EmbodimentActionTargetBuilder" if embodied else "ActionTargetBuilder",
+        "GaussianLatentNoise",
+        "ContentEncoderStage",
+        "LatentBridgeStage",
+        "ConditionalVelocityStage",
+        "ContentDecoderStage",
+        "ActionFlowObjectiveStage",
+    ]
+    stages = [type(name, (), {})() for name in names]
+    encoder, field = object(), object()
+    stages[3].encoder = SimpleNamespace(backbone=encoder)
+    stages[5].field = SimpleNamespace(backbone=field)
+    module = SimpleNamespace(
+        model=SimpleNamespace(pipeline=SimpleNamespace(stages=stages))
+    )
+    assert resolve_backbones(module) == {"encoder": encoder, "velocity": field}
+    if embodied:
+        stages[1] = type("ActionTargetBuilder", (), {})()
+        with pytest.raises(ValueError, match="topology"):
+            resolve_backbones(module)

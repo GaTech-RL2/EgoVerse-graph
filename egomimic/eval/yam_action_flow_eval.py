@@ -37,9 +37,9 @@ YAM_ENERGY_DISTANCE_METADATA = {
 }
 
 
-def _require_yam_chunk(tensor: torch.Tensor) -> None:
-    if tensor.ndim < 2 or tuple(tensor.shape[-2:]) != (100, YAM_ACTION_DIM):
-        raise ValueError("YAM Action Flow requires complete (100,14) chunks")
+def _require_yam_chunk(tensor: torch.Tensor, horizon: int = 100) -> None:
+    if tensor.ndim < 2 or tuple(tensor.shape[-2:]) != (horizon, YAM_ACTION_DIM):
+        raise ValueError(f"YAM Action Flow requires complete ({horizon},14) chunks")
     if not bool(torch.isfinite(tensor).all()):
         raise ValueError("YAM Action Flow chunk is non-finite")
 
@@ -63,7 +63,10 @@ def yam_native_residual(prediction: torch.Tensor, target: torch.Tensor) -> torch
 class YamCartesianActionFlowEval(PlanarActionEval):
     """Reuse fixed-seed Action Flow diagnostics with YAM-native geometry."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, yam_action_horizon=100, **kwargs):
+        if type(yam_action_horizon) is not int or yam_action_horizon < 1:
+            raise ValueError("YAM action horizon must be positive integer")
+        self.yam_action_horizon = yam_action_horizon
         if kwargs.get("action_key", "actions_cartesian") != "actions_cartesian":
             raise ValueError("YAM evaluator requires actions_cartesian")
         if kwargs.get("native_decoder") is not None or kwargs.get("native_decoders"):
@@ -73,6 +76,10 @@ class YamCartesianActionFlowEval(PlanarActionEval):
         if self.energy_score_distance is not None:
             raise ValueError("YAM evaluator has its own fixed Energy Score distance")
         self.energy_score_distance_metadata = dict(YAM_ENERGY_DISTANCE_METADATA)
+        self.energy_score_distance_metadata.update(
+            complete_normalized_chunk_shape=[yam_action_horizon, 14],
+            coverage=f"all_{yam_action_horizon}_steps_and_all_14_action_channels",
+        )
 
     @staticmethod
     def _native_residual(prediction, target, decoder):
@@ -83,14 +90,15 @@ class YamCartesianActionFlowEval(PlanarActionEval):
     def _energy_values(self, samples, target, embodiment_id, label=None):
         if samples.ndim != 4 or samples.shape[0] != 32:
             raise ValueError("YAM EnergyScore@32 requires 32 sampled chunks")
-        _require_yam_chunk(samples)
-        _require_yam_chunk(target)
+        horizon = getattr(self, "yam_action_horizon", 100)
+        _require_yam_chunk(samples, horizon)
+        _require_yam_chunk(target, horizon)
         if samples.shape[1:] != target.shape:
             raise ValueError("YAM sampled/target chunk shapes differ")
 
         def distance(left, right):
-            _require_yam_chunk(left)
-            _require_yam_chunk(right)
+            _require_yam_chunk(left, horizon)
+            _require_yam_chunk(right, horizon)
             native_left = self._native(left, embodiment_id, None)
             native_right = self._native(right, embodiment_id, None)
             native_residual = yam_native_residual(native_left, native_right)

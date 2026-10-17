@@ -63,6 +63,8 @@ def install_av_only(stage, *, expected_norms_per_decoder=25):
         raise ValueError("expected_norms_per_decoder must be positive")
     if type(stage) is RoutedContentDecoderStage:
         decoders = tuple(stage.decoder.values())
+    elif stage.decoders is not None:
+        decoders = tuple(stage.decoders.values())
     else:
         decoders = (stage.decoder,)
     if any(

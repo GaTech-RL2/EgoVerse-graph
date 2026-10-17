@@ -953,6 +953,12 @@ elif test -n "${AF_INITIAL_CHECKPOINT:-}"; then
 fi
 
 
+# Bound the evaluator too: trainHydra applies its overrides after trainer config.
+# Full validation keeps its existing evaluator budget.
+if test "$AF_RUN_KIND" = smoke && test "$AF_SPEED_DIAGNOSTIC" = true; then
+  BASE_OVERRIDES+=("evaluator.limit_val_batches=$LIMIT_VAL_BATCHES")
+fi
+
 if test -n "${AF_INITIAL_CHECKPOINT:-}"; then
   BASE_OVERRIDES+=("ckpt_path='$AF_INITIAL_CHECKPOINT'")
   if test "$AF_RUN_KIND" = full; then BASE_OVERRIDES+=("++logger.wandb.resume=must");
@@ -989,6 +995,9 @@ if test "$AF_LAUNCH_MODE" = schema; then
 fi
 
 if test "$AF_LAUNCH_MODE" = preflight; then
+  if test "$AF_SPEED_DIAGNOSTIC" = true; then
+    "$AF_PYTHON" "$AF_SMOKE_VERIFIER" --check-experiment "$AF_EXPERIMENT"
+  fi
   for variable in \
     SLURM_JOB_ID SLURM_JOB_ACCOUNT SLURM_JOB_PARTITION SLURM_JOB_QOS \
     SLURM_JOB_NUM_NODES SLURM_NTASKS SLURM_CPUS_PER_TASK; do
@@ -1486,9 +1495,13 @@ if test "$AF_RUN_KIND" = full; then
     die "AF_EXPECTED_SMOKE_SHA256 must be a lowercase SHA-256"
   test "$(sha256 "$AF_SMOKE_RESULT")" = "$AF_EXPECTED_SMOKE_SHA256" || \
     die "smoke result SHA-256 mismatch"
+  # Preserve the original smoke/preflight binding when a later full preflight
+  # refreshes operational launcher checks without changing model semantics.
+  AF_SMOKE_PREFLIGHT_IDENTITY=${AF_EXPECTED_SMOKE_PREFLIGHT_SHA256:-$AF_EXPECTED_PREFLIGHT_SHA256}
+  [[ "$AF_SMOKE_PREFLIGHT_IDENTITY" =~ ^[0-9a-f]{64}$ ]] || die "invalid smoke preflight SHA"
   "$AF_PYTHON" - "$AF_SMOKE_RESULT" "$AF_EXPECTED_HEAD" "$AF_EXPERIMENT" \
     "$AF_EXPECTED_SPLIT_MANIFEST_SHA256" "$AF_EXPECTED_NORM_SHA256" \
-    "$AF_EXPECTED_PREFLIGHT_SHA256" \
+    "$AF_SMOKE_PREFLIGHT_IDENTITY" \
     "$AF_EXPECTED_CONTENT_MANIFEST_SHA256" \
     "$AF_EXPECTED_DATASET_CONTENT_AGGREGATE_SHA256" "$AF_SCALED_H512" \
     "$AF_PAIRED_CHAIN_MANUAL4919" \
@@ -1888,6 +1901,11 @@ if run_kind == "smoke":
     assert cfg.trainer.max_steps == cfg.trainer.limit_train_batches == 2
     assert cfg.trainer.val_check_interval == 2
     assert cfg.trainer.limit_val_batches == 1
+    if speed_diagnostic:
+        assert type(cfg.evaluator.limit_val_batches) is int
+        assert cfg.evaluator.limit_val_batches == cfg.trainer.limit_val_batches
+        evaluator_limit = instantiate(cfg.evaluator).trainer_overrides()["limit_val_batches"]
+        assert type(evaluator_limit) is int and evaluator_limit == 1
     assert cfg.callbacks.model_checkpoint.every_n_train_steps == 1
     assert cfg.model.gradient_telemetry_cadence == 2
 else:

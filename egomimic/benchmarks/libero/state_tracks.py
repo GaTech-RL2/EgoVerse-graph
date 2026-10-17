@@ -229,18 +229,73 @@ def validate_arrays(a):
     )
 
 
+def exclude_visualization_mocap(xml, names):
+    """Explicitly remove nonphysical marker bodies whose poses were not saved.
+
+    Refuse collision geometry, child bodies, joints or surviving references.
+    Physical joint-state ordering must remain unchanged after removal.
+    """
+    if not names:
+        return xml
+    if len(names) != len(set(names)):
+        raise ValueError("Duplicate marker body names")
+    original = mujoco.MjModel.from_xml_string(xml)
+    tree = ET.fromstring(xml)
+    removed_names = set()
+    for name in names:
+        body_id = mujoco.mj_name2id(original, mujoco.mjtObj.mjOBJ_BODY, name)
+        matches = [(p, e) for p in tree.iter() for e in p
+                   if e.tag == "body" and e.get("name") == name]
+        if body_id < 0 or original.body_mocapid[body_id] < 0 or len(matches) != 1:
+            raise ValueError(f"Not a unique mocap visualization body: {name}")
+        parent, element = matches[0]
+        geoms = np.flatnonzero(original.geom_bodyid == body_id)
+        if (any(e.tag in ("body", "joint", "freejoint") for e in list(element.iter())[1:])
+                or np.any(original.geom_contype[geoms])
+                or np.any(original.geom_conaffinity[geoms])):
+            raise ValueError(f"Marker body has physical geometry or children: {name}")
+        removed_names.update(e.get("name") for e in element.iter() if e.get("name"))
+        parent.remove(element)
+    if any(value in removed_names for e in tree.iter() for key, value in e.attrib.items()
+           if key != "name"):
+        raise ValueError("Excluded marker still referenced by model")
+    result = ET.tostring(tree, encoding="unicode")
+    filtered = mujoco.MjModel.from_xml_string(result)
+    if (original.nq, original.nv, original.nu, original.na) != (
+            filtered.nq, filtered.nv, filtered.nu, filtered.na):
+        raise ValueError("Marker exclusion changed physical state dimensions")
+    original_joints = [mujoco.mj_id2name(original, mujoco.mjtObj.mjOBJ_JOINT, i)
+                       for i in range(original.njnt)]
+    filtered_joints = [mujoco.mj_id2name(filtered, mujoco.mjtObj.mjOBJ_JOINT, i)
+                       for i in range(filtered.njnt)]
+    if original_joints != filtered_joints:
+        raise ValueError("Marker exclusion changed joint-state ordering")
+    return result
+
+
 def prepare(args):
     output = Path(args.output)
     if output.exists():
         raise FileExistsError(f"Refusing to overwrite cache: {output}")
+    input_schema = getattr(args, "input_schema", "libero")
     with h5py.File(args.demo, "r") as handle:
-        demo = handle[f"data/{args.episode}"]
-        states = demo["states"][:]
-        raw_xml = demo.attrs["model_file"]
-        original_pose = demo["obs/ee_pos"][:] if "obs/ee_pos" in demo else None
+        if input_schema == "quest":
+            states = handle["state"][:]
+            raw_xml = handle["destination_model_xml"][()]
+            original_pose = handle["numeric_observations/robot0_eef_pos"][:]
+        elif input_schema == "libero":
+            demo = handle[f"data/{args.episode}"]
+            states = demo["states"][:]
+            raw_xml = demo.attrs["model_file"]
+            original_pose = demo["obs/ee_pos"][:] if "obs/ee_pos" in demo else None
+        else:
+            raise ValueError("Unknown recorded input schema")
+    remaps = getattr(args, "asset_remap", None) or ()
+    excluded = getattr(args, "exclude_visualization_body", None) or ()
     xml = rebase_demo_xml(
-        raw_xml, Path(args.robot_assets).resolve(), Path(args.scene_assets).resolve()
+        raw_xml, Path(args.robot_assets).resolve(), Path(args.scene_assets).resolve(), remaps
     )
+    xml = exclude_visualization_mocap(xml, excluded)
     model = mujoco.MjModel.from_xml_string(xml)
     arrays = build_arrays(
         model, states, args.cameras, args.pose_site, args.height, args.width, args.grid
@@ -263,6 +318,9 @@ def prepare(args):
         source_demo=str(Path(args.demo).resolve()),
         source_demo_sha256=digest(args.demo),
         episode=args.episode,
+        input_schema=input_schema,
+        asset_remaps=list(remaps),
+        excluded_visualization_bodies=list(excluded),
         alignment="Every RGB, measured pose and track row is recomputed after restoring the exact same source state. No original cached observation is consumed as a target.",
         original_cache_max_eef_error_m=mismatch,
         original_cache_repaired=False,
@@ -335,7 +393,10 @@ def main():
     prepare_parser = commands.add_parser("prepare")
     for name in ("demo", "robot-assets", "scene-assets", "output", "pose-site"):
         prepare_parser.add_argument(f"--{name}", required=True)
-    prepare_parser.add_argument("--episode", required=True)
+    prepare_parser.add_argument("--episode", default="demo_0")
+    prepare_parser.add_argument("--input-schema", choices=["libero", "quest"], default="libero")
+    prepare_parser.add_argument("--asset-remap", nargs=2, action="append", metavar=("OLD_PREFIX", "NEW_ROOT"))
+    prepare_parser.add_argument("--exclude-visualization-body", action="append")
     prepare_parser.add_argument("--cameras", nargs="+", required=True)
     prepare_parser.add_argument("--height", type=int, required=True)
     prepare_parser.add_argument("--width", type=int, required=True)

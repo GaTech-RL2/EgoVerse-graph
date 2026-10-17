@@ -16,6 +16,7 @@ from egomimic.benchmarks.libero.state_tracks import (
     restore_state,
     validate_arrays,
     validate_cache,
+    exclude_visualization_mocap,
 )
 
 XML = """<mujoco><worldbody>
@@ -111,3 +112,42 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path)
     (args.output / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(AssertionError):
         validate_cache(args.output, replay=True)
+
+
+def test_quest_recording_and_explicit_nonphysical_marker_exclusion(tmp_path):
+    _, states = fixture()
+    marker = '<body name="marker" mocap="true"><geom name="dot" type="sphere" size=".02" contype="0" conaffinity="0"/></body>'
+    xml = XML.replace('</worldbody>', marker + '</worldbody>')
+    source = tmp_path / 'quest.hdf5'
+    with h5py.File(source, 'w') as f:
+        f['state'] = states
+        f['destination_model_xml'] = xml
+        f['numeric_observations/robot0_eef_pos'] = np.zeros((3, 3))
+    args = Namespace(demo=str(source), episode='root', input_schema='quest',
+                     robot_assets=tmp_path, scene_assets=tmp_path, output=tmp_path/'quest',
+                     pose_site='eef', cameras=['view'], height=32, width=32, grid=[8, 8],
+                     exclude_visualization_body=['marker'], asset_remap=[])
+    assert prepare(args)['all_channels_native_replay_exact']
+    manifest = json.loads((args.output/'manifest.json').read_text())
+    assert manifest['excluded_visualization_bodies'] == ['marker']
+    assert manifest['input_schema'] == 'quest'
+    assert mujoco.MjModel.from_xml_string(exclude_visualization_mocap(xml, ['marker'])).nmocap == 0
+    with pytest.raises(ValueError, match='physical'):
+        exclude_visualization_mocap(xml.replace('contype="0"', 'contype="1"'), ['marker'])
+    with pytest.raises(ValueError, match='referenced'):
+        exclude_visualization_mocap(xml.replace('</mujoco>', '<sensor><framepos objtype="geom" objname="dot"/></sensor></mujoco>'), ['marker'])
+
+
+def test_explicit_asset_prefix_remap_rejects_ambiguity(tmp_path, monkeypatch):
+    from egomimic.benchmarks.libero.replay import rebase_demo_xml
+    (tmp_path/'hand.stl').write_bytes(b'fixture')
+    xml = '<mujoco><asset><mesh file="/recorded/hand/hand.stl"/></asset></mujoco>'
+    result = rebase_demo_xml(xml, tmp_path, tmp_path, [('/recorded/hand', tmp_path)])
+    assert str(tmp_path/'hand.stl') in result
+    monkeypatch.chdir(tmp_path.parent)
+    relative = rebase_demo_xml(xml, tmp_path, tmp_path,
+                               [('/recorded/hand', tmp_path.name)])
+    assert relative == result
+    with pytest.raises(ValueError, match='Ambiguous'):
+        rebase_demo_xml(xml, tmp_path, tmp_path,
+                        [('/recorded/hand', tmp_path), ('/recorded', tmp_path)])

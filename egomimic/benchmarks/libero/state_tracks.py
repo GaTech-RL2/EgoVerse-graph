@@ -400,7 +400,9 @@ def validate_cache(output, replay=False):
             manifest["grid"],
             manifest.get("pose_joints", ()),
         )
-        for key in arrays:
+        # Prove geometry/state equality before reporting renderer differences.
+        # RGB remains bit-exact; only assertion order changes.
+        for key in [key for key in arrays if key != "rgb"] + ["rgb"]:
             np.testing.assert_array_equal(arrays[key], repeated[key], err_msg=key)
     return {
         "status": "PASS",
@@ -438,7 +440,10 @@ def _prepare_corpus_episode(options):
                 raise ValueError(f"Existing cache request mismatch: {recorded}")
         if manifest["source_demo"] != str(Path(options["demo"]).resolve()) or manifest["source_demo_sha256"] != digest(options["demo"]):
             raise ValueError("Existing cache source mismatch")
-        result = validate_cache(output)
+        # A manifest is written before native replay finishes. Its presence and
+        # hashes therefore cannot prove that an earlier preparation passed.
+        # Until replay success has a hash-bound receipt, every reuse must replay.
+        result = validate_cache(output, replay=True)
         result["reused"] = True
         return result
     return prepare(argparse.Namespace(**options))

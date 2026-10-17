@@ -100,7 +100,9 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
     assert result["all_channels_native_replay_exact"]
     options = {**vars(args), "input_schema": "libero", "asset_remap": [],
                "exclude_visualization_body": []}
-    assert _prepare_corpus_episode(options)["reused"]
+    reused = _prepare_corpus_episode(options)
+    assert reused["reused"]
+    assert reused["all_channels_native_replay_exact"]
     with pytest.raises(ValueError, match="request mismatch"):
         _prepare_corpus_episode({**options, "pose_site": "changed"})
     manifest = json.loads((args.output / "manifest.json").read_text())
@@ -123,6 +125,21 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
     manifest["artifacts"]["aligned.npz"] = digest(args.output / "aligned.npz")
     (args.output / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(AssertionError):
+        validate_cache(args.output, replay=True)
+
+    # Failed replay leaves a hash-valid manifest and arrays on disk. A corpus
+    # restart must not convert this failed native replay into a successful hit.
+    assert validate_cache(args.output)["status"] == "PASS"
+    with pytest.raises(AssertionError):
+        _prepare_corpus_episode(options)
+
+    # If RGB and geometry both differ, the geometry failure must be exposed
+    # first; an RGB-only assertion should imply all non-RGB channels matched.
+    arrays["pose"][0, 0] += 0.01
+    np.savez_compressed(args.output / "aligned.npz", **arrays)
+    manifest["artifacts"]["aligned.npz"] = digest(args.output / "aligned.npz")
+    (args.output / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(AssertionError, match="pose"):
         validate_cache(args.output, replay=True)
 
 

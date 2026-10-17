@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import unittest
+import pytest
 from pathlib import Path
 from unittest import mock
 
@@ -1482,7 +1483,8 @@ if __name__ == "__main__":
     unittest.main()
 
 
-def test_trainer_pid_backend_requeue_and_target_guard(tmp_path):
+@pytest.mark.parametrize("deadline", [False, True])
+def test_trainer_pid_backend_requeue_and_target_guard(tmp_path, deadline):
     """Real child signal transport; fake scontrol never mutates the allocation."""
     if not hasattr(os, "pidfd_open"):
         import pytest
@@ -1509,7 +1511,8 @@ else:
     signal.signal(signal.SIGUSR2, save)
     Path(os.environ["ICE_TRAINER_READY_FILE"]).write_text(json.dumps(ready_record(
         os.environ["ICE_TRAINER_NONCE"], os.environ["SLURM_JOB_ID"], 0)))
-    os.kill(os.getppid(), signal.SIGUSR1)
+    if not os.environ.get("TEST_DEADLINE"):
+        os.kill(os.getppid(), signal.SIGUSR1)
     time.sleep(30)
 ''')
     env = os.environ.copy()
@@ -1525,13 +1528,21 @@ else:
             "--confirm-child-requeue-disabled", "--scontrol", str(control),
             "--scancel", "/must-never-resolve-scancel", "--completion-sentinel", str(tmp_path / "COMPLETE.json"),
             "--target-global-step", "3", "--", sys.executable, str(child)]
+    if deadline:
+        env["TEST_DEADLINE"] = "1"
+        env["SLURM_JOB_END_TIME"] = str(int(time.time()) + 5)
+        args[args.index("--"):args.index("--")] = ["--allocation-boundary-lead-seconds", "2"]
     first = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
     assert first.returncode == 0, first.stderr
     assert (tmp_path / "requeue.log").read_text().strip() == "requeue 123456"
     event = (state / "requeue/job-123456-restart-000/events.jsonl").read_text()
     assert '"transport": "trainer-pid"' in event
+    if deadline:
+        assert '"boundary_trigger": "allocation-timer"' in event
     assert not (tmp_path / "COMPLETE.json").exists()
     env["SLURM_RESTART_COUNT"] = "1"
+    if deadline:
+        env["SLURM_JOB_END_TIME"] = str(int(time.time()) + 30)
     second = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
     assert second.returncode == 0, second.stderr
     assert json.loads((tmp_path / "COMPLETE.json").read_text())["checkpoint"]["global_step"] == 3
@@ -1543,3 +1554,35 @@ else:
     env["EXPECTED_STEP"] = "3"
     refused = subprocess.run(args, cwd=source, env=env, capture_output=True, text=True, timeout=40)
     assert refused.returncode == 78 and not (tmp_path / "COMPLETE.json").exists()
+
+
+@pytest.mark.parametrize("end", [None, "", "invalid", "0", "1"])
+def test_allocation_timer_rejects_missing_invalid_stale_end(tmp_path, end):
+    env = os.environ.copy()
+    if end is None:
+        env.pop("SLURM_JOB_END_TIME", None)
+    else:
+        env["SLURM_JOB_END_TIME"] = end
+    args = [sys.executable, str(MODULE_PATH), "--state-dir", str(tmp_path / "state"),
+            "--checkpoint-glob", str(tmp_path / "*.ckpt"), "--allow-unvalidated-checkpoints",
+            "--checkpoint-signal", "USR2", "--checkpoint-forwarding", "slurm-steps",
+            "--requeue-owner", "child", "--allocation-boundary-lead-seconds", "2",
+            "--dry-run", "--", "/bin/true"]
+    result = subprocess.run(args, env=env, capture_output=True, text=True, timeout=10)
+    assert result.returncode != 0 and "SLURM_JOB_END_TIME" in result.stderr
+    assert not (tmp_path / "state").exists()
+
+
+def test_allocation_timer_cleanup_on_early_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("SLURM_JOB_END_TIME", str(int(time.time()) + 120))
+    old_alarm = signal.getsignal(signal.SIGALRM)
+    old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+    with pytest.raises(SystemExit, match="checkpoint-validator"):
+        MODULE.main(["--state-dir", str(tmp_path / "state"),
+                     "--checkpoint-glob", str(tmp_path / "*.ckpt"),
+                     "--checkpoint-signal", "USR2", "--checkpoint-forwarding", "slurm-steps",
+                     "--requeue-owner", "child", "--allocation-boundary-lead-seconds", "10",
+                     "--", "/bin/true"])
+    assert signal.getitimer(signal.ITIMER_REAL) == (0., 0.)
+    assert signal.getsignal(signal.SIGALRM) == old_alarm
+    assert signal.pthread_sigmask(signal.SIG_BLOCK, set()) == old_mask

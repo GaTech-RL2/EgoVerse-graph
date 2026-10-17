@@ -151,8 +151,17 @@ checkpoint can be replayed after restart. Keep periodic checkpoint/validation
 cadences unchanged; allocation-boundary recovery saves are additional. Pass
 `--target-global-step` with a completion sentinel to reject an early zero exit or
 an older COMPLETE record. Boundary and validator time must fit the signal lead;
-restart limits must cover the measured run budget. Defaults and the existing
-`slurm-steps` transport remain unchanged.
+restart limits must cover the measured run budget. When the runner lives inside
+an `srun` container, a batch-only Slurm signal may not reach it. Opt in to
+`--allocation-boundary-lead-seconds` to arm a relative kernel timer from the
+native `SLURM_JOB_END_TIME` epoch before discovery. Missing/invalid/past end times
+fail closed; already inside the lead window uses the existing early-boundary
+path. The timer only latches the same safe save request and cannot override
+TERM/INT. It is disarmed/restored on every runner exit and is not inherited by
+the trainer. This route requires a fixed allocation end time for the attempt;
+do not shorten its walltime externally without coordinating the boundary.
+Prove one actual deadline-triggered requeue separately from an injected signal.
+Defaults and the existing `slurm-steps` transport remain unchanged.
 
 In this Action Flow branch, `egomimic/eval/artifact_paths.py` supplies the same
 namespace rule to EnergyScore, UNITE diagnostics, and Action Flow diagnostics.

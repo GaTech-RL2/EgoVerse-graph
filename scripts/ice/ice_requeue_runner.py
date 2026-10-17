@@ -26,6 +26,7 @@ import signal
 import subprocess
 import sys
 import time
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -648,9 +649,11 @@ def parser() -> argparse.ArgumentParser:
         "--checkpoint-forwarding",
         choices=("slurm-steps", "trainer-pid"),
         required=True,
-        help="explicit checkpoint signal transport; slurm-steps excludes the batch shell",
+        help="explicit save-only transport; trainer-pid authenticates the direct child",
     )
     result.add_argument("--checkpoint-grace-seconds", type=int, default=240)
+    result.add_argument("--allocation-boundary-lead-seconds", type=int,
+                        help="opt-in relative timer from native SLURM_JOB_END_TIME; no step-wide signal")
     result.add_argument("--poll-seconds", type=float, default=2.0)
     result.add_argument("--max-restarts", type=int, default=32)
     result.add_argument(
@@ -876,6 +879,11 @@ def validated_completion_sentinel(path: Path) -> dict[str, Any]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    with ExitStack() as cleanup:
+        return _main(argv, cleanup)
+
+
+def _main(argv: Sequence[str] | None, cleanup: ExitStack) -> int:
     args = parser().parse_args(argv)
     if args.command and args.command[0] == "--":
         args.command = args.command[1:]
@@ -886,6 +894,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     # the authenticated no-work requeue path below; TERM/INT take priority.
     boundary_requested_at: float | None = None
     boundary_processed = False
+    boundary_trigger = None
+    allocation_boundary = None
     termination_signal: signal.Signals | None = None
     handled_signals = {signal.SIGUSR1, signal.SIGTERM, signal.SIGINT}
     launch_gate_write_fd: int | None = None
@@ -902,15 +912,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pass
 
     def handler(received: int, _frame: object) -> None:
-        nonlocal boundary_requested_at, boundary_processed, termination_signal
+        nonlocal boundary_requested_at, boundary_processed, termination_signal, boundary_trigger
         if not workload_launch_committed:
             # Closing the one-byte launch gate makes a signal racing with
             # Popen fail before the wrapper can exec the real workload.
             close_launch_gate()
         received_signal = signal.Signals(received)
-        if received_signal == signal.SIGUSR1:
+        if received_signal in (signal.SIGUSR1, signal.SIGALRM):
             if boundary_requested_at is None and not boundary_processed:
                 boundary_requested_at = time.time()
+                boundary_trigger = "allocation-timer" if received_signal == signal.SIGALRM else "SIGUSR1"
         else:
             termination_signal = received_signal
 
@@ -929,6 +940,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             atomic_json_once(
                 ready_path, {"pid": os.getpid(), "signal_handlers_ready": True}
             )
+
+    if args.allocation_boundary_lead_seconds is not None:
+        lead = args.allocation_boundary_lead_seconds
+        end_text = os.environ.get("SLURM_JOB_END_TIME", "")
+        now = time.time()
+        if lead < 1 or re.fullmatch(r"[0-9]+", end_text) is None:
+            raise SystemExit("allocation timer requires positive lead and native SLURM_JOB_END_TIME")
+        end_time = int(end_text)
+        if end_time <= now:
+            raise SystemExit("SLURM_JOB_END_TIME is stale; refusing allocation timer")
+        delay = max(0., end_time - lead - now)
+        allocation_boundary = {"source": "SLURM_JOB_END_TIME", "end_unix": end_time,
+                               "lead_seconds": lead, "relative_delay_seconds": delay}
+        if not args.dry_run:
+            if (signal.getitimer(signal.ITIMER_REAL) != (0., 0.)
+                    or signal.SIGALRM in signal.sigpending()):
+                raise SystemExit("allocation timer refuses an existing process timer or pending alarm")
+            old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+            cleanup.callback(signal.pthread_sigmask, signal.SIG_SETMASK, old_mask)
+            previous_alarm = signal.signal(signal.SIGALRM, handler)
+            cleanup.callback(signal.signal, signal.SIGALRM, previous_alarm)
+            cleanup.callback(signal.setitimer, signal.ITIMER_REAL, 0.)
+            if delay == 0:
+                handler(signal.SIGALRM, None)
+            else:
+                # Relative kernel timer keeps counting during slow discovery.
+                # Child processes do not inherit setitimer timers.
+                signal.setitimer(signal.ITIMER_REAL, delay)
+            signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGALRM})
 
     if not args.command:
         raise SystemExit("a child command is required after --")
@@ -1157,6 +1197,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "started_at_unix": time.time(),
             "status": "DRY_RUN" if args.dry_run else "STARTING",
         }
+        if allocation_boundary is not None:
+            record["allocation_boundary"] = allocation_boundary
         atomic_json(attempt_dir / "attempt.json", record)
 
         metadata_json = (
@@ -1454,7 +1496,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     event_path,
                     {
                         "event": "signal",
-                        "signal": "SIGUSR1",
+                        "signal": "SIGALRM" if boundary_trigger == "allocation-timer" else "SIGUSR1",
+                        "boundary_trigger": boundary_trigger,
                         "checkpoint_signal": args.checkpoint_signal.name,
                         "baseline": baseline.as_dict() if baseline else None,
                         "at_unix": signal_at,

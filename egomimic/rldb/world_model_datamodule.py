@@ -26,6 +26,8 @@ class WorldModelDataModule(LightningDataModule):
         discrete_frames=4,
         stride=1,
         forecasting_probability=0.5,
+        max_past_seconds=None,
+        max_future_seconds=None,
     ):
         super().__init__()
         self.manifest_path = manifest_path
@@ -39,6 +41,13 @@ class WorldModelDataModule(LightningDataModule):
             stride=stride,
             forecasting_probability=forecasting_probability,
         )
+        # Preserve historical unbounded checkpoint data contexts. Configured
+        # bounds become part of strict context identity for new bounded runs.
+        if max_past_seconds is not None or max_future_seconds is not None:
+            self.settings.update(
+                max_past_seconds=max_past_seconds,
+                max_future_seconds=max_future_seconds,
+            )
         self.datasets = {}
 
     def setup(self, stage=None):

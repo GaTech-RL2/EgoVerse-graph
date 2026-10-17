@@ -532,6 +532,64 @@ def test_temporal_sampling_and_rigid_frame():
         points_to_reference(np.zeros((2, 3)), transform)
 
 
+def test_physical_time_bounds_use_seconds_and_cover_both_sides():
+    times = np.array([0, 2, 5.9, 6, 7, 9, 10, 12, 12.1, 40], dtype=np.float64)
+    counts, seen = set(), set()
+    for seed in range(100):
+        selected = sample_times(
+            len(times), np.random.default_rng(seed), anchor=5, timestamps=times,
+            max_past_seconds=3, max_future_seconds=3,
+        )
+        assert 5 in selected
+        assert (np.diff(selected) > 0).all()
+        assert ((times[selected] - times[5] >= -3) & (times[selected] - times[5] <= 3)).all()
+        counts.add(len(selected))
+        seen.update(selected)
+    assert counts == {2, 3, 4}
+    assert seen == {3, 4, 5, 6, 7}
+    # The exact recorded endpoints are included; no nearest frame may cross them.
+    selected = sample_times(
+        5, np.random.default_rng(1), anchor=2, min_frames=3, max_frames=3,
+        timestamps=np.array([6.9, 7, 10, 13, 13.1]),
+        max_past_seconds=3, max_future_seconds=3,
+    )
+    np.testing.assert_array_equal(selected, [1, 2, 3])
+
+
+@pytest.mark.parametrize("anchor,expected", [(0, [0, 1, 2, 3]), (7, [4, 5, 6, 7])])
+def test_physical_sampling_clips_episode_edges_without_gap_escape(anchor, expected):
+    times = np.array([0, 1, 2, 3, 100, 101, 102, 103], dtype=np.float64)
+    selected = sample_times(
+        len(times), np.random.default_rng(9), anchor=anchor,
+        min_frames=4, max_frames=4, timestamps=times,
+        max_past_seconds=3, max_future_seconds=3,
+    )
+    np.testing.assert_array_equal(selected, expected)
+    with pytest.raises(ValueError, match="Too few recorded"):
+        sample_times(
+            3, np.random.default_rng(1), anchor=1, timestamps=[0, 10, 20],
+            max_past_seconds=3, max_future_seconds=3,
+        )
+
+
+@pytest.mark.parametrize("past,future", [(None, 3), (3, None), (-1, 3), (3, float("nan")),
+                                         (True, 3), (0, 0), (3, float("inf"))])
+def test_physical_sampling_rejects_invalid_bounds(past, future):
+    with pytest.raises(ValueError, match="Time bounds"):
+        sample_times(4, np.random.default_rng(1), timestamps=[0, 1, 2, 3],
+                     max_past_seconds=past, max_future_seconds=future)
+
+
+def test_physical_sampling_requires_valid_times_and_rejects_discrete_bounds():
+    for times in (None, [0, 1], [0, 1, 1, 3], [0, 1, np.nan, 3]):
+        with pytest.raises(ValueError, match="Physical timestamps"):
+            sample_times(4, np.random.default_rng(1), timestamps=times,
+                         max_past_seconds=3, max_future_seconds=3)
+    with pytest.raises(ValueError, match="only to continuous"):
+        sample_times(4, np.random.default_rng(1), mode="discrete",
+                     max_past_seconds=3, max_future_seconds=3)
+
+
 def cache_manifest(tmp_path):
     entries = []
     for embodiment, d in (("robot", 7), ("human", 11)):
@@ -609,6 +667,40 @@ def test_prepared_cache_pipeline_and_reject_overlap(tmp_path):
         PreparedWorldDataset(path)
 
 
+def test_bounded_dataset_filters_isolated_anchors_and_restores_context(tmp_path):
+    from egomimic.rldb.world_model_datamodule import WorldModelDataModule
+    path = cache_manifest(tmp_path)
+    manifest = json.loads(path.read_text())
+    for episode in manifest["episodes"]:
+        file = path.parent / episode["path"]
+        with np.load(file, allow_pickle=False) as saved:
+            arrays = {k: saved[k] for k in saved.files}
+        arrays["time"] = np.array([0, 10, 20, 30, 100, 100.1, 100.2, 100.3])
+        np.savez(file, **arrays)
+        episode["sha256"] = hashlib.sha256(file.read_bytes()).hexdigest()
+    path.write_text(json.dumps(manifest))
+    dataset = PreparedWorldDataset(path, split="val", max_past_seconds=3, max_future_seconds=3)
+    assert dataset.counts == [4, 4]
+    for anchors in dataset.anchor_indices:
+        np.testing.assert_array_equal(anchors, [4, 5, 6, 7])
+    for index in range(len(dataset)):
+        sample = dataset[index]
+        episode = dataset.episodes[index // 4]
+        with np.load(path.parent / episode["path"], allow_pickle=False) as saved:
+            expected_anchor_pose = saved["pose"][4 + index % 4].astype(np.float32)
+        poses = sample["world"]["proprio"]["value"].numpy()
+        assert any(np.array_equal(p, expected_anchor_pose) for p in poses)
+        assert sample["world"]["proprio"]["time"].abs().max() < .31
+    data = WorldModelDataModule(str(path), max_past_seconds=3, max_future_seconds=3)
+    context = data.prepare_context(mode="train", normalization=None, normalizer=None)
+    assert context.state["sampling"]["max_past_seconds"] == 3
+    assert context.state["sampling"]["max_future_seconds"] == 3
+    changed = WorldModelDataModule(str(path), max_past_seconds=2, max_future_seconds=3)
+    with pytest.raises(ValueError, match="checkpoint/data context mismatch"):
+        changed.prepare_context(mode="train", normalization=None, normalizer=None,
+                                restored_state=context.state)
+
+
 def test_reject_interpolated_track_targets(tmp_path):
     path = cache_manifest(tmp_path)
     manifest = json.loads(path.read_text())
@@ -646,6 +738,9 @@ def test_hydra_both_recipes_and_required_schema():
         assert cfg.model.pipeline.stages[0].model.time_mode == mode
         assert cfg.trainer.check_val_every_n_epoch is None
         assert cfg.callbacks.model_checkpoint.every_n_train_steps == 15000
+        expected_bound = 3.0 if mode == "continuous" else None
+        assert cfg.data.max_past_seconds == expected_bound
+        assert cfg.data.max_future_seconds == expected_bound
         assert OmegaConf.is_missing(cfg.model.pipeline.stages[0].model, "pose_dims")
         assert cfg.evaluator._target_.endswith("WorldModelEval")
 

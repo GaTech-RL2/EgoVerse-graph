@@ -27,7 +27,15 @@ interfaces. No existing model, launcher or run is changed.
   batches. PipelineAlgo sees one source per update; it must not apply a second
   source-balancing factor. Exact source probabilities depend on the corpus and
   temporal mode and must be reported for a comparison.
-- Continuous: 2–4 random timestamps (provisional), irregular multi-scale gaps.
+- Continuous: 2–4 random recorded timestamps (count provisional), each within
+  -3 to +3 physical seconds of the current/anchor frame (user-selected range).
+  Bounds clip to episode edges; the anchor is included. Draw without replacement
+  from eligible recorded times, not uniformly over continuous seconds. Anchors
+  cover the episode; individual examples span at most six seconds. Isolated
+  anchors with fewer than two eligible times are excluded, never replaced with
+  out-of-range frames. This replaces the earlier unbounded frame-index heuristic
+  in the configured continuous recipe. Direct calls without time bounds retain
+  the historical sampler for checkpoint-bound compatibility.
   Discrete: four fixed-stride frames (provisional), integer temporal positions.
   This compares complete recipes, not time encoding alone.
 

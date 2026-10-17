@@ -34,6 +34,31 @@ def points_to_reference(points, reference_from_source):
     )
 
 
+def _bounded_time_sampling(max_past_seconds, max_future_seconds):
+    if max_past_seconds is None and max_future_seconds is None:
+        return False
+    if any(
+        isinstance(value, (bool, np.bool_))
+        or not isinstance(value, (int, float, np.integer, np.floating))
+        or not np.isfinite(value)
+        or value < 0
+        for value in (max_past_seconds, max_future_seconds)
+    ) or max_past_seconds + max_future_seconds <= 0:
+        raise ValueError("Time bounds require two finite nonnegative seconds values with positive span")
+    return True
+
+
+def _physical_times(timestamps, length):
+    times = np.asarray(timestamps, dtype=np.float64)
+    if (
+        times.shape != (length,)
+        or not np.isfinite(times).all()
+        or not (np.diff(times) > 0).all()
+    ):
+        raise ValueError("Physical timestamps must match episode length and strictly increase")
+    return times - times[0]
+
+
 def sample_times(
     length,
     rng,
@@ -43,7 +68,17 @@ def sample_times(
     discrete_frames=4,
     stride=1,
     anchor=None,
+    timestamps=None,
+    max_past_seconds=None,
+    max_future_seconds=None,
 ):
+    """Select recorded times; optional bounds are relative to the anchor time.
+
+    Bounded continuous mode draws uniformly without replacement among recorded
+    timestamps inside [anchor-past, anchor+future]. This is not a uniform draw
+    over continuous seconds. Unbounded calls retain the historical index-based
+    multiscale sampler and its RNG behavior for checkpoint-bound callers.
+    """
     if (
         mode not in ("continuous", "discrete")
         or min_frames < 2
@@ -51,6 +86,9 @@ def sample_times(
         or stride < 1
     ):
         raise ValueError("Invalid time sampler")
+    bounded = _bounded_time_sampling(max_past_seconds, max_future_seconds)
+    if bounded and mode != "continuous":
+        raise ValueError("Physical-time bounds apply only to continuous sampling")
     if mode == "discrete":
         available = length - (discrete_frames - 1) * stride
         if discrete_frames < 2 or available <= 0:
@@ -61,6 +99,19 @@ def sample_times(
         return start + np.arange(discrete_frames) * stride
     if length < min_frames:
         raise ValueError("Episode too short")
+    if bounded:
+        times = _physical_times(timestamps, length)
+        start = int(rng.integers(length)) if anchor is None else int(anchor)
+        if not 0 <= start < length:
+            raise ValueError("Invalid anchor")
+        lo = np.searchsorted(times, times[start] - max_past_seconds, side="left")
+        hi = np.searchsorted(times, times[start] + max_future_seconds, side="right")
+        eligible = np.arange(lo, hi, dtype=np.int64)
+        if len(eligible) < min_frames:
+            raise ValueError("Too few recorded timestamps inside anchor time bounds")
+        count = int(rng.integers(min_frames, min(max_frames, len(eligible)) + 1))
+        others = rng.choice(eligible[eligible != start], size=count - 1, replace=False)
+        return np.sort(np.r_[start, others]).astype(np.int64)
     count = int(rng.integers(min_frames, min(max_frames, length) + 1))
     start = int(rng.integers(length)) if anchor is None else int(anchor)
     if not 0 <= start < length:
@@ -123,6 +174,8 @@ class PreparedWorldDataset(Dataset):
         discrete_frames=4,
         stride=1,
         forecasting_probability=0.5,
+        max_past_seconds=None,
+        max_future_seconds=None,
     ):
         self.path = Path(manifest_path)
         self.manifest = json.loads(self.path.read_text())
@@ -200,13 +253,34 @@ class PreparedWorldDataset(Dataset):
             discrete_frames=discrete_frames,
             stride=stride,
         )
+        bounded = _bounded_time_sampling(max_past_seconds, max_future_seconds)
+        if bounded and mode != "continuous":
+            raise ValueError("Physical-time bounds apply only to continuous sampling")
+        if bounded:
+            self.sampling.update(
+                max_past_seconds=max_past_seconds,
+                max_future_seconds=max_future_seconds,
+            )
         if not 0 <= forecasting_probability <= 1:
             raise ValueError("Invalid forecasting probability")
         self.forecasting_probability = forecasting_probability
-        self.counts = [
-            ep["frames"] - ((discrete_frames - 1) * stride if mode == "discrete" else 0)
-            for ep in self.episodes
-        ]
+        self.anchor_indices = []
+        for ep in self.episodes:
+            if bounded:
+                with np.load(self.path.parent / ep["path"], allow_pickle=False) as saved:
+                    times = _physical_times(saved["time"], ep["frames"])
+                lo = np.searchsorted(times, times - max_past_seconds, side="left")
+                hi = np.searchsorted(times, times + max_future_seconds, side="right")
+                # An isolated frame cannot yield min_frames without leaving the
+                # requested time range. Exclude that anchor instead of escaping.
+                anchors = np.flatnonzero(hi - lo >= min_frames)
+            else:
+                count = ep["frames"] - (
+                    (discrete_frames - 1) * stride if mode == "discrete" else 0
+                )
+                anchors = np.arange(max(0, count))
+            self.anchor_indices.append(anchors)
+        self.counts = [len(indices) for indices in self.anchor_indices]
         if any(c < 1 for c in self.counts):
             raise ValueError("Episode too short for temporal recipe")
         self.ends = np.cumsum(self.counts)
@@ -232,9 +306,7 @@ class PreparedWorldDataset(Dataset):
         episode_index = int(np.searchsorted(self.ends, index, side="right"))
         ep = self.episodes[episode_index]
         offset = 0 if episode_index == 0 else int(self.ends[episode_index - 1])
-        indices = sample_times(
-            ep["frames"], rng, anchor=index - offset, **self.sampling
-        )
+        anchor = int(self.anchor_indices[episode_index][index - offset])
         with np.load(self.path.parent / ep["path"], allow_pickle=False) as data:
             required = (
                 "time",
@@ -258,6 +330,9 @@ class PreparedWorldDataset(Dataset):
                 raise ValueError(
                     "Timestamps must be finite, strictly increasing physical seconds"
                 )
+            indices = sample_times(
+                ep["frames"], rng, anchor=anchor, timestamps=full_time, **self.sampling
+            )
             times = full_time[indices].astype(np.float64)
             # Subtract origin before float32 conversion (important for epoch timestamps).
             times = (times - times[int(rng.integers(len(times)))]).astype(np.float32)

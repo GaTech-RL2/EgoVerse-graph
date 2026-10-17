@@ -9,3 +9,6 @@ max_frames: 4
 discrete_frames: 4
 stride: 1
 forecasting_probability: 0.5
+# Physical offsets from the current/anchor frame, clipped to recorded times.
+max_past_seconds: 3.0
+max_future_seconds: 3.0

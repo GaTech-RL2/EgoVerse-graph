@@ -11,11 +11,33 @@ import torch
 from PIL import Image
 
 from egomimic.scripts.embedding_process.dinov3_correspondence import (
+    cached_features,
+    eligible,
+    load_manifest,
     match_point,
     patch_geometry,
     run,
 )
 from egomimic.scripts.embedding_process.dinov3_embedding import DINOv3ImageEmbedding
+
+
+def test_projected_reference_validity_is_not_visibility(tmp_path):
+    point = {"reference_valid": True, "visible": False}
+    assert eligible(point, "projected_landmark")
+    assert not eligible(point, "visible_manual")
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"reference_mode": "projected_landmark"}))
+    with pytest.raises(ValueError, match="projection_provenance"):
+        load_manifest(path)
+
+
+def test_feature_reuse_rejects_changed_identity(tmp_path):
+    path = tmp_path / "results.json"
+    path.write_text(
+        json.dumps({"model": "wrong", "revision": "a" * 40, "precision": "float32"})
+    )
+    with pytest.raises(ValueError, match="model/revision/precision"):
+        cached_features([path], "wanted", "a" * 40)
 
 
 class Processor:
@@ -152,11 +174,14 @@ def test_boolean_resolution_rejected():
         extractor(True)
 
 
+@pytest.mark.parametrize("reference_mode", ["visible_manual", "projected_landmark"])
 def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, reference_mode
 ):
     def fake_setup(self):
         self.processor, self.model = Processor(), Model()
+        self.model.config = SimpleNamespace(**vars(Model.config))
+        self.model.config._commit_hash = self.revision
 
     monkeypatch.setattr(DINOv3ImageEmbedding, "setup", fake_setup)
     frames = []
@@ -172,7 +197,8 @@ def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
                 "points": {
                     "index": {
                         "xy": [15.5, 15.5],
-                        "visible": True,
+                        "visible": reference_mode == "visible_manual",
+                        "reference_valid": True,
                         "annotation_source": "synthetictest",
                     }
                 },
@@ -183,6 +209,8 @@ def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
         json.dumps(
             {
                 "model": "fake",
+                "reference_mode": reference_mode,
+                "projection_provenance": {"synthetic": True},
                 "revision": "a" * 40,
                 "frames": frames,
                 "pairs": [["a", "b"]],
@@ -200,3 +228,10 @@ def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
                 assert cache["features"].shape[0] == r["patch_tokens"]
     with pytest.raises(FileExistsError, match="Preserve"):
         run(path, tmp_path / "output", [32], "cpu")
+    reused = run(
+        path, tmp_path / "reused", [32], "cpu", [tmp_path / "output/results.json"]
+    )
+    assert reused["reference_mode"] == reference_mode
+    assert reused["resolutions"][0]["reused_frames"] == 2
+    assert reused["resolutions"][0]["extract_median_seconds_including_transfer"] is None
+    assert reused["resolutions"][0]["matches"] == result["resolutions"][0]["matches"]

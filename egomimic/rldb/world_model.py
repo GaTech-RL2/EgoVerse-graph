@@ -174,7 +174,13 @@ def collate_world(samples):
                 arrays.append(target)
             stream[key] = torch.stack(arrays)
         result[name] = stream
-    return {embodiment: {"embodiment": embodiment, "world": result}}
+    item = {"embodiment": embodiment, "world": result}
+    if "sampling_cursor" in samples[0]:
+        cursors = {sample["sampling_cursor"] for sample in samples}
+        if len(cursors) != 1:
+            raise ValueError("A resumed batch must have one source-draw cursor")
+        item["sampling_cursor"] = cursors.pop()
+    return {embodiment: item}
 
 
 class PreparedWorldDataset(Dataset):
@@ -313,6 +319,10 @@ class PreparedWorldDataset(Dataset):
         return int(self.ends[-1])
 
     def __getitem__(self, index):
+        draw = None
+        if isinstance(index, tuple):
+            index, cursor, slot = index
+            draw = (int(cursor), int(slot))
         if not 0 <= index < len(self):
             raise IndexError(index)
         # Training RNG advances on repeated visits; validation choices stay reproducible.
@@ -325,6 +335,10 @@ class PreparedWorldDataset(Dataset):
             if self.split == "train"
             else np.random.default_rng(self.seed + index)
         )
+        if draw is not None:
+            if self.split != "train":
+                raise ValueError("Checkpointed draw keys apply only to training")
+            rng = np.random.default_rng(np.random.SeedSequence([self.seed, *draw]))
         episode_index = int(np.searchsorted(self.ends, index, side="right"))
         ep = self.episodes[episode_index]
         offset = 0 if episode_index == 0 else int(self.ends[episode_index - 1])
@@ -453,7 +467,7 @@ class PreparedWorldDataset(Dataset):
                 bool
             )
             streams["proprio"]["observed"] &= streams["proprio"]["target_valid"]
-            return {
+            sample = {
                 "embodiment": ep["embodiment"],
                 "world": {
                     name: {
@@ -463,12 +477,15 @@ class PreparedWorldDataset(Dataset):
                     for name, s in streams.items()
                 },
             }
+            if draw is not None:
+                sample["sampling_cursor"] = draw[0] + 1
+            return sample
 
 
 class HomogeneousWorldBatchSampler:
     """Choose an embodiment proportional to eligible anchors, then draw its batch."""
 
-    def __init__(self, dataset, batch_size=1, seed=42, shuffle=True):
+    def __init__(self, dataset, batch_size=1, seed=42, shuffle=True, checkpointable=False):
         if batch_size < 1:
             raise ValueError("Positive batch size required")
         self.dataset, self.batch_size, self.seed, self.shuffle = (
@@ -478,6 +495,8 @@ class HomogeneousWorldBatchSampler:
             shuffle,
         )
         self.epoch = 0
+        self.checkpointable = checkpointable
+        self.consumed_batches = 0
         self.ranges = {}
         start = 0
         for ep, count in zip(dataset.episodes, dataset.counts):
@@ -503,6 +522,18 @@ class HomogeneousWorldBatchSampler:
             for group in self.groups.values():
                 for i in range(0, len(group), self.batch_size):
                     yield group[i : i + self.batch_size].tolist()
+            return
+        if self.checkpointable:
+            groups = list(self.groups.values())
+            probabilities = np.array([len(v) for v in groups], float)
+            probabilities /= probabilities.sum()
+            start = self.consumed_batches
+            end = (start // len(self) + 1) * len(self)
+            for cursor in range(start, end):
+                rng = np.random.default_rng(np.random.SeedSequence([self.seed, cursor]))
+                group = groups[int(rng.choice(len(groups), p=probabilities))]
+                chosen = rng.choice(group, self.batch_size, replace=True)
+                yield [(int(index), cursor, slot) for slot, index in enumerate(chosen)]
             return
         rng = np.random.default_rng(self.seed + self.epoch)
         groups = list(self.groups.values())

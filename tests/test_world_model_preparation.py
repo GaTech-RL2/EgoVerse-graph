@@ -180,3 +180,74 @@ def test_finalizer_rejects_duplicate_physical_cache(tmp_path):
     inventory.write_text(json.dumps(spec))
     with pytest.raises(ValueError, match="Duplicate"):
         finalize(inventory, tmp_path / "prepared.json")
+
+
+def test_sampling_cursor_ignores_prefetched_unconsumed_batches(tmp_path):
+    inventory = make_inventory(tmp_path)
+    path = tmp_path / "prepared.json"
+    finalize(inventory, path)
+    data = WorldModelDataModule(path, max_frames=3, checkpointable_sampling=True)
+    loader = data.train_dataloader()
+    iterator = iter(loader)
+    first = next(iterator)
+    data.acknowledge_batch(next(iter(first.values()))["sampling_cursor"])
+    expected = next(iterator)  # Prefetch without training must not advance saved cursor.
+    saved = data.state_dict()
+    restored = WorldModelDataModule(path, max_frames=3, checkpointable_sampling=True)
+    restored.load_state_dict(saved)
+    actual = next(iter(restored.train_dataloader()))
+    assert next(iter(actual.values()))["sampling_cursor"] == 2
+    for name, stream in next(iter(actual.values()))["world"].items():
+        for key, value in stream.items():
+            torch.testing.assert_close(value, next(iter(expected.values()))["world"][name][key], rtol=0, atol=0)
+    changed = WorldModelDataModule(path, max_frames=3, batch_size=2, checkpointable_sampling=True)
+    with pytest.raises(ValueError, match="batch_size"):
+        changed.load_state_dict(saved)
+    with pytest.raises(ValueError, match="num_workers=0"):
+        WorldModelDataModule(path, num_workers=1, checkpointable_sampling=True)
+
+
+def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path):
+    import inspect
+    from lightning import Trainer, seed_everything
+    from omegaconf import OmegaConf
+    from egomimic.pl_utils.pl_model import ModelWrapper
+    path = tmp_path / "prepared.json"
+    finalize(make_inventory(tmp_path), path)
+    cfg = OmegaConf.create({"model": {
+        "pipeline": {"_target_": "egomimic.pipeline.algo.PipelineAlgo", "device": "cpu", "stages": [{
+            "_target_": "egomimic.pipeline.stages_world_model.WorldModelStage",
+            "warmup_steps": 0, "pose_ramp_steps": 0, "sampler_steps": 2,
+            "model": {"_target_": "egomimic.models.world_model.MoTWorldModel", "pose_dims": {"robot": 3, "human": 4},
+                      "image_dim": 2, "width": 24, "heads": 3, "depth": 1, "max_tracks": 8}}]},
+        "training_behavior": {"_target_": "egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior"},
+        "optimizer": {"_target_": "torch.optim.AdamW", "_partial_": True, "lr": .001}}})
+
+    def make(steps, checkpoint=None):
+        seed_everything(123)
+        data = WorldModelDataModule(path, max_frames=3, checkpointable_sampling=True)
+        context = data.prepare_context(mode="train", normalization=None, normalizer=None)
+        model = ModelWrapper(config_tree=cfg)
+        model.data_context = context
+        context.bind(model.model, None)
+        trainer = Trainer(accelerator="cpu", devices=1, max_steps=steps, max_epochs=-1,
+                          limit_val_batches=0, logger=False, enable_checkpointing=False,
+                          enable_progress_bar=False, num_sanity_val_steps=0)
+        kwargs = {"weights_only": False} if "weights_only" in inspect.signature(trainer.fit).parameters else {}
+        trainer.fit(model, datamodule=data, ckpt_path=checkpoint, **kwargs)
+        return model, trainer, data
+
+    reference, uninterrupted, _ = make(4)
+    _, first, data = make(2)
+    assert data.consumed_batches == 2
+    checkpoint = tmp_path / "resume.ckpt"
+    first.save_checkpoint(checkpoint)
+    resumed, continued, restored_data = make(4, str(checkpoint))
+    assert continued.global_step == 4 and restored_data.consumed_batches == 4
+    for name, expected in reference.state_dict().items():
+        torch.testing.assert_close(resumed.state_dict()[name], expected, rtol=0, atol=0)
+    expected_states = uninterrupted.optimizers[0].state_dict()["state"]
+    actual_states = continued.optimizers[0].state_dict()["state"]
+    for parameter, expected in expected_states.items():
+        for key, value in expected.items():
+            torch.testing.assert_close(actual_states[parameter][key], value, rtol=0, atol=0)

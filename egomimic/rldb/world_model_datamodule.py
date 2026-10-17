@@ -1,6 +1,7 @@
 """Prepared world-model caches through the existing trainHydra data boundary."""
 
 import hashlib
+from pathlib import Path
 
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
@@ -29,6 +30,7 @@ class WorldModelDataModule(LightningDataModule):
         forecasting_probability=0.5,
         max_past_seconds=None,
         max_future_seconds=None,
+        checkpointable_sampling=False,
     ):
         super().__init__()
         self.manifest_path = manifest_path
@@ -50,6 +52,11 @@ class WorldModelDataModule(LightningDataModule):
                 max_future_seconds=max_future_seconds,
             )
         self.datasets = {}
+        self.checkpointable_sampling = bool(checkpointable_sampling)
+        if self.checkpointable_sampling and self.num_workers != 0:
+            raise ValueError("Exact MoT sampling resume currently requires num_workers=0")
+        self.train_sampler = None
+        self.consumed_batches = 0
 
     def setup(self, stage=None):
         if not self.datasets:
@@ -76,6 +83,8 @@ class WorldModelDataModule(LightningDataModule):
             "manifest_sha256": hashlib.sha256(dataset.path.read_bytes()).hexdigest(),
             "sampling": self.settings,
         }
+        if self.checkpointable_sampling:
+            state["sampling_resume"] = {"schema": "mot-sampling-state-v1", "batch_size": self.batch_size}
         if restored_state is not None and restored_state != state:
             raise ValueError("World-model checkpoint/data context mismatch")
         return DataContext(
@@ -108,17 +117,60 @@ class WorldModelDataModule(LightningDataModule):
                 "Distributed source sharding is not implemented; use one device"
             )
         dataset = self.datasets[split]
-        return DataLoader(
-            dataset,
-            batch_sampler=HomogeneousWorldBatchSampler(
+        sampler = HomogeneousWorldBatchSampler(
                 dataset,
                 self.batch_size,
                 self.settings["seed"],
                 shuffle=split == "train",
-            ),
+                checkpointable=self.checkpointable_sampling and split == "train",
+            )
+        if split == "train":
+            self.train_sampler = sampler
+            sampler.consumed_batches = self.consumed_batches
+        # Iterator construction must not advance the model's global Torch RNG.
+        generator = None
+        if self.checkpointable_sampling:
+            import torch
+            generator = torch.Generator().manual_seed(self.settings["seed"])
+        return DataLoader(
+            dataset,
+            batch_sampler=sampler,
             collate_fn=collate_world,
             num_workers=self.num_workers,
+            generator=generator,
         )
+
+    def acknowledge_batch(self, cursor):
+        if not self.checkpointable_sampling:
+            return
+        if cursor != self.consumed_batches + 1:
+            raise ValueError("Nonconsecutive world-model source draw")
+        self.consumed_batches = cursor
+        if self.train_sampler is not None:
+            self.train_sampler.consumed_batches = cursor
+
+    def state_dict(self):
+        if not self.checkpointable_sampling:
+            return {}
+        return {"schema": "mot-sampling-state-v1", "consumed_batches": self.consumed_batches,
+                "manifest_sha256": hashlib.sha256(Path(self.manifest_path).read_bytes()).hexdigest(),
+                "settings": self.settings, "batch_size": self.batch_size}
+
+    def load_state_dict(self, state_dict):
+        if not self.checkpointable_sampling:
+            if state_dict:
+                raise ValueError("Checkpointed sampling requires its original opt-in configuration")
+            return
+        expected = self.state_dict()
+        for key in ("schema", "manifest_sha256", "settings", "batch_size"):
+            if state_dict.get(key) != expected[key]:
+                raise ValueError(f"World-model sampling restore mismatch: {key}")
+        cursor = state_dict.get("consumed_batches")
+        if type(cursor) is not int or cursor < 0:
+            raise ValueError("Invalid consumed source-draw cursor")
+        self.consumed_batches = cursor
+        if self.train_sampler is not None:
+            self.train_sampler.consumed_batches = cursor
 
     def train_dataloader(self):
         return self._loader("train")

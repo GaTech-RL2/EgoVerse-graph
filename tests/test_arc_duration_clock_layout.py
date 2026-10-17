@@ -95,6 +95,51 @@ def test_six_clock_hold_waypoints_are_constant_and_rate_clocks_are_zero():
     )
 
 
+def test_six_absolute_log_clock_stores_elapsed_seconds_and_round_trips():
+    raw = chunk(frames=400)
+    cod = six_codec("duration", "log_absolute_clock6")
+    logged = cod.transform({"actions": raw.copy()})["actions"]
+    seconds = clock_token_seconds(logged, "log_absolute_clock6")
+    assert logged.shape == seconds.shape == (100, 20)
+    np.testing.assert_allclose(seconds[0, 14:], 0.0, atol=1e-12)
+    assert np.all(np.diff(seconds[:, 14:], axis=0) >= -1e-12)
+    np.testing.assert_allclose(
+        cod.detokenize(logged, 400),
+        cod.detokenize(seconds, 400, clocks_in_seconds=True),
+        atol=1e-9,
+    )
+
+
+def test_six_absolute_log_clock_holds_moving_interval_with_invalid_timestamp():
+    raw = chunk(frames=400)
+    cod = six_codec("duration", "log_absolute_clock6")
+    seconds = clock_token_seconds(
+        cod.transform({"actions": raw.copy()})["actions"], "log_absolute_clock6"
+    )
+    stacked = stack_arc_token(seconds)
+    # Collapse the first left-translation interval while its waypoint moves.
+    stacked[101, 0] = stacked[100, 0]
+    durations = cod._six_stream_duration(
+        stacked[:100], stacked[100:], 0, "translation", 400
+    )
+    assert durations[0] == pytest.approx(DT * 401)
+
+
+def test_six_absolute_log_evaluator_decodes_elapsed_seconds_once():
+    raw = np.zeros((400, 14))
+    raw[:, 0] = raw[:, 7] = np.arange(400) * DT * 0.1
+    raw[:, 3] = raw[:, 10] = np.arange(400) * DT * 0.2
+    cod = six_codec("duration", "log_absolute_clock6")
+    logged = cod.transform({"actions": raw})["actions"]
+    seconds = clock_token_seconds(logged, "log_absolute_clock6")
+    ev = evaluator(
+        "duration", velocity_layout="log_absolute_clock6", gripper_distance_unit=0.3
+    )
+    actual, steps = ev._decode_prediction_with_steps(seconds, max_steps=400)
+    expected = cod.detokenize(logged[:30], steps)
+    np.testing.assert_allclose(actual, expected, atol=1e-9)
+
+
 def test_six_log_evaluator_decodes_physical_seconds_exactly_once():
     raw = np.zeros((400, 14))
     raw[:, 0] = raw[:, 7] = np.arange(400) * DT * 0.1
@@ -437,6 +482,7 @@ def _cfg(name, monkeypatch):
         ("organize_rl2_elmo_hpt300_cotrain_baseline", 14, "baseline"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream", 20, "arc"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream_logclock", 20, "arc"),
+        ("organize_rl2_elmo_hpt300_cotrain_multistream_absolute_logclock", 20, "arc"),
         ("organize_rl2_elmo_hpt300_cotrain_multistream_perwaypoint", 20, "arc"),
     ],
 )
@@ -488,7 +534,11 @@ def test_cotrain_recipes_compose(name, dim, evaluator_mode, monkeypatch):
         assert cfg.evaluator.velocity_mode == "duration"
         assert cfg.evaluator.arc_chunking_mode == "multistream"
         robot = train.yam_bimanual.resolver.transform_list
-        layout = "log_clock6"
+        layout = (
+            "log_absolute_clock6"
+            if name.endswith("_absolute_logclock")
+            else "log_clock6"
+        )
         assert (robot.velocity_mode, robot.velocity_layout) == ("duration", layout)
         human = train.human_bimanual.resolver.transform_list
         assert human.velocity_layout == layout

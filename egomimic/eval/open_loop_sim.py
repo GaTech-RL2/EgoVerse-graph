@@ -1849,10 +1849,16 @@ class OpenLoopSimEval(BimanualCartesianEval):
         videos) expects seconds, so this is the one place the log is undone.
         """
         layout = getattr(self, "velocity_layout", None)
-        columns = SIX_CLOCK_COLUMNS if layout == "log_clock6" else CLOCK_COLUMNS
-        if layout not in ("log_clock", "log_clock6") or value.shape[
-            -1
-        ] != ARC_TOK_BIMANUAL_DIM + len(columns):
+        columns = (
+            SIX_CLOCK_COLUMNS
+            if layout in ("log_clock6", "log_absolute_clock6")
+            else CLOCK_COLUMNS
+        )
+        if layout not in (
+            "log_clock",
+            "log_clock6",
+            "log_absolute_clock6",
+        ) or value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(columns):
             return value
         out = value.clone()
         timing = out[..., ARC_TOK_BIMANUAL_DIM:]
@@ -1921,8 +1927,10 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 dt=self.control_dt,
                 velocity_mode=self.velocity_mode,
                 velocity_layout=(
-                    "log_clock6"
-                    if input_dim == 20 and self.velocity_mode == "duration"
+                    velocity_layout
+                    if input_dim == 20
+                    and self.velocity_mode == "duration"
+                    and velocity_layout in SIX_CLOCK_LAYOUTS
                     else "rate_clock"
                     if input_dim == 20 and self.velocity_mode == "per_waypoint"
                     else "stacked"
@@ -1967,7 +1975,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 axis=-1,
             )
         clock_options = (
-            {"clocks_in_seconds": True} if velocity_layout == "log_clock6" else {}
+            {"clocks_in_seconds": True}
+            if velocity_layout in ("log_clock6", "log_absolute_clock6")
+            else {}
         )
         decoded = self._arc_tokenizer.detokenize(
             codec_token, action_horizon=steps, **clock_options

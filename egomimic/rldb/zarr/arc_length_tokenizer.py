@@ -1153,6 +1153,10 @@ BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 #              small error on a short interval become a large relative error,
 #              and a slow stream then never finishes its chunk. Decode with
 #              ``clock_token_seconds`` before anything reads the timing.
+#   "log_absolute_clock6" the six-clock layout with each row storing the
+#              stream elapsed source time from the chunk start, as
+#              ``log(elapsed_seconds + LOG_CLOCK_EPS)``. Decoding differences
+#              adjacent timestamps back into interval durations.
 #
 # "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
 # velocity mode, which emits a single row for the whole token. That is the only
@@ -1164,9 +1168,16 @@ BIMANUAL_VELOCITY_LAYOUTS = (
     "log_clock",
     "rate_clock",
     "log_clock6",
+    "log_absolute_clock6",
 )
-CLOCK_LAYOUTS = ("clock", "log_clock", "rate_clock", "log_clock6")
-SIX_CLOCK_LAYOUTS = ("rate_clock", "log_clock6")
+CLOCK_LAYOUTS = (
+    "clock",
+    "log_clock",
+    "rate_clock",
+    "log_clock6",
+    "log_absolute_clock6",
+)
+SIX_CLOCK_LAYOUTS = ("rate_clock", "log_clock6", "log_absolute_clock6")
 CLOCK_COLUMNS = (0, 3, 7, 10)
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 # Seconds added before the log so a zero (hold) interval stays finite. Small
@@ -1177,14 +1188,16 @@ LOG_CLOCK_EPS = 1e-3
 def clock_token_seconds(token, velocity_layout: str | None) -> np.ndarray:
     """Return a clock-layout token with its durations in seconds.
 
-    A ``log_clock`` token's four timing columns are decoded; any other layout
-    passes through unchanged. Accepts one token or a batch.
+    A log-clock token's timing columns are decoded; any other layout passes
+    through unchanged. Accepts one token or a batch.
     """
     value = np.array(token, dtype=np.float64)
-    if velocity_layout not in ("log_clock", "log_clock6"):
+    if velocity_layout not in ("log_clock", "log_clock6", "log_absolute_clock6"):
         return value
     clock_columns = (
-        SIX_CLOCK_COLUMNS if velocity_layout == "log_clock6" else CLOCK_COLUMNS
+        SIX_CLOCK_COLUMNS
+        if velocity_layout in ("log_clock6", "log_absolute_clock6")
+        else CLOCK_COLUMNS
     )
     if value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(clock_columns):
         expected = ARC_TOK_BIMANUAL_DIM + len(clock_columns)
@@ -1243,7 +1256,7 @@ def validate_bimanual_velocity_layout(
             "velocity_mode='mean' emits a single row for the whole token"
         )
     if (
-        velocity_layout in ("clock", "log_clock", "log_clock6")
+        velocity_layout in ("clock", "log_clock", "log_clock6", "log_absolute_clock6")
         and velocity_mode != "duration"
     ):
         raise ValueError(
@@ -1299,7 +1312,13 @@ def bimanual_arc_token_shapes(
     if velocity_mode == "mean":
         layouts = ("stacked",)
     elif velocity_mode == "duration":
-        layouts = ("stacked", "clock", "log_clock", "log_clock6")
+        layouts = (
+            "stacked",
+            "clock",
+            "log_clock",
+            "log_clock6",
+            "log_absolute_clock6",
+        )
     else:
         layouts = ("wide", "stacked", "rate_clock")
     return tuple(
@@ -1612,7 +1631,7 @@ class TokenizeBimanualArcLengthCartesian:
         if self.velocity_layout in SIX_CLOCK_LAYOUTS:
             if velocity_rows.shape[-1] != len(SIX_CLOCK_COLUMNS):
                 raise AssertionError("six-clock token requires six clock columns")
-            if self.velocity_layout == "log_clock6":
+            if self.velocity_layout in ("log_clock6", "log_absolute_clock6"):
                 velocity_rows = np.log(np.maximum(velocity_rows, 0.0) + LOG_CLOCK_EPS)
         elif self.velocity_layout in CLOCK_LAYOUTS:
             velocity_rows = velocity_rows[:, CLOCK_COLUMNS]
@@ -1919,9 +1938,17 @@ class TokenizeBimanualArcLengthCartesian:
                         out=np.zeros_like(interval_distance),
                         where=interval_seconds > 1e-12,
                     )
+                elif self.velocity_layout == "log_absolute_clock6":
+                    # Absolute source time starts at zero at waypoint zero;
+                    # unlike interval clocks it must retain that origin.
+                    clock = times
                 else:
                     clock = interval_seconds
-                streams.append(np.r_[clock, clock[-1]])
+                streams.append(
+                    clock
+                    if self.velocity_layout == "log_absolute_clock6"
+                    else np.r_[clock, clock[-1]]
+                )
         # Interleaved per-arm construction above is L translation/rotation/grip,
         # R translation/rotation/grip. Reorder to T_L,T_R,R_L,R_R,G_L,G_R.
         per_arm = np.stack(streams, axis=-1)
@@ -2342,7 +2369,28 @@ class TokenizeBimanualArcLengthCartesian:
         """Decode one translation, rotation, or gripper clock."""
         column = offset + {"translation": 0, "rotation": 3, "gripper": 6}[stream]
         if self.velocity_mode == "duration":
-            return np.clip(timing_rows[:-1, column], 0.0, None)
+            if self.velocity_layout != "log_absolute_clock6":
+                return np.clip(timing_rows[:-1, column], 0.0, None)
+            timestamps = timing_rows[:, column]
+            raw_duration = np.diff(timestamps)
+            valid = np.isfinite(raw_duration) & (raw_duration > 0.0)
+            duration = np.where(valid, raw_duration, 0.0)
+            if stream == "translation":
+                delta = np.linalg.norm(
+                    np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+                )
+            elif stream == "rotation":
+                delta = np.diff(
+                    cumulative_rotation_length(waypoints[:, offset + 3 : offset + 6])
+                )
+            else:
+                delta = np.abs(np.diff(waypoints[:, offset + 6]))
+            # A moving interval needs strictly increasing, finite absolute
+            # time. Hold it rather than teleporting when a prediction goes
+            # backward or collapses; stationary zero-duration holds stay zero.
+            moving = delta > 1e-12
+            duration[moving & ~valid] = self.tokenizer.config.dt * (action_horizon + 1)
+            return duration
 
         if stream == "translation":
             delta = np.linalg.norm(
@@ -2484,6 +2532,7 @@ class TokenizeBimanualArcLengthCartesian:
         if clocks_in_seconds and self.velocity_layout not in (
             "log_clock",
             "log_clock6",
+            "log_absolute_clock6",
         ):
             raise ValueError("clocks_in_seconds is only valid for log-clock layouts")
         expected_dim = {
@@ -2493,6 +2542,7 @@ class TokenizeBimanualArcLengthCartesian:
             "log_clock": ARC_TOK_BIMANUAL_DIM + len(CLOCK_COLUMNS),
             "rate_clock": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
             "log_clock6": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
+            "log_absolute_clock6": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
         }[self.velocity_layout]
         if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(

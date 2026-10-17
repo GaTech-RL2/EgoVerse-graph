@@ -180,10 +180,18 @@ def test_rgb_roundoff_policy_is_explicit_bounded_and_never_modifies_pixels():
     repeated[0, 0] = 103
     with pytest.raises(ValueError, match="exceeds"):
         compare_rgb(original, repeated, "uint8-roundoff-v1")
+    with pytest.raises(ValueError, match="exceeds"):
+        compare_rgb(original, repeated, "uint8-roundoff-v2")
     repeated[0, 0] = 101
     repeated[1:5, 0] += 1
     with pytest.raises(ValueError, match="exceeds"):
         compare_rgb(original, repeated, "uint8-roundoff-v1")
+    accepted = compare_rgb(original, repeated, "uint8-roundoff-v2")
+    assert accepted["changed_fraction_limit"] == 0.0001
+    assert not accepted["exact"]
+    repeated[5:35, 0] += 1
+    with pytest.raises(ValueError, match="exceeds"):
+        compare_rgb(original, repeated, "uint8-roundoff-v2")
     with pytest.raises(ValueError, match="policy"):
         compare_rgb(original, repeated, "anything")
 

@@ -23,7 +23,7 @@ import numpy as np
 from egomimic.benchmarks.libero.replay import rebase_demo_xml
 
 CONTRACT = "libero-same-recorded-state-v1"
-RGB_POLICIES = ("exact", "uint8-roundoff-v1")
+RGB_POLICIES = ("exact", "uint8-roundoff-v1", "uint8-roundoff-v2")
 
 
 def compare_rgb(original, repeated, policy="exact"):
@@ -44,8 +44,13 @@ def compare_rgb(original, repeated, policy="exact"):
               "changed_fraction": float(np.count_nonzero(delta) / max(1, delta.size))}
     if policy == "exact":
         np.testing.assert_array_equal(original, repeated, err_msg="rgb")
-    elif result["max_abs"] > 2 or result["changed_fraction"] > 0.00001:
+    elif result["max_abs"] > 2 or result["changed_fraction"] > (
+        0.00001 if policy == "uint8-roundoff-v1" else 0.0001
+    ):
         raise ValueError(f"RGB replay exceeds measured uint8 rounding policy: {result}")
+    if policy != "exact":
+        result["max_abs_limit"] = 2
+        result["changed_fraction_limit"] = 0.00001 if policy == "uint8-roundoff-v1" else 0.0001
     return result
 
 

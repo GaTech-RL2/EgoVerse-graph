@@ -28,6 +28,7 @@ pipeline:
         depth: 8
         heads: 6
         mlp_ratio: 4
+        image_adapter_dim: 48
         max_cameras: 3
         max_tracks: 1120
         max_tokens: 8192

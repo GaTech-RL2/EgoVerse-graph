@@ -12,6 +12,9 @@ interfaces. No existing model, launcher or run is changed.
   Each expert has its own Q/K/V/output projections, normalization and FFN.
   All valid tokens within one example participate in joint attention. Experts
   are shared across embodiments; pose input/output adapters are private.
+  After each block, image tokens also pass through the selected embodiment's
+  private residual adapter. Each block has separate adapters for each embodiment;
+  the image output head remains shared.
 - Frozen DINO targets; denoising objectives on both image features and tracks.
 - Pose readout sees observed context and predicted visual/track features. Pose
   gradients propagate through those predictions to the visual generator.
@@ -32,9 +35,27 @@ interfaces. No existing model, launcher or run is changed.
 
 Width384, depth8, heads6, FFN expansion4. There are 43,767,555 shared trainable
 parameters excluding embodiment pose input/output adapters and the frozen DINO
-backbone. Adapter count is sum_m(769*D_m + 384). Pose widths deliberately remain
+backbone. Pose adapter count is sum_m(769*D_m + 384). Pose widths deliberately remain
 required config values until measured-pose schemas are verified; historical
 7D gripper or 69D Sharpa policy command widths are not measured-pose schemas.
+
+The image residual adapters add 1,218,048 trainable parameters for four
+embodiments: 304,512 per embodiment across eight blocks. The configurable
+bottleneck is 48, giving 384 → 48 → 384 per adapter:
+
+    image_next = image_shared + Up_e(GELU(Down_e(LayerNorm_e(image_shared))))
+
+Only the current example's embodiment adapter is used. The up projection starts
+at zero, so initialization exactly preserves the shared model's forward output.
+On the first update the up projection learns; the down projection and adapter
+normalization begin receiving nonzero gradients once the up weights change.
+Adapters are reused in both visual denoising and pose-readout passes. Padding is
+masked again after the adapter. The total excluding pose adapters and frozen
+DINO is now 44,985,603 parameters; 43,767,555 of those remain shared.
+
+Set image_adapter_dim=0 explicitly for an adapter-free ablation or the original
+adapter-free checkpoint architecture. Strict loading rejects a missing adapter
+state; enabling adapters is an architecture change, not transparent resume.
 
 The feature path reuses `scripts/embedding_process/dinov3_embedding.py` and its
 DINOv3 ViT-B/16 default. A proposed224x224 processing contract yields196 patch
@@ -154,6 +175,9 @@ BF16 mixed finite gradients on CPU, pose gradients into both visual heads,
 no withheld-target leakage at inference, clean observation clamping, padding
 invariance, temporal shift invariance, discrete indices, irregular sampling,
 proper reference-frame transforms and cache split/provenance rejection.
+Adapter tests cover all four embodiment routes, pose-loss gradients, unchanged
+unused adapters, zero-initialization equivalence, embodiment-specific effects,
+invalid bottleneck rejection and strict checkpoint restoration.
 
 These are synthetic fixtures. They do not establish real-data performance,
 CUDA numerical equivalence, full-size memory fit or GPU training readiness.

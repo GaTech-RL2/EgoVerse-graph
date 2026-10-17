@@ -98,6 +98,21 @@ class MoTBlock(nn.Module):
         return outputs
 
 
+class ImageResidualAdapter(nn.Module):
+    """Embodiment-specific image residual; starts as an identity operation."""
+
+    def __init__(self, width, bottleneck):
+        super().__init__()
+        self.norm = nn.LayerNorm(width)
+        self.down = nn.Linear(width, bottleneck)
+        self.up = nn.Linear(bottleneck, width)
+        nn.init.zeros_(self.up.weight)
+        nn.init.zeros_(self.up.bias)
+
+    def forward(self, x):
+        return x + self.up(F.gelu(self.down(self.norm(x))))
+
+
 class MoTWorldModel(nn.Module):
     def __init__(
         self,
@@ -111,6 +126,7 @@ class MoTWorldModel(nn.Module):
         max_tracks=1120,
         max_tokens=8192,
         time_mode="continuous",
+        image_adapter_dim=48,
     ):
         super().__init__()
         if time_mode not in ("continuous", "discrete"):
@@ -120,6 +136,13 @@ class MoTWorldModel(nn.Module):
                 "Explicit positive per-embodiment pose dimensions required"
             )
         self.pose_dims = {str(k): int(v) for k, v in pose_dims.items()}
+        if (
+            isinstance(image_adapter_dim, bool)
+            or not isinstance(image_adapter_dim, int)
+            or image_adapter_dim < 0
+        ):
+            raise ValueError("image_adapter_dim must be a nonnegative integer")
+        self.image_adapter_dim = image_adapter_dim
         self.image_dim, self.max_tokens, self.time_mode = (
             image_dim,
             max_tokens,
@@ -148,6 +171,21 @@ class MoTWorldModel(nn.Module):
         )
         self.blocks = nn.ModuleList(
             MoTBlock(width, heads, mlp_ratio) for _ in range(depth)
+        )
+        # One private image adapter per embodiment per block. Zero disables the
+        # extension explicitly for adapter-free ablations/historical checkpoints.
+        self.image_adapters = (
+            nn.ModuleList(
+                nn.ModuleDict(
+                    {
+                        k: ImageResidualAdapter(width, image_adapter_dim)
+                        for k in self.pose_dims
+                    }
+                )
+                for _ in range(depth)
+            )
+            if image_adapter_dim
+            else nn.ModuleList()
         )
         self.norm = nn.ModuleList(nn.LayerNorm(width) for _ in MODALITIES)
 
@@ -243,8 +281,12 @@ class MoTWorldModel(nn.Module):
             clock = s["time"] if self.time_mode == "continuous" else s["index"]
             times.append(clock.masked_fill(~s["valid"], 0))
             valid.append(s["valid"])
-        for block in self.blocks:
+        for index, block in enumerate(self.blocks):
             embeds = block(embeds, times, valid)
+            if self.image_adapter_dim:
+                embeds[0] = self.image_adapters[index][embodiment](
+                    embeds[0]
+                ).masked_fill(~valid[0][..., None], 0)
         embeds = [norm(x) for norm, x in zip(self.norm, embeds)]
         return {
             "image": self.image_out(embeds[0]),

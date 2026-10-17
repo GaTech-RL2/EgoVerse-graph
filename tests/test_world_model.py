@@ -75,6 +75,101 @@ def test_pose_gradient_reaches_image_and_track_generators():
     assert model.pose_out["human"].weight.grad is None
 
 
+def test_zero_initialized_adapters_preserve_adapter_free_predictions():
+    model = make_model(image_adapter_dim=4).eval()
+    baseline = make_model(image_adapter_dim=0).eval()
+    baseline.load_state_dict(
+        {
+            k: v
+            for k, v in model.state_dict().items()
+            if not k.startswith("image_adapters.")
+        },
+        strict=True,
+    )
+    batch = make_batch()
+    a = model.sample(batch, "robot", 2, torch.Generator().manual_seed(5))
+    b = baseline.sample(batch, "robot", 2, torch.Generator().manual_seed(5))
+    for name in a:
+        torch.testing.assert_close(a[name], b[name], rtol=0, atol=0)
+    # Old checkpoints must not silently skip the new trainable parameters.
+    with pytest.raises(RuntimeError, match="Missing key"):
+        model.load_state_dict(baseline.state_dict(), strict=True)
+
+
+@pytest.mark.parametrize(
+    "selected", ["yam", "human", "libero_sharpa", "libero_gripper"]
+)
+def test_image_adapters_route_and_learn_for_all_four_embodiments(selected):
+    torch.manual_seed(14)
+    dims = dict(yam=7, human=11, libero_sharpa=9, libero_gripper=5)
+    model = MoTWorldModel(
+        dims,
+        image_dim=8,
+        width=24,
+        heads=3,
+        depth=2,
+        max_tracks=8,
+        max_tokens=100,
+        image_adapter_dim=4,
+    )
+    untouched = {
+        name: p.detach().clone()
+        for name, p in model.named_parameters()
+        if name.startswith("image_adapters.") and f".{selected}." not in name
+    }
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    for step in range(2):
+        optimizer.zero_grad(set_to_none=True)
+        # Pose loss alone must reach adapters through generated visual features.
+        model.training_losses(make_batch(dims[selected]), selected)["pose"].backward()
+        for block in model.image_adapters:
+            adapter = block[selected]
+            assert adapter.up.weight.grad.norm() > 0
+            if step:
+                assert adapter.down.weight.grad.norm() > 0
+                assert adapter.norm.weight.grad.norm() > 0
+            for other in dims.keys() - {selected}:
+                assert all(p.grad is None for p in block[other].parameters())
+        assert model.blocks[0].qkv[0].weight.grad.norm() > 0
+        optimizer.step()
+    for name, p in model.named_parameters():
+        if name in untouched:
+            torch.testing.assert_close(p, untouched[name], rtol=0, atol=0)
+
+
+def test_adapter_effect_is_embodiment_specific_and_checkpointed():
+    model = make_model(image_adapter_dim=4).eval()
+    batches = {"robot": make_batch(7), "human": make_batch(11)}
+
+    def predict(embodiment):
+        return model.sample(
+            batches[embodiment], embodiment, 2, torch.Generator().manual_seed(9)
+        )["image"]
+
+    before = {e: predict(e) for e in batches}
+    with torch.no_grad():
+        for block in model.image_adapters:
+            block["robot"].up.weight.normal_(std=0.1)
+    assert not torch.equal(before["robot"], predict("robot"))
+    torch.testing.assert_close(before["human"], predict("human"), rtol=0, atol=0)
+    restored = make_model(image_adapter_dim=4).eval()
+    restored.load_state_dict(model.state_dict(), strict=True)
+    torch.testing.assert_close(
+        predict("robot"),
+        restored.sample(batches["robot"], "robot", 2, torch.Generator().manual_seed(9))[
+            "image"
+        ],
+        rtol=0,
+        atol=0,
+    )
+
+
+@pytest.mark.parametrize("dimension", [-1, 1.5, True])
+def test_invalid_image_adapter_width_is_rejected(dimension):
+    with pytest.raises(ValueError, match="image_adapter_dim"):
+        make_model(image_adapter_dim=dimension)
+
+
 @pytest.mark.parametrize("embodiment,dimension", [("robot", 7), ("human", 11)])
 def test_actual_optimizer_and_strict_reload(embodiment, dimension):
     torch.manual_seed(10)

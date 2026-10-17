@@ -5,7 +5,9 @@ num_workers: 0
 mode: continuous
 seed: 42
 min_frames: 2
-max_frames: 4
+# Requested continuous count range; the independent model token guard still applies.
+# This is not evidence that 16 full image/track timestamps fit GPU memory.
+max_frames: 16
 discrete_frames: 4
 stride: 1
 forecasting_probability: 0.5

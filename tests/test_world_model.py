@@ -532,6 +532,21 @@ def test_temporal_sampling_and_rigid_frame():
         points_to_reference(np.zeros((2, 3)), transform)
 
 
+def test_sixteen_timestamps_preserve_physical_window():
+    times = np.linspace(0, 12, 361, dtype=np.float64)
+    counts = set()
+    for seed in range(200):
+        selected = sample_times(
+            len(times), np.random.default_rng(seed), anchor=180, max_frames=16,
+            timestamps=times, max_past_seconds=3, max_future_seconds=3,
+        )
+        counts.add(len(selected))
+        assert 180 in selected
+        assert (np.diff(selected) > 0).all()
+        assert (np.abs(times[selected] - times[180]) <= 3).all()
+    assert counts == set(range(2, 17))
+
+
 def test_physical_time_bounds_use_seconds_and_cover_both_sides():
     times = np.array([0, 2, 5.9, 6, 7, 9, 10, 12, 12.1, 40], dtype=np.float64)
     counts, seen = set(), set()
@@ -735,6 +750,10 @@ def test_hydra_both_recipes_and_required_schema():
                 overrides=[f"+experiment=world_model/{mode}", "hydra/launcher=basic"],
             )
         assert cfg.data.mode == mode
+        assert cfg.data.min_frames == 2
+        assert cfg.data.max_frames == 16
+        assert cfg.data.discrete_frames == 4
+        assert cfg.model.pipeline.stages[0].model.max_tokens == 8192
         assert cfg.model.pipeline.stages[0].model.time_mode == mode
         assert cfg.trainer.check_val_every_n_epoch is None
         assert cfg.callbacks.model_checkpoint.every_n_train_steps == 15000

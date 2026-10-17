@@ -27,7 +27,7 @@ interfaces. No existing model, launcher or run is changed.
   batches. PipelineAlgo sees one source per update; it must not apply a second
   source-balancing factor. Exact source probabilities depend on the corpus and
   temporal mode and must be reported for a comparison.
-- Continuous: 2–4 random recorded timestamps (count provisional), each within
+- Continuous: 2–16 random recorded timestamps (user-selected maximum), each within
   -3 to +3 physical seconds of the current/anchor frame (user-selected range).
   Bounds clip to episode edges; the anchor is included. Draw without replacement
   from eligible recorded times, not uniformly over continuous seconds. Anchors
@@ -105,6 +105,18 @@ For comparison,448x448/784 patches at four timestamps gives13892 tokens and
 exceeds this guard; two timestamps gives6946. Resolution and temporal/track
 coverage must be budgeted together, without silently reducing the requested
 image detail. Neither example is an approved full training resolution.
+
+The requested continuous maximum is now16 timestamps, including observed and
+target times together. With640x640 DINO inputs, three YAM cameras,1120 tracks
+and one pose token per time,16 times require94736 tokens. The8192-token guard
+remains active: this configuration is not ready for a full-resolution launch.
+Sixteen versus four full times gives4x as many tokens and16x the dense attention
+pair count. A materialized FP32 six-head attention-score tensor alone would
+occupy about200.6GiB per layer at batch1; that is a backend-dependent warning,
+not a measured peak or a claim that memory-efficient attention materializes it.
+Do not silently raise the guard, reduce resolution, pool features, subsample
+tracks, or switch precision to make it fit. GPU feasibility and any redesigned
+token budget remain separate work. Historical direct sampler defaults stay4.
 
 Warm-up10000/ramp10000, AdamW1e-4/weight-decay0.01, loss weights1/1/1 and20 sampler
 steps are provisional configurable defaults. No CFG, Action Flow Jacobian loss,

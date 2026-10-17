@@ -676,7 +676,11 @@ def test_invalid_unobserved_track_targets_are_masked():
     batch["track"]["value"][:, -1] = float("nan")
     batch["track"]["target_valid"][:, -1] = False
     batch["track"]["confidence"][:, -1] = 0
-    loss = model.training_losses(batch, "robot")["total"]
+    with pytest.raises(ValueError, match="zero-fill is forbidden"):
+        model.training_losses(batch, "robot")
+    loss = model.training_losses(
+        batch, "robot", missing_track_policy="conditional_sample", imputation_steps=2
+    )["total"]
     assert torch.isfinite(loss)
     loss.backward()
     assert all(
@@ -751,3 +755,131 @@ def test_declared_dino_grid_requires_positive_integer_shape(tmp_path, shape):
     path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="two positive integers"):
         PreparedWorldDataset(path)
+
+
+def test_complete_tracks_bypass_imputation_and_preserve_rng(monkeypatch):
+    model, batch = make_model(), make_batch()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Complete tracks must not invoke a teacher")
+
+    monkeypatch.setattr(model, "sample", forbidden)
+    torch.manual_seed(19)
+    a = model.training_losses(batch, "robot")
+    rng = torch.get_rng_state().clone()
+    torch.manual_seed(19)
+    b = model.training_losses(batch, "robot", missing_track_policy="conditional_sample")
+    assert torch.equal(rng, torch.get_rng_state())
+    for key in a:
+        torch.testing.assert_close(a[key], b[key], rtol=0, atol=0)
+    assert a["imputed_track_tokens"] == a["imputation_forwards"] == 0
+
+
+def test_missing_tracks_use_detached_completion_not_zero_geometry(monkeypatch):
+    from egomimic.models.world_model import noise_coefficients
+
+    model, batch = make_model(), make_batch()
+    batch["track"]["value"][:, -1] = float("nan")
+    batch["track"]["target_valid"][:, -1] = False
+    batch["track"]["confidence"][:, -1] = 0
+    before = copy.deepcopy(batch)
+    completed = torch.full_like(batch["track"]["value"], 7.0, requires_grad=True)
+
+    def teacher(teacher_batch, embodiment, steps):
+        assert not torch.is_grad_enabled()
+        assert steps == 2
+        for name in ("image", "track"):
+            assert torch.isfinite(teacher_batch[name]["value"]).all()
+        pose = teacher_batch["proprio"]
+        assert torch.equal(pose["observed"], batch["proprio"]["observed"])
+        assert (pose["value"][~pose["observed"]] == 0).all()
+        assert not teacher_batch["track"]["observed"][:, -1].any()
+        return {"track": completed}
+
+    monkeypatch.setattr(model, "sample", teacher)
+    monkeypatch.setattr(torch, "randn_like", lambda value: torch.zeros_like(value))
+    calls = []
+    original = model.forward
+
+    def capture(b, e, values, levels):
+        calls.append((values, levels))
+        return original(b, e, values, levels)
+
+    monkeypatch.setattr(model, "forward", capture)
+    loss = model.training_losses(
+        batch, "robot", missing_track_policy="conditional_sample", imputation_steps=2
+    )
+    values, levels = calls[0]
+    alpha, _ = noise_coefficients(levels["track"])
+    torch.testing.assert_close(values["track"][:, -1], 7 * alpha[:, -1].expand(-1, 3))
+    assert torch.equal(levels["track"][:, -1], levels["track"][:, -2])
+    assert loss["imputed_track_tokens"] == 2
+    assert loss["imputation_forwards"] == 3
+    loss["total"].backward()
+    assert completed.grad is None
+    assert model.track_out.weight.grad.norm() > 0
+    for name in batch:
+        for key in batch[name]:
+            torch.testing.assert_close(
+                batch[name][key], before[name][key], equal_nan=True
+            )
+
+
+@pytest.mark.parametrize("bf16", [False, True])
+def test_conditional_completion_ignores_placeholders_and_withheld_poses(bf16):
+    model, batch = make_model(), make_batch()
+    # Even a finite coordinate with zero confidence must not become a target.
+    batch["track"]["confidence"][:, -1] = 0
+    batch["track"]["value"][:, -1] = float("nan")
+    other = copy.deepcopy(batch)
+    other["track"]["value"][:, -1] = 1e9
+    other["proprio"]["value"][~other["proprio"]["observed"]] = float("nan")
+    with torch.autocast("cpu", dtype=torch.bfloat16, enabled=bf16):
+        torch.manual_seed(77)
+        a = model.training_losses(
+            batch,
+            "robot",
+            pose_weight=0,
+            missing_track_policy="conditional_sample",
+            imputation_steps=2,
+        )
+        torch.manual_seed(77)
+        b = model.training_losses(
+            other,
+            "robot",
+            pose_weight=0,
+            missing_track_policy="conditional_sample",
+            imputation_steps=2,
+        )
+    for key in a:
+        torch.testing.assert_close(a[key], b[key], rtol=0, atol=0)
+    a["total"].backward()
+    assert all(
+        torch.isfinite(p.grad).all() for p in model.parameters() if p.grad is not None
+    )
+
+
+def test_training_rejects_unavailable_observations_and_image_targets():
+    model, batch = make_model(), make_batch()
+    batch["track"]["confidence"][:, 0] = 0
+    with pytest.raises(ValueError, match="Observed visual"):
+        model.training_losses(batch, "robot", missing_track_policy="conditional_sample")
+    batch = make_batch()
+    batch["image"]["target_valid"][:, -1] = False
+    with pytest.raises(ValueError, match="Missing image targets"):
+        model.training_losses(batch, "robot", missing_track_policy="conditional_sample")
+
+
+def test_pipeline_exposes_missing_track_policy_and_cost():
+    model, world = make_model(), make_batch()
+    world["track"]["target_valid"][:, -1] = False
+    world["track"]["value"][:, -1] = float("nan")
+    stage = WorldModelStage(
+        model, missing_track_policy="conditional_sample", imputation_steps=2
+    )
+    result = stage.execute(
+        dict(world=world, embodiment="robot", optimizer_step=0), mode="train"
+    )
+    assert torch.isfinite(result["loss/world"])
+    assert result["log/world_imputed_track_tokens"] == 2
+    assert result["log/world_imputation_forwards"] == 3

@@ -312,10 +312,79 @@ class MoTWorldModel(nn.Module):
             result[b] = draws[inverse]
         return result.masked_fill(stream["observed"] | ~stream["valid"], 0)
 
+    def _complete_training_tracks(self, batch, embodiment, policy, steps):
+        """Explicit approximate completion; never invent zero clean geometry.
+
+        Available recorded visuals condition a detached auxiliary sample. Only
+        missing tracks are retained, without becoming supervised targets. The
+        main denoising pass receives neither completion nor availability flags.
+        """
+        if policy not in ("error", "conditional_sample"):
+            raise ValueError("Unknown missing_track_policy")
+        if type(steps) is not int or steps < 1:
+            raise ValueError("imputation_steps must be a positive integer")
+        available = {}
+        for name in ("image", "track"):
+            s = batch[name]
+            confidence = s.get("confidence", torch.ones_like(s["time"]))
+            if confidence.shape != s["time"].shape or (
+                not torch.isfinite(confidence).all()
+                or (confidence < 0).any()
+                or (confidence > 1).any()
+            ):
+                raise ValueError("Confidence must match tokens and be finite in [0,1]")
+            known = s["valid"] & s.get("target_valid", s["valid"]) & (confidence > 0)
+            if (s["observed"] & ~known).any():
+                raise ValueError(
+                    "Observed visual values require valid positive-confidence targets"
+                )
+            if not torch.isfinite(s["value"][known]).all():
+                raise ValueError("Non-finite visual target")
+            available[name] = known
+        if (batch["image"]["valid"] & ~available["image"]).any():
+            raise ValueError(
+                "Missing image targets require explicit preprocessing; unsupported"
+            )
+        track = batch["track"]
+        missing = track["valid"] & ~available["track"]
+        if not missing.any():
+            # No forward or random draw: retain exact complete-data behavior.
+            return track["value"], missing
+        if policy == "error":
+            raise ValueError(
+                "Missing track targets: zero-fill is forbidden. Supply valid tracks "
+                "or explicitly select missing_track_policy='conditional_sample'."
+            )
+        teacher = {n: dict(batch[n]) for n in MODALITIES}
+        for name in ("image", "track"):
+            teacher[name]["observed"] = available[name]
+            teacher[name]["value"] = torch.where(
+                available[name][..., None], batch[name]["value"], 0
+            )
+        # Even an auxiliary sampler must never receive withheld recorded poses.
+        teacher["proprio"]["value"] = torch.where(
+            batch["proprio"]["observed"][..., None], batch["proprio"]["value"], 0
+        )
+        with torch.no_grad():
+            completion = self.sample(teacher, embodiment, steps=steps)["track"].detach()
+        if not torch.isfinite(completion[missing]).all():
+            raise ValueError("Non-finite conditional track completion")
+        return torch.where(missing[..., None], completion, track["value"]), missing
+
     def training_losses(
-        self, batch, embodiment, pose_weight=1.0, image_weight=1.0, track_weight=1.0
+        self,
+        batch,
+        embodiment,
+        pose_weight=1.0,
+        image_weight=1.0,
+        track_weight=1.0,
+        missing_track_policy="error",
+        imputation_steps=20,
     ):
         self.validate(batch, embodiment)
+        track_values, imputed = self._complete_training_tracks(
+            batch, embodiment, missing_track_policy, imputation_steps
+        )
         noisy, levels, targets, weights = {}, {}, {}, {}
         for name in ("image", "track"):
             s = batch[name]
@@ -328,10 +397,17 @@ class MoTWorldModel(nn.Module):
                 or (confidence > 1).any()
             ):
                 raise ValueError("Confidence must be finite and between zero and one")
-            supervised = s.get("target_valid", s["valid"]) & s["valid"]
+            supervised = (
+                s.get("target_valid", s["valid"]) & s["valid"] & (confidence > 0)
+            )
             if not torch.isfinite(s["value"][supervised | s["observed"]]).all():
                 raise ValueError("Non-finite visual target")
-            value = torch.where((supervised | s["observed"])[..., None], s["value"], 0)
+            if name == "track":
+                value = torch.where(s["valid"][..., None], track_values, 0)
+            else:
+                value = torch.where(
+                    (supervised | s["observed"])[..., None], s["value"], 0
+                )
             levels[name] = self.frame_noise_levels(s)
             alpha, sigma = noise_coefficients(levels[name])
             eps = torch.randn_like(value)
@@ -377,6 +453,10 @@ class MoTWorldModel(nn.Module):
             image_weight * losses["image"]
             + track_weight * losses["track"]
             + pose_weight * losses["pose"]
+        )
+        losses["imputed_track_tokens"] = imputed.sum().to(losses["total"].dtype)
+        losses["imputation_forwards"] = losses["total"].new_tensor(
+            imputation_steps + 1 if imputed.any() else 0
         )
         return losses
 

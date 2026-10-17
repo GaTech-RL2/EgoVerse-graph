@@ -19,6 +19,8 @@ class WorldModelStage(Stage):
         track_weight=1.0,
         pose_weight=1.0,
         sampler_steps=20,
+        missing_track_policy="error",
+        imputation_steps=20,
     ):
         super().__init__()
         if (
@@ -34,6 +36,12 @@ class WorldModelStage(Stage):
             pose_weight,
         )
         self.sampler_steps = sampler_steps
+        if missing_track_policy not in ("error", "conditional_sample"):
+            raise ValueError("Unknown missing_track_policy")
+        if type(imputation_steps) is not int or imputation_steps < 1:
+            raise ValueError("imputation_steps must be a positive integer")
+        self.missing_track_policy = missing_track_policy
+        self.imputation_steps = imputation_steps
 
     def pose_scale(self, step):
         if step < self.warmup_steps:
@@ -51,7 +59,13 @@ class WorldModelStage(Stage):
         if mode == "train":
             scale = self.pose_scale(int(batch["optimizer_step"]))
             losses = self.model.training_losses(
-                batch["world"], embodiment, scale, self.image_weight, self.track_weight
+                batch["world"],
+                embodiment,
+                scale,
+                self.image_weight,
+                self.track_weight,
+                missing_track_policy=self.missing_track_policy,
+                imputation_steps=self.imputation_steps,
             )
             batch["loss/world"] = losses["total"]
             batch.update({f"log/world_{k}": v.detach() for k, v in losses.items()})

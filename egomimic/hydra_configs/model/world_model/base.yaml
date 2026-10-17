@@ -19,6 +19,10 @@ pipeline:
       track_weight: 1.0
       pose_weight: 1.0
       sampler_steps: 20
+      # Never silently train on zero-filled missing geometry. Conditional sample
+      # completion is an explicit approximation with extra denoising cost.
+      missing_track_policy: error
+      imputation_steps: 20
       model:
         _target_: egomimic.models.world_model.MoTWorldModel
         # REQUIRED from prepared measured-pose schemas; never use policy action widths.

@@ -115,12 +115,49 @@ and one withheld image frame. Neither endpoint is forced in this random branch.
 The50/50 mixture is provisional. Fractional confidence weights are normalized
 by their actual sum, including sums below one; empty objectives return zero.
 
-Unresolved missing-track treatment: unavailable targets are currently filled
-with zero before forward noising and excluded from the track loss, but remain
-in joint attention. Thus masking the loss alone does not establish a correct
-conditional distribution for missing geometry. Before real-data training, define
-and test missing-track conditioning without exposing future visibility as an
-input shortcut; do not mistake this finite-loss behavior for a verified solution.
+### Missing-track policy
+
+Missing coordinates must never become clean zero coordinates before partial
+noising. A track is unavailable when its target-valid mask is false or confidence
+is zero. The default `missing_track_policy: error` rejects an incomplete training
+batch with a clear error. It also rejects invalid/zero-confidence observed visual
+values and unsupported missing image features. Padding is not a missing target.
+Geometric target availability is distinct from camera visibility: an occluded
+simulator point can still have an exact measured XYZ target. Do not automatically
+set its confidence to zero solely because it is occluded; confidence describes
+coordinate reliability. Future visibility must not become an input feature.
+
+For explicitly approved incomplete-data experiments, the existing stage accepts
+`missing_track_policy: conditional_sample` and `imputation_steps` (default20).
+This is approximate conditional data completion, not measured geometry:
+
+1. Build a private auxiliary batch with available recorded image/track targets
+   clamped as clean anchors. Keep only the originally observed poses; sanitize
+   all withheld poses and missing coordinate placeholders.
+2. Use the existing sampler under `no_grad` and detach its missing-track outputs.
+3. Insert only those missing coordinates before ordinary per-frame forward
+   noising. Their direct track-loss weights remain zero. Do not promote them to
+   supervised or observed values in the main pass.
+
+Target availability selects anchors in the private auxiliary sampler; it is
+not added as a flag, attention mask or noise-level change in the main denoising
+pass. The main pose loss still differentiates through the denoised predictions,
+but never through the auxiliary completion sampler. The current model supplies
+the completions, so early/untrained completions can be inaccurate. This is not
+an exact marginal-likelihood objective or proof of correct occluded geometry.
+
+Complete-data batches preserve their previous losses, gradients and RNG state
+bit-exact in tested CPU FP32/BF16 cases and incur no extra sampling. An incomplete
+batch with20 completion steps costs21 extra backbone forwards (the shared sampler
+also computes a final pose readout). `world_imputed_track_tokens` and
+`world_imputation_forwards` report this cost. The default remains strict to avoid
+silently introducing that compute and approximation into a real run. Choose and
+measure a completion policy on actual data before full training.
+
+Regression tests cover strict rejection, zero-confidence finite placeholders,
+NaN/large-value placeholder invariance, withheld-pose isolation, no batch mutation,
+detached completion, unchanged main frame-noise levels, finite CPU BF16 gradients,
+pipeline controls/cost logging and complete-data compatibility.
 
 After warm-up a second forward through the SAME backbone uses differentiable
 same-trajectory x0 estimates plus empty pose queries. Its regression loss updates

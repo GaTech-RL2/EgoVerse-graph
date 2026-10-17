@@ -339,6 +339,47 @@ def test_finalizer_rejects_duplicate_physical_cache(tmp_path):
         finalize(inventory, tmp_path / "prepared.json")
 
 
+@pytest.mark.parametrize("mutation", ["artifact", "expected_digest"])
+def test_overlapping_finalizers_share_only_verified_unchanged_payloads(tmp_path, monkeypatch, mutation):
+    inventory = make_inventory(tmp_path)
+    aged_verification_clock(monkeypatch)
+    specification = json.loads(inventory.read_text())
+    subset = {**specification,
+              "receipts": [name for name in specification["receipts"] if name.startswith("robot-")],
+              "pose_schemas": {"robot": specification["pose_schemas"]["robot"]}}
+    subset_path = tmp_path / "subset.json"
+    subset_path.write_text(json.dumps(subset))
+    calls, original = [], hashlib.file_digest
+
+    def digest(stream, *args, **kwargs):
+        calls.append(Path(stream.name).resolve())
+        return original(stream, *args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "file_digest", digest)
+    memo = ArtifactVerificationMemo()
+    combined = finalize(inventory, tmp_path / "combined.json", verification_memo=memo)
+    assert len(calls) == 6  # A fresh memo never skips the initial full hashes.
+    single = finalize(subset_path, tmp_path / "single.json", verification_memo=memo)
+    assert len(calls) == 6
+    assert single["split_provenance"]["episode_ids"]["robot"] == combined["split_provenance"]["episode_ids"]["robot"]
+    single_stats = json.loads((tmp_path / single["normalization"]["path"]).read_text())
+    assert {row[0] for row in single_stats["train_episodes"]} == {"robot"}
+    assert set(single_stats["statistics"]) == {"image", "track", "pose/robot"}
+    finalize(subset_path, tmp_path / "fresh.json")
+    assert len(calls) == 9  # Default behavior remains independently verified.
+    receipt_path = tmp_path / subset["receipts"][0]
+    if mutation == "artifact":
+        with Path(str(receipt_path)[:-5]).open("ab") as stream:
+            stream.write(b"changed")
+    else:
+        receipt = json.loads(receipt_path.read_text())
+        receipt["output_sha256"] = "0" * 64
+        receipt_path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="hash mismatch"):
+        finalize(subset_path, tmp_path / "invalid.json", verification_memo=memo)
+    assert len(calls) == 10  # Both identity changes force a content hash and reject.
+
+
 def test_sampling_cursor_ignores_prefetched_unconsumed_batches(tmp_path):
     inventory = make_inventory(tmp_path)
     path = tmp_path / "prepared.json"

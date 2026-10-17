@@ -184,8 +184,14 @@ def _write_immutable(path, value):
     return hashlib.sha256(payload).hexdigest()
 
 
-def finalize(inventory_path, output, *, valid_ratio=0.01, seed=42, std_floor=1e-5):
-    """Inventory explicitly lists every feature receipt; no storage traversal."""
+def finalize(inventory_path, output, *, valid_ratio=0.01, seed=42, std_floor=1e-5,
+             verification_memo=None):
+    """Finalize an explicit inventory, optionally sharing verified immutable files.
+
+    Reusing a memo across overlapping corpora avoids a second content scan;
+    each corpus still fits its own train-only statistics and episode split.
+    The verifier invalidates changed file identities or expected digests.
+    """
     from egomimic.rldb.world_model import open_prepared_episode
 
     inventory_path, output = Path(inventory_path).resolve(), Path(output).resolve()
@@ -195,7 +201,7 @@ def finalize(inventory_path, output, *, valid_ratio=0.01, seed=42, std_floor=1e-
     episodes, identities, paths, dino, schemas = [], set(), set(), None, inventory["pose_schemas"]
     source_episodes = set()
     episode_moments = {}
-    verifier = ArtifactVerificationMemo()
+    verifier = verification_memo if verification_memo is not None else ArtifactVerificationMemo()
     for receipt_path in inventory["receipts"]:
         receipt_path = (inventory_path.parent / receipt_path).resolve()
         receipt = json.loads(receipt_path.read_text())

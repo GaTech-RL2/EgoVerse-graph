@@ -812,6 +812,7 @@ def test_validation_batch_cap_keeps_short_final_batch():
 @pytest.mark.parametrize("cap", [0, -1, True, 1.5, "2"])
 def test_validation_batch_cap_rejects_invalid_value(cap):
     from types import SimpleNamespace
+
     from egomimic.rldb.world_model_datamodule import WorldModelDataModule
     with pytest.raises(ValueError, match="positive integer"):
         HomogeneousWorldBatchSampler(SimpleNamespace(split="val"), shuffle=False,
@@ -912,6 +913,7 @@ def test_hydra_both_recipes_and_required_schema():
 
 def test_shared_lightning_fit_validate_and_resume(tmp_path):
     import inspect
+
     from lightning import Trainer
     from omegaconf import OmegaConf
 
@@ -1237,8 +1239,9 @@ def test_attention_execution_has_no_new_weights_and_native_default_is_exact():
 
 
 def test_attention_only_bf16_matches_explicit_casts_and_keeps_fp32_gradients():
-    from egomimic.models.world_model import MoTBlock
     import torch.nn.functional as functional
+
+    from egomimic.models.world_model import MoTBlock
     torch.manual_seed(7)
     block = MoTBlock(24, 3, attention_dtype="bfloat16")
     q = torch.randn(1, 3, 7, 8, requires_grad=True)
@@ -1267,6 +1270,7 @@ def test_optional_gpu_attention_does_not_silently_fallback_on_cpu():
 @pytest.mark.parametrize("profile,backend,dtype", [("native", "sdpa", "native"), ("unchunked_fp32", "efficient", "native"), ("flash4_bf16", "flash4", "bfloat16")])
 def test_attention_execution_profiles_preserve_science(mode, profile, backend, dtype):
     from pathlib import Path
+
     from hydra import compose, initialize_config_dir
     from omegaconf import OmegaConf
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
@@ -1296,8 +1300,9 @@ def test_flash4_real_padding_and_fp32_gradient_contract():
     if Version(torch.__version__.split("+")[0]) < Version("2.9") or torch.cuda.get_device_capability(0)[0] < 9:
         pytest.skip("Optional Flash4 profile needs Torch2.9 and Hopper")
     pytest.importorskip("flash_attn.cute")
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
     from egomimic.models.world_model import MoTBlock
-    from torch.nn.attention import sdpa_kernel, SDPBackend
     torch.manual_seed(42)
     q = torch.randn(1, 6, 97, 64, device="cuda", requires_grad=True)
     k = torch.randn(1, 6, 137, 64, device="cuda", requires_grad=True)

@@ -202,7 +202,7 @@ def synchronize(device):
         torch.mps.synchronize()
 
 
-def run(manifest_path, output, sides, device, feature_results=()):
+def run(manifest_path, output, sides, device, feature_results=(), features_only=False):
     manifest, frames = load_manifest(manifest_path)
     mode = manifest.get("reference_mode", "visible_manual")
     reuse = cached_features(feature_results, manifest["model"], manifest["revision"])
@@ -229,7 +229,9 @@ def run(manifest_path, output, sides, device, feature_results=()):
         "precision": "float32",
         "device": str(device),
         "resolutions": [],
-        "method": "cosine_dense_descriptor_matching_not_learned_tracking",
+        "method": "feature_extraction_only"
+        if features_only
+        else "cosine_dense_descriptor_matching_not_learned_tracking",
         "reference_mode": mode,
         "metric_interpretation": "Agreement with projected estimated 3D landmarks; unknown occlusion, NOT verified visible-point accuracy"
         if mode == "projected_landmark"
@@ -278,7 +280,7 @@ def run(manifest_path, output, sides, device, feature_results=()):
                 "sha256": hashlib.sha256(cache_path.read_bytes()).hexdigest(),
             }
         matches, excluded = [], 0
-        for a, b in manifest["pairs"]:
+        for a, b in ([] if features_only else manifest["pairs"]):
             source, target = frames[a][0], frames[b][0]
             sf, sm = cache[a]
             tf, tm = cache[b]
@@ -327,8 +329,10 @@ def run(manifest_path, output, sides, device, feature_results=()):
             "latencies_seconds": latencies,
             "matched_points": len(matches),
             "excluded_occluded_or_unlabeled": excluded,
-            "mean_error_native_px": float(errors.mean()),
-            "pck": {str(t): float((errors <= t).mean()) for t in [8, 16, 32]},
+            "mean_error_native_px": float(errors.mean()) if len(errors) else None,
+            "pck": {str(t): float((errors <= t).mean()) for t in [8, 16, 32]}
+            if len(errors)
+            else None,
             "wrong_labeled_point_fraction": (
                 float(
                     np.mean(
@@ -363,6 +367,10 @@ def main():
     parser.add_argument("--sides", type=int, nargs="+", default=[224, 336, 448, 640])
     parser.add_argument("--device", default="cpu")
     parser.add_argument(
+        "--features-only", action="store_true",
+        help="Extract verified image features without running point correspondence; preserves labels for downstream probes",
+    )
+    parser.add_argument(
         "--feature-results",
         nargs="*",
         default=[],
@@ -371,7 +379,7 @@ def main():
     args = parser.parse_args()
     if not args.sides or any(s < 16 or s % 16 for s in args.sides):
         parser.error("sides must be positive multiples of 16")
-    run(args.manifest, args.output, args.sides, args.device, args.feature_results)
+    run(args.manifest, args.output, args.sides, args.device, args.feature_results, args.features_only)
 
 
 if __name__ == "__main__":

@@ -174,9 +174,10 @@ def test_boolean_resolution_rejected():
         extractor(True)
 
 
+@pytest.mark.parametrize("features_only", [False, True])
 @pytest.mark.parametrize("reference_mode", ["visible_manual", "projected_landmark"])
 def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
-    tmp_path, monkeypatch, reference_mode
+    tmp_path, monkeypatch, reference_mode, features_only
 ):
     def fake_setup(self):
         self.processor, self.model = Processor(), Model()
@@ -217,7 +218,17 @@ def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
             }
         )
     )
-    result = run(path, tmp_path / "output", [32, 64], "cpu")
+    if features_only:
+        def reject_matching(*args, **kwargs):
+            raise AssertionError("Feature extraction must not require point matching")
+        monkeypatch.setattr(
+            "egomimic.scripts.embedding_process.dinov3_correspondence.match_point",
+            reject_matching,
+        )
+    result = run(path, tmp_path / "output", [32, 64], "cpu", features_only=features_only)
+    if features_only:
+        assert result["method"] == "feature_extraction_only"
+        assert all(r["mean_error_native_px"] is None and r["pck"] is None for r in result["resolutions"])
     assert len(result["resolutions"]) == 2
     for r in result["resolutions"]:
         assert r["wrong_labeled_point_fraction"] is None
@@ -229,7 +240,7 @@ def test_screen_writes_reusable_features_and_does_not_fake_wrong_finger_metric(
     with pytest.raises(FileExistsError, match="Preserve"):
         run(path, tmp_path / "output", [32], "cpu")
     reused = run(
-        path, tmp_path / "reused", [32], "cpu", [tmp_path / "output/results.json"]
+        path, tmp_path / "reused", [32], "cpu", [tmp_path / "output/results.json"], features_only=features_only
     )
     assert reused["reference_mode"] == reference_mode
     assert reused["resolutions"][0]["reused_frames"] == 2

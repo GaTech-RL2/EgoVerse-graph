@@ -10,7 +10,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing
+import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import h5py
@@ -409,6 +412,95 @@ def validate_cache(output, replay=False):
     }
 
 
+def _prepare_corpus_episode(options):
+    """Reuse verified completed episodes; never accept a changed request as a hit."""
+    deadline = time.monotonic() + options.get("wait_input_seconds", 0)
+    while not Path(options["demo"]).is_file():
+        if time.monotonic() >= deadline:
+            raise FileNotFoundError(options["demo"])
+        time.sleep(min(10, max(0, deadline - time.monotonic())))
+    if options.get("expected_source_sha256") and digest(options["demo"]) != options["expected_source_sha256"]:
+        raise ValueError("Source demonstration hash differs from corpus inventory")
+    output = Path(options["output"])
+    if output.exists():
+        manifest = json.loads((output / "manifest.json").read_text())
+        if manifest["preparation_source_sha256"] != digest(__file__):
+            raise ValueError("Existing cache preparation source mismatch")
+        for path, expected in manifest["asset_hashes"].items():
+            if digest(path) != expected:
+                raise ValueError(f"Existing cache asset changed: {path}")
+        for key in ("episode", "input_schema", "cameras", "pose_site", "height", "width", "grid", "pose_joints"):
+            if manifest.get(key) != options.get(key):
+                raise ValueError(f"Existing cache request mismatch: {key}")
+        for recorded, requested in (("asset_remaps", "asset_remap"),
+                                    ("excluded_visualization_bodies", "exclude_visualization_body")):
+            if manifest.get(recorded, []) != options.get(requested, []):
+                raise ValueError(f"Existing cache request mismatch: {recorded}")
+        if manifest["source_demo"] != str(Path(options["demo"]).resolve()) or manifest["source_demo_sha256"] != digest(options["demo"]):
+            raise ValueError("Existing cache source mismatch")
+        result = validate_cache(output)
+        result["reused"] = True
+        return result
+    return prepare(argparse.Namespace(**options))
+
+
+def prepare_corpus(args):
+    """Run an explicit corpus inventory through the maintained native preparer."""
+    spec_path = Path(args.spec).resolve()
+    spec = json.loads(spec_path.read_text())
+    output = Path(args.output).resolve()
+    if args.workers < 1 or not spec.get("episodes"):
+        raise ValueError("Need positive workers and an explicit episode inventory")
+    options_list, identities, sources = [], set(), set()
+    for episode in spec["episodes"]:
+        embodiment, identity = episode["embodiment"], episode["episode_id"]
+        if any(not name or Path(name).name != name or name in (".", "..") for name in (embodiment, identity)):
+            raise ValueError("Unsafe corpus identity")
+        key = (embodiment, identity)
+        options = {**spec.get("common", {}), **spec["embodiments"][embodiment],
+                   "demo": episode["demo"], "episode": episode["episode"],
+                   "output": str(output / embodiment / identity),
+                   "expected_source_sha256": episode.get("sha256"),
+                   "wait_input_seconds": getattr(args, "wait_input_seconds", 0)}
+        physical = (str(Path(options["demo"]).resolve()), options["episode"])
+        if key in identities or physical in sources:
+            raise ValueError("Duplicate corpus identity or physical episode")
+        identities.add(key); sources.add(physical)
+        options_list.append((key, options))
+    output.mkdir(parents=True, exist_ok=True)
+    status_path = output / "CORPUS_STATUS.json"
+    if status_path.exists() and json.loads(status_path.read_text())["spec_sha256"] != digest(spec_path):
+        raise ValueError("Corpus specification changed; preserve the original output")
+    status = {"spec_sha256": digest(spec_path), "spec": str(spec_path),
+              "status": "RUNNING", "expected": len(options_list), "episodes": [],
+              "training_ready": False}
+
+    def save():
+        temporary = status_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(status, indent=2) + "\n")
+        temporary.replace(status_path)
+
+    save()
+    with ProcessPoolExecutor(max_workers=args.workers,
+                             mp_context=multiprocessing.get_context("spawn")) as pool:
+        futures = {pool.submit(_prepare_corpus_episode, options): key for key, options in options_list}
+        for future in as_completed(futures):
+            key = futures[future]
+            row = {"embodiment": key[0], "episode_id": key[1]}
+            try:
+                row.update(future.result())
+            except Exception as error:
+                row.update(status="FAILED", error=f"{type(error).__name__}: {error}")
+            status["episodes"].append(row)
+            save()
+            print(json.dumps({"completed": len(status["episodes"]), **row}), flush=True)
+    status["status"] = "PASS" if all(r["status"] == "PASS" for r in status["episodes"]) else "FAILED"
+    save()
+    if status["status"] != "PASS":
+        raise RuntimeError("Native corpus preparation has failed episodes; see CORPUS_STATUS.json")
+    return {key: value for key, value in status.items() if key != "episodes"}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -427,11 +519,18 @@ def main():
     check = commands.add_parser("validate")
     check.add_argument("--output", required=True)
     check.add_argument("--replay", action="store_true")
+    corpus = commands.add_parser("prepare-corpus")
+    corpus.add_argument("--spec", required=True)
+    corpus.add_argument("--output", required=True)
+    corpus.add_argument("--workers", type=int, default=1)
+    corpus.add_argument("--wait-input-seconds", type=int, default=0,
+                        help="Allow atomic dataset transfers to finish; never read temporary transfer files")
     args = parser.parse_args()
     print(
         json.dumps(
             prepare(args)
             if args.command == "prepare"
+            else prepare_corpus(args) if args.command == "prepare-corpus"
             else validate_cache(args.output, args.replay),
             indent=2,
         )

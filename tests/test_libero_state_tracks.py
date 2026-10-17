@@ -17,6 +17,8 @@ from egomimic.benchmarks.libero.state_tracks import (
     validate_arrays,
     validate_cache,
     exclude_visualization_mocap,
+    _prepare_corpus_episode,
+    prepare_corpus,
 )
 
 XML = """<mujoco><worldbody>
@@ -96,6 +98,11 @@ def test_cache_rejects_original_observation_substitution_and_tampering(tmp_path,
     )
     result = prepare(args)
     assert result["all_channels_native_replay_exact"]
+    options = {**vars(args), "input_schema": "libero", "asset_remap": [],
+               "exclude_visualization_body": []}
+    assert _prepare_corpus_episode(options)["reused"]
+    with pytest.raises(ValueError, match="request mismatch"):
+        _prepare_corpus_episode({**options, "pose_site": "changed"})
     manifest = json.loads((args.output / "manifest.json").read_text())
     assert manifest["original_cache_max_eef_error_m"] > 100
     assert manifest["original_cache_repaired"] is False
@@ -124,6 +131,22 @@ def test_reject_unknown_or_duplicate_pose_joint():
     for names in (["missing"], ["slide", "slide"]):
         with pytest.raises(ValueError, match="joint"):
             build_arrays(model, states, ["view"], "eef", 32, 32, [8, 8], names)
+
+
+def test_corpus_rejects_duplicate_source_and_unsafe_identity(tmp_path):
+    spec = {"common": {}, "embodiments": {"gripper": {}}, "episodes": [
+        {"embodiment": "gripper", "episode_id": "one", "episode": "demo_0", "demo": str(tmp_path / "source.h5")},
+        {"embodiment": "gripper", "episode_id": "two", "episode": "demo_0", "demo": str(tmp_path / "source.h5")}]}
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(spec))
+    args = Namespace(spec=path, output=tmp_path / "output", workers=1)
+    with pytest.raises(ValueError, match="Duplicate"):
+        prepare_corpus(args)
+    spec["episodes"] = [spec["episodes"][0]]
+    spec["episodes"][0]["episode_id"] = "../outside"
+    path.write_text(json.dumps(spec))
+    with pytest.raises(ValueError, match="Unsafe"):
+        prepare_corpus(args)
 
 
 def test_quest_recording_and_explicit_nonphysical_marker_exclusion(tmp_path):

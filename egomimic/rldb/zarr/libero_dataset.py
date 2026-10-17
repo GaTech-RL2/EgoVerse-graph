@@ -57,6 +57,11 @@ def validation_mask(n_episodes, val_ratio=0.1, seed=42):
 
 
 class LiberoReplayResolver:
+    embodiment = "libero_panda"
+
+    def validate_task_ids(self, task_ids):
+        validate_task_coverage(task_ids, self.suite)
+
     def __init__(
         self,
         folder_path,
@@ -140,7 +145,7 @@ class LiberoReplayResolver:
         for info in self.key_map.values():
             if data[info["zarr_key"]].shape[0] != ends[-1]:
                 raise ValueError("Replay array lengths differ")
-        validate_task_coverage(np.unique(data["task_uid"][:]), self.suite)
+        self.validate_task_ids(np.unique(data["task_uid"][:]))
         if self.decoded_cache:
             self.open_arrays()
         return {
@@ -302,7 +307,9 @@ class LiberoNormalizer(LiberoDataset):
             "split_seed": dataset.split_seed,
             "val_ratio": dataset.val_ratio,
         }
-        stats = self.norm_stats.setdefault(EMBODIMENT, {})
+        stats = self.norm_stats.setdefault(
+            get_embodiment_id(dataset.resolver.embodiment), {}
+        )
         observation_digest = hashlib.sha256()
         for key, info in dataset.resolver.key_map.items():
             array = arrays[info["zarr_key"]]

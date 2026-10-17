@@ -1,6 +1,6 @@
 import warnings
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import Enum, unique
 from typing import Literal
 
 import numpy as np
@@ -16,6 +16,7 @@ from egomimic.utils.viz_utils import (
 )
 
 
+@unique
 class EMBODIMENT(Enum):
     # All human demonstration data is one embodiment (HUMAN_*); the robots (Eva,
     # YAM) are the non-human embodiments. There is NO vendor/source notion at the
@@ -34,6 +35,8 @@ class EMBODIMENT(Enum):
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
     LIBERO_PANDA = 21
     LIBERO_PANDA_SHARPA = 22
+    # Historical Ravens checkpoints retain their original source registry.
+    RAVENS_UR5 = 23
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

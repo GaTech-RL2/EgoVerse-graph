@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
+    "data/ravens/continuous": "ravens/action_flow",
+    "evaluator/ravens": "ravens/action_flow",
     "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
     "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
     "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
@@ -210,6 +212,15 @@ def _compose_for_audit(path):
                 for key, value in values.items():
                     if OmegaConf.is_missing(cfg[section], key):
                         cfg[section][key] = value
+        if OmegaConf.select(cfg, "benchmark.suite") == "ravens-continuous-v1":
+            # Explicit constructor-only identities, never launch certificates.
+            # Production Ravens configs retain their mandatory missing fields.
+            for key, value in {
+                "source_commit": "0" * 40,
+                "config_sha256": "0" * 64,
+            }.items():
+                if OmegaConf.is_missing(cfg.evaluator, key):
+                    cfg.evaluator[key] = value
         if (
             path.relative_to(CONFIGS).as_posix()
             == "experiment/oat/libero_arc_shared_r384_d1p6_m36.yaml"

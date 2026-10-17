@@ -28,6 +28,8 @@ pipeline:
         # REQUIRED from prepared measured-pose schemas; never use policy action widths.
         pose_dims: ???
         image_dim: 768
+        # Opt-in x0 diagnostic changes image target/noise weighting; tracks stay v.
+        image_prediction_type: v
         width: 384
         depth: 8
         heads: 6

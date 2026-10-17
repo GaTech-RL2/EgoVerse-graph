@@ -131,8 +131,12 @@ class MoTWorldModel(nn.Module):
         max_tokens=8192,
         time_mode="continuous",
         image_adapter_dim=48,
+        image_prediction_type="v",
     ):
         super().__init__()
+        if image_prediction_type not in ("v", "x0"):
+            raise ValueError("image_prediction_type must be v or x0")
+        self.image_prediction_type = image_prediction_type
         if time_mode not in ("continuous", "discrete"):
             raise ValueError("Unknown time mode")
         if not pose_dims or any(int(d) < 1 for d in pose_dims.values()):
@@ -412,7 +416,11 @@ class MoTWorldModel(nn.Module):
             alpha, sigma = noise_coefficients(levels[name])
             eps = torch.randn_like(value)
             noisy[name] = alpha * value + sigma * eps
-            targets[name] = alpha * eps - sigma * value
+            targets[name] = (
+                value
+                if name == "image" and self.image_prediction_type == "x0"
+                else alpha * eps - sigma * value
+            )
             weights[name] = (supervised & ~s["observed"]).float() * confidence
         prediction = self(batch, embodiment, noisy, levels)
         losses = {
@@ -427,7 +435,11 @@ class MoTWorldModel(nn.Module):
         clean = {}
         for name in ("image", "track"):
             alpha, sigma = noise_coefficients(levels[name])
-            x0 = alpha * noisy[name] - sigma * prediction[name]
+            x0 = (
+                prediction[name]
+                if name == "image" and self.image_prediction_type == "x0"
+                else alpha * noisy[name] - sigma * prediction[name]
+            )
             clean[name] = torch.where(
                 batch[name]["observed"][..., None], batch[name]["value"], x0
             )
@@ -578,8 +590,18 @@ class MoTWorldModel(nn.Module):
             prediction = self(sampling_batch, embodiment, current, levels)
             for name in current:
                 alpha, sigma = noise_coefficients(levels[name])
-                x0 = alpha * current[name] - sigma * prediction[name]
-                eps = sigma * current[name] + alpha * prediction[name]
+                if name == "image" and self.image_prediction_type == "x0":
+                    # Predict structured clean features directly. The analytic
+                    # epsilon recovery retains the full input dimension instead
+                    # of forcing isotropic noise through a narrow output head.
+                    x0 = prediction[name]
+                    denominator = torch.where(
+                        levels[name][..., None] > 0, sigma, torch.ones_like(sigma)
+                    )
+                    eps = (current[name] - alpha * x0) / denominator
+                else:
+                    x0 = alpha * current[name] - sigma * prediction[name]
+                    eps = sigma * current[name] + alpha * prediction[name]
                 next_level = starts[name] * ((j - 1) / steps)
                 an, sn = noise_coefficients(next_level)
                 current[name] = torch.where(

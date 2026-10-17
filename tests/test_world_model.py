@@ -75,6 +75,73 @@ def test_pose_gradient_reaches_image_and_track_generators():
     assert model.pose_out["human"].weight.grad is None
 
 
+@pytest.mark.parametrize("active", ["image", "track", "proprio"])
+def test_each_modality_alone_excludes_other_streams_and_their_gradients(active):
+    """Isolated expert execution is a code contract, not learned real-data quality."""
+    torch.manual_seed(42)
+    model, batch = make_model().float(), make_batch()
+    names = ("image", "track", "proprio")
+    for name in names:
+        if name != active:
+            for key in ("valid", "observed", "target_valid"):
+                batch[name][key].zero_()
+    levels = {n: torch.zeros_like(batch[n]["time"]) for n in names[:2]}
+    values = {n: batch[n]["value"] for n in names[:2]}
+    original = model(batch, "robot", values, levels)[active]
+    changed = copy.deepcopy(batch)
+    for name in names:
+        if name != active:
+            changed[name]["value"].fill_(float("nan"))
+    mutated = model(
+        changed, "robot", {n: changed[n]["value"] for n in names[:2]}, levels
+    )[active]
+    torch.testing.assert_close(original, mutated, rtol=0, atol=0)
+    original.square().mean().backward()
+    for block in model.blocks:
+        for i, name in enumerate(names):
+            grad = block.qkv[i].weight.grad
+            if name == active:
+                assert (
+                    grad is not None and torch.isfinite(grad).all() and grad.norm() > 0
+                )
+            else:
+                assert grad is None or torch.equal(grad, torch.zeros_like(grad))
+
+
+def test_oracle_visual_pose_readout_without_generator_uses_both_modalities():
+    """Clean visual inputs isolate the readout; hidden pose targets cannot leak."""
+    torch.manual_seed(42)
+    model, batch = make_model().float(), make_batch()
+    visual = {n: batch[n]["value"].clone().requires_grad_() for n in ("image", "track")}
+    batch["proprio"]["value"].requires_grad_()
+    levels = {n: torch.zeros_like(batch[n]["time"]) for n in visual}
+    prediction = model(batch, "robot", visual, levels)["proprio"]
+    query = ~batch["proprio"]["observed"]
+    prediction[query].square().mean().backward()
+    for value in visual.values():
+        assert value.grad is not None and torch.isfinite(value.grad).all()
+        assert value.grad.norm() > 0
+    pose_grad = batch["proprio"]["value"].grad
+    assert pose_grad[batch["proprio"]["observed"]].norm() > 0
+    assert torch.equal(pose_grad[query], torch.zeros_like(pose_grad[query]))
+    assert model.image_out.weight.grad is None
+    assert model.track_out.weight.grad is None
+
+
+def test_visual_velocity_target_inverts_to_clean_image_and_track_independently():
+    from egomimic.models.world_model import noise_coefficients
+
+    torch.manual_seed(42)
+    for width in (768, 3):
+        clean, noise = torch.randn(2, 4, width), torch.randn(2, 4, width)
+        level = torch.tensor([[0.0, 0.1, 0.9, 1.0]]).expand(2, -1)
+        alpha, sigma = noise_coefficients(level)
+        noisy = alpha * clean + sigma * noise
+        velocity = alpha * noise - sigma * clean
+        restored = alpha * noisy - sigma * velocity
+        torch.testing.assert_close(restored, clean, rtol=1e-5, atol=1e-6)
+
+
 def test_zero_initialized_adapters_preserve_adapter_free_predictions():
     model = make_model(image_adapter_dim=4).eval()
     baseline = make_model(image_adapter_dim=0).eval()

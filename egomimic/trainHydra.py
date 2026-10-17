@@ -42,6 +42,29 @@ log = RankedLogger(__name__, rank_zero_only=True)
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
+def _configure_strict_fp32(cfg: DictConfig) -> None:
+    """Opt in to full FP32 math, including CUDA/cuDNN backend precision."""
+    enabled = OmegaConf.select(cfg, "runtime.strict_fp32", default=False)
+    if not isinstance(enabled, bool):
+        raise ValueError("runtime.strict_fp32 must be a boolean")
+    if not enabled:
+        return
+    precision = OmegaConf.select(cfg, "trainer.precision")
+    if str(precision) not in {"32", "32-true"}:
+        raise ValueError("runtime.strict_fp32 requires trainer.precision=32-true")
+    if os.environ.get("NVIDIA_TF32_OVERRIDE") != "0":
+        raise ValueError("runtime.strict_fp32 requires NVIDIA_TF32_OVERRIDE=0")
+    torch.set_float32_matmul_precision("highest")
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    if (
+        torch.get_float32_matmul_precision() != "highest"
+        or torch.backends.cuda.matmul.allow_tf32
+        or torch.backends.cudnn.allow_tf32
+    ):
+        raise RuntimeError("strict FP32 backend configuration did not take effect")
+
+
 def _slurm_auto_requeue(cfg: DictConfig) -> bool:
     """Resolve and cross-check the configured Slurm requeue owner."""
 
@@ -496,6 +519,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: A tuple with metrics and dict with all instantiated objects.
     """
     mode = _validate_run_config(cfg)
+    _configure_strict_fp32(cfg)
     if mode == "train":
         configure_runner_wandb(cfg)
 

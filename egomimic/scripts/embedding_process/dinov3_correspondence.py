@@ -92,7 +92,7 @@ def match_point(source, target, source_meta, target_meta, xy):
     return centers[index], float(scores[index])
 
 
-def load_manifest(path):
+def load_manifest(path, features_only=False):
     manifest = json.loads(Path(path).read_text())
     mode = manifest.get("reference_mode", "visible_manual")
     if mode not in {"visible_manual", "projected_landmark"}:
@@ -135,7 +135,7 @@ def load_manifest(path):
                         "Visible annotation must be inside the native image"
                     )
         frames[frame["id"]] = (frame, image)
-    for a, b in manifest["pairs"]:
+    for a, b in [] if features_only else manifest["pairs"]:
         if a == b or frames[a][0]["episode"] != frames[b][0]["episode"]:
             raise ValueError("Pairs must be distinct frames from the same episode")
         if not any(
@@ -145,8 +145,10 @@ def load_manifest(path):
             raise ValueError(
                 "Each pair needs at least one eligible correspondence for its reference mode"
             )
-    if not manifest["pairs"]:
+    if not features_only and not manifest["pairs"]:
         raise ValueError("At least one pair is required")
+    if not frames:
+        raise ValueError("At least one original frame is required")
     return manifest, frames
 
 
@@ -203,7 +205,7 @@ def synchronize(device):
 
 
 def run(manifest_path, output, sides, device, feature_results=(), features_only=False):
-    manifest, frames = load_manifest(manifest_path)
+    manifest, frames = load_manifest(manifest_path, features_only=features_only)
     mode = manifest.get("reference_mode", "visible_manual")
     reuse = cached_features(feature_results, manifest["model"], manifest["revision"])
     output = Path(output)
@@ -233,7 +235,9 @@ def run(manifest_path, output, sides, device, feature_results=(), features_only=
         if features_only
         else "cosine_dense_descriptor_matching_not_learned_tracking",
         "reference_mode": mode,
-        "metric_interpretation": "Agreement with projected estimated 3D landmarks; unknown occlusion, NOT verified visible-point accuracy"
+        "metric_interpretation": "No correspondence metrics; unlabelled feature extraction only"
+        if features_only
+        else "Agreement with projected estimated 3D landmarks; unknown occlusion, NOT verified visible-point accuracy"
         if mode == "projected_landmark"
         else "Error against visible manual annotations",
         "manifest_limitations": manifest.get("limitations", []),
@@ -280,7 +284,7 @@ def run(manifest_path, output, sides, device, feature_results=(), features_only=
                 "sha256": hashlib.sha256(cache_path.read_bytes()).hexdigest(),
             }
         matches, excluded = [], 0
-        for a, b in ([] if features_only else manifest["pairs"]):
+        for a, b in [] if features_only else manifest["pairs"]:
             source, target = frames[a][0], frames[b][0]
             sf, sm = cache[a]
             tf, tm = cache[b]
@@ -367,7 +371,8 @@ def main():
     parser.add_argument("--sides", type=int, nargs="+", default=[224, 336, 448, 640])
     parser.add_argument("--device", default="cpu")
     parser.add_argument(
-        "--features-only", action="store_true",
+        "--features-only",
+        action="store_true",
         help="Extract verified image features without running point correspondence; preserves labels for downstream probes",
     )
     parser.add_argument(
@@ -379,7 +384,14 @@ def main():
     args = parser.parse_args()
     if not args.sides or any(s < 16 or s % 16 for s in args.sides):
         parser.error("sides must be positive multiples of 16")
-    run(args.manifest, args.output, args.sides, args.device, args.feature_results, args.features_only)
+    run(
+        args.manifest,
+        args.output,
+        args.sides,
+        args.device,
+        args.feature_results,
+        args.features_only,
+    )
 
 
 if __name__ == "__main__":

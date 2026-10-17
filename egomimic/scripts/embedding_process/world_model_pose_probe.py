@@ -17,6 +17,7 @@ import numpy as np
 import torch
 from scipy.spatial.transform import Rotation
 
+from egomimic.models import world_model as world_model_module
 from egomimic.models.world_model import MODALITIES, MoTWorldModel
 from egomimic.scripts.embedding_process.dinov3_correspondence import (
     cached_features,
@@ -27,6 +28,100 @@ from egomimic.utils.pose_utils import ee_pose_to_cam_frame, wxyz_to_xyzw
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def select_contiguous_anchors(
+    timestamps_ns,
+    count=4,
+    horizons=(0.1, 0.5, 1.0),
+    max_gap=0.05,
+    tolerance=0.02,
+    separation=3.0,
+):
+    """Select deterministic, spaced anchors using actual physical timestamps."""
+    timestamps = np.asarray(timestamps_ns, np.int64)
+    if timestamps.ndim != 1 or len(timestamps) < 2 or np.any(np.diff(timestamps) <= 0):
+        raise ValueError("Physical timestamps must strictly increase")
+    gaps = np.diff(timestamps) * 1e-9
+    eligible = []
+    for a in range(len(timestamps)):
+        targets = []
+        for horizon in horizons:
+            wanted = timestamps[a] + round(horizon * 1e9)
+            position = int(np.searchsorted(timestamps, wanted))
+            candidates = [
+                b for b in [position - 1, position] if a < b < len(timestamps)
+            ]
+            if not candidates:
+                break
+            b = min(candidates, key=lambda i: abs(int(timestamps[i]) - wanted))
+            if abs(
+                (timestamps[b] - timestamps[a]) * 1e-9 - horizon
+            ) > tolerance or np.any(gaps[a:b] > max_gap):
+                break
+            targets.append(b)
+        if len(targets) == len(horizons):
+            eligible.append((a, targets))
+    chosen = []
+    for quantile in np.linspace(0, 1, count + 2)[1:-1]:
+        candidates = [
+            entry
+            for entry in eligible
+            if all(
+                abs(int(timestamps[entry[0]]) - int(timestamps[other[0]]))
+                > separation * 1e9
+                for other in chosen
+            )
+        ]
+        if not candidates:
+            raise ValueError("Insufficient distinct contiguous anchors")
+        wanted = timestamps[0] + quantile * (timestamps[-1] - timestamps[0])
+        chosen.append(
+            min(candidates, key=lambda entry: abs(timestamps[entry[0]] - wanted))
+        )
+    return chosen
+
+
+def validate_raw_aria_wrist(points, wrist_xyz, tolerance=1e-7):
+    """Reject mixing fitted/MANO-like point arrays with raw Aria-supported order."""
+    points, wrists = np.asarray(points), np.asarray(wrist_xyz)
+    if points.shape[-2:] != (21, 3) or wrists.shape != points.shape[:-2] + (3,):
+        raise ValueError("Raw-Aria wrist topology shape mismatch")
+    if not np.isfinite(points).all() or not np.isfinite(wrists).all():
+        raise ValueError("Nonfinite recorded human poses")
+    error = float(np.max(np.abs(points[..., 5, :] - wrists)))
+    if error > tolerance:
+        raise ValueError(f"Raw-Aria wrist index5 mismatch: {error} m")
+    return error
+
+
+def _reference_pairs(records, explicit=None):
+    """Resolve explicit native-frame pairs without inventing adjacent targets."""
+    keys = [(r["episode"], r["frame"]) for r in records]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Duplicate episode/frame reference")
+    lookup = {key: i for i, key in enumerate(keys)}
+    if explicit is None:
+        return [
+            (a, a + 1)
+            for a in range(len(records) - 1)
+            if records[a]["episode"] == records[a + 1]["episode"]
+        ]
+    result = []
+    for pair in explicit:
+        episode = pair["episode"]
+        a = lookup[episode, pair["source_frame"]]
+        b = lookup[episode, pair["target_frame"]]
+        if (
+            a == b
+            or records[b]["obs_rgb_timestamps_ns"]
+            <= records[a]["obs_rgb_timestamps_ns"]
+        ):
+            raise ValueError("Explicit pairs require positive physical time")
+        result.append((a, b))
+    if not result or len(result) != len(set(result)):
+        raise ValueError("Explicit pairs must be nonempty and unique")
+    return result
 
 
 def prepare_inputs(reference_path, feature_results, model, revision, side, output):
@@ -75,9 +170,7 @@ def prepare_inputs(reference_path, feature_results, model, revision, side, outpu
             }
         )
     pairs, pair_pose, dt = [], [], []
-    for a, b in zip(range(len(records) - 1), range(1, len(records))):
-        if records[a]["episode"] != records[b]["episode"]:
-            continue
+    for a, b in _reference_pairs(records, references.get("pairs")):
         delta = (
             records[b]["obs_rgb_timestamps_ns"] - records[a]["obs_rgb_timestamps_ns"]
         ) * 1e-9
@@ -127,6 +220,9 @@ def prepare_inputs(reference_path, feature_results, model, revision, side, outpu
         "side": side,
         "precision": "float32",
         "source_reference_sha256": sha(reference_path),
+        "pair_selection": "explicit"
+        if "pairs" in references
+        else "adjacent_selected_frames",
         "input_sha256": sha(out / "INPUTS.npz"),
     }
     (out / "INPUTS.json").write_text(json.dumps(info, indent=2) + "\n")
@@ -163,6 +259,11 @@ def fold_data(data, meta, heldout):
     )
     if len(train) == 0 or len(test) == 0:
         raise ValueError("Nonempty train and heldout pairs required")
+    return train, test, fit_normalization(data, train_frames, train)
+
+
+def fit_normalization(data, train_frames, train):
+    """Fit only on explicitly selected training frames and target pairs."""
     f = data["features"][train_frames][:, data["patch_valid"]].reshape(
         -1, data["features"].shape[-1]
     )
@@ -173,7 +274,48 @@ def fold_data(data, meta, heldout):
         "pose_mean": p.mean(0),
         "pose_std": p.std(0).clip(0.05),
     }
-    return train, test, norm
+    return norm
+
+
+def fixed_partition(data, meta, split):
+    """Separate validation selection from a final untouched episode test."""
+    names = ("train", "validation", "test")
+    groups = {name: set(split[name]) for name in names}
+    episodes = {r["episode"] for r in meta["frames"]}
+    if any(not groups[n] or len(groups[n]) != len(split[n]) for n in names):
+        raise ValueError("Split groups must be nonempty without duplicate episodes")
+    if any(
+        groups[a] & groups[b]
+        for a, b in (("train", "validation"), ("train", "test"), ("validation", "test"))
+    ):
+        raise ValueError("Episode split overlap")
+    if set.union(*groups.values()) != episodes:
+        raise ValueError("Split must cover exactly the prepared episodes")
+    # Episode names alone cannot detect copied frames under different aliases.
+    image_groups = {
+        n: {r["image_sha256"] for r in meta["frames"] if r["episode"] in groups[n]}
+        for n in names
+    }
+    if any(
+        image_groups[a] & image_groups[b]
+        for a, b in (("train", "validation"), ("train", "test"), ("validation", "test"))
+    ):
+        raise ValueError("Image content overlaps across split groups")
+    indices = {name: [] for name in names}
+    for i, (a, b) in enumerate(data["pairs"]):
+        episode = meta["frames"][a]["episode"]
+        if episode != meta["frames"][b]["episode"]:
+            raise ValueError("A prediction pair crosses episodes")
+        for name in names:
+            if episode in groups[name]:
+                indices[name].append(i)
+    if any(not indices[n] for n in names):
+        raise ValueError("Each split requires prediction pairs")
+    indices = {k: np.asarray(v, dtype=np.int64) for k, v in indices.items()}
+    train_frames = np.asarray(
+        [i for i, r in enumerate(meta["frames"]) if r["episode"] in groups["train"]]
+    )
+    return indices, fit_normalization(data, train_frames, indices["train"])
 
 
 def model_for_probe(width=128, depth=2):
@@ -298,7 +440,25 @@ def run(args):
     model = model_for_probe(args.width, args.depth)
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    count = len(meta["episodes"]) * 2 * math.ceil(args.steps / args.save_every)
+    split_path = getattr(args, "split_manifest", None)
+    if split_path:
+        partition = json.loads(Path(split_path).read_text())
+        indices, normalization = fixed_partition(data, meta, partition)
+        plans = [
+            (
+                "fixed_split",
+                indices["train"],
+                indices["test"],
+                normalization,
+                indices["validation"],
+            )
+        ]
+    else:
+        plans = [
+            (e, *fold_data(data, meta, e), np.asarray([], dtype=np.int64))
+            for e in meta["episodes"]
+        ]
+    count = len(plans) * 2 * math.ceil(args.steps / args.save_every)
     reserve = count * (total * 4 + trainable * 8 + 65536)
     free = shutil.disk_usage(out).free
     if free < reserve + 100_000_000:
@@ -336,16 +496,24 @@ def run(args):
         "checkpoint_count": count,
         "checkpoint_reserve_bytes": reserve,
         "free_bytes": free,
-        "folds": meta["episodes"],
+        "folds": [p[0] for p in plans],
+        "split_manifest_sha256": sha(split_path) if split_path else None,
         "source_sha256": sha(__file__),
-        "evaluation": "terminal only, all heldout pairs; no test-based selection",
+        "model_source_sha256": sha(world_model_module.__file__),
+        "evaluation": "validation at each saved checkpoint; select minimum validation MPJPE then evaluate test once"
+        if split_path
+        else "terminal only, all heldout pairs; no test-based selection",
         "full_model_training": False,
     }
     (out / "PREFLIGHT.json").write_text(json.dumps(config, indent=2) + "\n")
+    source_snapshot = out / "source"
+    source_snapshot.mkdir(exist_ok=True)
+    for filename in (__file__, world_model_module.__file__):
+        shutil.copy2(filename, source_snapshot / Path(filename).name)
     # Empty modality streams can pass MPS forward but fail its backward kernel.
     # Probe the exact device, batch shape and both conditions before any update.
     guard = {}
-    train, _, norm = fold_data(data, meta, meta["episodes"][0])
+    _, train, _, norm, _ = plans[0]
     for visual in (False, True):
         torch.manual_seed(42)
         probe = model_for_probe(args.width, args.depth).to(args.device)
@@ -369,8 +537,7 @@ def run(args):
         return
     receipts = []
     all_rows = []
-    for fold, heldout in enumerate(meta["episodes"]):
-        train, test, norm = fold_data(data, meta, heldout)
+    for fold, (heldout, train, test, norm, validation) in enumerate(plans):
         for visual in (False, True):
             condition = (
                 "oracle_images_and_observed_pose" if visual else "observed_pose_only"
@@ -395,9 +562,13 @@ def run(args):
                 "heldout_episode": heldout,
                 "train_pair_indices": train.tolist(),
                 "test_pair_indices": test.tolist(),
+                "validation_pair_indices": validation.tolist(),
                 "normalization": {k: v.tolist() for k, v in norm.items()},
             }
             (directory / "split.json").write_text(json.dumps(split, indent=2) + "\n")
+            best_validation = float("inf")
+            selected_path = None
+            validation_history = []
             with (directory / "train.jsonl").open("w") as log:
                 for step in range(1, args.steps + 1):
                     if len(order) == 0:
@@ -462,6 +633,45 @@ def run(args):
                                 "bytes": path.stat().st_size,
                             }
                         )
+                        if len(validation):
+                            val_rows = evaluate(
+                                model, data, meta, norm, validation, args.device, visual
+                            )
+                            score = float(np.mean([r["mpjpe_m"] for r in val_rows]))
+                            if not math.isfinite(score):
+                                raise RuntimeError("Nonfinite validation score")
+                            validation_history.append(
+                                {
+                                    "step": step,
+                                    "mpjpe_m": score,
+                                    "checkpoint": str(path.resolve()),
+                                }
+                            )
+                            if score < best_validation:
+                                best_validation, selected_path = score, path
+                        else:
+                            selected_path = path
+            # Restore the validation-selected state before ever evaluating test.
+            selected = torch.load(
+                selected_path, map_location=args.device, weights_only=False
+            )
+            model.load_state_dict(selected["model"], strict=True)
+            optimizer.load_state_dict(selected["optimizer"])
+            (directory / "SELECTION.json").write_text(
+                json.dumps(
+                    {
+                        "checkpoint": str(selected_path.resolve()),
+                        "selected_step": selected["step"],
+                        "selected_by": "validation_mpjpe"
+                        if len(validation)
+                        else "terminal_budget",
+                        "validation_history": validation_history,
+                        "test_used_for_selection": False,
+                    },
+                    indent=2,
+                )
+                + "\n"
+            )
             before = evaluate(model, data, meta, norm, test, args.device, visual)
             (directory / "RUN_IDENTITY.json").write_text(
                 json.dumps(
@@ -477,7 +687,9 @@ def run(args):
                 + "\n"
             )
             clone = model_for_probe(args.width, args.depth).to(args.device)
-            loaded = torch.load(path, map_location=args.device, weights_only=False)
+            loaded = torch.load(
+                selected_path, map_location=args.device, weights_only=False
+            )
             clone.load_state_dict(loaded["model"], strict=True)
             restored_optimizer = torch.optim.AdamW(
                 [p for p in clone.parameters() if p.requires_grad],
@@ -531,7 +743,7 @@ def run(args):
         "summary": summary,
         "checkpoints": receipts,
         "strict_reload": "PASS",
-        "limits": "Small3episode real recorded-coordinate readout diagnostic, not full model, not scene-track test, not visiblehandtruth; clean future images are oracle context.",
+        "limits": "Small real recorded-coordinate readout diagnostic, not full model, not scene-track test, not visiblehandtruth; clean future images are oracle context.",
     }
     (out / "COMPLETE.json").write_text(json.dumps(complete, indent=2) + "\n")
 
@@ -547,6 +759,10 @@ def main():
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--device", default="mps")
     p.add_argument("--threads", type=int, default=2)
+    p.add_argument(
+        "--split-manifest",
+        help="Explicit train/validation/test episode lists; default retains historical leave-one-episode-out mode",
+    )
     p.add_argument("--preflight-only", action="store_true")
     args = p.parse_args()
     if args.steps < 1 or args.save_every < 1 or args.lr <= 0 or args.threads < 1:

@@ -145,6 +145,8 @@ def _instantiate_slurm_callbacks(cfg: DictConfig) -> List[Callback]:
         SaveOnlySignalCheckpoint(
             checkpoint_dir=str(checkpoint_dir),
             save_signal=signal.SIGUSR2,
+            train_batch_only=OmegaConf.select(
+                cfg, "runtime.slurm_signal_train_batch_only", default=False),
         )
     ]
 

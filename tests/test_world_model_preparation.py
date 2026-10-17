@@ -405,7 +405,7 @@ def test_sampling_cursor_ignores_prefetched_unconsumed_batches(tmp_path):
         WorldModelDataModule(path, num_workers=1, checkpointable_sampling=True)
 
 
-@pytest.mark.parametrize("signal_boundary", [False, True])
+@pytest.mark.parametrize("signal_boundary", [False, True, "validation"])
 def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path, monkeypatch, signal_boundary):
     import inspect
     from lightning import Trainer, seed_everything
@@ -434,15 +434,28 @@ def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path, monk
                     if trainer.global_step == 0:
                         os.kill(os.getpid(), signal.SIGUSR2)
                         assert not list((tmp_path / "signals").glob("*.ckpt"))
-            callbacks = [SaveOnlySignalCheckpoint(tmp_path / "signals"), RequestDuringBackward()]
+            class RequestDuringValidation(Callback):
+                def on_validation_batch_end(self, trainer, module, outputs, batch, index, dataloader_idx=0):
+                    if trainer.global_step == 2:
+                        os.kill(os.getpid(), signal.SIGUSR2)
+                        assert not list((tmp_path / "signals").glob("*.ckpt"))
+                def on_validation_epoch_end(self, trainer, module):
+                    if trainer.global_step == 2:
+                        assert not list((tmp_path / "signals").glob("*.ckpt"))
+            validation = signal_boundary == "validation"
+            callbacks = [SaveOnlySignalCheckpoint(tmp_path / "signals", train_batch_only=validation),
+                         RequestDuringValidation() if validation else RequestDuringBackward()]
         seed_everything(123)
         data = WorldModelDataModule(path, max_frames=3, checkpointable_sampling=True)
         context = data.prepare_context(mode="train", normalization=None, normalizer=None)
         model = ModelWrapper(config_tree=cfg)
         model.data_context = context
         context.bind(model.model, None)
+        validation_options = ({"limit_val_batches": 1, "val_check_interval": 2,
+                               "check_val_every_n_epoch": None} if signal_boundary == "validation"
+                              else {"limit_val_batches": 0})
         trainer = Trainer(accelerator="cpu", devices=1, max_steps=steps, max_epochs=-1,
-                          limit_val_batches=0, logger=False, enable_checkpointing=False,
+                          **validation_options, logger=False, enable_checkpointing=False,
                           enable_progress_bar=False, num_sanity_val_steps=0, callbacks=callbacks)
         kwargs = {"weights_only": False} if "weights_only" in inspect.signature(trainer.fit).parameters else {}
         trainer.fit(model, datamodule=data, ckpt_path=checkpoint, **kwargs)
@@ -452,15 +465,17 @@ def test_interrupted_world_training_matches_uninterrupted_updates(tmp_path, monk
     monkeypatch.setenv("SLURM_JOB_ID", "123456")
     monkeypatch.setenv("SLURM_RESTART_COUNT", "0")
     monkeypatch.delenv("ICE_CHECKPOINT_FORWARDING", raising=False)
-    _, first, data = make(2, request_signal=signal_boundary)
-    assert data.consumed_batches == 2
+    split_step = 3 if signal_boundary == "validation" else 2
+    _, first, data = make(split_step, request_signal=signal_boundary)
+    assert data.consumed_batches == split_step
     if signal_boundary:
         checkpoint, = (tmp_path / "signals").glob("*.ckpt")
         payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        assert payload["global_step"] == 1
+        boundary_step = 3 if signal_boundary == "validation" else 1
+        assert payload["global_step"] == boundary_step
         from scripts.ice.validate_lightning_checkpoint import validate_checkpoint
         proof = validate_checkpoint(checkpoint, environment={})
-        assert proof["strict_model_reload"] and proof["global_step"] == 1
+        assert proof["strict_model_reload"] and proof["global_step"] == boundary_step
     else:
         checkpoint = tmp_path / "resume.ckpt"
         first.save_checkpoint(checkpoint)

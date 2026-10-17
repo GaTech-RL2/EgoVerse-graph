@@ -161,6 +161,13 @@ TERM/INT. It is disarmed/restored on every runner exit and is not inherited by
 the trainer. This route requires a fixed allocation end time for the attempt;
 do not shorten its walltime externally without coordinating the boundary.
 Prove one actual deadline-triggered requeue separately from an injected signal.
+When mid-validation continuation is unverified, set
+`runtime.slurm_signal_train_batch_only=true`. Requests then remain latched through
+validation and epoch/fit-end hooks until the next completed optimizer update.
+This avoids conflicting with a scheduled checkpoint at the same global step.
+The allocation lead and signal grace must exceed the measured **complete**
+validation pass, longest training step, save and strict checkpoint verification;
+a small diagnostic validation cap is not a production timing bound.
 Defaults and the existing `slurm-steps` transport remain unchanged.
 
 In this Action Flow branch, `egomimic/eval/artifact_paths.py` supplies the same

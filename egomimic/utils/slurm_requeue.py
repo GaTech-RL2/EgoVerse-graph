@@ -98,6 +98,7 @@ class SaveOnlySignalCheckpoint(Callback):
         self,
         checkpoint_dir: str | Path,
         save_signal: signal.Signals = signal.SIGUSR2,
+        train_batch_only: bool = False,
     ) -> None:
         super().__init__()
         checkpoint_dir = Path(checkpoint_dir).expanduser()
@@ -107,6 +108,10 @@ class SaveOnlySignalCheckpoint(Callback):
             raise ValueError("external save-only checkpoint signal must be SIGUSR2")
         self.checkpoint_dir = checkpoint_dir.resolve()
         self.save_signal = save_signal
+        if type(train_batch_only) is not bool:
+            raise TypeError("train_batch_only must be a boolean")
+        self.train_batch_only = train_batch_only
+        self._train_batch_start_step: int | None = None
         self._request_generation = 0
         self._handled_generation = 0
         self._save_index = 0
@@ -189,6 +194,15 @@ class SaveOnlySignalCheckpoint(Callback):
         return path, job_id, restart_count
 
     def _service(self, trainer: Trainer, hook: str) -> None:
+        # Preserve the request until an optimizer update completes. A save
+        # during validation can fork a scheduled checkpoint at the same step,
+        # and does not prove exact mid-validation RNG/loop continuation.
+        if self.train_batch_only:
+            if hook != "on_train_batch_end":
+                return
+            if (self._train_batch_start_step is None
+                    or int(trainer.global_step) <= self._train_batch_start_step):
+                return
         observed_generation = self._request_generation
         local_requested = observed_generation > self._handled_generation
         if not local_requested:
@@ -270,6 +284,7 @@ class SaveOnlySignalCheckpoint(Callback):
                         "epoch": int(trainer.current_epoch),
                         "global_step": int(trainer.global_step),
                         "hook": hook,
+                        "train_batch_only": self.train_batch_only,
                         "job_id": job_id,
                         "restart_count": restart_count,
                         "save_signal": self.save_signal.name,
@@ -312,6 +327,12 @@ class SaveOnlySignalCheckpoint(Callback):
             )
 
         self._save_index += 1
+
+    def on_train_batch_start(
+        self, trainer: Trainer, _pl_module: LightningModule,
+        _batch: Any, _batch_idx: int,
+    ) -> None:
+        self._train_batch_start_step = int(trainer.global_step)
 
     def on_train_batch_end(
         self,

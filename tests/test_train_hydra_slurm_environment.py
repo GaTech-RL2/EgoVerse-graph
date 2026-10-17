@@ -104,6 +104,7 @@ def test_base_config_records_lightning_as_default_requeue_owner():
 
     assert cfg.runtime.slurm_requeue_owner == "lightning"
     assert cfg.runtime.slurm_save_signal == "SIGUSR2"
+    assert cfg.runtime.slurm_signal_train_batch_only is False
     assert (
         cfg.runtime.slurm_signal_checkpoint_dir
         == "/tmp/egomimic-test-output/checkpoints"
@@ -146,6 +147,9 @@ def test_runner_owned_job_adds_one_save_only_sigusr2_callback(monkeypatch, tmp_p
 
     assert len(callbacks) == 1
     assert isinstance(callbacks[0], SaveOnlySignalCheckpoint)
+    assert callbacks[0].train_batch_only is False
+    cfg.runtime.slurm_signal_train_batch_only = True
+    assert train_hydra._instantiate_slurm_callbacks(cfg)[0].train_batch_only is True
     assert callbacks[0].save_signal == signal.SIGUSR2
     assert callbacks[0].checkpoint_dir == (tmp_path / "checkpoints").resolve()
 

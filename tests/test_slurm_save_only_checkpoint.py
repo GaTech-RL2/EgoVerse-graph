@@ -269,3 +269,30 @@ def test_same_attempt_same_step_never_overwrites_existing_checkpoint(
     assert existing.read_bytes() == b"immutable"
     assert not existing.with_name(f".{existing.name}.partial").exists()
     assert not existing.with_name(f".{existing.name}.reserve").exists()
+
+
+def test_train_only_deferral_waits_for_completed_optimizer_update(tmp_path, monkeypatch):
+    callback = SaveOnlySignalCheckpoint(tmp_path, train_batch_only=True)
+    trainer = SimpleNamespace(global_step=15)
+    callback._request_checkpoint(callback.save_signal.value, None)
+    # Validation/epoch/fit hooks and an accumulation-only microbatch preserve
+    # the pending generation without touching checkpoint storage.
+    for hook in ("on_validation_batch_end", "on_validation_epoch_end",
+                 "on_train_epoch_end", "on_fit_end", "on_train_batch_end"):
+        callback._service(trainer, hook)
+    callback.on_train_batch_start(trainer, None, None, 0)
+    callback.on_train_batch_end(trainer, None, None, None, 0)
+    assert callback._handled_generation == 0
+    assert not list(tmp_path.iterdir())
+    def reached_save(_trainer):
+        raise RuntimeError("completed update reaches checkpoint publication")
+    monkeypatch.setattr(callback, "_checkpoint_path", reached_save)
+    trainer.global_step = 16
+    with pytest.raises(RuntimeError, match="completed update reaches"):
+        callback.on_train_batch_end(trainer, None, None, None, 1)
+    assert callback._handled_generation == 1
+
+
+def test_train_only_deferral_rejects_string_boolean(tmp_path):
+    with pytest.raises(TypeError, match="must be a boolean"):
+        SaveOnlySignalCheckpoint(tmp_path, train_batch_only="false")

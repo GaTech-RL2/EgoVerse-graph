@@ -48,6 +48,9 @@ runtime:
   slurm_requeue_owner: lightning
   # Runner-owned mode forwards SIGUSR2 only to request a full-state save.
   slurm_save_signal: SIGUSR2
+  # Opt in when mid-validation checkpoints cannot be resumed exactly.
+  # Timer lead must cover complete validation plus the next optimizer step.
+  slurm_signal_train_batch_only: false
   slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
 
 seed: 42

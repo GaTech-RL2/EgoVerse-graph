@@ -14,6 +14,7 @@ from collections.abc import Mapping
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 
 MODALITIES = ("image", "track", "proprio")
 
@@ -54,11 +55,14 @@ def temporal_rope(x, times):
 class MoTBlock(nn.Module):
     """Private modality projections/FFNs, one joint attention operation."""
 
-    def __init__(self, width, heads, mlp_ratio=4):
+    def __init__(self, width, heads, mlp_ratio=4, attention_query_chunk_size=0):
         super().__init__()
         if width % heads or (width // heads) % 2:
             raise ValueError("RoPE requires an even attention head width")
         self.heads = heads
+        if type(attention_query_chunk_size) is not int or attention_query_chunk_size < 0:
+            raise ValueError("attention_query_chunk_size must be a nonnegative integer")
+        self.attention_query_chunk_size = attention_query_chunk_size
         self.norm1 = nn.ModuleList(nn.LayerNorm(width) for _ in MODALITIES)
         self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in MODALITIES)
         self.out = nn.ModuleList(nn.Linear(width, width) for _ in MODALITIES)
@@ -86,13 +90,23 @@ class MoTBlock(nn.Module):
             ks.append(temporal_rope(k, times[i]))
             vs.append(v)
         mask = torch.cat(valid, 1)[:, None, None, :]
-        result = F.scaled_dot_product_attention(
-            torch.cat(qs, 2),
-            torch.cat(ks, 2),
-            torch.cat(vs, 2),
-            attn_mask=mask,
-            dropout_p=0.0,
-        )
+        query, key, value = torch.cat(qs, 2), torch.cat(ks, 2), torch.cat(vs, 2)
+        chunk = self.attention_query_chunk_size
+        if chunk and query.shape[2] > chunk:
+            # Split only queries. Every row retains all keys/values and the same
+            # softmax denominator; this is full attention, not a local window.
+            # Recompute each chunk in backward rather than retaining all chunks'
+            # attention intermediates and losing the intended memory bound.
+            parts = []
+            for q in query.split(chunk, dim=2):
+                if torch.is_grad_enabled() and any(t.requires_grad for t in (q, key, value)):
+                    part = checkpoint(self._attend, q, key, value, mask, use_reentrant=False)
+                else:
+                    part = self._attend(q, key, value, mask)
+                parts.append(part)
+            result = torch.cat(parts, dim=2)
+        else:
+            result = self._attend(query, key, value, mask)
         result = result.transpose(1, 2).flatten(2).split(sizes, 1)
         outputs = []
         for i, (x, y) in enumerate(zip(streams, result)):
@@ -100,6 +114,12 @@ class MoTBlock(nn.Module):
             x = x + self.ffn[i](self.norm2[i](x))
             outputs.append(x.masked_fill(~valid[i][..., None], 0))
         return outputs
+
+    @staticmethod
+    def _attend(query, key, value, mask):
+        return F.scaled_dot_product_attention(
+            query, key, value, attn_mask=mask, dropout_p=0.0
+        )
 
 
 class ImageResidualAdapter(nn.Module):
@@ -132,8 +152,13 @@ class MoTWorldModel(nn.Module):
         time_mode="continuous",
         image_adapter_dim=48,
         image_prediction_type="v",
+        attention_query_chunk_size=0,
+        activation_checkpointing=False,
     ):
         super().__init__()
+        if type(activation_checkpointing) is not bool:
+            raise ValueError("activation_checkpointing must be bool")
+        self.activation_checkpointing = activation_checkpointing
         if image_prediction_type not in ("v", "x0"):
             raise ValueError("image_prediction_type must be v or x0")
         self.image_prediction_type = image_prediction_type
@@ -178,7 +203,8 @@ class MoTWorldModel(nn.Module):
             nn.Linear(2, width), nn.SiLU(), nn.Linear(width, width)
         )
         self.blocks = nn.ModuleList(
-            MoTBlock(width, heads, mlp_ratio) for _ in range(depth)
+            MoTBlock(width, heads, mlp_ratio, attention_query_chunk_size)
+            for _ in range(depth)
         )
         # One private image adapter per embodiment per block. Zero disables the
         # extension explicitly for adapter-free ablations/historical checkpoints.
@@ -290,7 +316,10 @@ class MoTWorldModel(nn.Module):
             times.append(clock.masked_fill(~s["valid"], 0))
             valid.append(s["valid"])
         for index, block in enumerate(self.blocks):
-            embeds = block(embeds, times, valid)
+            if self.activation_checkpointing and torch.is_grad_enabled():
+                embeds = checkpoint(block, embeds, times, valid, use_reentrant=False)
+            else:
+                embeds = block(embeds, times, valid)
             if self.image_adapter_dim:
                 embeds[0] = self.image_adapters[index][embodiment](
                     embeds[0]

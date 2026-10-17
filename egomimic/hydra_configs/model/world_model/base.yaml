@@ -38,4 +38,7 @@ pipeline:
         max_cameras: 3
         max_tracks: 1120
         max_tokens: 8192
+        # Exact full attention; opt-in memory controls pending full-size GPU proof.
+        attention_query_chunk_size: 0
+        activation_checkpointing: false
         time_mode: ${data.mode}

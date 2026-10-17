@@ -118,6 +118,20 @@ Do not silently raise the guard, reduce resolution, pool features, subsample
 tracks, or switch precision to make it fit. GPU feasibility and any redesigned
 token budget remain separate work. Historical direct sampler defaults stay4.
 
+Memory controls are available without changing parameters or token coverage:
+\`attention_query_chunk_size\` splits attention queries while retaining all keys
+and values; non-reentrant checkpointing recomputes each query chunk in backward.
+\`activation_checkpointing\` recomputes each MoT block instead of retaining its
+internal activations. Both default off for historical behavior. FP32 fixture
+tests compare outputs, losses, all gradients and one AdamW update, including
+padding and randomly placed observations. These controls change execution and
+roundoff, not the attention graph; they do not remove quadratic compute cost.
+The maintained \`scripts/benchmarks/profile_world_model.py\` measures synthetic
+full-size FP32 forward/backward peak memory on one allocated GPU. Its explicit
+diagnostic pose widths and token guard override are not training schema or
+launch approvals. It performs no optimizer updates; real-data optimizer,
+validation and reload checks remain required separately.
+
 Warm-up10000/ramp10000, AdamW1e-4/weight-decay0.01, loss weights1/1/1 and20 sampler
 steps are provisional configurable defaults. No CFG, Action Flow Jacobian loss,
 velocity augmentation or historical policy-specific optimizer is inherited.

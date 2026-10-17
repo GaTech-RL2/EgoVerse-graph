@@ -62,6 +62,62 @@ def make_model(**kwargs):
     )
 
 
+@pytest.mark.parametrize("chunk,rematerialize", [(3, False), (0, True), (3, True)])
+def test_memory_controls_preserve_outputs_losses_gradients_and_update(chunk, rematerialize):
+    torch.manual_seed(48)
+    baseline = make_model().float()
+    optimized = make_model(
+        attention_query_chunk_size=chunk, activation_checkpointing=rematerialize
+    ).float()
+    optimized.load_state_dict(baseline.state_dict(), strict=True)
+    batch = make_batch()
+    # Include padding in one example and arbitrary observed/target ordering.
+    for name in ("image", "track"):
+        batch[name]["valid"][0, -1] = False
+        batch[name]["target_valid"][0, -1] = False
+        batch[name]["observed"][0, -1] = False
+        batch[name]["observed"][1] = batch[name]["observed"][1].flip(0)
+    levels = {n: torch.zeros_like(batch[n]["time"]) for n in ("image", "track")}
+    values = {n: batch[n]["value"] for n in ("image", "track")}
+    with torch.no_grad():
+        expected = baseline(batch, "robot", values, levels)
+        actual = optimized(batch, "robot", values, levels)
+    for name in expected:
+        torch.testing.assert_close(actual[name], expected[name], atol=2e-6, rtol=2e-5)
+    losses = []
+    for model in (baseline, optimized):
+        torch.manual_seed(99)
+        loss = model.training_losses(batch, "robot")
+        loss["total"].backward()
+        losses.append(loss)
+    for name in losses[0]:
+        torch.testing.assert_close(losses[0][name], losses[1][name], atol=2e-6, rtol=2e-5)
+    for (name, a), (other, b) in zip(baseline.named_parameters(), optimized.named_parameters()):
+        assert name == other
+        assert (a.grad is None) == (b.grad is None)
+        if a.grad is not None:
+            torch.testing.assert_close(a.grad, b.grad, atol=3e-6, rtol=1e-4, msg=name)
+    for model in (baseline, optimized):
+        torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01).step()
+    for name, a in baseline.state_dict().items():
+        torch.testing.assert_close(a, optimized.state_dict()[name], atol=2e-6, rtol=2e-5, msg=name)
+
+
+def test_chunked_attention_keeps_all_keys(monkeypatch):
+    from egomimic.models.world_model import MoTBlock
+    calls = []
+    original = MoTBlock._attend
+    def observe(q, k, v, mask):
+        calls.append((q.shape[2], k.shape[2], v.shape[2]))
+        return original(q, k, v, mask)
+    monkeypatch.setattr(MoTBlock, "_attend", staticmethod(observe))
+    model, batch = make_model(attention_query_chunk_size=3), make_batch()
+    with torch.no_grad():
+        model(batch, "robot", {n: batch[n]["value"] for n in ("image", "track")},
+              {n: torch.zeros_like(batch[n]["time"]) for n in ("image", "track")})
+    assert calls and all(q <= 3 and k == v == 12 for q, k, v in calls)
+
+
 def test_pose_gradient_reaches_image_and_track_generators():
     torch.manual_seed(7)
     model = make_model()

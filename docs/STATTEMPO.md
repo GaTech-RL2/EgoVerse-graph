@@ -43,6 +43,35 @@ tokenizer and graph by `_base/m200_d033`. Aniketh's `experiment/abc_arc`
 recipes (RL2 organize cotrain, ABC + RL2 towels multistream and log clocks,
 ABC-DiT) stay launchable from the same tree.
 
+### Rollout runtime on the same branch (2026-10-18)
+
+The station rollout work that lived on PR #229, Elmo's PR #230 and rl2-yam-only
+branches is consolidated here too, so a bundle trained from these recipes
+deploys from the same checkout (`docs/YAM_RUNTIME.md` has the details):
+
+- Elmo's PR #230 port of the ARC runtime onto main's inference contracts:
+  `decoder_attribute` controls, replay / hold tempo, fastest-stream chunk
+  termination with its waypoint cap, hybrid / tri / lab / M28 decoders over the
+  checkpoint-era codec copies in `robot/arc_codecs/`, demo-format HDF5 episode
+  recording, the server-owned rollout timer.
+- `BimanualArcDecoder(codec="training")` (the default) decodes the layouts only
+  this repository trains, including absolute timing, event / reference and
+  projection tokens, with the same tempo and termination controls; the E1
+  contracts declare them (`model.arc_decoder_controls`), and the `time`
+  contract wraps its chunk in a `TimeChunkRetimer` for the naive speed-up.
+- The camera alignment monitor (with the station's direct-D405 source), the HDF5
+  tempo checker, the stalled-episode fixes, `--check-model`, IK pose relaxation,
+  bounded differential IK recovery, the TRAC-IK selector and the HPT300 towels /
+  earbuds rollout profiles.
+- Station-only extras: the view-only reset guides (`reset_overlay_templates.yaml`,
+  `egomimic.scripts.build_reset_guides`) and the hash-bound `pinned_arc_bbb813a0`
+  decoder routing (`egomimic.robot.rollout_pinned_arc`).
+
+Not carried: the overlapped-inference loop (tried 2026-10-08, reverted on the
+arms) and the unbound 2026-10-12 default bundle (main's loader refuses
+checkpoints without a binding; the shared profile defaults to the bound towels
+HPT300 180k bundle and the env variables select another).
+
 ## Configuration structure
 
 [ARC Projection](ARC_PROJECTION.md) adds duration and velocity model leaves

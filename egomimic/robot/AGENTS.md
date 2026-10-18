@@ -74,6 +74,16 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   Generic inference consumes an optional `execution_steps()` capability, not
   ARC-specific statistics. Keep immutable DataContext/checkpoint binding and
   schema-2 artifacts; do not restore the legacy inferred exporter/JSON loader.
+  `codec` selects the tokenizer copy: `training` (default, the live
+  `egomimic.rldb.zarr` codec that trains this repository's recipes) or
+  `b1ecba63` (the station snapshot under `arc_codecs/`). Anything the live
+  codec needs for deployment (``detokenize(times=)``, `stream_clocks`,
+  `stream_ends`) is decode-only; never change tokenize for the decoder.
+- `ik_options.py`, `yam/rollout_ik.py`, `yam/tracik.py`: opt-in pose
+  relaxation, bounded differential recovery and the TRAC-IK endpoint backend.
+  MuJoCo stays the default; every candidate still passes the joint-step guard.
+- `camera_align/`, `hdf5_tempo.py`: station monitors with no robot writes; the
+  alignment monitor holds the D405 when started with `--source realsense`.
 - `oculus_reader/`: the pinned RAIL/Yam APK, matching source, and Python reader.
   The bundled app emits tracking-origin/world poses under the established
   `wE9ryARX` tag; the reader is world-only and rejects a head-frame mode. Keep the

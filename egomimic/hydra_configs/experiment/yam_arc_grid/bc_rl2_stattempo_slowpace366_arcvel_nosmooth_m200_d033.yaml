@@ -1,0 +1,10 @@
+# @package _global_
+# Aidan 2026-10-17: bc_rl2_stattempo_slowpace366_arcvel_nosmooth with M 200 waypoints and D 0.33 m.
+defaults:
+- /experiment/yam_arc_grid/bc_rl2_stattempo_slowpace366_arcvel_nosmooth
+- /experiment/yam_arc_grid/_base/m200_d033
+- _self_
+name: bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033
+logger:
+  wandb:
+    id: ${name}_20261017_s42

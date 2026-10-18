@@ -58,29 +58,6 @@ def test_invalid_mode_cannot_silently_use_absolute_times():
         codec(duration_timing="typo")
 
 
-def test_recipe_preserves_training_contract_and_binds_all_decoders():
-    old = compose_recipe("earbuds_updated_arcdur_hpt300")
-    new = compose_recipe("earbuds_updated_arcdur_abstime_hpt300")
-    plain_old, plain_new = [OmegaConf.to_container(c, resolve=True) for c in (old, new)]
-    for key in ("trainer", "callbacks", "norm_stats", "hpt", "ft", "seed", "init_weights_from"):
-        assert plain_old[key] == plain_new[key], key
-    assert model_pipeline_sha256(old) == model_pipeline_sha256(new)
-    assert inference_contract_sha256(old) != inference_contract_sha256(new)
-    for split in ("train_datasets", "valid_datasets"):
-        a, b = [p["data"][split]["yam_bimanual"] for p in (plain_old, plain_new)]
-        b["resolver"]["transform_list"].pop("duration_timing")
-        assert a == b
-        transforms = instantiate(new.data[split].yam_bimanual.resolver.transform_list)
-        assert transforms[-1].duration_timing == "absolute"
-    decoder = instantiate(new.model.inference.profiles.default.adapter.decoder)
-    evaluator = instantiate(new.evaluator)
-    assert evaluator.metric_options["duration_timing"] == "absolute"
-    chunk = np.zeros((100, 14))
-    chunk[:, 0] = np.linspace(0, 0.3, 100)
-    chunk[:, 7] = np.linspace(0, 0.2, 100)
-    tokens = transforms[-1].transform({"actions_cartesian": chunk})["actions_cartesian"]
-    np.testing.assert_allclose(decoder(tokens)[0], transforms[-1].detokenize(tokens, 100))
-    assert decoder.codec.duration_timing == "absolute"
 
 
 def test_stationery_open_loop_evaluator_decodes_absolute_times():

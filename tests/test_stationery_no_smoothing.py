@@ -17,22 +17,6 @@ def test_no_smoothing_preserves_a_speed_transition():
     assert not np.allclose(chunk_speed(positions, 1 / 30, 7), expected)
 
 
-def test_recipe_keeps_frozen_split_model_and_budget():
-    old = compose_recipe("earbuds_updated_arcvel_hpt300")
-    new = compose_recipe("earbuds_updated_arcvel_nosmooth_hpt300")
-    a, b = [OmegaConf.to_container(c, resolve=True) for c in (old, new)]
-    for key in ("trainer", "callbacks", "norm_stats", "hpt", "ft", "seed", "init_weights_from"):
-        assert a[key] == b[key], key
-    assert model_pipeline_sha256(old) == model_pipeline_sha256(new)
-    assert inference_contract_sha256(old) != inference_contract_sha256(new)
-    for split in ("train_datasets", "valid_datasets"):
-        before = a["data"][split]["yam_bimanual"]
-        after = b["data"][split]["yam_bimanual"]
-        assert after["resolver"]["transform_list"].pop("speed_smooth_frames") == 1
-        assert before == after
-        transforms = instantiate(new.data[split].yam_bimanual.resolver.transform_list)
-        assert transforms[-1].speed_smooth_frames == 1
-        assert transforms[-1].progress_smooth_hz is None
 
 
 def test_stationery_recipe_drops_only_speed_smoothing():

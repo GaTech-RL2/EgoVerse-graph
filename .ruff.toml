@@ -5,6 +5,11 @@ exclude = [
   "external",
   # Checkpoint-era ARC compatibility codecs retain source-pinned bytes.
   "egomimic/robot/arc_codecs",
+  # bbb813a0 training-revision snapshots; SHA-256 pinned in the package __init__.
+  "egomimic/robot/pinned_arc_bbb813a0/__init__.py",
+  "egomimic/robot/pinned_arc_bbb813a0/tokenizer.py",
+  "egomimic/robot/pinned_arc_bbb813a0/open_loop.py",
+  "egomimic/robot/pinned_arc_bbb813a0/distance.py",
   # Vendored released OAT implementations retain their upstream formatting.
   # First-party factory/diffusion/ARC adapters remain linted normally.
   "egomimic/models/oat/common",

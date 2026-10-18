@@ -1,18 +1,23 @@
 """Absolute waypoint clocks must agree across targets, evaluation and rollout."""
+
 import numpy as np
 import pytest
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
-from egomimic.pipeline.inference_config import inference_contract_sha256, model_pipeline_sha256
-from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1, absolute_times_to_clock
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    TokenizeBimanualArcLengthE1,
+    absolute_times_to_clock,
+)
 from scripts.e1.validate_stattempo_configs import compose_recipe
 
 
 def codec(**kwargs):
     return TokenizeBimanualArcLengthE1(
-        velocity_mode="dur", min_distance_unit=0.4,
-        resampled_vector_length=100, dt=1 / 30, **kwargs,
+        velocity_mode="dur",
+        min_distance_unit=0.4,
+        resampled_vector_length=100,
+        dt=1 / 30,
+        **kwargs,
     )
 
 
@@ -32,8 +37,12 @@ def test_true_tokens_preserve_delta_clock_and_decoded_motion(fixed_spacing, idle
     b = new.transform({"actions_cartesian": chunk.copy()})["actions_cartesian"]
     np.testing.assert_array_equal(a[:, :14], b[:, :14])
     np.testing.assert_allclose(b[0, 14:], 0)
-    np.testing.assert_allclose(old.clock_at_waypoints(a), new.clock_at_waypoints(b), atol=1e-12)
-    np.testing.assert_allclose(old.detokenize(a, 100), new.detokenize(b, 100), atol=1e-10)
+    np.testing.assert_allclose(
+        old.clock_at_waypoints(a), new.clock_at_waypoints(b), atol=1e-12
+    )
+    np.testing.assert_allclose(
+        old.detokenize(a, 100), new.detokenize(b, 100), atol=1e-10
+    )
 
 
 def test_local_time_error_does_not_accumulate_and_padding_is_ignored():
@@ -56,8 +65,6 @@ def test_invalid_mode_cannot_silently_use_absolute_times():
         TokenizeBimanualArcLengthE1(velocity_mode="profile", duration_timing="absolute")
     with pytest.raises(ValueError, match="duration_timing"):
         codec(duration_timing="typo")
-
-
 
 
 def test_stationery_open_loop_evaluator_decodes_absolute_times():

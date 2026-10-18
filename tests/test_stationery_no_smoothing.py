@@ -1,9 +1,8 @@
 """Keep the matched earbuds recipe while removing only velocity averaging."""
+
 import numpy as np
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
-from egomimic.pipeline.inference_config import inference_contract_sha256, model_pipeline_sha256
 from egomimic.rldb.zarr.e1_arc_tokenizer import chunk_speed
 from scripts.e1.validate_stattempo_configs import compose_recipe
 
@@ -15,8 +14,6 @@ def test_no_smoothing_preserves_a_speed_transition():
     expected = np.r_[steps, steps[-1]] * 30
     np.testing.assert_allclose(chunk_speed(positions, 1 / 30, 1), expected)
     assert not np.allclose(chunk_speed(positions, 1 / 30, 7), expected)
-
-
 
 
 def test_stationery_recipe_drops_only_speed_smoothing():

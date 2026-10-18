@@ -165,6 +165,9 @@ def audit_context(path):
         or name.startswith("data/abc_arc/stationery_")
     ):
         experiment = "yam_arc_grid/scratch_rl2_stattempo_fast_time"
+    if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
+        # Frozen YAM pools select their codec through the HPT300 recipe's e1.*.
+        experiment = "yam_arc_grid/towels_since0924plus74_arcdur_hpt300"
     if name == "model/e1/hpt_flow_wrists_ft_arcdurevt":
         experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurevt_r360"
     if "arc_projection" in name and group in {"model", "data"}:

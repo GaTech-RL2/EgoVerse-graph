@@ -11,7 +11,9 @@ def test_mixed_training_keeps_loss_timestamps_parameters_and_adamw_state_fp32():
     model = image_model(attention_dtype="bfloat16")
     batch = {"image": example()["image"]}
     # Nearby physical timestamps must remain distinct under mixed precision.
-    batch["image"]["time"] = torch.tensor([[30.010, 30.010, 30.020, 30.020, 30.030, 30.030]])
+    batch["image"]["time"] = torch.tensor(
+        [[30.010, 30.010, 30.020, 30.020, 30.030, 30.030]]
+    )
     times = batch["image"]["time"].clone()
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
     observed_dtypes = {}
@@ -19,6 +21,7 @@ def test_mixed_training_keeps_loss_timestamps_parameters_and_adamw_state_fp32():
     def capture(name):
         def record(module, inputs, output):
             observed_dtypes[name] = output.dtype
+
         return record
 
     handles = [
@@ -30,11 +33,16 @@ def test_mixed_training_keeps_loss_timestamps_parameters_and_adamw_state_fp32():
         with torch.autocast("cpu", dtype=torch.bfloat16):
             losses = model.training_losses(batch, "gripper")
         assert set(observed_dtypes.values()) == {torch.bfloat16}
-        assert all(loss.dtype == torch.float32 and torch.isfinite(loss) for loss in losses.values())
+        assert all(
+            loss.dtype == torch.float32 and torch.isfinite(loss)
+            for loss in losses.values()
+        )
         losses["total"].backward()
         assert all(
-            p.dtype == torch.float32 and p.grad is not None
-            and p.grad.dtype == torch.float32 and torch.isfinite(p.grad).all()
+            p.dtype == torch.float32
+            and p.grad is not None
+            and p.grad.dtype == torch.float32
+            and torch.isfinite(p.grad).all()
             for p in model.parameters()
         )
         before = model.image_out.weight.detach().clone()
@@ -56,14 +64,18 @@ def test_mixed_training_keeps_loss_timestamps_parameters_and_adamw_state_fp32():
 
 
 @pytest.mark.parametrize("steps", [3, 20])
-def test_every_mixed_sampler_update_uses_fp32_arithmetic_before_clamping(monkeypatch, steps):
+def test_every_mixed_sampler_update_uses_fp32_arithmetic_before_clamping(
+    monkeypatch, steps
+):
     model = image_model(attention_dtype="bfloat16")
     batch = {"image": example()["image"]}
     image = batch["image"]
     valid, observed = image["valid"], image["observed"]
-    fixed_prediction = torch.linspace(-.73, .91, image["value"].numel()).reshape_as(
-        image["value"]
-    ).bfloat16()
+    fixed_prediction = (
+        torch.linspace(-0.73, 0.91, image["value"].numel())
+        .reshape_as(image["value"])
+        .bfloat16()
+    )
     actual_inputs, actual_levels = [], []
 
     def predict(batch, embodiment, image_values, levels, phase, **execution):
@@ -79,7 +91,8 @@ def test_every_mixed_sampler_update_uses_fp32_arithmetic_before_clamping(monkeyp
         )["image"]
     anchor = torch.where(observed[..., None], image["value"], 0)
     current = torch.where(
-        observed[..., None], anchor,
+        observed[..., None],
+        anchor,
         torch.randn(image["value"].shape, generator=torch.Generator().manual_seed(101)),
     ).masked_fill(~valid[..., None], 0)
     prediction_fp32 = fixed_prediction.float()

@@ -73,8 +73,8 @@ class ImageProprioStage(Stage):
             image = batch["world"]["image"]
             batch[f"log/{self.log_prefix}_image_tokens"] = image["valid"].sum().float()
             batch[f"log/{self.log_prefix}_image_query_tokens"] = (
-                image["valid"] & ~image["observed"]
-            ).sum().float()
+                (image["valid"] & ~image["observed"]).sum().float()
+            )
             if self.model.objective in ("visual_proprio", "visual_state_action"):
                 batch["log/pose_weight"] = losses["total"].new_tensor(scale)
             if self.model.objective == "visual_state_action":

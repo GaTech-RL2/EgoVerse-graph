@@ -59,7 +59,9 @@ def _configure_strict_fp32(cfg: DictConfig) -> None:
     if enabled and str(precision) not in {"32", "32-true"}:
         raise ValueError("runtime.strict_fp32 requires trainer.precision=32-true")
     if os.environ.get("NVIDIA_TF32_OVERRIDE") != "0":
-        raise ValueError("FP32/disable_tf32 backend policy requires NVIDIA_TF32_OVERRIDE=0")
+        raise ValueError(
+            "FP32/disable_tf32 backend policy requires NVIDIA_TF32_OVERRIDE=0"
+        )
     torch.set_float32_matmul_precision("highest")
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
@@ -152,7 +154,8 @@ def _instantiate_slurm_callbacks(cfg: DictConfig) -> List[Callback]:
             checkpoint_dir=str(checkpoint_dir),
             save_signal=signal.SIGUSR2,
             train_batch_only=OmegaConf.select(
-                cfg, "runtime.slurm_signal_train_batch_only", default=False),
+                cfg, "runtime.slurm_signal_train_batch_only", default=False
+            ),
         )
     ]
 
@@ -195,10 +198,14 @@ def _torch_elastic_environment(cfg: DictConfig) -> TorchElasticEnvironment:
         except ValueError as exc:
             raise ValueError(f"torch_elastic requires integer {name}") from exc
     world, local_world = integers["WORLD_SIZE"], integers["LOCAL_WORLD_SIZE"]
-    if (world < 1 or local_world < 1 or world % local_world
-            or not 0 <= integers["RANK"] < world
-            or not 0 <= integers["LOCAL_RANK"] < local_world
-            or not 0 <= integers["GROUP_RANK"] < world // local_world):
+    if (
+        world < 1
+        or local_world < 1
+        or world % local_world
+        or not 0 <= integers["RANK"] < world
+        or not 0 <= integers["LOCAL_RANK"] < local_world
+        or not 0 <= integers["GROUP_RANK"] < world // local_world
+    ):
         raise ValueError("torch_elastic has inconsistent world size or rank variables")
     if not os.environ.get("MASTER_ADDR"):
         raise ValueError("torch_elastic requires MASTER_ADDR")

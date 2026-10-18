@@ -11,8 +11,14 @@ from tests.test_image_proprio_attention import example
 
 def image_model(**kwargs):
     settings = dict(
-        objective="visual_only", phase_a_condition_on_proprio=False,
-        image_dim=8, width=24, heads=3, depth=2, max_cameras=2, max_tokens=32,
+        objective="visual_only",
+        phase_a_condition_on_proprio=False,
+        image_dim=8,
+        width=24,
+        heads=3,
+        depth=2,
+        max_cameras=2,
+        max_tokens=32,
     )
     settings.update(kwargs)
     return ImageProprioModel(**settings)
@@ -20,8 +26,10 @@ def image_model(**kwargs):
 
 def joint_model(**kwargs):
     return image_model(
-        objective="visual_state_action", pose_dims={"gripper": 3},
-        action_dims={"gripper": 2}, **kwargs,
+        objective="visual_state_action",
+        pose_dims={"gripper": 3},
+        action_dims={"gripper": 2},
+        **kwargs,
     )
 
 
@@ -38,8 +46,11 @@ def joint_batch():
 
 def predict(model, batch, phase="A"):
     return model(
-        batch, "gripper", batch["image"]["value"],
-        torch.zeros_like(batch["image"]["time"]), phase=phase,
+        batch,
+        "gripper",
+        batch["image"]["value"],
+        torch.zeros_like(batch["image"]["time"]),
+        phase=phase,
     )
 
 
@@ -52,7 +63,14 @@ def test_image_only_has_exact_parameters_and_no_proprio_modules():
     assert not full.has_proprio_branch
     assert len(full.norm) == 1
     assert all(len(block.qkv) == 1 for block in full.blocks)
-    for name in ("pose_in", "proprio_role", "pose_out", "action_out", "query", "action_query"):
+    for name in (
+        "pose_in",
+        "proprio_role",
+        "pose_out",
+        "action_out",
+        "query",
+        "action_query",
+    ):
         assert not hasattr(full, name)
     assert not any("pose" in key or "proprio" in key for key in full.state_dict())
 
@@ -63,7 +81,9 @@ def test_image_only_trains_and_samples_without_state_data():
     losses = model.training_losses(batch, "gripper")
     assert set(losses) == {"image", "total"}
     losses["total"].backward()
-    assert all(p.grad is not None and torch.isfinite(p.grad).all() for p in model.parameters())
+    assert all(
+        p.grad is not None and torch.isfinite(p.grad).all() for p in model.parameters()
+    )
     query = ~batch["image"]["observed"]
     batch["image"]["value"][query] = float("nan")
     prediction = model.sample(batch, "gripper", steps=20)["image"]
@@ -122,14 +142,21 @@ def test_joint_phase_b_uses_new_branch_but_withheld_labels_are_loss_only():
     assert all(block.qkv[1].weight.grad.abs().sum() > 0 for block in model.blocks)
 
 
-@pytest.mark.parametrize("readout_weight", [0., 1.])
-def test_joint_training_supports_zero_or_active_readout_after_image_only_phase_a(readout_weight):
+@pytest.mark.parametrize("readout_weight", [0.0, 1.0])
+def test_joint_training_supports_zero_or_active_readout_after_image_only_phase_a(
+    readout_weight,
+):
     model = joint_model()
     losses = model.training_losses(
-        joint_batch(), "gripper", pose_weight=readout_weight, action_weight=readout_weight,
+        joint_batch(),
+        "gripper",
+        pose_weight=readout_weight,
+        action_weight=readout_weight,
     )
     assert set(losses) == {"image", "pose", "action", "total"}
     assert all(torch.isfinite(value) for value in losses.values())
     losses["total"].backward()
-    assert all(torch.isfinite(p.grad).all() for p in model.parameters() if p.grad is not None)
+    assert all(
+        torch.isfinite(p.grad).all() for p in model.parameters() if p.grad is not None
+    )
     assert (model.action_out["gripper"].weight.grad is None) == (readout_weight == 0)

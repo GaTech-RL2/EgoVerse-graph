@@ -207,17 +207,23 @@ class ImageProprioModel(nn.Module):
             raise ValueError("Direct action BC has no diffusion noise conditioning")
         self.noise_conditioning = noise_conditioning
         if position_encoding not in ("linear_xy_temporal_rope", "spatiotemporal_rope"):
-            raise ValueError("position_encoding must be linear_xy_temporal_rope or spatiotemporal_rope")
+            raise ValueError(
+                "position_encoding must be linear_xy_temporal_rope or spatiotemporal_rope"
+            )
         self.position_encoding = position_encoding
         if position_encoding == "spatiotemporal_rope":
             if width % heads:
                 raise ValueError("Model width must be divisible by attention heads")
-            self.rope_axis_dims, self.spatial_grid_size = resolve_spatiotemporal_rope_geometry(
-                width // heads, rope_axis_dims, spatial_grid_size
+            self.rope_axis_dims, self.spatial_grid_size = (
+                resolve_spatiotemporal_rope_geometry(
+                    width // heads, rope_axis_dims, spatial_grid_size
+                )
             )
         else:
             if rope_axis_dims is not None or spatial_grid_size is not None:
-                raise ValueError("Spatial RoPE geometry requires position_encoding='spatiotemporal_rope'")
+                raise ValueError(
+                    "Spatial RoPE geometry requires position_encoding='spatiotemporal_rope'"
+                )
             self.rope_axis_dims = self.spatial_grid_size = None
         self.image_dim, self.width = image_dim, width
         self.allow_patch_compression = allow_patch_compression
@@ -276,7 +282,8 @@ class ImageProprioModel(nn.Module):
                 )
             self.noise_level = nn.Sequential(
                 nn.Linear(256 if noise_conditioning == "adaln_zero" else 1, width),
-                nn.SiLU(), nn.Linear(width, width)
+                nn.SiLU(),
+                nn.Linear(width, width),
             )
             if use_phase_embedding:
                 self.phase = nn.Embedding(1 if objective == "visual_only" else 2, width)
@@ -297,10 +304,13 @@ class ImageProprioModel(nn.Module):
             )
             for _ in range(depth)
         )
-        self.norm = nn.ModuleList([
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-            if noise_conditioning == "adaln_zero" else nn.LayerNorm(width)
-        ])
+        self.norm = nn.ModuleList(
+            [
+                nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+                if noise_conditioning == "adaln_zero"
+                else nn.LayerNorm(width)
+            ]
+        )
         if self.has_proprio_branch:
             self.norm.append(
                 nn.Identity() if objective == "visual_only" else nn.LayerNorm(width)
@@ -505,8 +515,11 @@ class ImageProprioModel(nn.Module):
     def _prepare_rope(self, times, xy=None):
         if self.position_encoding == "spatiotemporal_rope":
             return prepare_spatiotemporal_rope(
-                times, xy, self.blocks[0].head_dim,
-                axis_dims=self.rope_axis_dims, spatial_grid_size=self.spatial_grid_size,
+                times,
+                xy,
+                self.blocks[0].head_dim,
+                axis_dims=self.rope_axis_dims,
+                spatial_grid_size=self.spatial_grid_size,
             )
         return prepare_temporal_rope(times, self.blocks[0].head_dim)
 
@@ -524,10 +537,16 @@ class ImageProprioModel(nn.Module):
                 load_flash_attention_kernels(backend, joint_valid.device)
             layout = prepare_attention_layout(joint_valid, query_valid=joint_valid)
         if self.position_encoding == "spatiotemporal_rope" and image_xy is None:
-            raise ValueError("Image spatial-temporal attention requires patch coordinates")
-        safe_xy = None if image_xy is None else torch.where(valid[0][..., None], image_xy, 0)
-        rope = tuple(self._prepare_rope(t, safe_xy if index == 0 else None)
-                     for index, t in enumerate(times))
+            raise ValueError(
+                "Image spatial-temporal attention requires patch coordinates"
+            )
+        safe_xy = (
+            None if image_xy is None else torch.where(valid[0][..., None], image_xy, 0)
+        )
+        rope = tuple(
+            self._prepare_rope(t, safe_xy if index == 0 else None)
+            for index, t in enumerate(times)
+        )
         return layout, rope
 
     @staticmethod
@@ -545,39 +564,65 @@ class ImageProprioModel(nn.Module):
             positions = valid[batch_index].nonzero(as_tuple=False).flatten()
             if positions.numel() == 0:
                 continue
-            keys = torch.stack((image["time"][batch_index, positions].double(),
-                                image["observed"][batch_index, positions].double()), dim=1)
+            keys = torch.stack(
+                (
+                    image["time"][batch_index, positions].double(),
+                    image["observed"][batch_index, positions].double(),
+                ),
+                dim=1,
+            )
             unique, inverse = torch.unique(keys, dim=0, return_inverse=True)
-            first = torch.full((unique.shape[0],), positions.numel(), device=positions.device, dtype=torch.long)
-            first.scatter_reduce_(0, inverse, torch.arange(positions.numel(), device=positions.device), reduce="amin")
+            first = torch.full(
+                (unique.shape[0],),
+                positions.numel(),
+                device=positions.device,
+                dtype=torch.long,
+            )
+            first.scatter_reduce_(
+                0,
+                inverse,
+                torch.arange(positions.numel(), device=positions.device),
+                reduce="amin",
+            )
             representatives.append(batch_index * valid.shape[1] + positions[first])
             groups[batch_index, positions] = inverse + offset
             offset += unique.shape[0]
-        indices = (torch.cat(representatives) if representatives else
-                   torch.zeros(1, device=valid.device, dtype=torch.long))
+        indices = (
+            torch.cat(representatives)
+            if representatives
+            else torch.zeros(1, device=valid.device, dtype=torch.long)
+        )
         return _NoiseFrameMap(indices, groups)
 
     def _embed_noise_frames(self, levels):
         # Embedding convention only: tau remains the original linear-corruption
         # strength in [0,1]. Multiplying by1000 does not discretize/change it.
-        frequency = torch.exp(-math.log(10000) * torch.arange(
-            128, device=levels.device, dtype=torch.float32
-        ) / 128)
+        frequency = torch.exp(
+            -math.log(10000)
+            * torch.arange(128, device=levels.device, dtype=torch.float32)
+            / 128
+        )
         angles = (1000 * levels.float())[:, None] * frequency[None]
         return self.noise_level(torch.cat((angles.cos(), angles.sin()), dim=-1))
 
     def _image_noise_condition(self, image, levels, frame_map):
         effective = levels.masked_fill(image["observed"] | ~image["valid"], 0)
         grouped = effective.reshape(-1).index_select(0, frame_map.representatives)
-        reconstructed = grouped.index_select(0, frame_map.token_groups.reshape(-1)).reshape_as(effective)
+        reconstructed = grouped.index_select(
+            0, frame_map.token_groups.reshape(-1)
+        ).reshape_as(effective)
         if ((effective != reconstructed) & image["valid"]).any():
-            raise ValueError("Image noise levels must agree within each timestamp and observed/query group")
+            raise ValueError(
+                "Image noise levels must agree within each timestamp and observed/query group"
+            )
         return self._embed_noise_frames_execute(grouped), frame_map.token_groups
 
     def _prepare_image_execution(self, image, valid):
         execution = self._prepare_image_attention_execution(image, valid)
         if self.noise_conditioning == "adaln_zero":
-            return _ConditionedImageExecution(execution, self._prepare_noise_frame_map(image))
+            return _ConditionedImageExecution(
+                execution, self._prepare_noise_frame_map(image)
+            )
         return execution
 
     def _prepare_image_attention_execution(self, image, valid):
@@ -601,7 +646,11 @@ class ImageProprioModel(nn.Module):
         if any(block.attention_query_chunk_size for block in self.blocks):
             raise ValueError("Packed token execution requires unchunked attention")
         indices = layout.key_indices
-        metadata_keys = ("xy", "observed", "camera") if self.use_camera_embedding else ("xy", "observed")
+        metadata_keys = (
+            ("xy", "observed", "camera")
+            if self.use_camera_embedding
+            else ("xy", "observed")
+        )
         packed_image = {
             key: image[key].flatten(0, 1).index_select(0, indices).unsqueeze(0)
             for key in metadata_keys
@@ -609,17 +658,24 @@ class ImageProprioModel(nn.Module):
         packed_times = times.reshape(-1).index_select(0, indices).unsqueeze(0)
         packed_valid = valid.new_ones((1, indices.numel()))
         return _PackedImageExecution(
-            layout, packed_image, packed_valid,
+            layout,
+            packed_image,
+            packed_valid,
             self._prepare_rope(packed_times, packed_image["xy"]),
         )
 
-    def _forward_packed_image(self, values, levels, embodiment, execution, image_condition=None):
+    def _forward_packed_image(
+        self, values, levels, embodiment, execution, image_condition=None
+    ):
         indices = execution.layout.key_indices
         packed_values = values.flatten(0, 1).index_select(0, indices).unsqueeze(0)
         packed_levels = levels.reshape(-1).index_select(0, indices).unsqueeze(0)
         if image_condition is not None:
             condition, frame_groups = image_condition
-            image_condition = (condition, frame_groups.reshape(-1).index_select(0, indices).unsqueeze(0))
+            image_condition = (
+                condition,
+                frame_groups.reshape(-1).index_select(0, indices).unsqueeze(0),
+            )
         stream = self._embed_image_execute(
             execution.image, packed_values, packed_levels, execution.valid, "A", False
         )
@@ -630,27 +686,38 @@ class ImageProprioModel(nn.Module):
         for block in self.blocks:
             if self.activation_checkpointing and torch.is_grad_enabled():
                 stream = checkpoint(
-                    block.forward_packed, stream, execution.valid,
-                    attention_layout=execution.layout, rope=execution.rope,
+                    block.forward_packed,
+                    stream,
+                    execution.valid,
+                    attention_layout=execution.layout,
+                    rope=execution.rope,
                     image_condition=image_condition,
                     use_reentrant=False,
                 )
             else:
                 stream = block.forward_packed(
-                    stream, execution.valid,
-                    attention_layout=execution.layout, rope=execution.rope,
+                    stream,
+                    execution.valid,
+                    attention_layout=execution.layout,
+                    rope=execution.rope,
                     image_condition=image_condition,
                 )
-        predicted = self._decode_image_execute(stream, execution.valid, image_condition).squeeze(0)
+        predicted = self._decode_image_execute(
+            stream, execution.valid, image_condition
+        ).squeeze(0)
         batch, tokens = execution.layout.batch_size, execution.layout.key_tokens
-        return predicted.new_zeros(batch * tokens, self.image_dim).index_copy(
-            0, indices, predicted
-        ).reshape(batch, tokens, self.image_dim)
+        return (
+            predicted.new_zeros(batch * tokens, self.image_dim)
+            .index_copy(0, indices, predicted)
+            .reshape(batch, tokens, self.image_dim)
+        )
 
     def _embed_image(self, image, values, levels, image_valid, phase, direct):
         image_x = self.image_in(torch.where(image_valid[..., None], values, 0))
         if self.position_encoding == "linear_xy_temporal_rope":
-            image_x = image_x + self.xy(torch.where(image_valid[..., None], image["xy"], 0))
+            image_x = image_x + self.xy(
+                torch.where(image_valid[..., None], image["xy"], 0)
+            )
         if self.use_camera_embedding:
             image_x = image_x + self.camera(
                 image["camera"].masked_fill(~image_valid, 0)
@@ -669,7 +736,9 @@ class ImageProprioModel(nn.Module):
         if self.noise_conditioning == "adaln_zero":
             condition, frame_groups = image_condition
             shift, scale = self.final_adaln(condition).chunk(2, dim=-1)
-            normalized = normalized * (1 + MoTBlock._frame_values(scale, frame_groups)) + MoTBlock._frame_values(shift, frame_groups)
+            normalized = normalized * (
+                1 + MoTBlock._frame_values(scale, frame_groups)
+            ) + MoTBlock._frame_values(shift, frame_groups)
         return self.image_out(normalized).masked_fill(~valid[..., None], 0)
 
     def _forward_validated(
@@ -701,7 +770,12 @@ class ImageProprioModel(nn.Module):
                 image["observed"][..., None], image["value"], image_values
             )
         frame_map = None
-        if self.noise_conditioning == "adaln_zero" and phase == "A" and not include_pose and execution is None:
+        if (
+            self.noise_conditioning == "adaln_zero"
+            and phase == "A"
+            and not include_pose
+            and execution is None
+        ):
             execution = self._prepare_image_execution(image, image_valid)
         if isinstance(execution, _ConditionedImageExecution):
             frame_map = execution.noise_frames
@@ -713,12 +787,17 @@ class ImageProprioModel(nn.Module):
         # Phase B retains the existing multi-expert route. Packing here changes
         # execution only; no token, camera, or per-example boundary is removed.
         if self.token_execution == "packed_valid" and phase == "A" and not include_pose:
-            execution = (self._prepare_image_execution(image, image_valid)
-                         if execution is None else execution)
+            execution = (
+                self._prepare_image_execution(image, image_valid)
+                if execution is None
+                else execution
+            )
             if isinstance(execution, _PackedImageExecution):
-                return {"image": self._forward_packed_image(
-                    values, levels, embodiment, execution, image_condition
-                )}
+                return {
+                    "image": self._forward_packed_image(
+                        values, levels, embodiment, execution, image_condition
+                    )
+                }
         image_x = self._embed_image_execute(
             image, values, levels, image_valid, phase, direct
         )
@@ -785,11 +864,17 @@ class ImageProprioModel(nn.Module):
                 )
             else:
                 streams = block(
-                    streams, times, valid, attention_layout=attention_layout, rope=rope,
+                    streams,
+                    times,
+                    valid,
+                    attention_layout=attention_layout,
+                    rope=rope,
                     image_condition=image_condition,
                 )
         image_result = (
-            None if direct else self._decode_image_execute(streams[0], image_valid, image_condition)
+            None
+            if direct
+            else self._decode_image_execute(streams[0], image_valid, image_condition)
         )
         if include_pose:
             streams[1] = self.norm[1](streams[1])

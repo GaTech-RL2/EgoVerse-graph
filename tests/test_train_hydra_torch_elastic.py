@@ -19,18 +19,28 @@ def elastic(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     for key, value in {
         "TORCHELASTIC_RUN_ID": "separate-run-rendezvous",
-        "RANK": "2", "LOCAL_RANK": "2", "WORLD_SIZE": "4",
-        "LOCAL_WORLD_SIZE": "4", "GROUP_RANK": "0",
-        "MASTER_ADDR": "localhost", "MASTER_PORT": "29451",
-        "SLURM_JOB_ID": "1234", "SLURM_NTASKS": "1",
-        "SLURM_PROCID": "0", "SLURM_LOCALID": "0",
+        "RANK": "2",
+        "LOCAL_RANK": "2",
+        "WORLD_SIZE": "4",
+        "LOCAL_WORLD_SIZE": "4",
+        "GROUP_RANK": "0",
+        "MASTER_ADDR": "localhost",
+        "MASTER_PORT": "29451",
+        "SLURM_JOB_ID": "1234",
+        "SLURM_NTASKS": "1",
+        "SLURM_PROCID": "0",
+        "SLURM_LOCALID": "0",
     }.items():
         monkeypatch.setenv(key, value)
-    return OmegaConf.create({
-        "mmap_checkpoint": False,
-        "runtime": {"cluster_environment": "torch_elastic",
-                    "slurm_requeue_owner": "none"},
-    })
+    return OmegaConf.create(
+        {
+            "mmap_checkpoint": False,
+            "runtime": {
+                "cluster_environment": "torch_elastic",
+                "slurm_requeue_owner": "none",
+            },
+        }
+    )
 
 
 def test_torchrun_overrides_one_task_slurm_without_mutating_provenance(elastic):
@@ -49,13 +59,23 @@ def test_torchrun_overrides_one_task_slurm_without_mutating_provenance(elastic):
     assert dict(os.environ) == before
 
 
-@pytest.mark.parametrize("key,value", [
-    ("RANK", None), ("LOCAL_RANK", "four"), ("WORLD_SIZE", "0"),
-    ("LOCAL_WORLD_SIZE", "3"), ("RANK", "4"), ("RANK", "-1"),
-    ("LOCAL_RANK", "4"), ("GROUP_RANK", "1"),
-    ("MASTER_ADDR", ""), ("MASTER_PORT", "0"),
-    ("MASTER_PORT", "65536"), ("MASTER_PORT", "invalid"),
-])
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("RANK", None),
+        ("LOCAL_RANK", "four"),
+        ("WORLD_SIZE", "0"),
+        ("LOCAL_WORLD_SIZE", "3"),
+        ("RANK", "4"),
+        ("RANK", "-1"),
+        ("LOCAL_RANK", "4"),
+        ("GROUP_RANK", "1"),
+        ("MASTER_ADDR", ""),
+        ("MASTER_PORT", "0"),
+        ("MASTER_PORT", "65536"),
+        ("MASTER_PORT", "invalid"),
+    ],
+)
 def test_malformed_torchrun_environment_fails(elastic, monkeypatch, key, value):
     if value is None:
         monkeypatch.delenv(key, raising=False)

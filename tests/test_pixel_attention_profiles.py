@@ -82,9 +82,9 @@ def test_pixel_profile_override_preserves_science(
     assert not model.activation_checkpointing
     assert scientific_stage(cfg) == scientific_stage(baseline)
     for section in ("data", "callbacks"):
-        assert OmegaConf.to_container(cfg[section], resolve=True) == OmegaConf.to_container(
-            baseline[section], resolve=True
-        )
+        assert OmegaConf.to_container(
+            cfg[section], resolve=True
+        ) == OmegaConf.to_container(baseline[section], resolve=True)
     trainer = OmegaConf.to_container(cfg.trainer, resolve=True)
     baseline_trainer = OmegaConf.to_container(baseline.trainer, resolve=True)
     assert trainer.pop("precision") == trainer_precision
@@ -106,8 +106,10 @@ def test_pixel_profile_override_preserves_science(
     assert not model.allow_patch_compression
     assert pixel_stage(cfg, "pixel_loss").weight == 1
     assert pixel_stage(cfg, "pixel_sampler").sampler.steps == 20
-    assert all("warmup_steps" not in stage and "pose_ramp_steps" not in stage
-               for stage in cfg.model.pipeline.stages)
+    assert all(
+        "warmup_steps" not in stage and "pose_ramp_steps" not in stage
+        for stage in cfg.model.pipeline.stages
+    )
     assert cfg.data.mode == arm and model.time_mode == arm
     if arm == "discrete":
         assert cfg.data.sampling_strategy == "discrete_window"
@@ -145,12 +147,18 @@ def test_pixel_native_precision_fallback_remains_cpu_compatible(arm):
     assert cfg.trainer.precision == "32-true"
 
 
-@pytest.mark.parametrize("name", ["video_only", "video_discrete", "readout_continuous", "readout_discrete"])
+@pytest.mark.parametrize(
+    "name", ["video_only", "video_discrete", "readout_continuous", "readout_discrete"]
+)
 def test_continuous_stage_one_cap_does_not_change_other_recipe_defaults(name):
     with initialize_config_dir(config_dir=str(CONFIG_ROOT), version_base=None):
-        cfg = compose(config_name="train_zarr_cartesian", overrides=[
-            f"+experiment=pixel_proprio/{name}", "hydra/launcher=basic",
-        ])
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                f"+experiment=pixel_proprio/{name}",
+                "hydra/launcher=basic",
+            ],
+        )
     assert cfg.data.min_frames == 2 and cfg.data.max_frames == 128
     assert cfg.data.validation_sampling_strategy == "discrete_window"
     assert cfg.data.validation_discrete_frames == 16
@@ -178,7 +186,13 @@ def test_four_gpu_profile_changes_only_execution_and_global_batch(arm):
     assert actual_data == original_data
     actual_trainer = OmegaConf.to_container(cfg.trainer, resolve=True)
     original_trainer = OmegaConf.to_container(baseline.trainer, resolve=True)
-    for key in ("strategy", "devices", "num_nodes", "accumulate_grad_batches", "use_distributed_sampler"):
+    for key in (
+        "strategy",
+        "devices",
+        "num_nodes",
+        "accumulate_grad_batches",
+        "use_distributed_sampler",
+    ):
         actual_trainer.pop(key, None)
         original_trainer.pop(key, None)
     assert actual_trainer == original_trainer

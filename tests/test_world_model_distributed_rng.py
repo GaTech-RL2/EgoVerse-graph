@@ -40,22 +40,31 @@ def test_distributed_resume_rejects_legacy_or_changed_world_size(monkeypatch):
     monkeypatch.setattr(behavior, "_distributed_world", lambda: (2, 1))
     with pytest.raises(ValueError, match="per-rank RNG"):
         behavior._rank_rng_state(local)
-    saved = {"schema": behavior._DISTRIBUTED_RNG_SCHEMA,
-             "world_size": 4, "ranks": [local] * 4}
+    saved = {
+        "schema": behavior._DISTRIBUTED_RNG_SCHEMA,
+        "world_size": 4,
+        "ranks": [local] * 4,
+    }
     with pytest.raises(ValueError, match="saved RNG world size"):
         behavior._rank_rng_state(saved)
 
 
-@pytest.mark.parametrize("update,match", [
-    ({"schema": "unknown"}, "Unknown"),
-    ({"ranks": []}, "one state per rank"),
-    ({"ranks": [{}, {}]}, "current CUDA device"),
-])
+@pytest.mark.parametrize(
+    "update,match",
+    [
+        ({"schema": "unknown"}, "Unknown"),
+        ({"ranks": []}, "one state per rank"),
+        ({"ranks": [{}, {}]}, "current CUDA device"),
+    ],
+)
 def test_corrupt_distributed_rng_fails_closed(monkeypatch, update, match):
     local = behavior._capture_rng_state(current_cuda_only=True)
     monkeypatch.setattr(behavior, "_distributed_world", lambda: (2, 1))
-    saved = {"schema": behavior._DISTRIBUTED_RNG_SCHEMA,
-             "world_size": 2, "ranks": [local, local]}
+    saved = {
+        "schema": behavior._DISTRIBUTED_RNG_SCHEMA,
+        "world_size": 2,
+        "ranks": [local, local],
+    }
     saved.update(update)
     with pytest.raises(ValueError, match=match):
         behavior._rank_rng_state(saved)
@@ -66,9 +75,15 @@ def test_cuda_capture_and_restore_touch_only_current_device(monkeypatch):
     restored = []
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "get_rng_state", lambda: state)
-    monkeypatch.setattr(torch.cuda, "get_rng_state_all", lambda: pytest.fail("all devices"))
-    monkeypatch.setattr(torch.cuda, "set_rng_state", lambda value: restored.append(value))
-    monkeypatch.setattr(torch.cuda, "set_rng_state_all", lambda _: pytest.fail("all devices"))
+    monkeypatch.setattr(
+        torch.cuda, "get_rng_state_all", lambda: pytest.fail("all devices")
+    )
+    monkeypatch.setattr(
+        torch.cuda, "set_rng_state", lambda value: restored.append(value)
+    )
+    monkeypatch.setattr(
+        torch.cuda, "set_rng_state_all", lambda _: pytest.fail("all devices")
+    )
     saved = behavior._capture_rng_state(current_cuda_only=True)
     assert saved["cuda_scope"] == "current_device"
     behavior._restore_rng_state(saved)
@@ -99,10 +114,16 @@ def test_fresh_training_seeds_ranks_once_without_changing_initialization(monkeyp
         instance, context = _bound_behavior(42)
         assert torch.equal(torch.get_rng_state(), initial_state)
         generator = torch.Generator().manual_seed(42 + rank)
-        numpy_rng, python_rng = np.random.RandomState(42 + rank), random.Random(42 + rank)
+        numpy_rng, python_rng = (
+            np.random.RandomState(42 + rank),
+            random.Random(42 + rank),
+        )
         for step in range(2):
-            expected = (float(torch.rand((), generator=generator)),
-                        float(numpy_rng.rand()), python_rng.random())
+            expected = (
+                float(torch.rand((), generator=generator)),
+                float(numpy_rng.rand()),
+                python_rng.random(),
+            )
             actual = instance.training_step({"probe": {}}, step)
             assert actual == expected
             if step == 0:
@@ -120,10 +141,15 @@ def test_saved_rank_rng_takes_precedence_over_fresh_noise_seed(monkeypatch):
     local = behavior._capture_rng_state(current_cuda_only=True)
     expected = _Context()._default_training_step({}, 0)
     instance, context = _bound_behavior(42)
-    instance.on_load_checkpoint({"mot_rng_state": {
-        "schema": behavior._DISTRIBUTED_RNG_SCHEMA,
-        "world_size": 2, "ranks": [local, local],
-    }})
+    instance.on_load_checkpoint(
+        {
+            "mot_rng_state": {
+                "schema": behavior._DISTRIBUTED_RNG_SCHEMA,
+                "world_size": 2,
+                "ranks": [local, local],
+            }
+        }
+    )
     assert instance.training_step({"probe": {}}, 0) == expected
     assert instance._pending_rng is None and instance._training_rng_initialized
     del context
@@ -134,7 +160,9 @@ def test_fresh_seed_targets_current_cuda_device_only(monkeypatch):
     monkeypatch.setattr(behavior, "_distributed_world", lambda: (4, 2))
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "manual_seed", seeds.append)
-    monkeypatch.setattr(torch.cuda, "manual_seed_all", lambda _: pytest.fail("all devices"))
+    monkeypatch.setattr(
+        torch.cuda, "manual_seed_all", lambda _: pytest.fail("all devices")
+    )
     instance, context = _bound_behavior(42)
     instance.training_step({"probe": {}}, 0)
     instance.training_step({"probe": {}}, 1)
@@ -158,7 +186,7 @@ def test_distributed_noise_seed_rejects_invalid_values(seed):
         behavior.WorldModelTrainingBehavior(distributed_noise_seed=seed)
 
 
-_WORKER = r'''
+_WORKER = r"""
 import json
 import os
 from pathlib import Path
@@ -215,30 +243,52 @@ trainer.fit(model, train_dataloaders=loader,
     weights_only=False)
 trainer.save_checkpoint(out / (mode + '.ckpt'))
 (out / f'{mode}-rank{trainer.global_rank}.json').write_text(json.dumps(model.draws))
-'''
+"""
 
 
 def test_real_torchrun_checkpoint_resume_preserves_each_rank(tmp_path):
-    if not torch.distributed.is_available() or not torch.distributed.is_gloo_available():
+    if (
+        not torch.distributed.is_available()
+        or not torch.distributed.is_gloo_available()
+    ):
         pytest.skip("CPU distributed backend unavailable")
     worker = tmp_path / "worker.py"
     worker.write_text(textwrap.dedent(_WORKER))
     env = dict(os.environ)
-    env.update({
-        "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
-        "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1",
-        "MKL_NUM_THREADS": "1", "CUDA_VISIBLE_DEVICES": "",
-        # A one-task Slurm parent must not override torchrun's actual world.
-        "SLURM_JOB_ID": "999", "SLURM_NTASKS": "1",
-        "SLURM_PROCID": "0", "SLURM_LOCALID": "0",
-    })
+    env.update(
+        {
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "CUDA_VISIBLE_DEVICES": "",
+            # A one-task Slurm parent must not override torchrun's actual world.
+            "SLURM_JOB_ID": "999",
+            "SLURM_NTASKS": "1",
+            "SLURM_PROCID": "0",
+            "SLURM_LOCALID": "0",
+        }
+    )
     for key in ("ICE_REQUEUE_OWNER", "ICE_CHILD_REQUEUE_DISABLED"):
         env.pop(key, None)
     for mode in ("full", "partial", "resume"):
-        result = subprocess.run([
-            sys.executable, "-m", "torch.distributed.run", "--standalone",
-            "--nnodes=1", "--nproc-per-node=2", str(worker), str(tmp_path), mode,
-        ], env=env, capture_output=True, text=True, timeout=90)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "torch.distributed.run",
+                "--standalone",
+                "--nnodes=1",
+                "--nproc-per-node=2",
+                str(worker),
+                str(tmp_path),
+                mode,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
         assert result.returncode == 0, result.stdout + result.stderr
     first = []
     for rank in range(2):
@@ -257,4 +307,6 @@ def test_real_torchrun_checkpoint_resume_preserves_each_rank(tmp_path):
     saved = resume["mot_rng_state"]
     assert saved["schema"] == behavior._DISTRIBUTED_RNG_SCHEMA
     assert saved["world_size"] == len(saved["ranks"]) == 2
-    assert not torch.equal(saved["ranks"][0]["torch_cpu"], saved["ranks"][1]["torch_cpu"])
+    assert not torch.equal(
+        saved["ranks"][0]["torch_cpu"], saved["ranks"][1]["torch_cpu"]
+    )

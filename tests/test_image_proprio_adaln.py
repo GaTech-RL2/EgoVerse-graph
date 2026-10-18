@@ -47,29 +47,47 @@ def test_additive_default_preserves_seeded_state_rng_and_outputs():
     original = model(noise_conditioning="additive")
     rng = torch.get_rng_state().clone()
     torch.manual_seed(12)
-    explicit = packed_model(backend="sdpa", attention_dtype="native", use_phase_embedding=False)
+    explicit = packed_model(
+        backend="sdpa", attention_dtype="native", use_phase_embedding=False
+    )
     assert torch.equal(rng, torch.get_rng_state())
-    assert all(torch.equal(value, explicit.state_dict()[name]) for name, value in original.state_dict().items())
+    assert all(
+        torch.equal(value, explicit.state_dict()[name])
+        for name, value in original.state_dict().items()
+    )
     world = batch(nonprefix=True)
     noisy, levels = fixed_corruption(world, 8)
-    assert torch.equal(original(world, "libero_gripper", noisy, levels)["image"],
-                       explicit(world, "libero_gripper", noisy, levels)["image"])
+    assert torch.equal(
+        original(world, "libero_gripper", noisy, levels)["image"],
+        explicit(world, "libero_gripper", noisy, levels)["image"],
+    )
 
 
 def test_standard_zero_initialization_and_exact_parameter_count():
     with torch.device("meta"):
-        full = ImageProprioModel(objective="visual_only", phase_a_condition_on_proprio=False,
-                                 max_cameras=2, use_phase_embedding=False, noise_conditioning="adaln_zero")
+        full = ImageProprioModel(
+            objective="visual_only",
+            phase_a_condition_on_proprio=False,
+            max_cameras=2,
+            use_phase_embedding=False,
+            noise_conditioning="adaln_zero",
+        )
     assert sum(parameter.numel() for parameter in full.parameters()) == 88_180_992
     network = model()
     assert not network.norm[0].elementwise_affine
-    assert all(not block.norm1[0].elementwise_affine and not block.norm2[0].elementwise_affine for block in network.blocks)
+    assert all(
+        not block.norm1[0].elementwise_affine and not block.norm2[0].elementwise_affine
+        for block in network.blocks
+    )
     world = batch()
     noisy, levels = fixed_corruption(world, 7)
     prediction = network(world, "libero_gripper", noisy, levels)["image"]
     assert prediction.count_nonzero() == 0
     network.training_losses(world, "libero_gripper")["total"].backward()
-    assert all(parameter.grad is not None and torch.isfinite(parameter.grad).all() for parameter in network.parameters())
+    assert all(
+        parameter.grad is not None and torch.isfinite(parameter.grad).all()
+        for parameter in network.parameters()
+    )
     assert network.image_out.weight.grad.abs().sum() > 0
     assert network.blocks[0].qkv[0].weight.grad.count_nonzero() == 0
 
@@ -80,10 +98,14 @@ def test_frame_modulation_is_shared_but_examples_and_levels_remain_distinct():
     world = batch(nonprefix=True)
     noisy, levels = fixed_corruption(world, 11)
     frames = network._prepare_noise_frame_map(world["image"])
-    assert frames.representatives.numel() == 5  #2 and3frames, each8camera/patchtokens.
+    assert frames.representatives.numel() == 5  # 2 and3frames, each8camera/patchtokens.
     shapes = []
-    handles = [block.adaln_image[-1].register_forward_pre_hook(lambda _, args: shapes.append(args[0].shape))
-               for block in network.blocks]
+    handles = [
+        block.adaln_image[-1].register_forward_pre_hook(
+            lambda _, args: shapes.append(args[0].shape)
+        )
+        for block in network.blocks
+    ]
     first = network(world, "libero_gripper", noisy, levels)["image"]
     for handle in handles:
         handle.remove()
@@ -95,8 +117,10 @@ def test_frame_modulation_is_shared_but_examples_and_levels_remain_distinct():
     assert not torch.allclose(first[1], second[1], atol=1e-7, rtol=1e-7)
     # Input embeddings no longer receive additive noise vectors.
     image = world["image"]
-    assert torch.equal(network._embed_image(image, noisy, levels, image["valid"], "A", False),
-                       network._embed_image(image, noisy, changed, image["valid"], "A", False))
+    assert torch.equal(
+        network._embed_image(image, noisy, levels, image["valid"], "A", False),
+        network._embed_image(image, noisy, changed, image["valid"], "A", False),
+    )
     query = image["valid"] & ~image["observed"]
     row, token = query.nonzero()[0].tolist()
     invalid = levels.clone()
@@ -124,7 +148,9 @@ def test_sampler_caches_only_frame_mapping_and_recomputes_noise_embedding(monkey
         return original_embed(levels)
 
     object.__setattr__(network, "_embed_noise_frames_execute", record_embed)
-    output = network.sample(world, "libero_gripper", steps=4, generator=torch.Generator().manual_seed(4))["image"]
+    output = network.sample(
+        world, "libero_gripper", steps=4, generator=torch.Generator().manual_seed(4)
+    )["image"]
     assert len(calls) == 1 and len(levels_seen) == 4
     assert [float(level.max()) for level in levels_seen] == [1.0, 0.75, 0.5, 0.25]
     assert all((level == 0).sum() == 2 for level in levels_seen)
@@ -136,8 +162,12 @@ def test_sampler_caches_only_frame_mapping_and_recomputes_noise_embedding(monkey
 @pytest.mark.parametrize("mixed", [False, True])
 @pytest.mark.parametrize("time_mode", ["continuous", "discrete"])
 @pytest.mark.usefixtures("reference_kernels")
-def test_nonzero_packed_conditioning_matches_padded_outputs_and_gradients(mixed, time_mode):
-    arguments = dict(noise_conditioning="adaln_zero", use_phase_embedding=False, time_mode=time_mode)
+def test_nonzero_packed_conditioning_matches_padded_outputs_and_gradients(
+    mixed, time_mode
+):
+    arguments = dict(
+        noise_conditioning="adaln_zero", use_phase_embedding=False, time_mode=time_mode
+    )
     padded = packed_model(**arguments)
     activate_conditioning(padded)
     packed = packed_model(token_execution="packed_valid", **arguments)
@@ -168,7 +198,9 @@ def test_nonzero_packed_conditioning_matches_padded_outputs_and_gradients(mixed,
 def test_fullgraph_tensor_regions_match_eager_with_nonzero_conditioning():
     eager = model()
     activate_conditioning(eager)
-    compiled = model(compile_mode="default", compile_backend="aot_eager", compile_dynamic=True)
+    compiled = model(
+        compile_mode="default", compile_backend="aot_eager", compile_dynamic=True
+    )
     compiled.load_state_dict(eager.state_dict(), strict=True)
     world = batch(nonprefix=True)
     noisy, levels = fixed_corruption(world, 23)
@@ -179,5 +211,10 @@ def test_fullgraph_tensor_regions_match_eager_with_nonzero_conditioning():
         outputs.append(prediction.detach())
     torch.testing.assert_close(outputs[0], outputs[1], rtol=1e-5, atol=1e-6)
     for name, parameter in eager.named_parameters():
-        torch.testing.assert_close(parameter.grad, dict(compiled.named_parameters())[name].grad,
-                                   rtol=2e-5, atol=2e-6, msg=name)
+        torch.testing.assert_close(
+            parameter.grad,
+            dict(compiled.named_parameters())[name].grad,
+            rtol=2e-5,
+            atol=2e-6,
+            msg=name,
+        )

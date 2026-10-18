@@ -24,13 +24,16 @@ def test_wandb_media_uses_optimizer_axis_not_history_counter(tmp_path, monkeypat
     from lightning.pytorch.loggers import WandbLogger
 
     calls = []
-    experiment = SimpleNamespace(log=lambda *args, **kwargs: calls.append((args, kwargs)))
+    experiment = SimpleNamespace(
+        log=lambda *args, **kwargs: calls.append((args, kwargs))
+    )
     logger = WandbLogger(experiment=experiment, offline=True)
     monkeypatch.setattr(wandb, "Image", lambda path: ("image", path))
     diagnostic = PixelPredictionDiagnostics(tmp_path, log_wandb=True)
     diagnostic.written = [("robot", "forecast", "image", tmp_path / "example.png")]
-    model = SimpleNamespace(global_rank=0, global_step=250,
-                            trainer=SimpleNamespace(loggers=[logger]))
+    model = SimpleNamespace(
+        global_rank=0, global_step=250, trainer=SimpleNamespace(loggers=[logger])
+    )
     diagnostic.log_to_wandb(model)
     assert len(calls) == 1
     args, kwargs = calls[0]

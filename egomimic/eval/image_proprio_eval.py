@@ -82,13 +82,21 @@ class ImageProprioEval(Eval):
         if all(value is None for value in indexed):
             return int(batch_idx)
         if any(value is None for value in indexed):
-            raise ValueError("Global validation batch identities must cover every source")
+            raise ValueError(
+                "Global validation batch identities must cover every source"
+            )
         indices = []
         for item, values in zip(batch.values(), indexed):
-            if not isinstance(values, (tuple, list)) or len(values) != len(item["task_kind"]):
-                raise ValueError("One global validation batch identity is required per sample")
+            if not isinstance(values, (tuple, list)) or len(values) != len(
+                item["task_kind"]
+            ):
+                raise ValueError(
+                    "One global validation batch identity is required per sample"
+                )
             if any(type(value) is not int or value < 0 for value in values):
-                raise ValueError("Global validation batch identities must be nonnegative integers")
+                raise ValueError(
+                    "Global validation batch identities must be nonnegative integers"
+                )
             indices.extend(values)
         if len(set(indices)) != 1:
             raise ValueError("A validation batch must share one global batch identity")
@@ -100,7 +108,8 @@ class ImageProprioEval(Eval):
         )
         with torch.random.fork_rng(devices=devices):
             torch.manual_seed(
-                self.sample_seed + self._sampling_index(batch, batch_idx)
+                self.sample_seed
+                + self._sampling_index(batch, batch_idx)
                 + 100000 * dataloader_idx
             )
             output = self.model.forward_eval(batch)
@@ -162,12 +171,16 @@ class ImageProprioEval(Eval):
     def _reduce_validation_totals(self):
         """Sum target-weighted errors, including keys absent on some ranks."""
         self.global_validation_batches = self._validation_batches
-        if not (torch.distributed.is_available() and torch.distributed.is_initialized()):
+        if not (
+            torch.distributed.is_available() and torch.distributed.is_initialized()
+        ):
             return self.totals
         keys_by_rank = [None] * torch.distributed.get_world_size()
         torch.distributed.all_gather_object(keys_by_rank, sorted(self.totals))
         keys = sorted({key for rank_keys in keys_by_rank for key in rank_keys})
-        totals = torch.zeros(len(keys), 2, dtype=torch.float64, device=self.model.device)
+        totals = torch.zeros(
+            len(keys), 2, dtype=torch.float64, device=self.model.device
+        )
         for index, key in enumerate(keys):
             if key in self.totals:
                 numerator, denominator = self.totals[key]
@@ -176,13 +189,19 @@ class ImageProprioEval(Eval):
         valid = (torch.isfinite(totals).all() & (totals >= 0).all()).to(torch.int64)
         torch.distributed.all_reduce(valid, op=torch.distributed.ReduceOp.MIN)
         if not valid.item():
-            raise ValueError("Invalid accumulated validation metric on a distributed rank")
+            raise ValueError(
+                "Invalid accumulated validation metric on a distributed rank"
+            )
         if keys:
             torch.distributed.all_reduce(totals, op=torch.distributed.ReduceOp.SUM)
-        batches = torch.tensor(self._validation_batches, dtype=torch.int64, device=self.model.device)
+        batches = torch.tensor(
+            self._validation_batches, dtype=torch.int64, device=self.model.device
+        )
         torch.distributed.all_reduce(batches, op=torch.distributed.ReduceOp.SUM)
         self.global_validation_batches = int(batches.item())
-        return {key: (totals[index, 0], totals[index, 1]) for index, key in enumerate(keys)}
+        return {
+            key: (totals[index, 0], totals[index, 1]) for index, key in enumerate(keys)
+        }
 
     def log_epoch_metrics(self):
         self._metrics_logged = False
@@ -236,7 +255,9 @@ class ImageProprioEval(Eval):
             and any(denominator > 0 for _, denominator in self._global_totals.values())
         )
         if torch.distributed.is_available() and torch.distributed.is_initialized():
-            success = torch.tensor(int(complete), dtype=torch.int64, device=self.model.device)
+            success = torch.tensor(
+                int(complete), dtype=torch.int64, device=self.model.device
+            )
             torch.distributed.all_reduce(success, op=torch.distributed.ReduceOp.MIN)
             complete = bool(success.item())
         if publication_error is not None:

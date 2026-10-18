@@ -19,11 +19,16 @@ def _distributed_world():
 def _capture_rng_state(*, current_cuda_only=False):
     cuda = []
     if torch.cuda.is_available():
-        cuda = ([torch.cuda.get_rng_state()] if current_cuda_only
-                else torch.cuda.get_rng_state_all())
+        cuda = (
+            [torch.cuda.get_rng_state()]
+            if current_cuda_only
+            else torch.cuda.get_rng_state_all()
+        )
     state = {
-        "torch_cpu": torch.get_rng_state(), "torch_cuda": cuda,
-        "numpy": np.random.get_state(), "python": random.getstate(),
+        "torch_cpu": torch.get_rng_state(),
+        "torch_cuda": cuda,
+        "numpy": np.random.get_state(),
+        "python": random.getstate(),
     }
     if current_cuda_only:
         state["cuda_scope"] = "current_device"
@@ -129,6 +134,8 @@ class WorldModelTrainingBehavior(TrainingBehavior):
 
     def on_load_checkpoint(self, checkpoint):
         self._pending_rng = checkpoint.get("mot_rng_state")
-        if (getattr(self.context.trainer.datamodule, "checkpointable_sampling", False)
-                and self._pending_rng is None):
+        if (
+            getattr(self.context.trainer.datamodule, "checkpointable_sampling", False)
+            and self._pending_rng is None
+        ):
             raise ValueError("Exact MoT resume requires saved model RNG state")

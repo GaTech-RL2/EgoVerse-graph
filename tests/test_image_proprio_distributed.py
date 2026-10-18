@@ -17,13 +17,18 @@ from tests.test_pixel_prediction_diagnostics import batch_fixture, fake_model
 def _distributed_metrics_worker(rank, rendezvous, output):
     torch.set_num_threads(1)
     torch.distributed.init_process_group(
-        "gloo", init_method=f"file://{rendezvous}", rank=rank, world_size=2,
+        "gloo",
+        init_method=f"file://{rendezvous}",
+        rank=rank,
+        world_size=2,
         timeout=timedelta(seconds=30),
     )
     try:
         logged = {}
         model = SimpleNamespace(
-            device=torch.device("cpu"), global_step=4, global_rank=rank,
+            device=torch.device("cpu"),
+            global_step=4,
+            global_rank=rank,
             trainer=SimpleNamespace(sanity_checking=False),
             log=lambda key, value, **kwargs: logged.update({key: float(value)}),
         )
@@ -36,7 +41,10 @@ def _distributed_metrics_worker(rank, rendezvous, output):
             evaluator._validation_batches = (60, 40)[rank]
             # An unweighted average of rank means is wrong: (2 + 6)/2 != 5.
             evaluator.totals = {
-                "forecast": (torch.tensor((2.0, 18.0)[rank]), torch.tensor((1.0, 3.0)[rank]))
+                "forecast": (
+                    torch.tensor((2.0, 18.0)[rank]),
+                    torch.tensor((1.0, 3.0)[rank]),
+                )
             }
             if rank == 1:
                 evaluator.totals["completion"] = (torch.tensor(10.0), torch.tensor(2.0))
@@ -80,12 +88,20 @@ def _distributed_metrics_worker(rank, rendezvous, output):
         torch.distributed.destroy_process_group()
 
 
-@pytest.mark.skipif(not torch.distributed.is_gloo_available(), reason="Gloo unavailable")
+@pytest.mark.skipif(
+    not torch.distributed.is_gloo_available(), reason="Gloo unavailable"
+)
 def test_distributed_metrics_reduce_sums_and_global_completion(tmp_path):
-    mp.spawn(_distributed_metrics_worker, args=(str(tmp_path / "rendezvous"), str(tmp_path)),
-             nprocs=2, join=True)
+    mp.spawn(
+        _distributed_metrics_worker,
+        args=(str(tmp_path / "rendezvous"), str(tmp_path)),
+        nprocs=2,
+        join=True,
+    )
     for rank in range(2):
-        assert json.loads((tmp_path / f"rank-{rank}.json").read_text()) == {"status": "PASS"}
+        assert json.loads((tmp_path / f"rank-{rank}.json").read_text()) == {
+            "status": "PASS"
+        }
 
 
 def test_nonzero_rank_does_not_publish_rgb_artifacts(tmp_path):
@@ -93,8 +109,15 @@ def test_nonzero_rank_does_not_publish_rgb_artifacts(tmp_path):
     model, prediction, _ = fake_model(batch)
     model.global_rank = 1
     diagnostics = PixelPredictionDiagnostics(artifact_dir=tmp_path, log_wandb=False)
-    diagnostics.record(model=model, source="robot", item=batch["robot"],
-                       prediction=prediction, objective="visual_only", batch_idx=0, dataloader_idx=0)
+    diagnostics.record(
+        model=model,
+        source="robot",
+        item=batch["robot"],
+        prediction=prediction,
+        objective="visual_only",
+        batch_idx=0,
+        dataloader_idx=0,
+    )
     assert diagnostics.written == [] and not list(tmp_path.iterdir())
 
 

@@ -29,7 +29,7 @@ def example():
     torch.manual_seed(31)
     image = {
         "value": torch.randn(1, 6, 8),
-        "time": torch.tensor([[-1., -1., 0., 0., 2., 2.]]),
+        "time": torch.tensor([[-1.0, -1.0, 0.0, 0.0, 2.0, 2.0]]),
         "valid": torch.tensor([[True, True, False, True, True, True]]),
         "observed": torch.tensor([[True, True, False, False, False, False]]),
         "xy": torch.randn(1, 6, 2),
@@ -37,7 +37,7 @@ def example():
     }
     proprio = {
         "value": torch.randn(1, 4, 3),
-        "time": torch.tensor([[-1., -.5, 0., 2.]]),
+        "time": torch.tensor([[-1.0, -0.5, 0.0, 2.0]]),
         "valid": torch.ones(1, 4, dtype=torch.bool),
         "observed": torch.tensor([[True, False, True, False]]),
     }
@@ -46,15 +46,20 @@ def example():
 
 def forward(network, batch):
     return network(
-        batch, "gripper", batch["image"]["value"],
-        torch.zeros_like(batch["image"]["time"]), phase="A",
+        batch,
+        "gripper",
+        batch["image"]["value"],
+        torch.zeros_like(batch["image"]["time"]),
+        phase="A",
     )["image"]
 
 
 def test_native_default_matches_historical_attention_and_strict_state_loading():
     torch.manual_seed(8)
     default = model()
-    explicit = model(attention_backend="sdpa", attention_dtype="native", strict_fp32=True)
+    explicit = model(
+        attention_backend="sdpa", attention_dtype="native", strict_fp32=True
+    )
     historical_attention = model()
     explicit.load_state_dict(default.state_dict(), strict=True)
     historical_attention.load_state_dict(default.state_dict(), strict=True)
@@ -113,7 +118,9 @@ def test_two_stream_holes_have_no_label_leakage_or_invalid_value_gradients(dtype
     assert pose_grad[hidden].count_nonzero() == 0
     assert pose_grad[~hidden].abs().sum() > 0
     assert batch["image"]["value"].grad[~batch["image"]["valid"]].count_nonzero() == 0
-    assert all(torch.isfinite(p.grad).all() for p in network.parameters() if p.grad is not None)
+    assert all(
+        torch.isfinite(p.grad).all() for p in network.parameters() if p.grad is not None
+    )
     assert all(p.dtype == torch.float32 for p in network.parameters())
 
     # Removing invalid keys (including interior holes) preserves valid outputs.
@@ -124,8 +131,10 @@ def test_two_stream_holes_have_no_label_leakage_or_invalid_value_gradients(dtype
     ):
         compact[name] = {key: value[:, keep] for key, value in compact[name].items()}
     torch.testing.assert_close(
-        forward(network, compact), result[:, batch["image"]["valid"][0]],
-        rtol=1e-5, atol=1e-5,
+        forward(network, compact),
+        result[:, batch["image"]["valid"][0]],
+        rtol=1e-5,
+        atol=1e-5,
     )
 
 
@@ -144,25 +153,31 @@ def test_bf16_is_confined_to_attention_with_fp32_outputs_and_gradients(monkeypat
     result = forward(network, batch)
     assert result.dtype == torch.float32
     result.square().mean().backward()
-    expected_keys = torch.cat((batch["image"]["valid"], batch["proprio"]["observed"]), 1)
+    expected_keys = torch.cat(
+        (batch["image"]["valid"], batch["proprio"]["observed"]), 1
+    )
     assert len(calls) == len(network.blocks)
     for q_dtype, k_dtype, v_dtype, mask in calls:
         assert q_dtype == k_dtype == v_dtype == torch.bfloat16
         assert torch.equal(mask[:, 0, 0], expected_keys)
     assert all(
         p.grad.dtype == torch.float32 and torch.isfinite(p.grad).all()
-        for p in network.parameters() if p.grad is not None
+        for p in network.parameters()
+        if p.grad is not None
     )
 
 
 def test_unchunked_noncheckpointed_model_does_not_recompute(monkeypatch):
     def forbidden(*args, **kwargs):
-        raise AssertionError("Checkpointing must be disabled by both execution controls")
+        raise AssertionError(
+            "Checkpointing must be disabled by both execution controls"
+        )
 
     monkeypatch.setattr("egomimic.models.image_proprio.checkpoint", forbidden)
     monkeypatch.setattr("egomimic.models.world_model.checkpoint", forbidden)
     network = model(
-        attention_query_chunk_size=0, activation_checkpointing=False,
+        attention_query_chunk_size=0,
+        activation_checkpointing=False,
         attention_dtype="bfloat16",
     )
     forward(network, example()).square().mean().backward()
@@ -176,7 +191,11 @@ def test_flash4_model_does_not_silently_fallback_on_cpu():
 
 def test_legacy_dino_wrapper_keeps_native_execution_defaults():
     network = DinoProprioModel(
-        pose_dims={"gripper": 3}, image_dim=8, width=16, depth=1, heads=2,
+        pose_dims={"gripper": 3},
+        image_dim=8,
+        width=16,
+        depth=1,
+        heads=2,
     )
     assert network.attention_backend == "sdpa"
     assert network.attention_dtype == "native"
@@ -188,9 +207,9 @@ def test_legacy_dino_wrapper_keeps_native_execution_defaults():
 def test_generic_single_modality_block_has_valid_backward():
     block = MoTBlock(24, 3, modalities=("image",), attention_dtype="bfloat16")
     values = torch.randn(1, 5, 24, requires_grad=True)
-    times = torch.tensor([[-1., 0., .5, 1., 2.]])
+    times = torch.tensor([[-1.0, 0.0, 0.5, 1.0, 2.0]])
     valid = torch.tensor([[True, False, True, True, True]])
-    output, = block([values], [times], [valid])
+    (output,) = block([values], [times], [valid])
     assert len(block.qkv) == 1
     assert output.shape == values.shape and output.dtype == torch.float32
     assert output[~valid].count_nonzero() == 0

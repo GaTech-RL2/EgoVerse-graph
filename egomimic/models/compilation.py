@@ -16,7 +16,9 @@ def compile_region(function, *, mode="none", dynamic=False, backend="inductor"):
     if mode == "none":
         return function
     if torch._dynamo.config.suppress_errors:
-        raise RuntimeError("Compilation requires suppress_errors=False; no eager fallback")
+        raise RuntimeError(
+            "Compilation requires suppress_errors=False; no eager fallback"
+        )
     compiled = torch.compile(
         function, backend=backend, mode=mode, dynamic=dynamic, fullgraph=True
     )

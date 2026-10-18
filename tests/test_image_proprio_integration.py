@@ -165,7 +165,9 @@ def test_pixel_pipeline_optimization_validation_and_checkpoint(
     if images_only:
         assert trainer.optimizers[0].param_groups[0]["lr"] == 5e-5
         restored = ModelWrapper(
-            config_tree=cfg, evaluator=instantiate(cfg.evaluator), enable_grad_norm=False
+            config_tree=cfg,
+            evaluator=instantiate(cfg.evaluator),
+            enable_grad_norm=False,
         )
         restored.load_state_dict(checkpoint["state_dict"], strict=True)
         for key, value in restored.state_dict().items():

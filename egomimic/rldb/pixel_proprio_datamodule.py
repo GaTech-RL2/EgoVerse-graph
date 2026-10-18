@@ -140,6 +140,40 @@ class PixelProprioDataModule(WorldModelDataModule):
             if value is not None
         }
 
+    def preflight_configuration(self):
+        """Check both declared pixel samplers without reading a prepared cache."""
+        result = super().preflight_configuration()
+        for split, settings in (
+            ("train", self.settings),
+            ("val", self.settings | self.validation_settings),
+        ):
+            strategy = settings["sampling_strategy"]
+            if (
+                (strategy, settings["mode"])
+                not in (
+                    ("full_episode_uniform", "continuous"),
+                    ("discrete_window", "continuous"),
+                    ("discrete_window", "discrete"),
+                )
+                or settings.get("max_past_seconds") is not None
+                or settings.get("max_future_seconds") is not None
+            ):
+                raise ValueError(f"Invalid {split} pixel sampling strategy/time bounds")
+            for key, minimum in (("discrete_frames", 2), ("stride", 1)):
+                value = settings[key]
+                if type(value) is not int or value < minimum:
+                    raise ValueError(f"{split} {key} must be an integer >= {minimum}")
+            if (
+                settings["task"] == "direct_action"
+                and strategy != "full_episode_uniform"
+            ):
+                raise ValueError("Direct action requires full_episode_uniform sampling")
+        return result | {
+            "validation_sampling": dict(self.validation_settings),
+            "distributed_world_size": self.distributed_world_size,
+            "validation_batch_size": self.validation_batch_size,
+        }
+
     def setup(self, stage=None):
         if not self.datasets:
             verifier = ArtifactVerificationMemo()

@@ -19,6 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
+    "data/world_model/prepared": "world_model/continuous",
+    "model/world_model/base": "world_model/continuous",
+    "data/dino_proprio/prepared": "dino_proprio/visual_state",
+    "model/dino_proprio/base": "dino_proprio/visual_state",
+    "data/pixel_proprio/prepared": "pixel_proprio/video_continuous",
+    "model/pixel_proprio/base": "pixel_proprio/video_continuous",
+    "model/pixel_proprio/video": "pixel_proprio/video_continuous",
+    "model/pixel_proprio/readout": "pixel_proprio/readout_continuous",
     "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
     "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
     "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
@@ -186,6 +194,49 @@ def _compose_for_audit(path):
         cfg.hydra.runtime.output_dir = "/tmp/egoverse-config-audit"
         cfg.hydra.job.num = 0
         cfg.hydra.job.id = "config-audit"
+        # Prepared manifests and readout weights are launch-owned inputs. These
+        # synthetic paths resolve the offline graph only; no artifact is opened
+        # or certified here, and production YAML keeps its mandatory bindings.
+        data_target = OmegaConf.select(cfg, "data._target_")
+        prepared_manifests = {
+            "egomimic.rldb.world_model_datamodule.WorldModelDataModule": (
+                "/tmp/egoverse-config-audit/world-manifest.json"
+            ),
+            "egomimic.rldb.dino_proprio_datamodule.DinoProprioDataModule": (
+                "/tmp/egoverse-config-audit/dino-manifest.json"
+            ),
+            "egomimic.rldb.pixel_proprio_datamodule.PixelProprioDataModule": (
+                "/tmp/egoverse-config-audit/pixel-manifest.json"
+            ),
+        }
+        if data_target in prepared_manifests:
+            if OmegaConf.is_missing(cfg.data, "manifest_path"):
+                cfg.data.manifest_path = prepared_manifests[data_target]
+            if (
+                data_target
+                == "egomimic.rldb.dino_proprio_datamodule.DinoProprioDataModule"
+                and cfg.data.task == "direct_action"
+                and OmegaConf.select(cfg.data, "action_manifest_path") is None
+            ):
+                cfg.data.action_manifest_path = (
+                    "/tmp/egoverse-config-audit/dino-actions.json"
+                )
+        for stage in OmegaConf.select(cfg, "model.pipeline.stages", default=[]):
+            model = stage.get("model")
+            if (
+                OmegaConf.is_dict(model)
+                and model.get("_target_") == "egomimic.models.world_model.MoTWorldModel"
+                and OmegaConf.is_missing(model, "pose_dims")
+            ):
+                # Unverified structural width, not a prepared-data pose schema.
+                model.pose_dims = {"audit_measured_pose": 9}
+        if "pixel_readout" in cfg:
+            for key, value in {
+                "initial_weights": "/tmp/egoverse-config-audit/pixel-readout.pt",
+                "initial_weights_sha256": "0" * 64,
+            }.items():
+                if OmegaConf.is_missing(cfg.pixel_readout, key):
+                    cfg.pixel_readout[key] = value
         if "pi05" in cfg and OmegaConf.is_missing(cfg.pi05, "pretrained_weights"):
             cfg.pi05.pretrained_weights = "/tmp/egoverse-config-audit/pi-weights"
         if "e1" in cfg:

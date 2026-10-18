@@ -13,6 +13,36 @@ The original streams/ref/r72 and arc-bc-consolidated branches remain historical
 source records. Existing jobs and checkpoints keep their recorded source;
 this PR is not authorization to restart them or to bypass a training preflight.
 
+## Current stack (2026-10-18): one branch for the three YAM task runs
+
+`aidan/yam-tasks-consolidated-20261018` stacks on Aniketh's
+`codex/absolute-log-clock6` (PR #259) through a single-parent catch-up of that
+branch onto main `a525d738`, then the four consolidation commits above and the
+earbuds / towels / timing / M-D recipe commits that previously lived only in
+Phoenix worktrees. Every YAML composes under `scripts/audit_hydra_configs.py`
+and the 50 stationery recipes still match the pinned `51cd2bf8` contracts.
+
+All three tasks launch through the same one-GPU launcher; the leaf name is the
+only required input, and a relaunch changes just its W&B identity:
+
+```bash
+sbatch --export=ALL,ARM=<tag>,EXPERIMENT=yam_arc_grid/<leaf>,PY=<venv python>,OUT=<run root>,"EXTRA=logger.wandb.id=<leaf>_<stamp>_s42" \
+  --job-name=<tag> --cpus-per-task=8 --mem=160G scripts/e1/stationery_ft.sbatch
+```
+
+| Task | Frozen pool | Leaves under `experiment/yam_arc_grid/` | Small change per run |
+| --- | --- | --- | --- |
+| Stationery (sort, slow-pace 366) | `scripts/e1/stationery_slowpace366_manifest.json` | `bc_rl2_stattempo_slowpace366_{arcdur,arcvel}`, `..._arcdur_abstime`, `..._arcvel_nosmooth`, `..._m200_d033` twins, `..._arc_projection_{dur,vel}[_m200_d033]`, plus the hyb/tri/evt/ref r72 / r360 builder recipes | `logger.wandb.id`; pick the variant leaf (or `_base/m200_d033` for M 200 / D 0.33) |
+| Earbuds (`wireless_earbuds_updated`) | `scripts/e1/earbuds_updated_manifest.json` (refresh with `scripts/e1/build_earbuds_updated.py`) | `earbuds_updated_{time,arcdur,arcvel}_hpt300`, `earbuds_updated_arcdur_abstime_{m200,d03}_hpt300`, `earbuds_updated_arcvel_nosmooth_{m200,d03}_hpt300`; `earbuds_all_*_hpt300` for the unfrozen pool | `logger.wandb.id`; a new pool is one builder run plus the data leaf it writes |
+| Towels (`fold_towels`) | `scripts/e1/towels_plus74_20261015_manifest.json`, `scripts/e1/towels_20261011_manifest.json` | `towels_{new290plus74,since0924plus74}_{time,arcdur,arcvel}_hpt300` (HPT300, `_base/towels_hpt300`) | `logger.wandb.id`; `towels_pool` + the data leaf for another frozen pool |
+
+`e1.variant` selects the codec and its inference contract in every leaf
+(`time`, `arcdur`, `arcvel`, `..._abstime`, `..._nosmooth`, hybrid / tri / evt
+/ ref, projection); `e1.M` / `e1.D` are threaded through the data transforms,
+tokenizer and graph by `_base/m200_d033`. Aniketh's `experiment/abc_arc`
+recipes (RL2 organize cotrain, ABC + RL2 towels multistream and log clocks,
+ABC-DiT) stay launchable from the same tree.
+
 ## Configuration structure
 
 [ARC Projection](ARC_PROJECTION.md) adds duration and velocity model leaves

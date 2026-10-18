@@ -94,6 +94,11 @@ def test_declared_decoder_and_tick_prefix_use_the_training_codec(variant, mode):
     assert artifact["status"] == "ready", artifact.get("reason")
     decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
     assert isinstance(decoder, BimanualArcDecoder)
+    # The contract declares the training codec and fastest-stream termination on;
+    # with termination off the decode is the training codec's whole-token decode.
+    assert decoder.codec_source == "training" and decoder.first_stream == 1
+    assert type(decoder.codec) is type(codec(mode))
+    decoder.first_stream = 0
     c = codec(mode)
     tokens = c.transform({"actions_cartesian": chunk("delayed")})["actions_cartesian"]
     np.testing.assert_allclose(

@@ -204,6 +204,9 @@ class CartesianGraphAdapter:
             self.proprio_key: torch.tensor([proprio], dtype=torch.float32),
             "embodiment": torch.tensor([self.embodiment_id]),
             "annotations": [[self.prompt]],
+            # ABC-DiT reads its CLIP conditioning prompt from ``task``; HPT reads
+            # ``annotations``. Supplying both keeps the adapter graph-agnostic.
+            "task": [self.prompt],
         }
         for camera, key in self.camera_keys.items():
             bgr = obs.get(camera)
@@ -501,6 +504,7 @@ def load_graph_policy(config):
         adapter.proprio_key,
         "embodiment",
         "annotations",
+        "task",
         *adapter.camera_keys.values(),
     }
     missing = set(inference_graph["input"]["keys"]) - supplied_keys

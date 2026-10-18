@@ -4,6 +4,26 @@ Ported from aidan/shorts-extreme (55932d99), rollout-arc.py. This module has no
 robot I/O. Call it after action unnormalization, then apply the controller's
 camera/base frame transforms to the returned canonical poses.
 
+Codec source
+------------
+Every ARC token was written by a tokenizer, and the decoder must read it with
+the same one. ``codec`` names which copy:
+
+* ``"training"``: the current training tokenizers in ``egomimic.rldb.zarr``
+  (``e1_arc_tokenizer``, ``arc_projection_tokenizer``, ``arc_length_tokenizer``).
+  Bundles trained from this repository's recipes export their decoder with this
+  value; it is also the default, so an older bundle whose exported
+  ``inference-config.yaml`` predates the key keeps decoding with the codec that
+  trained it. Only this source knows the event (``e1_durevt`` / ``e1_stkevt``),
+  reference (``e1_durref`` / ``e1_stkref``) and projection layouts, absolute
+  waypoint timing (``duration_timing``) and the hybrid rotation budget.
+* ``"b1ecba63"``: the checkpoint-era copies under ``egomimic.robot.arc_codecs``
+  (the rl2-yam station snapshot that trained the 10-06 .. 10-12 hybrid / tri
+  bundles). Pin it explicitly in a model declaration whose weights were trained
+  by that code. The ``lab_pw_*`` layouts always decode with the vendored PR #193
+  codec and the ``cartesian_*`` layouts with the vendored station codec; current
+  interval tokens use :class:`BimanualIntervalArcDecoder` instead.
+
 Replay tempo
 ------------
 An arc token is a path plus a clock, so the path can be replayed at a tempo the
@@ -23,25 +43,28 @@ only, as a codec whose control period is scaled.
 
 Token shapes (M = resampled_vector_length):
   e1_dur / e1_logdur / e1_profile  (M, 16)  E1 arcdur / arclogdur / arcvel
+  e1_projection_dur / _vel         (M, 16)  the same clocks on a projected progress
+                                            coordinate (training codec only)
   e1_durhyb                        (M, 18)  E1 hybrid arcdur: independent per-arm
                                             translation and rotation clocks
   e1_profhyb                       (M, 18)  E1 arcvelhyb: the same streams, timed by
-                                            interval speeds (converted to durations
-                                            on the whole token before the cap)
+                                            interval speeds
   e1_durtri / e1_proftri           (M, 20)  E1 arcdurtri / arcveltri: the gripper is
                                             a third stream per arm with its own clock
+  e1_durevt / e1_stkevt            (M, 20)  Ryan's stream codec with an event-list
+                                            gripper (training codec only)
+  e1_durref / e1_stkref            (M, 24)  two clocks per arm over a rotation6d
+                                            layout (training codec only)
   lab                              (M+1, 14)
   cartesian_per_waypoint/duration  (2M, 14) station codec (Elmo's race-hybrid)
   lab_pw_wide                      (M, 28)  PR #193 lab codec, per-waypoint
   lab_pw_stacked                   (2M, 14)   velocity beside / under waypoints
-The two lab_pw layouts decode with the vendored PR #193 codec
-(``arc_length_tokenizer_pr193``) that trained the Elmo+Aidan lab runs, not the
-station's drifted copy.
 
 ``FirstStreamArcDecoder`` decodes the M28 hybrid multistream tokens (wide (M, 28),
 stacked (2M, 14), four-clock duration (M, 18)) with the vendored M28 codec
-(``arc_length_tokenizer_m28``) and executes them as validation scored them: the
-first N % of the waypoints, replanning when the first moving stream ends.
+(``arc_codecs.m28``), or with the current training codec when ``codec="training"``,
+and executes them as validation scored them: the first N % of the waypoints,
+replanning when the first moving stream ends.
 
 ``TimeChunkRetimer`` gives a time-indexed policy (no token, no decoder) the same
 control: its (H, 14) chunk is a path on a uniform clock, read through the same warp.
@@ -52,11 +75,28 @@ import numpy as np
 import torch
 from scipy.spatial.transform import Rotation, Slerp
 
-from egomimic.robot.arc_codecs import m28, pr193
-from egomimic.robot.arc_codecs.cartesian import (
-    TokenizeBimanualArcLengthCartesian,
+from egomimic.rldb.zarr import arc_length_tokenizer as training_cartesian
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    TokenizeBimanualArcLengthCartesian as TrainingCartesianCodec,
+)
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    bimanual_arc_token_shape,
     cumulative_arc_length,
 )
+from egomimic.rldb.zarr.arc_projection_tokenizer import (
+    PROJECTION_LAYOUTS,
+    PROJECTION_OFFSET_M,
+    TokenizeBimanualArcProjection,
+)
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    DEFAULT_ROTATION_DISTANCE_UNIT,
+    REF_ARM_LAYOUT,
+)
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    TokenizeBimanualArcLengthE1 as TrainingE1Codec,
+)
+from egomimic.robot.arc_codecs import m28, pr193
+from egomimic.robot.arc_codecs.cartesian import TokenizeBimanualArcLengthCartesian
 from egomimic.robot.arc_codecs.e1 import (
     ARM_LAYOUT,
     E1_HYBRID_DIM,
@@ -66,7 +106,9 @@ from egomimic.robot.arc_codecs.e1 import (
 )
 from egomimic.robot.arc_speed import ARC_SPEED_RANGE, validate_arc_speed  # noqa: F401
 
-E1_VELOCITY_MODE = {
+CODEC_SOURCES = ("training", "b1ecba63")
+# Layouts the checkpoint-era (b1ecba63) E1 copy can read, and the codec mode each is.
+STATION_E1_LAYOUTS = {
     "e1_dur": "dur",
     "e1_logdur": "logdur",
     "e1_profile": "profile",
@@ -74,6 +116,15 @@ E1_VELOCITY_MODE = {
     "e1_profhyb": "profhyb",
     "e1_durtri": "durtri",
     "e1_proftri": "proftri",
+}
+# Every E1 layout the current training codec can read.
+E1_VELOCITY_MODE = {
+    **PROJECTION_LAYOUTS,
+    **STATION_E1_LAYOUTS,
+    "e1_durevt": "durevt",
+    "e1_stkevt": "stkevt",
+    "e1_durref": "durref",
+    "e1_stkref": "stkref",
 }
 # Multi-clock E1 layouts and the duration-form codec mode each decodes with.
 # Speed-column layouts (profhyb / proftri) are converted to durations on the
@@ -85,12 +136,21 @@ HYBRID_LAYOUTS = {
     "e1_proftri": "durtri",
 }
 SPEED_COLUMN_LAYOUTS = {"e1_profhyb": False, "e1_proftri": True}  # layout -> tri
+# Layouts whose streams run on more than one clock per arm (the stack's name).
+E1_HYBRID_LAYOUTS = set(E1_VELOCITY_MODE) - {
+    "e1_dur",
+    "e1_logdur",
+    "e1_profile",
+    *PROJECTION_LAYOUTS,
+}
+REF_LAYOUTS = {"e1_durref", "e1_stkref"}
 ARC_CARTESIAN_VELOCITY_MODE = {
     "cartesian_per_waypoint": "per_waypoint",
     "cartesian_duration": "duration",
 }
 # velocity_layout of the PR #193 lab codec, per_waypoint timing.
 LAB_PW_LAYOUT = {"lab_pw_wide": "wide", "lab_pw_stacked": "stacked"}
+CHECKPOINT_ERA_LAYOUTS = {*ARC_CARTESIAN_VELOCITY_MODE, *LAB_PW_LAYOUT}
 ARC_TOKEN_LAYOUTS = (
     "lab",
     *E1_VELOCITY_MODE,
@@ -101,6 +161,26 @@ ARC_TOKEN_LAYOUTS = (
 # commanded speed does not step when an arm crosses ``hold_threshold``.
 RATE_RAMP_S = 0.2
 _WARP_OVERSAMPLE = 4  # warp grid points per control step
+
+
+def resolve_codec_source(token_layout, codec):
+    """The codec a layout decodes with; ``None`` picks the layout's natural source."""
+    if codec is not None and codec not in CODEC_SOURCES:
+        raise ValueError(f"codec must be one of {CODEC_SOURCES}, got {codec!r}")
+    if token_layout in CHECKPOINT_ERA_LAYOUTS:
+        if codec == "training":
+            raise ValueError(
+                f"{token_layout} is a checkpoint-era layout decoded by its vendored "
+                "codec; current interval tokens use BimanualIntervalArcDecoder"
+            )
+        return "b1ecba63"
+    source = "training" if codec is None else codec
+    if source == "b1ecba63" and token_layout not in (*STATION_E1_LAYOUTS, "lab"):
+        raise ValueError(
+            f"The b1ecba63 codec copy does not know {token_layout}; decode it with "
+            "codec='training'"
+        )
+    return source
 
 
 class BimanualArcRoundTrip:
@@ -319,10 +399,17 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         hold_threshold=0.05,
         execute_percent=None,
         first_stream=0,
+        codec=None,
+        projection_offset_m=None,
+        projection_min_speed=1e-6,
+        duration_timing="delta",
+        speed_floors=None,
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
         self.token_layout, self.dt = token_layout, float(dt)
+        self.codec_source = resolve_codec_source(token_layout, codec)
+        training = self.codec_source == "training"
         self.holds = (
             token_layout in E1_VELOCITY_MODE
         )  # only a per-waypoint clock separates holds
@@ -335,29 +422,28 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
             raise ValueError("Invalid ARC distance, time, horizon or waypoint count")
+        if duration_timing != "delta" and (token_layout != "e1_dur" or not training):
+            raise ValueError(
+                "Absolute waypoint timing requires token_layout='e1_dur' and the "
+                "training codec"
+            )
+        projection = token_layout in PROJECTION_LAYOUTS
+        if projection_offset_m is not None and not projection:
+            raise ValueError("projection_offset_m requires an ARC Projection layout")
+        if speed_floors is not None and not (
+            training and token_layout in E1_VELOCITY_MODE
+        ):
+            raise ValueError("speed_floors apply to the training E1 codec only")
         if execute_percent is None:
             # 50 % unless M has no whole 50 % prefix; the policy then sets it.
             valid = self.M * 50 % 100 == 0 and self.M * 50 // 100 >= 2
             execute_percent = 50 if valid else 100
         self.execute_percent = execute_percent
-        if token_layout == "lab":
-            self.shape = (self.M + 1, 14)
-        elif token_layout in ARC_CARTESIAN_VELOCITY_MODE:
-            self.shape = (2 * self.M, 14)
-        elif token_layout in LAB_PW_LAYOUT:
-            self.shape = pr193.bimanual_arc_token_shape(
-                self.M, "per_waypoint", LAB_PW_LAYOUT[token_layout]
-            )
-        elif token_layout in HYBRID_LAYOUTS:
-            tri = HYBRID_LAYOUTS[token_layout] == "durtri"
-            self.shape = (self.M, E1_TRI_DIM if tri else E1_HYBRID_DIM)
-        else:
-            self.shape = (self.M, 16)
         kwargs = dict(
             min_distance_unit=min_distance_unit, resampled_vector_length=self.M, dt=dt
         )
         self._uniform_codec = None  # (speed, codec) for a uniform speed-up
-        self._uniform_cls = TokenizeBimanualArcLengthCartesian
+        self._uniform_cls = self._uniform_kwargs = None
         if token_layout in LAB_PW_LAYOUT:
             if rotation_distance_unit is not None or arc_chunking_mode is not None:
                 raise ValueError("lab_pw layouts are the plain (no R) PR #193 codec")
@@ -368,14 +454,68 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
             self._uniform_kwargs = kwargs
             self._uniform_cls = pr193.TokenizeBimanualArcLengthCartesian
             self.codec = self._uniform_cls(**kwargs)
-        elif token_layout in E1_VELOCITY_MODE:
-            self.codec = TokenizeBimanualArcLengthE1(
-                **kwargs,
-                velocity_norm="path",
-                velocity_mode=HYBRID_LAYOUTS.get(
-                    token_layout, E1_VELOCITY_MODE[token_layout]
-                ),
+            self.shape = pr193.bimanual_arc_token_shape(
+                self.M, "per_waypoint", LAB_PW_LAYOUT[token_layout]
             )
+        elif token_layout in E1_VELOCITY_MODE:
+            if arc_chunking_mode is not None:
+                raise ValueError("arc_chunking_mode applies to the cartesian layouts")
+            if token_layout in E1_HYBRID_LAYOUTS:
+                rotation_distance_unit = float(
+                    DEFAULT_ROTATION_DISTANCE_UNIT
+                    if rotation_distance_unit is None
+                    else rotation_distance_unit
+                )
+                if (
+                    not np.isfinite(rotation_distance_unit)
+                    or rotation_distance_unit <= 0
+                ):
+                    raise ValueError(
+                        "Hybrid ARC rotation distance must be finite and positive"
+                    )
+            elif rotation_distance_unit is not None:
+                raise ValueError(
+                    "A rotation distance requires an E1 hybrid token layout"
+                )
+            if training:
+                # The rotation budget only shapes tokenize; the training codec
+                # records it, the b1ecba63 copy reads R as the station's
+                # multistream hybrid and must not receive it.
+                if token_layout in E1_HYBRID_LAYOUTS:
+                    kwargs["rotation_distance_unit"] = rotation_distance_unit
+                kwargs.update(
+                    velocity_norm="path",
+                    velocity_mode=E1_VELOCITY_MODE[token_layout],
+                    duration_timing=duration_timing,
+                )
+                if speed_floors is not None:
+                    kwargs["speed_floors"] = speed_floors
+                if projection:
+                    self.codec = TokenizeBimanualArcProjection(
+                        **kwargs,
+                        projection_offset_m=PROJECTION_OFFSET_M
+                        if projection_offset_m is None
+                        else projection_offset_m,
+                        min_speed=projection_min_speed,
+                    )
+                else:
+                    self.codec = TrainingE1Codec(**kwargs)
+                self.shape = (self.M, self.codec.token_dim)
+            else:
+                # The checkpoint-era copy decodes speed columns as durations: the
+                # decoder converts them on the whole token first (see _decode).
+                self.codec = TokenizeBimanualArcLengthE1(
+                    **kwargs,
+                    velocity_norm="path",
+                    velocity_mode=HYBRID_LAYOUTS.get(
+                        token_layout, STATION_E1_LAYOUTS[token_layout]
+                    ),
+                )
+                if token_layout in HYBRID_LAYOUTS:
+                    tri = HYBRID_LAYOUTS[token_layout] == "durtri"
+                    self.shape = (self.M, E1_TRI_DIM if tri else E1_HYBRID_DIM)
+                else:
+                    self.shape = (self.M, 16)
         else:
             if token_layout in ARC_CARTESIAN_VELOCITY_MODE:
                 kwargs.update(
@@ -383,8 +523,21 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
                     rotation_distance_unit=rotation_distance_unit,
                     arc_chunking_mode=arc_chunking_mode,
                 )
+                self.shape = (2 * self.M, 14)
+                self._uniform_cls = TokenizeBimanualArcLengthCartesian
+            else:  # lab: the (M+1, 14) mean-speed token
+                if rotation_distance_unit is not None or arc_chunking_mode is not None:
+                    raise ValueError(
+                        "The lab layout has no rotation budget or chunking mode"
+                    )
+                self.shape = (self.M + 1, 14)
+                self._uniform_cls = (
+                    TrainingCartesianCodec
+                    if training
+                    else TokenizeBimanualArcLengthCartesian
+                )
             self._uniform_kwargs = kwargs
-            self.codec = TokenizeBimanualArcLengthCartesian(**kwargs)
+            self.codec = self._uniform_cls(**kwargs)
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):
@@ -412,9 +565,13 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         ``replan_every`` decides the replan, as before this mode existed.
         """
         h = self.action_horizon
-        if self.token_layout in SPEED_COLUMN_LAYOUTS:
+        if (
+            self.codec_source == "b1ecba63"
+            and self.token_layout in SPEED_COLUMN_LAYOUTS
+        ):
             # Speeds -> durations on the WHOLE token, with the training decode's
             # hold time dt * (H - 1), so a held stream keeps its share once capped.
+            # (The training codec does this conversion inside its own decode.)
             row = speed_columns_to_durations(
                 row,
                 tri=SPEED_COLUMN_LAYOUTS[self.token_layout],
@@ -424,10 +581,7 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         token = self._cap(row) if self.first_stream else row
         ends = self._stream_ends(token)
         if self.token_layout in E1_VELOCITY_MODE:
-            clocks = self.codec.clock_at_waypoints(token)
-            cums = [
-                cumulative_arc_length(token[:, off : off + 3]) for off, *_ in ARM_LAYOUT
-            ]
+            clocks, cums = self._translation_clocks(token)
             times, hold_fraction = self._warp(clocks, cums, max(ends, default=0.0))
             if self.speed == 1.0 and self.hold_speed == 1.0:
                 decoded = self.codec.detokenize(token, action_horizon=h)
@@ -467,6 +621,25 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
             )
         return decoded
 
+    def _arm_xyz(self, token, k):
+        """One arm's waypoint positions, whatever the layout's column order."""
+        layout = REF_ARM_LAYOUT if self.token_layout in REF_LAYOUTS else ARM_LAYOUT
+        offset = layout[k][0]
+        return token[:, offset : offset + 3]
+
+    def _translation_clocks(self, token):
+        """Per arm, the translation clock at the waypoints and the cumulative path
+        length there: what the tempo warp separates holds from motion with."""
+        if self.codec_source == "training":
+            clocks = [
+                arm["translation"]
+                for arm in self.codec.stream_clocks(token, self.action_horizon)
+            ]
+        else:
+            clocks = self.codec.clock_at_waypoints(token)
+        cums = [cumulative_arc_length(self._arm_xyz(token, k)) for k in range(2)]
+        return clocks, cums
+
     def _cap(self, row):
         """The first ``execute_percent`` % of the waypoints, as a token of the same
         layout whose clocks equal the full token's clocks on those waypoints."""
@@ -491,17 +664,27 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
             token[-1, 14:] = row[-1, 14:]  # row M-1 is each stream's start delay
         elif layout == "e1_logdur":
             # Row 0 owns the whole token's time: give the prefix exactly its share.
-            for k, (clock, (off, *_)) in enumerate(
-                zip(self.codec.clock_at_waypoints(row), ARM_LAYOUT)
-            ):
-                span = float(cumulative_arc_length(row[:n, off : off + 3])[-1])
+            for k, clock in enumerate(self.codec.clock_at_waypoints(row)):
+                span = float(cumulative_arc_length(self._progress(row[:n], k))[-1])
                 if span > 1e-9 and clock[n - 1] > 1e-12:
                     token[0, 14 + k] = np.log(clock[n - 1] / span)
+        # Event / reference layouts repeat their last interval row and have no start
+        # delay, and absolute waypoint times are already per row: the prefix stands.
         return token
+
+    def _progress(self, token, k):
+        """The coordinate whose arc length the single-clock E1 codecs measure progress by."""
+        off, ypr = ARM_LAYOUT[k][0], ARM_LAYOUT[k][1]
+        xyz = token[:, off : off + 3]
+        if self.codec_source == "training":
+            return self.codec.progress_coordinates(xyz, token[:, ypr : ypr + 3])
+        return xyz
 
     def _stream_ends(self, token):
         """Seconds each MOVING stream takes to reach its last capped waypoint."""
         h, layout = self.action_horizon, self.token_layout
+        if layout in E1_VELOCITY_MODE and self.codec_source == "training":
+            return self.codec.stream_ends(token, h)
         if layout in HYBRID_LAYOUTS:
             return self.codec.hybrid_stream_ends(token)  # four streams, six for tri
         if layout in E1_VELOCITY_MODE:
@@ -600,6 +783,8 @@ class FirstStreamArcDecoder(ChunkTermination):
 
     ``execute_percent`` and ``first_stream`` are dashboard controls; with
     ``first_stream`` 0 the whole token is decoded and ``replan_every`` decides.
+    ``codec`` is ``"m28"`` (the vendored 99be4af0 copy that trained the station's
+    multistream bundles) or ``"training"`` (the current ``arc_length_tokenizer``).
     """
 
     def __init__(
@@ -614,23 +799,28 @@ class FirstStreamArcDecoder(ChunkTermination):
         arc_chunking_mode="multistream",
         execute_percent=50,
         first_stream=1,
+        codec="m28",
     ):
         if arc_chunking_mode != "multistream":
             raise ValueError("FirstStreamArcDecoder executes multistream tokens only")
         if rotation_distance_unit is None:
             raise ValueError("FirstStreamArcDecoder needs the hybrid rotation budget R")
+        if codec not in ("m28", "training"):
+            raise ValueError("codec must be 'm28' or 'training'")
+        self.codec_source = codec
+        self._lib = m28 if codec == "m28" else training_cartesian
         self.M, self.dt = int(resampled_vector_length), float(dt)
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or not self.dt > 0:
             raise ValueError("Invalid ARC horizon, waypoint count or control period")
-        self.velocity_mode = m28.validate_bimanual_velocity_mode(velocity_mode)
+        self.velocity_mode = self._lib.validate_bimanual_velocity_mode(velocity_mode)
         if self.velocity_mode not in ("per_waypoint", "duration"):
             raise ValueError("First-stream execution needs per-interval timing")
-        self.shape = m28.bimanual_arc_token_shape(
+        self.shape = self._lib.bimanual_arc_token_shape(
             self.M, self.velocity_mode, velocity_layout
         )
         # Tokens are restacked once in _decode, so the codec reads the stacked form.
-        self.codec = m28.TokenizeBimanualArcLengthCartesian(
+        self.codec = self._lib.TokenizeBimanualArcLengthCartesian(
             min_distance_unit=min_distance_unit,
             rotation_distance_unit=rotation_distance_unit,
             resampled_vector_length=self.M,
@@ -670,7 +860,7 @@ class FirstStreamArcDecoder(ChunkTermination):
                     else slice(offset, offset + 3)
                 )
                 travel = (
-                    np.diff(m28.cumulative_rotation_length(waypoints[:, columns]))
+                    np.diff(self._lib.cumulative_rotation_length(waypoints[:, columns]))
                     if rotation
                     else np.linalg.norm(np.diff(waypoints[:, columns], axis=0), axis=1)
                 )
@@ -687,7 +877,7 @@ class FirstStreamArcDecoder(ChunkTermination):
 
     def _decode(self, row):
         h = self.action_horizon
-        token = m28.stack_arc_token(row)
+        token = self._lib.stack_arc_token(row)
         if not self.first_stream:
             # Original method: the whole token, and replan_every decides the replan.
             self.last_stats = {
@@ -797,7 +987,7 @@ class TimeChunkRetimer(ReplayTempo):
 
 
 class BimanualIntervalArcDecoder:
-    """Decode the declared 2M-row interval layout; mean timing stays diagnostic."""
+    """Decode an explicitly declared interval layout using the training codec."""
 
     def __init__(
         self,
@@ -806,6 +996,9 @@ class BimanualIntervalArcDecoder:
         resampled_vector_length,
         dt,
         action_horizon,
+        velocity_layout="stacked",
+        rotation_distance_unit=None,
+        arc_chunking_mode=None,
     ):
         if velocity_mode not in {"per_waypoint", "duration"}:
             raise ValueError(
@@ -817,16 +1010,17 @@ class BimanualIntervalArcDecoder:
             raise ValueError("Invalid ARC output horizon or waypoint count")
         # Preserve the existing main contract. Checkpoint-era extensions above
         # use explicitly pinned compatibility codecs, not this training codec.
-        from egomimic.rldb.zarr.arc_length_tokenizer import (
-            TokenizeBimanualArcLengthCartesian as IntervalCodec,
-        )
-
-        self.codec = IntervalCodec(
+        self.codec = TrainingCartesianCodec(
             min_distance_unit=min_distance_unit,
             resampled_vector_length=self.M,
             dt=dt,
             velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
+            rotation_distance_unit=rotation_distance_unit,
+            arc_chunking_mode=arc_chunking_mode,
         )
+
+        self.shape = bimanual_arc_token_shape(self.M, velocity_mode, velocity_layout)
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):
@@ -834,10 +1028,12 @@ class BimanualIntervalArcDecoder:
         values = np.asarray(native_tokens)
         if (
             values.ndim != 3
-            or values.shape[1:] != (2 * self.M, 14)
+            or values.shape[1:] != self.shape
             or not np.isfinite(values).all()
         ):
-            raise ValueError(f"Expected finite (B,{2 * self.M},14) interval ARC tokens")
+            raise ValueError(
+                f"Expected finite (B,{self.shape[0]},{self.shape[1]}) interval ARC tokens"
+            )
         return np.stack(
             [
                 self.codec.detokenize(row, action_horizon=self.action_horizon)
@@ -857,10 +1053,28 @@ def main():
     parser.add_argument(
         "--arc-token-layout", choices=ARC_TOKEN_LAYOUTS, default="e1_dur"
     )
+    parser.add_argument(
+        "--arc-codec",
+        choices=CODEC_SOURCES,
+        default=None,
+        help="training (current tokenizers, the default) or b1ecba63 (station copy)",
+    )
     parser.add_argument("--arc-min-distance-unit", type=float, default=0.4)
     parser.add_argument("--arc-resampled-vector-length", type=int, default=100)
     parser.add_argument("--arc-dt", type=float, default=1 / 30)
     parser.add_argument("--arc-rollout-horizon", type=int, default=100)
+    parser.add_argument("--arc-rotation-distance-unit", type=float, default=None)
+    parser.add_argument(
+        "--arc-duration-timing", choices=("delta", "absolute"), default="delta"
+    )
+    parser.add_argument(
+        "--arc-first-stream",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="1 caps the token and ends the chunk at the first moving stream",
+    )
+    parser.add_argument("--arc-execute-percent", type=int, default=None)
     parser.add_argument(
         "--arc-speed",
         type=float,
@@ -886,7 +1100,12 @@ def main():
         args.arc_resampled_vector_length,
         args.arc_dt,
         args.arc_rollout_horizon,
+        rotation_distance_unit=args.arc_rotation_distance_unit,
         hold_threshold=args.arc_hold_threshold,
+        execute_percent=args.arc_execute_percent,
+        first_stream=args.arc_first_stream,
+        codec=args.arc_codec,
+        duration_timing=args.arc_duration_timing,
     )
     decoder.set_speed(args.arc_speed, args.arc_hold_speed)
     result = decoder(np.load(args.tokens, allow_pickle=False))

@@ -55,6 +55,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -70,6 +73,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcvelevt:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -125,6 +132,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -140,3 +150,7 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}

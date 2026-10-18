@@ -54,7 +54,12 @@ inference_contracts:
         - ${model.action_token_dim}
         adapter:
           _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
-          decoder: null
+          # The time chunk is a path on a uniform clock: the retimer replays it at
+          # the dashboard's replay / hold tempo and returns it untouched at 100 %.
+          decoder:
+            _target_: egomimic.robot.arc_decoder.TimeChunkRetimer
+            action_horizon: ${model.action_horizon}
+            dt: 0.03333333333333333
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -81,6 +86,8 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcmean:
     status: unsupported
     reason: Chunk-mean ARC timing cannot reconstruct dwell or interval durations. Retain this recipe for
@@ -133,6 +140,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -148,6 +158,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcdur:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -196,6 +210,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -211,6 +228,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arclogdur:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -259,6 +280,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -274,6 +298,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcdurhyb:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -326,6 +354,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -341,6 +372,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcvelhyb:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -393,6 +428,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -408,6 +446,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcdurtri:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -460,6 +502,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -475,6 +520,10 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
   arcveltri:
     input: ${model.inference_contracts.time.input}
     native_output:
@@ -527,6 +576,9 @@ inference_contracts:
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333
             action_horizon: ${e1.time_rows}
+            codec: training
+            first_stream: 1
+            execute_percent: 50
           rotation_mode: euler
           action_frame: eef_frame
         overrides:
@@ -542,6 +594,63 @@ inference_contracts:
             target:
               kind: policy_attribute
               attribute_path: replan_every
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}
+# Rollout-only decoder settings exposed on the station dashboard. They bind to
+# the profile's declared decoder (kind decoder_attribute): fastest-stream chunk
+# termination and its waypoint cap, and the replay tempo of moving phases and
+# holds. None of them changes what is trained; the open-loop evaluator never
+# reads them.
+arc_decoder_controls:
+  multistream_fastest_stream:
+    label: Fastest-stream termination
+    description: 1 ends the chunk when the first moving stream reaches its waypoint cap; 0 executes
+      the fixed prefix of Actions before replanning.
+    type: integer
+    min: 0
+    max: 1
+    step: 1
+    default: 1
+    target:
+      kind: decoder_attribute
+      attribute_path: first_stream
+  execute_waypoint_percent:
+    label: Execute first % of waypoints
+    description: Waypoint cap while fastest-stream termination is on; must be a whole prefix of
+      the token's waypoints.
+    type: integer
+    min: 2
+    max: 100
+    step: 1
+    default: 50
+    target:
+      kind: decoder_attribute
+      attribute_path: execute_percent
+  arc_speed_percent:
+    label: Replay speed (%)
+    description: Decoder replay tempo of the moving phases, not a learned speed condition.
+    type: integer
+    min: 25
+    max: 400
+    step: 5
+    default: 100
+    target:
+      kind: decoder_attribute
+      attribute_path: speed_percent
+  arc_hold_speed_percent:
+    label: Hold speed (%)
+    description: Replay tempo of holds (grasp dwell, placement); 100 preserves the demonstrated
+      hold time while the moving phases change tempo.
+    type: integer
+    min: 25
+    max: 400
+    step: 5
+    default: 100
+    target:
+      kind: decoder_attribute
+      attribute_path: hold_speed_percent
 inference: ${model.inference_contracts.${e1.variant}}
 source_identities:
   human: 3

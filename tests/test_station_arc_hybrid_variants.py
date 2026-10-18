@@ -1,4 +1,4 @@
-"""Decode-only E1 multi-clock variants on the station: arcvelhyb (profhyb), arcdurtri / arcveltri (tri)."""
+"""Decode-only E1 multi-clock variants on the station (b1ecba63 codec copy): arcvelhyb (profhyb), arcdurtri / arcveltri (tri)."""
 
 import numpy as np
 import pytest
@@ -63,10 +63,10 @@ def test_speed_columns_decode_exactly_like_the_durations_they_encode(tri, first_
         ("e1_durtri", "e1_proftri") if tri else ("e1_durhyb", "e1_profhyb")
     )
     by_duration = BimanualArcDecoder(
-        dur_layout, 0.4, M, DT, H, first_stream=first_stream
+        dur_layout, 0.4, M, DT, H, first_stream=first_stream, codec="b1ecba63"
     )
     by_speed = BimanualArcDecoder(
-        speed_layout, 0.4, M, DT, H, first_stream=first_stream
+        speed_layout, 0.4, M, DT, H, first_stream=first_stream, codec="b1ecba63"
     )
     assert by_speed.shape == (M, 20 if tri else 18)
     np.testing.assert_allclose(
@@ -80,9 +80,9 @@ def test_speed_columns_decode_exactly_like_the_durations_they_encode(tri, first_
 
 
 def test_tri_gripper_keeps_its_own_clock_and_start_delay():
-    decoded = BimanualArcDecoder("e1_durtri", 0.4, M, DT, H, first_stream=0)(
-        _hyb_token(tri=True)
-    )[0]
+    decoded = BimanualArcDecoder(
+        "e1_durtri", 0.4, M, DT, H, first_stream=0, codec="b1ecba63"
+    )(_hyb_token(tri=True))[0]
     t = DT * np.arange(H)
     grip = decoded[:, 6]
     assert np.all(
@@ -93,9 +93,9 @@ def test_tri_gripper_keeps_its_own_clock_and_start_delay():
     )  # half closed mid-motion
     assert np.all(grip[t > 1.51] == pytest.approx(0.0, abs=1e-9))  # closed by 1.5 s
     # durhyb rides translation: the same gripper closes over the 1.0 s translation instead
-    hyb = BimanualArcDecoder("e1_durhyb", 0.4, M, DT, H, first_stream=0)(_hyb_token())[
-        0
-    ]
+    hyb = BimanualArcDecoder(
+        "e1_durhyb", 0.4, M, DT, H, first_stream=0, codec="b1ecba63"
+    )(_hyb_token())[0]
     assert hyb[np.searchsorted(t, 0.5), 6] == pytest.approx(0.5, abs=0.05)
 
 
@@ -106,7 +106,9 @@ def test_an_idle_tri_gripper_does_not_end_a_fastest_stream_chunk():
         0, 0.002, M
     )  # a held gripper, as a prediction would show it
     token[:, 18] = np.abs(rng.normal(0, 1e-4, M))  # its near-zero (hold-coded) column
-    decoder = BimanualArcDecoder("e1_durtri", 0.4, M, DT, H, first_stream=1)
+    decoder = BimanualArcDecoder(
+        "e1_durtri", 0.4, M, DT, H, first_stream=1, codec="b1ecba63"
+    )
     decoder(token)
     stats = decoder.last_stats
     assert len(stats["stream_ends_s"]) == 2  # left translation + left rotation only
@@ -117,7 +119,11 @@ def test_an_idle_tri_gripper_does_not_end_a_fastest_stream_chunk():
 
 def test_tri_speed_up_scales_every_stream():
     token = _hyb_token(tri=True)
-    slow = BimanualArcDecoder("e1_durtri", 0.4, M, DT, 2 * H, first_stream=0)(token)[0]
-    fast_decoder = BimanualArcDecoder("e1_durtri", 0.4, M, DT, H, first_stream=0)
+    slow = BimanualArcDecoder(
+        "e1_durtri", 0.4, M, DT, 2 * H, first_stream=0, codec="b1ecba63"
+    )(token)[0]
+    fast_decoder = BimanualArcDecoder(
+        "e1_durtri", 0.4, M, DT, H, first_stream=0, codec="b1ecba63"
+    )
     fast_decoder.set_speed(2.0)
     np.testing.assert_allclose(fast_decoder(token)[0], slow[::2][:H], atol=1e-9)

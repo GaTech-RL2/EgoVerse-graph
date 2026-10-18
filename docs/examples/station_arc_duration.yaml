@@ -38,6 +38,9 @@ profiles:
       decoder:
         _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
         token_layout: e1_dur
+        # The checkpoint-era codec copy that trained this bundle (source_revision);
+        # bundles trained from this repository's recipes use codec: training.
+        codec: b1ecba63
         min_distance_unit: 0.4
         resampled_vector_length: 100
         dt: 0.03333333333333333

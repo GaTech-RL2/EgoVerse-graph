@@ -1,4 +1,4 @@
-"""Station decode of the Elmo+Aidan token shapes: hybrid arcdur (100, 18) and the
+"""Station decode of the Elmo+Aidan token shapes with the b1ecba63 codec copy: hybrid arcdur (100, 18) and the
 PR #193 lab per-waypoint wide (100, 28) / stacked (200, 14) layouts."""
 
 import numpy as np
@@ -155,7 +155,7 @@ def test_hybrid_decoder_shape_and_valid_steps_cover_the_late_turn():
     token[:, 3] = np.linspace(0.0, 1.0, M)
     token[: M - 1, 16] = 1.0 / (M - 1)
     token[M - 1, 16] = 1.0  # turn runs 1.0 .. 2.0 s, translation ends at 0.5 s
-    decoder = BimanualArcDecoder("e1_durhyb", 0.4, M, DT, 100)
+    decoder = BimanualArcDecoder("e1_durhyb", 0.4, M, DT, 100, codec="b1ecba63")
     assert decoder.shape == (M, 18)
     out = decoder(token)
     assert out.shape == (1, 100, 14)

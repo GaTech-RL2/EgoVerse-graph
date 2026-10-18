@@ -183,6 +183,10 @@ def test_recipe_training_evaluator_and_rollout_use_identical_projection(variant,
     decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
     evaluator = instantiate(cfg.evaluator)
     assert isinstance(decoder, BimanualArcDecoder)
+    # Declared with the training codec and fastest-stream termination; the
+    # whole-token comparison below turns termination off.
+    assert decoder.codec_source == "training" and decoder.first_stream == 1
+    decoder.first_stream = 0
     assert evaluator.tick_prefix
     assert evaluator.arc_video_trajectory_cap_mode == "execution_horizon"
     actions = rotation_chunk(rate=0.7)

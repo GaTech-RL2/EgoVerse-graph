@@ -1,4 +1,3 @@
-
 """Hardware-free checks for the YAM rollout browser view and its overlay."""
 
 from __future__ import annotations

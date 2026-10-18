@@ -16,6 +16,26 @@ REPO = Path(__file__).resolve().parents[2]
 CONFIGS = REPO / "egomimic/hydra_configs"
 
 
+# Rollout-only decoder settings and the dashboard controls bound to them. They were
+# added to the model contracts on 2026-10-18 (fastest-stream termination, replay
+# tempo); they do not change what is trained, so they stay out of the fingerprint.
+DECODER_RUNTIME_KEYS = {
+    "codec",
+    "first_stream",
+    "execute_percent",
+    "speed",
+    "hold_speed",
+    "hold_threshold",
+}
+TIME_RETIMER = "egomimic.robot.arc_decoder.TimeChunkRetimer"
+DECODER_RUNTIME_CONTROLS = {
+    "multistream_fastest_stream",
+    "execute_waypoint_percent",
+    "arc_speed_percent",
+    "arc_hold_speed_percent",
+}
+
+
 def canonical_contract(value, path=()):
     if isinstance(value, list):
         return [canonical_contract(v, path) for v in value]
@@ -40,6 +60,22 @@ def canonical_contract(value, path=()):
             continue  # Already resolved into norm_stats.fixed_ranges.
         if not path and key == "eval_logger_enabled" and child is False:
             continue  # Retired by main; not used by training.
+        if path == ("model",) and key == "arc_decoder_controls":
+            continue  # Shared rollout control declarations (2026-10-18), deploy-side only.
+        if path[-2:] == ("adapter", "decoder") and key in DECODER_RUNTIME_KEYS:
+            continue  # Replay tempo / chunk termination of the station decoder, not training.
+        if (
+            path[-1:] == ("adapter",)
+            and key == "decoder"
+            and isinstance(child, dict)
+            and child.get("_target_") == TIME_RETIMER
+        ):
+            # The time contract's replay-tempo wrapper (2026-10-18) is the identity
+            # at 100 %; these recipes were recorded with no decoder at all.
+            result[key] = None
+            continue
+        if path[-1:] == ("overrides",) and key in DECODER_RUNTIME_CONTROLS:
+            continue  # Dashboard controls bound to that decoder, added after these runs.
         if path == ("evaluator",) and (
             (
                 key

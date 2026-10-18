@@ -28,26 +28,33 @@ explicit smoke step overrides, and deferred stage2 budgets remain unchanged.
 The allocation profile `+pixel_execution=ddp4` runs each pilot on four GPUs on
 one node. Its reusable default is batch 1 per GPU; the selected full runs use
 the explicit override `data.batch_size=8`, retaining global batch 32 with no
-gradient accumulation or learning-rate scaling. Each arm uses its own four-GPU
-process group; its scheduler allocation and node are recorded independently.
-DDP uses one image expert with all trainable parameters used; automatic
+gradient accumulation or learning-rate scaling. Two separate four-GPU runs share the allocated eight-GPU
+node. DDP uses one image expert with all trainable parameters used; automatic
 sampler replacement is disabled because the pixel adapter owns sharding.
 The explicit TorchElastic environment reads ranks from each run's `torchrun`
 process group, while Slurm IDs remain available for artifact provenance.
 Validation covers two fixed anchors from each of the 50 held-out
-episodes every 250 steps, with identical 16-timestamp evaluation grids in both arms.
+episodes every 20,000 optimizer steps, with identical 16-timestamp evaluation grids in both arms.
 The 100 global validation batches are divided into four contiguous shards of
 25 without padding or duplicated examples. Sampling noise uses global batch
 IDs so rank assignment does not change it. Metrics sum squared errors and
 valid-target counts across ranks before dividing; RGB diagnostics are written
 only by rank zero, whose shard contains both forecast and completion examples.
-All scheduled checkpoints and `last` are retained: 1,200 scheduled checkpoints
-per run at steps 250 through 300,000, including the 100,000-step review point.
+Retain the 20,000-step checkpoints: a fresh run produces 15 scheduled
+checkpoints through step 300,000, including the 100,000-step review point.
+`save_last: link` makes `last.ckpt` a symbolic link to the latest saved
+checkpoint on the local filesystem, including mounted NFS paths. Removing
+older checkpoints outside these milestones is a separate operation after
+verifying the resumed trainer and retained checkpoints; this configuration
+does not delete existing files. Changing these defaults does not update an
+active trainer. A resumed run must explicitly select the new validation and
+checkpoint intervals and linked `last` while restoring its optimizer, step,
+sampler, and per-rank RNG states.
 FP32 weights and two AdamW moment tensors alone use approximately 1.06 GB per
-checkpoint for this model, or 1.27 TB per run and 2.54 TB for both runs at this
-retention. These are decimal raw-tensor estimates; additional checkpoint
-metadata, the separate `last` files, and diagnostic artifacts require more
-space. Validation reports held-out
+checkpoint for this model, or 15.9 GB per fresh run and 31.7 GB for both runs at
+this cadence. These are decimal raw-tensor estimates; additional checkpoint
+metadata and diagnostic artifacts require more space. A successful `last`
+symlink adds no duplicate tensor payload. Validation reports held-out
 image MSE and RGB diagnostics; it is not a policy-success evaluation.
 
 The default execution profile is `world_model_attention=flash4_bf16_mixed`,
@@ -72,7 +79,10 @@ later work; those fields are not stage1 inputs.
 Stage2 is deferred until review of the generated videos. Its separate model
 may introduce proprioception plus measured-state and control-command MSE
 heads, initialized from the audited stage1 image weights. Selecting these
-stage1 recipes does not activate or schedule stage2 training.
+stage1 recipes does not activate or schedule stage2 training. The deferred
+readout recipes retain their 1,000-step budget, 250-step validation and
+checkpoint intervals, and `save_last: true`. The shared 1,000-step stage1 pilot still validates at
+the end through `val_at_end=true`.
 
 ## Source and publication provenance
 

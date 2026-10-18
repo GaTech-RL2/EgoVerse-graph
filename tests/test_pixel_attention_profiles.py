@@ -90,7 +90,12 @@ def test_pixel_profile_override_preserves_science(
     assert trainer.pop("precision") == trainer_precision
     baseline_trainer.pop("precision")
     assert trainer == baseline_trainer
-    assert cfg.trainer.max_steps == 300000 and cfg.trainer.val_check_interval == 250
+    assert cfg.trainer.max_steps == 300000 and cfg.trainer.val_check_interval == 20000
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 20000
+    assert cfg.callbacks.model_checkpoint.every_n_epochs == 0
+    assert cfg.callbacks.model_checkpoint.save_top_k == -1
+    assert cfg.callbacks.model_checkpoint.save_last == "link"
+    assert not cfg.callbacks.model_checkpoint.save_on_train_epoch_end
     assert cfg.model.optimizer == baseline.model.optimizer
     assert cfg.model.optimizer.lr == 5e-5 and cfg.model.optimizer.weight_decay == 0.01
     assert cfg.model.scheduler is None and not cfg.model.enable_grad_norm

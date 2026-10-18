@@ -99,6 +99,14 @@ def test_readout_initialization_requires_matching_token_execution(arm):
 
 
 @pytest.mark.parametrize("arm", ["continuous", "discrete"])
-def test_deferred_readout_does_not_inherit_full_video_budget(arm):
-    assert configuration("video", arm)["trainer"]["max_steps"] == 300000
-    assert configuration("readout", arm)["trainer"]["max_steps"] == 1000
+def test_deferred_readout_keeps_its_short_budget_and_validation_schedule(arm):
+    video = configuration("video", arm)
+    readout = configuration("readout", arm)
+    assert video["trainer"]["max_steps"] == 300000
+    assert video["trainer"]["val_check_interval"] == 20000
+    assert video["callbacks"]["model_checkpoint"]["every_n_train_steps"] == 20000
+    assert video["callbacks"]["model_checkpoint"]["save_last"] == "link"
+    assert readout["trainer"]["max_steps"] == 1000
+    assert readout["trainer"]["val_check_interval"] == 250
+    assert readout["callbacks"]["model_checkpoint"]["every_n_train_steps"] == 250
+    assert readout["callbacks"]["model_checkpoint"]["save_last"] is True

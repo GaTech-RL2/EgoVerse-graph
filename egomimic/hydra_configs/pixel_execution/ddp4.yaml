@@ -1,0 +1,18 @@
+# @package _global_
+# Two independent runs can each use four GPUs on one allocated eight-GPU node.
+# Rank-aware pixel samplers own training draws and the nonduplicated val shards.
+data:
+  batch_size: 1
+  distributed_world_size: 4
+model:
+  training_behavior:
+    distributed_noise_seed: ${seed}
+trainer:
+  strategy: ddp
+  devices: 4
+  num_nodes: 1
+  accumulate_grad_batches: 1
+  use_distributed_sampler: false
+runtime:
+  cluster_environment: torch_elastic
+  slurm_requeue_owner: none

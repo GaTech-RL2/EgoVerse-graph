@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - batched_eager
+  - _self_
+# Compile tensor regions with fullgraph=True; optional attention kernels remain
+# explicit eager calls. Dynamic shapes suit variable-length continuous clips.
+# Fixed-window discrete runs may override compile_dynamic=false.
+world_model_execution:
+  compile_mode: default
+  compile_dynamic: true

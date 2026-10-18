@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - flash4_bf16
+  - _self_
+# Standard autocast: FP32 stored parameters/AdamW state, BF16 eligible operations.
+# FA4 Q/K/V remain BF16; FP32 MSE and time coordinates are model-owned contracts.
+world_model_attention:
+  trainer_precision: bf16-mixed
+trainer:
+  precision: ${world_model_attention.trainer_precision}

@@ -1,0 +1,7 @@
+# @package _global_
+defaults:
+  - flash4_bf16_mixed
+  - _self_
+# Optional separately pinned Hopper backend; missing dependency fails closed.
+world_model_attention:
+  backend: flash3

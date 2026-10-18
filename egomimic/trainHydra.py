@@ -14,7 +14,10 @@ from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
 from lightning.fabric.utilities.cloud_io import _load as pl_load
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
-from lightning.pytorch.plugins.environments import SLURMEnvironment
+from lightning.pytorch.plugins.environments import (
+    SLURMEnvironment,
+    TorchElasticEnvironment,
+)
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
@@ -160,7 +163,13 @@ def _instantiate_trainer_plugins(cfg: DictConfig) -> List[Any]:
     plugins: List[Any] = []
     if cfg.get("mmap_checkpoint", True):
         plugins.append(MmapCheckpointIO())
-    if os.environ.get("SLURM_JOB_ID"):
+    environment = OmegaConf.select(cfg, "runtime.cluster_environment", default="auto")
+    if environment not in {"auto", "torch_elastic"}:
+        raise ValueError("runtime.cluster_environment must be auto or torch_elastic")
+    if environment == "torch_elastic":
+        plugins.append(_torch_elastic_environment(cfg))
+        print("TORCH ELASTIC ENVIRONMENT ENABLED")
+    elif os.environ.get("SLURM_JOB_ID"):
         slurm_environment = _slurm_environment(cfg)
         plugins.append(slurm_environment)
         print(
@@ -168,6 +177,38 @@ def _instantiate_trainer_plugins(cfg: DictConfig) -> List[Any]:
             f"(Lightning auto_requeue={slurm_environment.auto_requeue})"
         )
     return plugins
+
+
+def _torch_elastic_environment(cfg: DictConfig) -> TorchElasticEnvironment:
+    """Use torchrun ranks even when a Slurm step owns the parent process."""
+    owner = OmegaConf.select(cfg, "runtime.slurm_requeue_owner", default="lightning")
+    if owner != "none":
+        raise ValueError("torch_elastic requires runtime.slurm_requeue_owner=none")
+    _slurm_auto_requeue(cfg)  # Reject inherited, conflicting runner ownership.
+    if not TorchElasticEnvironment.detect():
+        raise RuntimeError("torch_elastic requires a process launched by torchrun")
+    integers = {}
+    for name in ("RANK", "LOCAL_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "GROUP_RANK"):
+        value = os.environ.get(name, "")
+        try:
+            integers[name] = int(value)
+        except ValueError as exc:
+            raise ValueError(f"torch_elastic requires integer {name}") from exc
+    world, local_world = integers["WORLD_SIZE"], integers["LOCAL_WORLD_SIZE"]
+    if (world < 1 or local_world < 1 or world % local_world
+            or not 0 <= integers["RANK"] < world
+            or not 0 <= integers["LOCAL_RANK"] < local_world
+            or not 0 <= integers["GROUP_RANK"] < world // local_world):
+        raise ValueError("torch_elastic has inconsistent world size or rank variables")
+    if not os.environ.get("MASTER_ADDR"):
+        raise ValueError("torch_elastic requires MASTER_ADDR")
+    try:
+        port = int(os.environ.get("MASTER_PORT", ""))
+    except ValueError as exc:
+        raise ValueError("torch_elastic requires integer MASTER_PORT") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("torch_elastic MASTER_PORT must be between 1 and 65535")
+    return TorchElasticEnvironment()
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:

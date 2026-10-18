@@ -7,3 +7,4 @@ world_model_attention:
   activation_checkpointing: false
   strict_fp32: false
   disable_tf32: false
+  trainer_precision: 32-true

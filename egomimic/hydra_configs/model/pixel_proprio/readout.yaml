@@ -1,0 +1,106 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.00005
+  weight_decay: 0.01
+scheduler: null
+training_behavior:
+  _target_: egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior
+train_log_on_step: true
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  initialization:
+    - stage_id: image_proprio
+      module_path: model
+      source: ${pixel_readout.initial_weights}
+      sha256: ${pixel_readout.initial_weights_sha256}
+  stage_ids:
+    pixel_noising: 0
+    pixel_denoiser: 1
+    pixel_prediction: 2
+    pixel_loss: 3
+    readout_noising: 4
+    readout_denoiser: 5
+    pixel_sampler: 6
+    state_action_readout: 7
+    measured_state_loss: 8
+    control_command_loss: 9
+    image_proprio: 1
+  stages:
+    - _target_: egomimic.pipeline.stages_pixel_video.PixelVideoNoisingStage
+      noising:
+        _target_: egomimic.models.pixel_diffusion.LinearGaussianImageNoising
+        maximum: 1.0
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutModelStage
+      training_mode: ${pixel_readout.training_mode}
+      model:
+        _target_: egomimic.models.image_proprio.ImageProprioModel
+        objective: visual_state_action
+        phase_a_condition_on_proprio: false
+        pose_dims: ${pixel_readout.pose_dims}
+        action_dims: ${pixel_readout.action_dims}
+        image_dim: 768
+        width: 768
+        depth: 8
+        heads: 6
+        mlp_ratio: 4
+        max_cameras: 2
+        use_camera_embedding: true
+        use_modality_embedding: false
+        use_embodiment_embedding: false
+        use_phase_embedding: false
+        noise_conditioning: adaln_zero
+        position_encoding: spatiotemporal_rope
+        rope_axis_dims: [64, 32, 32]
+        spatial_grid_size: [10, 10]
+        max_tokens: ${pixel_readout.max_tokens}
+        time_mode: ${data.mode}
+        attention_backend: ${oc.select:world_model_attention.backend,sdpa}
+        attention_dtype: ${oc.select:world_model_attention.dtype,native}
+        strict_fp32: ${runtime.strict_fp32}
+        attention_query_chunk_size: ${oc.select:world_model_attention.query_chunk_size,0}
+        activation_checkpointing: ${oc.select:world_model_attention.activation_checkpointing,false}
+        allow_patch_compression: false
+        loss_reduction: ${oc.select:world_model_execution.loss_reduction,token_mean}
+        token_execution: ${oc.select:world_model_execution.token_execution,padded}
+        compile_mode: ${oc.select:world_model_execution.compile_mode,none}
+        compile_dynamic: ${oc.select:world_model_execution.compile_dynamic,false}
+        compile_backend: ${oc.select:world_model_execution.compile_backend,inductor}
+    # Optional high-noise prediction/loss branch; it does not own model weights.
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutVideoDenoiserStage
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutImageLossStage
+      weight: ${pixel_readout.image_loss_weight}
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: ${oc.select:world_model_execution.loss_reduction,token_mean}
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutNoisingStage
+      noising:
+        _target_: egomimic.models.pixel_diffusion.LinearGaussianImageNoising
+        maximum: 0.2
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutImageDenoiserStage
+      prediction_key: pixel_readout/image_prediction
+    # Training keeps the existing low-noise provider above. A future sampled
+    # training provider can use the same tensor port with explicit modes: [train].
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutSampledImageStage
+      modes: [inference]
+      prediction_key: pixel_readout/image_prediction
+      gradient_policy: stop
+      sampler:
+        _target_: egomimic.models.pixel_diffusion.LinearDDIMImageSampler
+        steps: 20
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelStateActionReadoutStage
+      image_key: pixel_readout/image_prediction
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutMSEStage
+      stream: proprio
+      weight: ${pixel_readout.measured_state_loss_weight}
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: ${oc.select:world_model_execution.loss_reduction,token_mean}
+    - _target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutMSEStage
+      stream: action
+      weight: ${pixel_readout.control_command_loss_weight}
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: ${oc.select:world_model_execution.loss_reduction,token_mean}

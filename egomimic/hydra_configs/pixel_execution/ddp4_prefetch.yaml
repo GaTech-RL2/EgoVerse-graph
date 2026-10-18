@@ -1,0 +1,13 @@
+# @package _global_
+# Keep held-out anchor/noise identity fixed while benchmarking train batch size.
+defaults:
+  - ddp4
+  - _self_
+
+data:
+  validation_batch_size: 1
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  balance_training_work: true

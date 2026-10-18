@@ -373,3 +373,11 @@ def test_stale_verdict_is_withdrawn_and_a_failed_save_keeps_the_reference(
     assert resent["advice"] == ["STALE: no live measurement"]
     assert "error" in failed
     assert json.loads(cfg.reference_pointer.read_text()) == {"image": "old.png"}
+
+
+def test_source_flag_defaults_to_stream_and_accepts_realsense(tmp_path):
+    assert m.parse_args(["--data-dir", str(tmp_path)]).source == "stream"
+    cfg = m.parse_args(["--data-dir", str(tmp_path), "--source", "realsense"])
+    assert cfg.source == "realsense"
+    with pytest.raises(SystemExit):
+        m.parse_args(["--source", "nonsense"])

@@ -30,7 +30,12 @@ Four times a second, on the rollout dashboard's own front-camera stream:
 - Advice lines for the camera, a verdict for the desk, and sparklines over the last
   three minutes.
 
-**Caveat.** The rollout dashboard server keeps one websocket client. Starting this
+**Without a rollout.** `run.sh` opens the front D405 directly (`--source realsense`),
+so the monitor works with no rollout dashboard and no collector running. It holds
+the camera while it runs: `stop.sh` it before a rollout or `collect_gello` starts.
+`SOURCE=stream ./run.sh` reads the rollout dashboard instead (below).
+
+**Caveat (stream source).** The rollout dashboard server keeps one websocket client. Starting this
 monitor supersedes the rollout dashboard's browser tab; reopening that tab
 supersedes the monitor. It connects once at start and once per `Reconnect stream`
 press, and never retries by itself: after a rollout exits, press `Reconnect stream`

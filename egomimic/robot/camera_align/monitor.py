@@ -20,8 +20,11 @@ supersedes its browser tab; when the operator reopens that tab this monitor is
 superseded in turn (close code 4001).  The monitor connects once when it
 starts and once per "Reconnect stream" press and never retries by itself, so
 the two never fight and a rollout launched later keeps its tab.  The monitor
-never sends a command to the rollout dashboard and never opens a camera or a
-robot.
+never sends a command to the rollout dashboard and never opens a robot.  With
+``--source stream`` (default) it never opens a camera; with ``--source
+realsense`` it opens the front D405 itself, so no rollout is needed, and
+holds it until stopped or until the pipeline fails (stop it before a rollout
+or the collector starts).
 
 All per-station state (reference frames, tag reference, snapshots) lives in
 ``--data-dir``; nothing is written inside the repository.
@@ -61,6 +64,7 @@ DEFAULT_INTRINSICS = (
 @dataclass
 class MonitorConfig:
     rollout_ws: str = "ws://127.0.0.1:8081/ws"
+    source: str = "stream"  # "stream": rollout dashboard websocket; "realsense": open the D405 directly
     camera: str = "front_img_1"
     host: str = "127.0.0.1"
     port: int = 8090
@@ -918,6 +922,67 @@ class Monitor:
             "mm_per_px_at_edge_rows": self.mm_per_px,
         }
 
+    # ---- direct D405 source (no rollout dashboard needed)
+    def camera_loop(self):
+        """Read the front D405 straight from its USB pipeline.
+
+        Same latch as the websocket source: one attempt at start and one per
+        "Reconnect stream" press, never a retry of its own, so a rollout or a
+        collector launched later is not fought for the camera.  It holds the
+        device while running; stop the monitor before one of them starts.
+        """
+        import pyrealsense2 as rs
+
+        cfg = self.cfg
+        while not self.stop:
+            if self.superseded:
+                time.sleep(0.5)
+                continue
+            pipe = rs.pipeline()
+            try:
+                conf = rs.config()
+                conf.enable_device(self.cal.serial)
+                conf.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+                pipe.start(conf)
+                with self.lock:
+                    self.connected, self.close_code, self.connect_ts = (
+                        True,
+                        None,
+                        time.time(),
+                    )
+                    self.status_text, self.age_ms = f"direct D405 {self.cal.serial}", 0
+                last_enc = 0.0
+                while not self.stop and not self.superseded:
+                    frames = pipe.wait_for_frames(5000)
+                    color = frames.get_color_frame()
+                    now = time.time()
+                    if not color or now - last_enc < 1.0 / (2 * cfg.analysis_hz):
+                        continue
+                    ok, buf = cv2.imencode(
+                        ".jpg",
+                        np.asanyarray(color.get_data()),
+                        [cv2.IMWRITE_JPEG_QUALITY, 95],
+                    )
+                    if not ok:
+                        continue
+                    last_enc = now
+                    with self.lock:
+                        self.latest_jpeg, self.frame_ts = buf.tobytes(), now
+                        self.frame_id += 1
+                        self.frames += 1
+                        self.age_ms = 0
+            except Exception as error:  # device busy, unplugged, timeout
+                with self.lock:
+                    self.last_error = repr(error)
+            finally:
+                try:
+                    pipe.stop()
+                except Exception:
+                    pass
+            with self.lock:
+                self.connected = False
+                self.superseded = True
+
     # ---- rollout dashboard stream (receive only)
     async def stream_task(self):
         cfg = self.cfg
@@ -946,9 +1011,10 @@ class Monitor:
                                 if data.get("type") == "frame":
                                     pending = list(data.get("images", []))
                                     with self.lock:
-                                        self.status_text, self.age_ms = data.get(
-                                            "status", ""
-                                        ), data.get("age_ms")
+                                        self.status_text, self.age_ms = (
+                                            data.get("status", ""),
+                                            data.get("age_ms"),
+                                        )
                             elif message.type == aiohttp.WSMsgType.BINARY:
                                 if pending and pending.pop(0) == cfg.camera:
                                     with self.lock:
@@ -1144,11 +1210,16 @@ class Monitor:
         app.router.add_post("/api/reconnect", reconnect)
 
         async def on_startup(app):
-            app["stream"] = asyncio.create_task(self.stream_task())
+            if cfg.source == "realsense":
+                app["stream"] = None
+                threading.Thread(target=self.camera_loop, daemon=True).start()
+            else:
+                app["stream"] = asyncio.create_task(self.stream_task())
 
         async def on_cleanup(app):
             self.stop = True
-            app["stream"].cancel()
+            if app["stream"] is not None:
+                app["stream"].cancel()
 
         app.on_startup.append(on_startup)
         app.on_cleanup.append(on_cleanup)
@@ -1230,6 +1301,13 @@ def parse_args(argv=None) -> MonitorConfig:
         help="rollout dashboard websocket (default: %(default)s)",
     )
     parser.add_argument(
+        "--source",
+        choices=("stream", "realsense"),
+        default=defaults.source,
+        help="stream: the rollout dashboard's websocket; realsense: open the front "
+        "D405 directly, no rollout needed (default: %(default)s)",
+    )
+    parser.add_argument(
         "--camera",
         default=defaults.camera,
         help="camera name in the rollout stream (default: %(default)s)",
@@ -1255,6 +1333,7 @@ def parse_args(argv=None) -> MonitorConfig:
     args = parser.parse_args(argv)
     return MonitorConfig(
         rollout_ws=args.rollout_ws,
+        source=args.source,
         camera=args.camera,
         port=args.port,
         data_dir=args.data_dir.expanduser(),

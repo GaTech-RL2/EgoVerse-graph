@@ -32,6 +32,110 @@ let ikRelaxationPending = null;
 let ikSolverPending = null;
 let ikSolverApplied = 'mujoco';
 
+// Generated from the teleop shared renderer by build_reset_guides.py.
+// BEGIN SHARED RESET GUIDE RENDERER
+const resetGuideColors = ['#62d5d0', '#ffd06a', '#c6a0ff', '#a7dc7e'];
+const resetGuideNote = 'Visual guide only · not recorded · no robot motion';
+let resetTemplates = [];
+
+function validateResetCatalog(catalog) {
+  if (catalog?.version !== 1 || !Array.isArray(catalog.templates)) throw new Error('Unsupported reset template catalog');
+  const ids = new Set();
+  for (const template of catalog.templates) {
+    if (!template || typeof template.id !== 'string' || !template.id || ids.has(template.id)
+        || typeof template.label !== 'string' || !template.label
+        || typeof template.camera !== 'string' || !template.camera
+        || !Array.isArray(template.image_size) || template.image_size.length !== 2
+        || !template.image_size.every(n => Number.isInteger(n) && n > 0)
+        || !Array.isArray(template.regions) || !template.regions.length) throw new Error('Invalid reset template');
+    ids.add(template.id);
+    for (const region of template.regions) {
+      if (!region || typeof region.label !== 'string' || !region.label
+          || !Array.isArray(region.points) || region.points.length < 3
+          || !region.points.every(point => Array.isArray(point) && point.length === 2
+            && point.every((n, axis) => Number.isFinite(n) && n >= 0 && n <= template.image_size[axis]))) {
+        throw new Error('Invalid reset template region');
+      }
+    }
+  }
+  return catalog.templates;
+}
+
+function selectedResetTemplate() {
+  return resetTemplates.find(template => template.id === $('reset-guide')?.value);
+}
+
+function resetGuideVisibility() {
+  const select = $('reset-guide');
+  if (!select || select.disabled) return; // Safe during a static-only rolling update.
+  const template = selectedResetTemplate();
+  for (const tile of cameras.values()) tile.overlay.setAttribute('hidden', '');
+  let status = resetGuideNote;
+  if (template) {
+    const tile = cameras.get(template.camera);
+    if (!tile) status = `Waiting for ${template.camera} · ${resetGuideNote}`;
+    else if (!tile.frameAvailable || !tile.imageReady) status = `Waiting for a live frame · ${resetGuideNote}`;
+    else {
+      const [width, height] = template.image_size;
+      // One display-only renderer for both <img> and decoded-frame <canvas> views.
+      const imageWidth = tile.image.naturalWidth ?? tile.image.width;
+      const imageHeight = tile.image.naturalHeight ?? tile.image.height;
+      const aspectError = Math.abs(imageWidth / imageHeight / (width / height) - 1);
+      if (!Number.isFinite(aspectError) || aspectError > 0.005) {
+        status = `Guide hidden: camera aspect ratio differs from template · ${resetGuideNote}`;
+      } else {
+        tile.overlay.removeAttribute('hidden');
+        status = `${template.camera} · recheck placement if the camera moved · ${resetGuideNote}`;
+      }
+    }
+  }
+  $('reset-guide-status').textContent = status;
+}
+
+function renderResetGuide() {
+  for (const tile of cameras.values()) tile.overlay.replaceChildren();
+  const template = selectedResetTemplate();
+  const tile = template && cameras.get(template.camera);
+  if (tile) {
+    tile.overlay.setAttribute('viewBox', `0 0 ${template.image_size.join(' ')}`);
+    for (const [index, region] of template.regions.entries()) {
+      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      polygon.setAttribute('points', region.points.map(point => point.join(',')).join(' '));
+      polygon.setAttribute('stroke', resetGuideColors[index % resetGuideColors.length]);
+      polygon.setAttribute('fill', resetGuideColors[index % resetGuideColors.length]);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      // Label centroid works for any polygon; no task-specific square assumption.
+      label.setAttribute('x', region.points.reduce((sum, p) => sum + p[0], 0) / region.points.length);
+      label.setAttribute('y', region.points.reduce((sum, p) => sum + p[1], 0) / region.points.length + 4);
+      label.textContent = region.label;
+      tile.overlay.append(polygon, label);
+    }
+  }
+  resetGuideVisibility();
+}
+
+function setupResetGuides() {
+  const select = $('reset-guide');
+  if (!select) return; // An older cached page must retain its normal controls.
+  try {
+    resetTemplates = validateResetCatalog(JSON.parse($('reset-guide-catalog').textContent));
+    for (const template of resetTemplates) {
+      const option = document.createElement('option');
+      option.value = template.id;
+      option.textContent = template.label;
+      select.append(option);
+    }
+    select.value = ''; // Deliberately Off on page load; selection survives WS reconnects.
+    select.onchange = renderResetGuide;
+    select.onkeydown = event => event.stopPropagation();
+  } catch (error) {
+    resetTemplates = [];
+    select.disabled = true;
+    $('reset-guide-status').textContent = `Reset guides unavailable: ${error.message}. Camera preview is unaffected.`;
+  }
+}
+// END SHARED RESET GUIDE RENDERER
+
 function updateIkSolver(settings) {
   const available = Boolean(settings?.available);
   $('ik-solver-control').hidden = !available;
@@ -552,11 +656,21 @@ function configure(message) {
     const view = document.createElement('canvas');
     view.setAttribute('role', 'img');
     view.setAttribute('aria-label', `${name} live RGB`);
+    const viewport = document.createElement('div');
+    viewport.className = 'camera-view';
+    const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    overlay.classList.add('reset-guide-overlay');
+    overlay.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('hidden', '');
+    viewport.append(view, overlay);
     head.append(title, detail);
-    card.append(head, view);
+    card.append(head, viewport);
     $('cameras').append(card);
-    cameras.set(name, {card, detail, view, context: view.getContext('2d'), busy: false});
+    cameras.set(name, {card, detail, view, image: view, overlay,
+      context: view.getContext('2d'), busy: false, frameAvailable: false, imageReady: false});
   }
+  renderResetGuide();
   $('overlay').checked = Boolean(message.overlay_enabled);
   $('overlay').disabled = false;
   $('start').disabled = !waitForStart || started;
@@ -596,6 +710,8 @@ function frame(message) {
     $('overlay').checked = Boolean(message.overlay_enabled);
   }
   for (const [name, tile] of cameras) {
+    tile.frameAvailable = message.images.includes(name);
+    if (!tile.frameAvailable) tile.imageReady = false;
     if (message.images.includes(name)) {
       tile.card.classList.remove('waiting');
       tile.detail.textContent = name === overlayCamera && message.overlay_enabled
@@ -605,6 +721,7 @@ function frame(message) {
       tile.detail.textContent = 'Waiting for camera';
     }
   }
+  resetGuideVisibility();
   const prompt = message.velocity_prompt;
   $('velocity-decision').hidden = !prompt;
   if (prompt) {
@@ -626,10 +743,13 @@ async function drawCameraFrame(name, data) {
     }
     tile.context.drawImage(bitmap, 0, 0);
     bitmap.close();
+    tile.imageReady = true;
   } catch {
     // A truncated frame is discarded; the next one repaints the camera.
+    tile.imageReady = false;
   } finally {
     tile.busy = false;
+    resetGuideVisibility();
   }
 }
 
@@ -844,6 +964,11 @@ function connect() {
     }
   };
   socket.onclose = event => {
+    for (const tile of cameras.values()) {
+      tile.frameAvailable = false;
+      tile.imageReady = false;
+    }
+    resetGuideVisibility();
     $('ik-solver').disabled = true;
     $('ik-relaxation').disabled = true;
     $('status').className = 'starting';
@@ -876,4 +1001,5 @@ function connect() {
   };
 }
 
+setupResetGuides();
 connect();

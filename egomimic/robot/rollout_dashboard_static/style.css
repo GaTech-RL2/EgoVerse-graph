@@ -51,7 +51,20 @@ kbd { font: inherit; font-size: 12px; padding: 1px 4px; border: 1px solid #66758
 .camera-head { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; text-transform: capitalize; }
 .camera-head small { color: #80c9a0; }
 .camera.waiting small { color: #edb769; }
-.camera img, .camera canvas { width: 100%; flex: 1; min-height: 0; object-fit: contain; background: #090c10; }
+/* Keep an older page usable while its static assets are refreshed. */
+.camera > canvas { width: 100%; flex: 1; min-height: 0; object-fit: contain; background: #090c10; }
+.camera-view { position: relative; flex: 1; min-height: 160px; aspect-ratio: 4 / 3; background: #090c10; }
+.camera-view canvas, .reset-guide-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.camera-view canvas { object-fit: contain; object-position: center; }
+/* Same viewport and contain projection as the camera, including letterboxing. */
+.reset-guide-overlay { pointer-events: none; overflow: hidden; }
+.reset-guide-overlay[hidden] { display: none; }
+.reset-guide-overlay polygon { fill-opacity: .1; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.reset-guide-overlay text { font: 600 13px system-ui, sans-serif; text-anchor: middle; fill: white; stroke: #101317; stroke-width: 3px; paint-order: stroke; }
+.reset-guide-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 46px; margin-bottom: 10px; }
+.reset-guide-controls label { font-weight: 650; }
+.reset-guide-controls select { min-width: 240px; max-width: 100%; padding: 8px 10px; border: 1px solid #4b5a6b; border-radius: 5px; background: #191e25; color: #edf3fa; }
+.reset-guide-controls small { color: #bac7d6; }
 .notice { margin-top: 14px; font-size: 12px; }
 
 .velocity-decision {

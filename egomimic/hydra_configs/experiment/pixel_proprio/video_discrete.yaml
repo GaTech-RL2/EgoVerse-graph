@@ -1,0 +1,16 @@
+# @package _global_
+defaults:
+  - /experiment/pixel_proprio/video_only
+  - _self_
+
+name: pixel_proprio_video_discrete_pilot
+description: gripper_pixel160_patch16_discrete16_stride4_s42
+trainer:
+  max_steps: 300000
+data:
+  mode: discrete
+  sampling_strategy: discrete_window
+  discrete_frames: 16
+  stride: 4
+pixel_video:
+  max_tokens: 3200 # 16 * 2 * 100 image patches.

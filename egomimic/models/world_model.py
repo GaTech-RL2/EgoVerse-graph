@@ -16,15 +16,35 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
+from egomimic.models.attention_execution import (
+    apply_temporal_rope,
+    execute_flash_attention,
+    execute_packed_flash_attention,
+    load_flash_attention_kernels,
+    prepare_attention_layout,
+)
+from egomimic.models.compilation import compile_region
+
 MODALITIES = ("image", "track", "proprio")
 
 
-def masked_mse(pred, target, weight):
+def masked_mse(pred, target, weight, *, reduction="token_mean", check_target=True):
+    if reduction not in ("token_mean", "mean_per_example"):
+        raise ValueError("Unknown masked MSE reduction")
     active = weight > 0
-    if not torch.isfinite(target[active]).all():
+    if (
+        check_target
+        and not torch.isfinite(torch.where(active[..., None], target, 0)).all()
+    ):
         raise ValueError("Non-finite supervised target")
     safe_target = torch.where(active[..., None], target, torch.zeros_like(target))
     error = (pred.float() - safe_target.float()).square().mean(-1)
+    if reduction == "mean_per_example":
+        # Match the mean of independent batch-one losses, including empty
+        # examples' differentiable zero. Padding and clip length add no weight.
+        numerator = (error * weight.float()).flatten(1).sum(1)
+        denominator = weight.float().flatten(1).sum(1)
+        return (numerator / torch.where(denominator > 0, denominator, 1.0)).mean()
     total_weight = weight.float().sum()
     # Confidence weights can sum to less than one. Preserve a weighted mean;
     # use one only for an empty objective so its value and gradients stay zero.
@@ -55,51 +75,153 @@ def temporal_rope(x, times):
 class MoTBlock(nn.Module):
     """Private modality projections/FFNs, one joint attention operation."""
 
-    def __init__(self, width, heads, mlp_ratio=4, attention_query_chunk_size=0,
-                 attention_backend="sdpa", attention_dtype="native"):
+    def __init__(
+        self,
+        width,
+        heads,
+        mlp_ratio=4,
+        attention_query_chunk_size=0,
+        modalities=MODALITIES,
+        attention_backend="sdpa",
+        attention_dtype="native",
+        image_adaln=False,
+    ):
         super().__init__()
         if width % heads or (width // heads) % 2:
             raise ValueError("RoPE requires an even attention head width")
         self.heads = heads
-        if type(attention_query_chunk_size) is not int or attention_query_chunk_size < 0:
+        self.head_dim = width // heads
+        if (
+            type(attention_query_chunk_size) is not int
+            or attention_query_chunk_size < 0
+        ):
             raise ValueError("attention_query_chunk_size must be a nonnegative integer")
         self.attention_query_chunk_size = attention_query_chunk_size
-        if attention_backend not in ("sdpa", "efficient", "flash4"):
-            raise ValueError("attention_backend must be sdpa, efficient or flash4")
+        if attention_backend not in ("sdpa", "efficient", "flash3", "flash4"):
+            raise ValueError(
+                "attention_backend must be sdpa, efficient, flash3 or flash4"
+            )
         if attention_dtype not in ("native", "bfloat16"):
             raise ValueError("attention_dtype must be native or bfloat16")
-        if attention_backend == "flash4" and attention_dtype != "bfloat16":
-            raise ValueError("flash4 requires explicit bfloat16 attention")
+        if attention_backend in ("flash3", "flash4") and attention_dtype != "bfloat16":
+            raise ValueError(
+                f"{attention_backend} requires explicit bfloat16 attention"
+            )
         self.attention_backend = attention_backend
         self.attention_dtype = attention_dtype
-        self.norm1 = nn.ModuleList(nn.LayerNorm(width) for _ in MODALITIES)
-        self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in MODALITIES)
-        self.out = nn.ModuleList(nn.Linear(width, width) for _ in MODALITIES)
-        self.norm2 = nn.ModuleList(nn.LayerNorm(width) for _ in MODALITIES)
+        if type(image_adaln) is not bool:
+            raise ValueError("image_adaln must be bool")
+        self.image_adaln = image_adaln
+        self.norm1 = nn.ModuleList(
+            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+            if image_adaln and i == 0
+            else nn.LayerNorm(width)
+            for i, _ in enumerate(modalities)
+        )
+        self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in modalities)
+        self.out = nn.ModuleList(nn.Linear(width, width) for _ in modalities)
+        self.norm2 = nn.ModuleList(
+            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+            if image_adaln and i == 0
+            else nn.LayerNorm(width)
+            for i, _ in enumerate(modalities)
+        )
         self.ffn = nn.ModuleList(
             nn.Sequential(
                 nn.Linear(width, width * mlp_ratio),
                 nn.GELU(),
                 nn.Linear(width * mlp_ratio, width),
             )
-            for _ in MODALITIES
+            for _ in modalities
+        )
+        if image_adaln:
+            self.adaln_image = nn.Sequential(nn.SiLU(), nn.Linear(width, 6 * width))
+            nn.init.zeros_(self.adaln_image[-1].weight)
+            nn.init.zeros_(self.adaln_image[-1].bias)
+        self.configure_compilation()
+
+    def configure_compilation(self, mode="none", dynamic=False, backend="inductor"):
+        names = ("_project_inputs", "_finish_outputs")
+        if self.image_adaln:
+            names += ("_image_modulation",)
+        for name in names:
+            object.__setattr__(
+                self,
+                name + "_executor",
+                compile_region(
+                    getattr(self, name), mode=mode, dynamic=dynamic, backend=backend
+                ),
+            )
+
+    def _image_modulation(self, condition):
+        # Project once per physical-frame/role group, not once per patch.
+        return self.adaln_image(condition).chunk(6, dim=-1)
+
+    @staticmethod
+    def _frame_values(values, frame_indices):
+        return values.index_select(0, frame_indices.reshape(-1)).reshape(
+            *frame_indices.shape, values.shape[-1]
         )
 
-    def forward(self, streams, times, valid):
-        sizes = [s.shape[1] for s in streams]
+    def _project_inputs(
+        self, streams, times, rope, image_modulation=None, frame_indices=None
+    ):
         qs, ks, vs = [], [], []
         for i, x in enumerate(streams):
             b, n, d = x.shape
+            normalized = self.norm1[i](x)
+            if i == 0 and self.image_adaln:
+                shift, scale = (
+                    self._frame_values(value, frame_indices)
+                    for value in image_modulation[:2]
+                )
+                normalized = normalized * (1 + scale) + shift
             q, k, v = (
-                self.qkv[i](self.norm1[i](x))
+                self.qkv[i](normalized)
                 .reshape(b, n, 3, self.heads, d // self.heads)
                 .permute(2, 0, 3, 1, 4)
             )
-            qs.append(temporal_rope(q, times[i]))
-            ks.append(temporal_rope(k, times[i]))
+            qs.append(
+                temporal_rope(q, times[i])
+                if rope is None
+                else apply_temporal_rope(q, rope[i])
+            )
+            ks.append(
+                temporal_rope(k, times[i])
+                if rope is None
+                else apply_temporal_rope(k, rope[i])
+            )
             vs.append(v)
-        mask = torch.cat(valid, 1)[:, None, None, :]
-        query, key, value = torch.cat(qs, 2), torch.cat(ks, 2), torch.cat(vs, 2)
+        return torch.cat(qs, 2), torch.cat(ks, 2), torch.cat(vs, 2)
+
+    def forward(
+        self,
+        streams,
+        times,
+        valid,
+        *,
+        attention_layout=None,
+        rope=None,
+        image_condition=None,
+    ):
+        sizes = [s.shape[1] for s in streams]
+        modulation = None
+        frame_indices = None
+        if self.image_adaln:
+            if image_condition is None:
+                raise ValueError("Image AdaLN requires frame conditioning")
+            condition, frame_indices = image_condition
+            modulation = self._image_modulation_executor(condition)
+            query, key, value = self._project_inputs_executor(
+                streams, times, rope, modulation, frame_indices
+            )
+        else:
+            query, key, value = self._project_inputs_executor(streams, times, rope)
+        mask = (
+            torch.cat(valid, 1)[:, None, None, :]
+            if attention_layout is None
+            else attention_layout.key_mask
+        )
         chunk = self.attention_query_chunk_size
         if chunk and query.shape[2] > chunk:
             # Split only queries. Every row retains all keys/values and the same
@@ -108,23 +230,101 @@ class MoTBlock(nn.Module):
             # attention intermediates and losing the intended memory bound.
             parts = []
             for q in query.split(chunk, dim=2):
-                if torch.is_grad_enabled() and any(t.requires_grad for t in (q, key, value)):
-                    part = checkpoint(self._apply_attention, q, key, value, mask, use_reentrant=False)
+                if torch.is_grad_enabled() and any(
+                    t.requires_grad for t in (q, key, value)
+                ):
+                    part = checkpoint(
+                        self._apply_attention, q, key, value, mask, use_reentrant=False
+                    )
                 else:
                     part = self._apply_attention(q, key, value, mask)
                 parts.append(part)
             result = torch.cat(parts, dim=2)
         else:
-            result = self._apply_attention(query, key, value, mask)
+            # Keep the historical four-argument call for native SDPA overrides.
+            result = (
+                self._apply_attention(query, key, value, mask)
+                if attention_layout is None
+                or self.attention_backend not in ("flash3", "flash4")
+                else self._apply_attention(
+                    query, key, value, mask, attention_layout=attention_layout
+                )
+            )
+        if self.image_adaln:
+            return self._finish_outputs_executor(
+                streams, result, valid, sizes, modulation, frame_indices
+            )
+        return self._finish_outputs_executor(streams, result, valid, sizes)
+
+    def _finish_outputs(
+        self, streams, result, valid, sizes, image_modulation=None, frame_indices=None
+    ):
         result = result.transpose(1, 2).flatten(2).split(sizes, 1)
         outputs = []
         for i, (x, y) in enumerate(zip(streams, result)):
-            x = x + self.out[i](y)
-            x = x + self.ffn[i](self.norm2[i](x))
+            if i == 0 and self.image_adaln:
+                gate_attention, shift, scale, gate_mlp = (
+                    self._frame_values(value, frame_indices)
+                    for value in image_modulation[2:]
+                )
+                x = x + gate_attention * self.out[i](y)
+                x = x + gate_mlp * self.ffn[i](self.norm2[i](x) * (1 + scale) + shift)
+            else:
+                x = x + self.out[i](y)
+                x = x + self.ffn[i](self.norm2[i](x))
             outputs.append(x.masked_fill(~valid[i][..., None], 0))
         return outputs
 
-    def _apply_attention(self, query, key, value, mask):
+    def forward_packed(
+        self, stream, valid, *, attention_layout, rope, image_condition=None
+    ):
+        """Run expert zero on packed image tokens, preserving example boundaries.
+
+        Pure tensor regions reuse the same modules and compilation policy as
+        padded execution. Only optional attention dispatch remains outside them.
+        """
+        if self.attention_backend not in ("flash3", "flash4"):
+            raise ValueError("Packed token execution requires flash3 or flash4")
+        if self.attention_dtype != "bfloat16":
+            raise ValueError(
+                "Packed token execution requires explicit bfloat16 attention"
+            )
+        if self.attention_query_chunk_size:
+            raise ValueError("Packed token execution requires unchunked attention")
+        if stream.ndim != 3 or stream.shape[0] != 1 or valid.shape != stream.shape[:2]:
+            raise ValueError("Packed expert input must be [1,total_tokens,width]")
+        modulation = None
+        frame_indices = None
+        if self.image_adaln:
+            if image_condition is None:
+                raise ValueError("Image AdaLN requires frame conditioning")
+            condition, frame_indices = image_condition
+            modulation = self._image_modulation_executor(condition)
+            query, key, value = self._project_inputs_executor(
+                [stream], None, (rope,), modulation, frame_indices
+            )
+        else:
+            query, key, value = self._project_inputs_executor([stream], None, (rope,))
+        original_dtype = query.dtype
+        kernels = load_flash_attention_kernels(self.attention_backend, query.device)
+        with torch.autocast(device_type=query.device.type, enabled=False):
+            query, key, value = (
+                x.squeeze(0).transpose(0, 1).to(torch.bfloat16)
+                for x in (query, key, value)
+            )
+            result = execute_packed_flash_attention(
+                query, key, value, attention_layout, kernels
+            ).to(original_dtype)
+        result = result.transpose(0, 1).unsqueeze(0)
+        if self.image_adaln:
+            return self._finish_outputs_executor(
+                [stream], result, [valid], [stream.shape[1]], modulation, frame_indices
+            )[0]
+        return self._finish_outputs_executor(
+            [stream], result, [valid], [stream.shape[1]]
+        )[0]
+
+    def _apply_attention(self, query, key, value, mask, *, attention_layout=None):
         # Preserve historical default arithmetic and autocast behavior exactly.
         if self.attention_backend == "sdpa" and self.attention_dtype == "native":
             return self._attend(query, key, value, mask)
@@ -132,12 +332,21 @@ class MoTBlock(nn.Module):
         with torch.autocast(device_type=query.device.type, enabled=False):
             if self.attention_dtype == "bfloat16":
                 query, key, value = (x.to(torch.bfloat16) for x in (query, key, value))
-            if self.attention_backend == "flash4":
-                result = self._flash4_attend(query, key, value, mask)
+            if self.attention_backend in ("flash3", "flash4"):
+                kernels = load_flash_attention_kernels(
+                    self.attention_backend, query.device
+                )
+                layout = attention_layout or prepare_attention_layout(
+                    mask[:, 0, 0], query_tokens=query.shape[2]
+                )
+                result = execute_flash_attention(query, key, value, layout, kernels)
             elif self.attention_backend == "efficient":
                 if query.device.type != "cuda":
-                    raise RuntimeError("efficient attention requires CUDA; no math fallback")
+                    raise RuntimeError(
+                        "efficient attention requires CUDA; no math fallback"
+                    )
                 from torch.nn.attention import SDPBackend, sdpa_kernel
+
                 with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
                     result = self._attend(query, key, value, mask)
             else:
@@ -146,40 +355,9 @@ class MoTBlock(nn.Module):
 
     @staticmethod
     def _flash4_attend(query, key, value, mask):
-        # Batch-one support is explicit until packed variable-length batches are
-        # validated. Removing padded keys preserves full joint attention,
-        # including noncontiguous padding; no queries or valid keys are dropped.
-        if query.device.type != "cuda":
-            raise RuntimeError("flash4 attention requires a CUDA Hopper/Blackwell GPU")
-        if query.shape[0] != 1 or mask.dtype != torch.bool or mask.shape != (1, 1, 1, key.shape[2]):
-            raise ValueError("flash4 currently requires batch1 and a boolean key-padding mask")
-        if any(x.dtype != torch.bfloat16 for x in (query, key, value)):
-            raise ValueError("flash4 requires bfloat16 Q/K/V")
-        from packaging.version import Version
-        if Version(torch.__version__.split("+")[0]) < Version("2.9"):
-            raise RuntimeError("flash4 profile requires the separately verified Torch>=2.9 runtime; see docs/WORLD_MODEL.md")
-        if torch.cuda.get_device_capability(query.device)[0] < 9:
-            raise RuntimeError("flash4 profile requires Hopper or newer CUDA hardware")
-        try:
-            from flash_attn.cute import flash_attn_func
-        except (ImportError, AttributeError) as error:
-            raise RuntimeError("Install the verified optional FlashAttention4 runtime; no silent backend fallback") from error
-        valid_keys = mask[0, 0, 0].nonzero(as_tuple=True)[0]
-        if valid_keys.numel() == 0:
-            raise ValueError("flash4 attention requires at least one valid key")
-        key = key.index_select(2, valid_keys)
-        value = value.index_select(2, valid_keys)
-        q, k, v = (x.transpose(1, 2).contiguous() for x in (query, key, value))
-        result = flash_attn_func(q, k, v, causal=False, return_lse=False)
-        # The tested 4.0.0b35 API returns (output, optional_lse). Reject unknown
-        # containers/shapes instead of assuming the README illustration's API.
-        if isinstance(result, tuple):
-            if len(result) != 2:
-                raise RuntimeError("Unsupported FlashAttention4 result tuple")
-            result = result[0]
-        if not torch.is_tensor(result) or result.shape != q.shape or result.dtype != q.dtype or result.device != q.device:
-            raise RuntimeError("Unsupported FlashAttention4 output shape/dtype/device")
-        return result.transpose(1, 2)
+        kernels = load_flash_attention_kernels("flash4", query.device)
+        layout = prepare_attention_layout(mask[:, 0, 0], query_tokens=query.shape[2])
+        return execute_flash_attention(query, key, value, layout, kernels)
 
     @staticmethod
     def _attend(query, key, value, mask):
@@ -231,7 +409,9 @@ class MoTWorldModel(nn.Module):
         if type(strict_fp32) is not bool:
             raise ValueError("strict_fp32 must be a boolean")
         if strict_fp32 and attention_dtype != "native":
-            raise ValueError("Explicit BF16 attention conflicts with strict_fp32; select the mixed-attention execution profile")
+            raise ValueError(
+                "Explicit BF16 attention conflicts with strict_fp32; select the mixed-attention execution profile"
+            )
         if image_prediction_type not in ("v", "x0"):
             raise ValueError("image_prediction_type must be v or x0")
         self.image_prediction_type = image_prediction_type
@@ -276,8 +456,14 @@ class MoTWorldModel(nn.Module):
             nn.Linear(2, width), nn.SiLU(), nn.Linear(width, width)
         )
         self.blocks = nn.ModuleList(
-            MoTBlock(width, heads, mlp_ratio, attention_query_chunk_size,
-                     attention_backend, attention_dtype)
+            MoTBlock(
+                width,
+                heads,
+                mlp_ratio,
+                attention_query_chunk_size,
+                attention_backend=attention_backend,
+                attention_dtype=attention_dtype,
+            )
             for _ in range(depth)
         )
         # One private image adapter per embodiment per block. Zero disables the

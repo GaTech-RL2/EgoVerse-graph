@@ -1,0 +1,39 @@
+# @package _global_
+# Requires verified action commands aligned to the current rendered state.
+defaults:
+  - /experiment/dino_proprio/visual_state
+  - _self_
+
+name: dino_proprio_direct_action_pilot
+data:
+  task: direct_action
+  action_manifest_path: null # Required by the direct-action data constructor.
+model:
+  pipeline:
+    stages:
+      - _target_: egomimic.pipeline.stages_dino_proprio.DinoProprioStage
+        warmup_steps: 0
+        pose_ramp_steps: 0
+        image_weight: 0.0
+        pose_weight: 1.0
+        sampler_steps: 20
+        model:
+          _target_: egomimic.models.dino_proprio.DinoProprioModel
+          objective: direct_action
+          pose_dims:
+            libero_gripper: 9
+          # Expected LIBERO controller width; loader must verify actual labels.
+          action_dims:
+            libero_gripper: 7
+          image_dim: 768
+          width: 768
+          depth: 8
+          heads: 6
+          mlp_ratio: 4
+          max_cameras: 2
+          max_tokens: 3202
+          time_mode: ${data.mode}
+          attention_query_chunk_size: 512
+          activation_checkpointing: true
+evaluator:
+  objective: direct_action

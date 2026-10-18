@@ -1,0 +1,22 @@
+_target_: egomimic.rldb.pixel_proprio_datamodule.PixelProprioDataModule
+manifest_path: ???
+task: visual_diffusion
+batch_size: 1
+num_workers: 0
+mode: continuous
+seed: 42
+min_frames: 2
+max_frames: 128
+sampling_strategy: full_episode_uniform
+discrete_frames: 4
+stride: 1
+forecasting_probability: 0.5
+max_past_seconds: null
+max_future_seconds: null
+checkpointable_sampling: true
+validation_batches_per_embodiment: null
+validation_anchors_per_episode: 2
+# Compare the same held-out RGB targets/masks; training sampling remains distinct.
+validation_sampling_strategy: discrete_window
+validation_discrete_frames: 16
+validation_stride: 4

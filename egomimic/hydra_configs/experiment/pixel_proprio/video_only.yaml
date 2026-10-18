@@ -1,0 +1,61 @@
+# @package _global_
+# First diagnostic pilot: RGB prediction conditioned only on observed images.
+# No action head/loss or second-stage state readout is instantiated or trained.
+defaults:
+  - /world_model_attention: flash4_bf16_mixed
+  - override /model: pixel_proprio/video
+  - override /data: pixel_proprio/prepared
+  - override /trainer: default
+
+name: pixel_proprio_video_only_pilot
+description: pixel160_patch16_full_episode_s42
+seed: 42
+pixel_video:
+  max_tokens: 25600 # 128 * 2 * 100 image patches.
+data:
+  image_only: true
+norm_stats: null
+normalizer: null
+val_at_end: true
+inference_config:
+  enabled: false
+evaluator:
+  _target_: egomimic.eval.image_proprio_eval.ImageProprioEval
+  objective: visual_only
+  sample_seed: 42
+  pixel_diagnostics:
+    artifact_dir: ${paths.output_dir}/pixel_diagnostics
+    max_samples_per_source_kind: 1
+    playback_fps: 20
+    write_video: true
+    log_wandb: true
+trainer:
+  accelerator: gpu
+  precision: ${oc.select:world_model_attention.trainer_precision,32-true}
+  devices: 1
+  min_epochs: 0
+  max_epochs: -1
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  val_check_interval: 20000
+  check_val_every_n_epoch: null
+  max_steps: 1000
+  num_sanity_val_steps: 0
+  log_every_n_steps: 1
+callbacks:
+  model_checkpoint:
+    filename: "epoch_{epoch:04d}-step_{step:09d}"
+    every_n_epochs: 0
+    every_n_train_steps: 20000
+    save_on_train_epoch_end: false
+    save_top_k: -1
+    save_last: link
+runtime:
+  strict_fp32: ${world_model_attention.strict_fp32}
+  disable_tf32: ${world_model_attention.disable_tf32}
+logger:
+  wandb:
+    project: mot-world-model
+    entity: rl2-group
+    group: pixel-proprio-minimal-bc
+    tags: [pixels-from-scratch, video-only, no-point-tracks, gripper-only, pilot]

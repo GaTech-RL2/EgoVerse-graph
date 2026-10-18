@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - regional_compile
+  - _self_
+# Opt in to valid-token execution through image-only Phase A. Ragged inputs
+# require the selected FlashAttention3/4 backend; dense batches keep their path.
+world_model_execution:
+  token_execution: packed_valid

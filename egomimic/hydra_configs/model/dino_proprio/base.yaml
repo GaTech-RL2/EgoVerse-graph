@@ -1,0 +1,39 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.01
+scheduler: null
+training_behavior:
+  _target_: egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior
+train_log_on_step: true
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    dino_proprio: 0
+  stages:
+    - _target_: egomimic.pipeline.stages_dino_proprio.DinoProprioStage
+      warmup_steps: 100
+      pose_ramp_steps: 100
+      image_weight: 1.0
+      pose_weight: 1.0
+      sampler_steps: 20
+      model:
+        _target_: egomimic.models.dino_proprio.DinoProprioModel
+        objective: visual_proprio
+        pose_dims:
+          libero_gripper: 9
+        action_dims: null
+        image_dim: 768
+        width: 768
+        depth: 8
+        heads: 6
+        mlp_ratio: 4
+        max_cameras: 2
+        max_tokens: 12804
+        time_mode: ${data.mode}
+        attention_query_chunk_size: 512
+        activation_checkpointing: true
+        pose_conditioning: low_noise
+        pose_noise_max: 0.2

@@ -479,3 +479,127 @@ do not prove unchanged convergence or final task quality. A requested future
 full run must use its own resolved-source/config/runtime optimizer, validation
 and checkpoint compatibility preflight. No existing canceled run is resumed
 by selecting or adding these profiles.
+
+## Pixel-only distributed loader execution
+
+The optional `+pixel_execution=ddp4_prefetch` profile applies to the new
+`PixelProprioDataModule` and pixel video recipes. It inherits four-rank DDP,
+enables two loader workers per rank, pinned host memory, persistent workers,
+and two prefetched batches per worker. It explicitly fixes
+`data.validation_batch_size=1`. Training batch size remains one until an
+allocated GPU benchmark selects a larger `data.batch_size`; the global training
+batch is that value times four. Attention backend and compilation choices remain
+separate execution settings. This profile is not a launch or performance claim.
+
+For the frozen 450/50 gripper split, validation still covers two deterministic
+anchors in each of 50 episodes: 100 global batches and 25 contiguous batches per
+rank, with no dropped or duplicated examples. Global validation IDs preserve
+the same frame choices, observation masks, and sampling-noise seeds as the
+unsharded evaluation. Training batch changes do not alter this validation grid.
+The loader rejects a validation batch count that cannot divide evenly across
+the configured ranks. Unattached inspection and strict reload see all 100
+validation batches.
+
+Checkpointed training draws use an immutable `(anchor, consumed cursor, global
+draw slot)` key. Workers derive frame selection and conditioning masks from
+that key, so prefetched but unconsumed batches are discarded safely on restart.
+Only acknowledged batches advance the saved cursor. Worker count, pinning,
+persistence, and prefetch depth are operational settings recorded in the
+resolved config; they do not change source draw identity. Explicit train/val
+batch sizes and the optional work-assignment strategy are checkpoint-bound.
+Changing those identities is not an exact resume. Historical configs omit the
+new optional identity fields and retain their previous data-context bindings.
+
+`data.balance_training_work=true` enables deterministic work redistribution
+inside each global training batch. It previews the exact sampled frame count
+from the same RNG helper used by the loader, without reading image data, and
+estimates attention work as squared image-token count. Longest-first assignment
+keeps exactly the configured number of samples on each rank and is accepted
+only when it lowers the largest rank's estimated total. It never changes the
+global batch's selected clips, frame indices, conditioning masks, or draw keys,
+and never moves a clip across optimizer updates. Batch-one and equal-length
+discrete batches retain their original assignment. The estimate is not measured
+GPU time: FFNs, padding, transfers, and synchronization can affect throughput.
+Reassigned clips receive different rank-seeded diffusion-noise realizations;
+their noise distribution is unchanged, but per-clip noise equality with an
+unbalanced run is not claimed.
+
+CPU tests exercise two workers with training batch two, discard prefetched
+queues, and compare resumed versus uninterrupted frames, values, timestamps,
+and masks exactly, with both balancing settings and changed worker counts.
+They also verify full 100-anchor coverage across four rank shards and reject
+incompatible batching/work-assignment checkpoint identities. Lightning's default
+batch transfer already requests nonblocking CUDA copies for these nested tensor
+containers; pinned allocation and useful transfer overlap require CUDA proof.
+GPU throughput, memory, the selected larger batch, and an actual optimized
+train/validation/checkpoint smoke remain pending measurements. Existing
+zero-worker and four-rank baseline receipts do not certify this new profile.
+
+## Modular pixel state/command readout
+
+The deferred `pixel_proprio/readout_continuous` and `readout_discrete` recipes
+keep one registered model at pipeline stage index 1. `PixelReadoutModelStage`
+owns its parameters, applies the explicit `frozen_image` or `joint` policy, and
+publishes the transient `pixel_video/denoiser` reference. The stable
+`pixel_denoiser` and `image_proprio` aliases both select this owner; strict
+initialization and tensor checkpoints retain `stages.1.model.*` names. The
+legacy `PixelReadoutDenoiserStage` still implements its previous combined
+ownership/prediction behavior for older serialized configurations.
+
+The high-noise image objective is an independent branch: `PixelVideoNoisingStage`
+followed by `PixelReadoutVideoDenoiserStage` and `PixelReadoutImageLossStage`.
+Removing that branch does not remove the shared model or readout gradients.
+When editing the stage list, preserve the owner's index 1 if reusing its exact
+checkpoint namespace; for example, the retained low-noise noising node can
+occupy index 0. The default recipe still executes the high-noise branch, keeping
+the existing losses and random-draw order. Under `frozen_image` its image MSE
+contributes to reporting but has no trainable dependency.
+
+Both training and inference now supply the tensor port
+`pixel_readout/image_prediction` to `PixelStateActionReadoutStage(image_key=...)`.
+The default training producer remains `PixelReadoutImageDenoiserStage`, fed by
+the separate corruption node with maximum strength 0.2. The inference producer
+is `PixelReadoutSampledImageStage`, using the configured 20-step sampler and
+`modes: [inference]`. The readout itself does not choose how images are generated.
+
+For a future experiment, a sampled training producer can replace the low-noise
+noising/prediction branch using the same port:
+
+```yaml
+_target_: egomimic.pipeline.stages_pixel_readout.PixelReadoutSampledImageStage
+modes: [train]
+prediction_key: pixel_readout/image_prediction
+gradient_policy: stop
+sampler:
+  _target_: egomimic.models.pixel_diffusion.LinearDDIMImageSampler
+  steps: 20
+```
+
+This is an available extension point, not a selected training algorithm. The
+built-in sampler and this provider stop gradients through generated images.
+Frozen-image readout training is supported. A future joint-training recipe
+would receive image gradients only through separate image objectives or Phase B,
+not through this sampled producer. The low-noise producer retains its original
+differentiable behavior. Image, measured-state and controller-command losses
+remain separate configured nodes.
+
+The current image architecture uses AdaLN-Zero and spatial-temporal RoPE with
+time/x/y dimensions `[64,32,32]` per 128-channel head and a `[10,10]` patch grid.
+There is no learned XY projection or phase embedding; camera embeddings remain.
+Discrete time uses sampled-position indices and continuous time uses recorded
+seconds, an intentional comparison difference. The image expert has 88,178,688
+parameters. Stage-two expansion requires identical noise/position settings and
+geometry, and freezes all copied image parameters, including AdaLN modules.
+
+Frozen image parameters preserve image-only Phase A and its sampler. Joint
+attention during Phase B can still change image activations through state/query
+tokens; the exposed image prediction is the Phase-A result. The default readout
+training images come from a one-pass estimate of low-noise ground-truth future
+images, whereas inference uses full sampled images. That distribution gap and
+the eventual stage-two training strategy remain unresolved. No stage-two GPU
+launch or certification is implied by these extension points.
+
+CPU tests verify default output, gradient and RNG parity; strict legacy/new
+tensor checkpoint compatibility; removal of the high-noise branch; sampled
+provider substitution with unchanged model weights; explicit stopped gradients;
+and frozen readout initialization under both clock and position variants.

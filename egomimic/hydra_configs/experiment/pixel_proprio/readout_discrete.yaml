@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - /experiment/pixel_proprio/readout_continuous
+  - _self_
+
+name: pixel_proprio_readout_discrete
+description: gripper_pixel160_discrete16_stride4_frozen_image_measured36_control28_s42
+data:
+  mode: discrete
+  sampling_strategy: discrete_window
+  discrete_frames: 16
+  stride: 4
+pixel_readout:
+  pose_dims: {libero_gripper: 36} # Four chronological normalized 9D measured states.
+  action_dims: {libero_gripper: 28} # Four chronological raw 7D command vectors.
+  max_tokens: 3232 # 16 * (200 image + 1 measured-state + 1 command) tokens.
+pixel_video:
+  max_tokens: 3200

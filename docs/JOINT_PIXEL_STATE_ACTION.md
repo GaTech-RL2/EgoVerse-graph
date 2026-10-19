@@ -19,6 +19,29 @@ image-only checkpoints and run identities remain separate experiments.
 | Optimizer | AdamW, **3,000-update linear warmup to 5e-6**, then constant, weight decay 0.01 | same |
 | Budget | 300,000 optimizer updates | same |
 
+## Confirmed frame and vector layout
+
+The LIBERO measurements and commands are recorded at **20 Hz**, with 0.05 s
+between raw timestamps. Discrete image anchors use stride four: **5 Hz**, with
+0.20 s between images. Each image anchor starts a group of four chronological
+raw states and commands. For an anchor at `t`, the group uses `t`, `t+0.05`,
+`t+0.10` and `t+0.15`; the next image anchor is at `t+0.20`. Sixteen groups
+therefore contain 16 image timestamps and 64 state/command timestamps.
+Only mark a historical state chunk observed once all four measurements are
+available; a chunk is an interval rather than a single instantaneous state.
+
+One measured state has **9 values**: end-effector XYZ in meters, a scalar-first
+orientation quaternion `[qw, qx, qy, qz]`, and the two measured gripper finger
+joint positions. Four such states flatten to 36 values. One recorded command
+has **7 values**: three translation deltas, three rotation deltas and one
+gripper command. Four commands flatten to 28 values. These are vector widths,
+not the number of transformer tokens: each anchor has one state token and one
+command token, alongside the image patch tokens.
+
+Continuous training retains irregular full-episode sampling of 2–64 raw
+timestamps and one 9D state/7D command per sampled timestamp. It has no fixed
+frame interval. Both recipes retain the same 3,000-update LR warmup above.
+
 Both use gripper-only LIBERO, the existing balanced 450/50 episode split, two
 160×160 RGB camera streams and 16×16 RGB patches. Each camera contributes
 100 patch tokens per timestamp. The pixel denoising dimension and image residual
@@ -81,6 +104,11 @@ packed reference paths share identical parameters. Regional compilation is
 enabled; no activation checkpointing or gradient clipping is added.
 
 ## Reproduce a run
+
+The Lambda smoke requests submitted on October 19 pin scientific source
+`984a87aa66b5a0a4a31bab32f87a3bd5187f76ce`. Later documentation-only commits on
+`codex/joint-state-action-diffusion-20261019` preserve those exact training
+configs. Check out that pinned revision for a byte-identical source snapshot.
 
 Use the repository's dependencies plus the attention overlay versions recorded
 in `scripts/world_model/joint_runtime_versions.json`. The GPU runtime uses

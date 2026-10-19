@@ -5,6 +5,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -52,6 +53,15 @@ def main():
             and record["fp32_gradients_verified"],
             "Incomplete real optimization/validation proof",
         )
+        require(
+            record["lr_warmup_steps"] == 3000
+            and len(record["optimizer_update_lrs"]) == 50
+            and all(
+                math.isclose(lr, 5e-6 * (step + 1) / 3000, rel_tol=1e-12)
+                for step, lr in enumerate(record["optimizer_update_lrs"])
+            ),
+            "Actual optimizer updates did not use the configured LR warmup",
+        )
     require(
         len({r["weights_sha256"] for r in ranks}) == 1
         and len({r["gpu_uuid"] for r in ranks}) == world,
@@ -78,7 +88,11 @@ def main():
     require(
         checkpoint["global_step"] == 50
         and cfg.model.optimizer.lr == 5e-6
-        and cfg.model.scheduler is None
+        and cfg.model.scheduler._target_
+        == "egomimic.utils.schedulers.linear_warmup_constant_scheduler"
+        and cfg.model.scheduler.warmup_steps == 3000
+        and cfg.model.scheduler_interval == "step"
+        and cfg.model.scheduler_frequency == 1
         and cfg.data.couple_state_observations
         and cfg.trainer.devices == world
         and cfg.data.batch_size * world == 32,
@@ -100,7 +114,20 @@ def main():
         len(optimizers) == 1 and optimizers[0]["state"], "Missing complete AdamW state"
     )
     require(
-        all(g["lr"] == 5e-6 for g in optimizers[0]["param_groups"]), "Wrong stored LR"
+        all(
+            math.isclose(g["lr"], 5e-6 * 51 / 3000, rel_tol=1e-12)
+            and g["initial_lr"] == 5e-6
+            for g in optimizers[0]["param_groups"]
+        ),
+        "Wrong next-update LR after50 completed updates",
+    )
+    schedulers = checkpoint.get("lr_schedulers", [])
+    require(
+        len(schedulers) == 1
+        and schedulers[0]["last_epoch"] == 50
+        and schedulers[0]["base_lrs"] == [5e-6]
+        and schedulers[0]["lr_lambdas"] == [{"warmup_steps": 3000}],
+        "Missing exact LR scheduler continuation state",
     )
     for state in optimizers[0]["state"].values():
         require(float(state["step"]) == 50, "AdamW update count mismatch")
@@ -155,6 +182,20 @@ def main():
         context.bind(wrapper.model)
     wrapper.data_context = context
     wrapper.load_state_dict(checkpoint["state_dict"], strict=True)
+    restored_optimizer = instantiate(cfg.model.optimizer, params=wrapper.parameters())
+    if callable(restored_optimizer):
+        restored_optimizer = restored_optimizer()
+    restored_scheduler = instantiate(cfg.model.scheduler, optimizer=restored_optimizer)
+    restored_optimizer.load_state_dict(optimizers[0])
+    restored_scheduler.load_state_dict(schedulers[0])
+    require(
+        restored_scheduler.state_dict() == schedulers[0]
+        and all(
+            math.isclose(g["lr"], 5e-6 * 51 / 3000, rel_tol=1e-12)
+            for g in restored_optimizer.param_groups
+        ),
+        "Strict optimizer/scheduler restoration changed warmup state",
+    )
     require(all(p.requires_grad for p in wrapper.parameters()), "An expert was frozen")
     network = wrapper.model.pipeline.stage_by_id("joint_denoiser").model
     expert_parameters = network.expert_parameter_counts()
@@ -197,6 +238,8 @@ def main():
         validation_batches=100,
         strict_full_wrapper_reload=True,
         optimizer_sampler_all_rank_rng_verified=True,
+        lr_scheduler_strictly_restored=True,
+        lr_warmup_steps=3000,
         checkpoint_sha256=checkpoint_sha,
         all_rank_weights_agree=True,
         sample_finite=True,

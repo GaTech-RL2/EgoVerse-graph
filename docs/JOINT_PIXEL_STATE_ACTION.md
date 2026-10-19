@@ -16,7 +16,7 @@ image-only checkpoints and run identities remain separate experiments.
 | Proprio expert parameters | 13,956,388 | 13,942,537 |
 | Action expert parameters | 13,952,284 | 13,941,511 |
 | Parameters, total and trainable | 116,087,360 | 116,062,736 |
-| Optimizer | AdamW, LR **5e-6 constant**, weight decay 0.01 | same |
+| Optimizer | AdamW, **3,000-update linear warmup to 5e-6**, then constant, weight decay 0.01 | same |
 | Budget | 300,000 optimizer updates | same |
 
 Both use gripper-only LIBERO, the existing balanced 450/50 episode split, two
@@ -27,6 +27,13 @@ and MLP ratio four (FFN hidden width 1024, versus 3072 for images). Each vector
 expert is below the human's 20M parameter budget, including all input/output,
 noise-conditioning and AdaLN parameters. No image parameters or patch dimensions
 were reduced.
+
+The scheduler lives beside the optimizer in model configuration, outside the
+graph nodes. Update one uses `5e-6 / 3000`; update 3,000 reaches `5e-6`, held
+through update 300,000. The shared trainer steps the scheduler after every
+optimizer update. Full checkpoints retain scheduler state together with AdamW,
+the sampler and all-rank RNG, including when resuming during warmup. The smoke's
+ten untimed compilation updates are distinct from this LR warmup.
 
 Each layer has separate image/proprio/action QKV projections, output projections,
 FFNs and AdaLN-Zero modulation, with a single joint full-attention operation.

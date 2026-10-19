@@ -34,6 +34,7 @@ def check_capacity(cfg, data, destination):
     original = dict(dataset.sampling)
     algo = instantiate(cfg.model.pipeline, device="cuda")
     optimizer = instantiate(cfg.model.optimizer, params=algo.nets.parameters())()
+    scheduler = instantiate(cfg.model.scheduler, optimizer=optimizer)
     try:
         if cfg.data.mode == "continuous":
             dataset.sampling.update(min_frames=desired, max_frames=desired)
@@ -67,7 +68,9 @@ def check_capacity(cfg, data, destination):
             ),
             "Nonfinite worst-frame gradient",
         )
+        optimization_lr = optimizer.param_groups[0]["lr"]
         optimizer.step()
+        scheduler.step()
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
         peak = torch.cuda.max_memory_allocated()
@@ -91,6 +94,7 @@ def check_capacity(cfg, data, destination):
             per_rank_batch=int(cfg.data.batch_size),
             train_seconds=elapsed,
             train_peak_allocated_bytes=peak,
+            optimizer_update_lr=optimization_lr,
             sample_all_streams_finite=True,
         )
         write_once(destination, record)

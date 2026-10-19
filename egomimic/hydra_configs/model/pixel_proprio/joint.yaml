@@ -5,7 +5,11 @@ optimizer:
   _partial_: true
   lr: 0.000005
   weight_decay: 0.01
-scheduler: null
+scheduler:
+  _target_: egomimic.utils.schedulers.linear_warmup_constant_scheduler
+  warmup_steps: 3000
+scheduler_interval: step
+scheduler_frequency: 1
 training_behavior:
   _target_: egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior
   distributed_noise_seed: ${seed}

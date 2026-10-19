@@ -269,7 +269,13 @@ def test_exact_pair_config(arm, gpus, per_rank, pose, action):
     assert cfg.trainer.devices == cfg.data.distributed_world_size == gpus
     assert cfg.data.batch_size == per_rank and gpus * per_rank == 32
     assert cfg.trainer.max_steps == 300000 and cfg.model.optimizer.lr == 5e-6
-    assert cfg.model.scheduler is None and cfg.data.couple_state_observations
+    assert (
+        cfg.model.scheduler._target_
+        == "egomimic.utils.schedulers.linear_warmup_constant_scheduler"
+    )
+    assert cfg.model.scheduler.warmup_steps == 3000
+    assert cfg.model.scheduler_interval == "step" and cfg.model.scheduler_frequency == 1
+    assert cfg.data.couple_state_observations
     assert (
         cfg.joint.pose_dims.libero_gripper == pose
         and cfg.joint.action_dims.libero_gripper == action

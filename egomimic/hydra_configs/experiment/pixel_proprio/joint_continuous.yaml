@@ -35,6 +35,10 @@ trainer:
 runtime:
   cluster_environment: torch_elastic
   slurm_requeue_owner: none
+callbacks:
+  learning_rate_monitor:
+    _target_: lightning.pytorch.callbacks.LearningRateMonitor
+    logging_interval: step
 logger:
   wandb:
     group: joint-pixel-state-action

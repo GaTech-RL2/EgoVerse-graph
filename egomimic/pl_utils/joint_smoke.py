@@ -65,12 +65,20 @@ class JointSmokeProof(Callback):
         )
         require(
             all(
-                group["lr"] == 5e-6
+                math.isclose(group["lr"], 5e-6 / 3000, rel_tol=1e-12)
                 for optimizer in trainer.optimizers
                 for group in optimizer.param_groups
             ),
-            "Expected constant LR5e-6",
+            "Expected first update LR5e-6/3000",
         )
+        require(
+            pl_module.hparams.config_tree.model.scheduler.warmup_steps == 3000
+            and len(trainer.lr_scheduler_configs) == 1
+            and trainer.lr_scheduler_configs[0].interval == "step"
+            and trainer.lr_scheduler_configs[0].frequency == 1,
+            "Both pilots require a3000 optimizer-update warmup",
+        )
+        self.optimizer_lrs = []
         digest = weights_digest(pl_module.state_dict())
         initial = [None] * self.world_size
         torch.distributed.all_gather_object(initial, digest)
@@ -96,6 +104,15 @@ class JointSmokeProof(Callback):
         self.fp32_losses += 1
 
     def on_before_optimizer_step(self, trainer, pl_module, optimizer):
+        expected_lr = 5e-6 * min((trainer.global_step + 1) / 3000, 1.0)
+        require(
+            all(
+                math.isclose(g["lr"], expected_lr, rel_tol=1e-12)
+                for g in optimizer.param_groups
+            ),
+            "Actual optimizer LR does not follow the3000-update warmup",
+        )
+        self.optimizer_lrs.append(expected_lr)
         if self.gradients_checked:
             return
         parameters = list(self.network.parameters())
@@ -215,6 +232,8 @@ class JointSmokeProof(Callback):
             bf16_training_outputs=self.bf16_outputs,
             fp32_losses=self.fp32_losses,
             fp32_gradients_verified=self.gradients_checked,
+            lr_warmup_steps=3000,
+            optimizer_update_lrs=self.optimizer_lrs,
             metrics=metrics,
             gpu_uuid=str(torch.cuda.get_device_properties(pl_module.device).uuid),
             measured_updates=self.expected_steps - self.warmup_steps,

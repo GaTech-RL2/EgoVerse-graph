@@ -5,10 +5,37 @@ from __future__ import annotations
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR,
+    LambdaLR,
     LinearLR,
     LRScheduler,
     SequentialLR,
 )
+
+
+class _LinearWarmupFactor:
+    def __init__(self, warmup_steps: int):
+        if (
+            isinstance(warmup_steps, bool)
+            or int(warmup_steps) != warmup_steps
+            or warmup_steps < 1
+        ):
+            raise ValueError("warmup_steps must be a positive integer")
+        self.warmup_steps = int(warmup_steps)
+
+    def __call__(self, completed_steps: int) -> float:
+        # LambdaLR initializes at completed_steps=0, before update one.
+        return min((completed_steps + 1) / self.warmup_steps, 1.0)
+
+
+def linear_warmup_constant_scheduler(
+    optimizer: Optimizer, warmup_steps: int
+) -> LRScheduler:
+    """Use base_lr/N on update one, base_lr on update N, then hold constant.
+
+    Step after every optimizer update. The callable's warmup length is included
+    in LambdaLR state so exact full-state continuation preserves the boundary.
+    """
+    return LambdaLR(optimizer, _LinearWarmupFactor(warmup_steps))
 
 
 def warmup_cosine_scheduler(

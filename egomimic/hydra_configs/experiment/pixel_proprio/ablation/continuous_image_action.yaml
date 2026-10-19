@@ -1,0 +1,33 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/ablation/continuous_base
+- _self_
+name: mot_modality_continuous_image_action_s42_100k_20261019_v1
+description: 'Controlled continuous modality factorial: image_action; LR5e-6 warmup3000
+  globalbatch32 seed42 100k'
+modality_ablation:
+  active_streams:
+  - image
+  - action
+  stage_ids:
+    joint_noising: 0
+    joint_denoiser: 1
+    image_loss: 2
+    action_loss: 3
+    joint_sampler: 4
+  graph:
+  - ${modality_ablation.nodes.joint_noising}
+  - ${modality_ablation.nodes.joint_denoiser}
+  - ${modality_ablation.nodes.image_loss}
+  - ${modality_ablation.nodes.action_loss}
+  - ${modality_ablation.nodes.joint_sampler}
+logger:
+  wandb:
+    id: mot-modality-continuous-image-action-s42-100k-20261019-v1
+    tags:
+    - modality-factorial
+    - continuous
+    - image_action
+    - paired-initialization
+    - paired-data-noise
+    - 100k-screen

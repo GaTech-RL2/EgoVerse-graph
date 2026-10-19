@@ -31,6 +31,43 @@ def weights_digest(state):
     return digest.hexdigest()
 
 
+def image_parameter_state(network):
+    """Select the common image expert, whose bank index is always zero."""
+    return {
+        key: value
+        for key, value in network.state_dict().items()
+        if key.startswith(
+            (
+                "inputs.image.",
+                "outputs.image.",
+                "camera.",
+                "noise_embeddings.0.",
+                "norms.0.",
+                "final_adaln.0.",
+            )
+        )
+        or (
+            key.startswith("blocks.")
+            and any(
+                f".{bank}.0." in key
+                for bank in ("norm1", "qkv", "out", "norm2", "ffn", "adaln")
+            )
+        )
+    }
+
+
+def paired_image_digest(world, values, levels):
+    """Bound RGB data, geometry, masks and actual corruption; consumes no RNG."""
+    state = dict(world["image"])
+    state.update(noised_value=values["image"], noise_level=levels["image"])
+    digest = hashlib.sha256()
+    for key, value in sorted(state.items()):
+        tensor = value.detach().cpu().contiguous()
+        digest.update(f"{key}:{tensor.dtype}:{tuple(tensor.shape)}".encode())
+        digest.update(tensor.view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
 def load_smoke_configs(output):
     """Join Hydra's full run snapshot with the checkpoint's model-only tree.
 
@@ -97,7 +134,7 @@ class JointSmokeProof(Callback):
                 p.requires_grad and p.dtype == torch.float32
                 for p in self.network.parameters()
             ),
-            "All three experts must be trainable FP32 stored weights",
+            "All active experts must be trainable FP32 stored weights",
         )
         require(
             all(
@@ -120,15 +157,21 @@ class JointSmokeProof(Callback):
         torch.distributed.all_gather_object(initial, digest)
         require(len(set(initial)) == 1, "Fresh DDP initial weights differ")
         self.initial_weights = initial
+        self.initial_image_weights = weights_digest(image_parameter_state(self.network))
+        self.paired_rgb_batches = []
 
         def observe(module, args, outputs):
             require(
-                set(outputs) == {"image", "proprio", "action"}
+                set(outputs) == set(self.network.streams)
                 and all(value.dtype == torch.bfloat16 for value in outputs.values()),
-                "Actual three-stream predictions must execute in BF16",
+                "Actual active-stream predictions must execute in BF16",
             )
             if pl_module.training and torch.is_grad_enabled():
                 self.bf16_outputs += 1
+                if len(self.paired_rgb_batches) < 3:
+                    self.paired_rgb_batches.append(
+                        paired_image_digest(args[0], args[2], args[3])
+                    )
 
         self.precision_hook = self.network.register_forward_hook(observe)
 
@@ -222,9 +265,12 @@ class JointSmokeProof(Callback):
             f"val/libero_gripper/{kind}/{metric}"
             for kind in ("forecast", "completion")
             for metric in (
-                "image_normalized_mse",
-                "proprio_normalized_mse",
-                "action_command_mse",
+                {
+                    "image": "image_normalized_mse",
+                    "proprio": "proprio_normalized_mse",
+                    "action": "action_command_mse",
+                }[name]
+                for name in self.network.streams
             )
         }
         require(
@@ -265,6 +311,9 @@ class JointSmokeProof(Callback):
             weights_sha256=final,
             all_rank_weights=weights,
             initial_weights=self.initial_weights,
+            active_streams=list(self.network.streams),
+            initial_image_weights_sha256=self.initial_image_weights,
+            paired_rgb_batch_sha256=self.paired_rgb_batches,
             bf16_training_outputs=self.bf16_outputs,
             fp32_losses=self.fp32_losses,
             fp32_gradients_verified=self.gradients_checked,

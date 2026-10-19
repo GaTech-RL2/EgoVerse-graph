@@ -1,0 +1,4 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/ablation/common
+- _self_

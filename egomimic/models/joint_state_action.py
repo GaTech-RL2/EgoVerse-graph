@@ -254,8 +254,16 @@ class JointStateActionModel(nn.Module):
         compile_mode="none",
         compile_dynamic=False,
         compile_backend="inductor",
+        active_streams=STREAMS,
     ):
         super().__init__()
+        self.streams = tuple(active_streams)
+        if (
+            not self.streams
+            or self.streams[0] != "image"
+            or self.streams != tuple(k for k in STREAMS if k in self.streams)
+        ):
+            raise ValueError("active_streams must be an ordered image-first subset")
         if set(pose_dims) != set(action_dims) or not pose_dims:
             raise ValueError("Declare matching state/action embodiment dimensions")
         if any(
@@ -337,10 +345,30 @@ class JointStateActionModel(nn.Module):
                 nn.init.zeros_(module.weight)
                 nn.init.zeros_(module.bias)
 
+        # Construct the same complete bank before removing inactive experts.
+        # This preserves initialization and constructor RNG consumption for
+        # every common parameter across factorial comparisons. Removed experts
+        # have no parameters, tokens, loss or sampler updates in this model.
+        if self.streams != STREAMS:
+            selected = [STREAMS.index(name) for name in self.streams]
+            self.expert_widths = tuple(self.expert_widths[i] for i in selected)
+            for name in STREAMS:
+                if name not in self.streams:
+                    del self.inputs[name]
+                    del self.outputs[name]
+            for key in ("noise_embeddings", "norms", "final_adaln"):
+                bank = getattr(self, key)
+                setattr(self, key, nn.ModuleList(bank[i] for i in selected))
+            for block in self.blocks:
+                block.expert_widths = self.expert_widths
+                for key in ("norm1", "qkv", "out", "norm2", "ffn", "adaln"):
+                    bank = getattr(block, key)
+                    setattr(block, key, nn.ModuleList(bank[i] for i in selected))
+
     def expert_parameter_counts(self):
         """Count every private parameter, including input/output and AdaLN heads."""
         result = {}
-        for i, name in enumerate(STREAMS):
+        for i, name in enumerate(self.streams):
             modules = [
                 self.inputs[name],
                 self.outputs[name],
@@ -405,7 +433,10 @@ class JointStateActionModel(nn.Module):
 
     def forward(self, world, embodiment, values, levels):
         image_groups, pose_groups, _, representatives = self.validate(world, embodiment)
-        valid = [world[k]["valid"] for k in STREAMS]
+        # The adapter/noiser retain the complete paired data contract, so RGB
+        # frame selection, masks and random corruption draws stay identical.
+        # Only selected streams enter the denoiser's attention computation.
+        valid = [world[k]["valid"] for k in self.streams]
         layout = prepare_attention_layout(
             torch.cat(valid, 1), query_valid=torch.cat(valid, 1), all_valid=False
         )
@@ -419,7 +450,7 @@ class JointStateActionModel(nn.Module):
             counts = torch.cat(valid, 1).sum(1).cpu().tolist()
             packing = order, inverse, counts
         streams, conditions, rope, active = [], [], [], []
-        for i, name in enumerate(STREAMS):
+        for i, name in enumerate(self.streams):
             s, v = world[name], valid[i]
             if values[name].shape != s["value"].shape or levels[name].shape != v.shape:
                 raise ValueError("Noised value/level shape mismatch")
@@ -488,7 +519,7 @@ class JointStateActionModel(nn.Module):
         for block in self.blocks:
             streams = block(streams, conditions, rope, active, layout, packing)
         result = {}
-        for i, name in enumerate(STREAMS):
+        for i, name in enumerate(self.streams):
             condition, indices = conditions[i]
             shift, scale = [
                 JointMoTBlock._frame_values(value, indices)
@@ -544,7 +575,7 @@ class JointStateActionSampler:
                 for k in STREAMS
             }
             x0 = model(world, embodiment, current, levels)
-            for k in STREAMS:
+            for k in model.streams:
                 if scalar[k] == 0:
                     continue
                 s = world[k]
@@ -561,4 +592,4 @@ class JointStateActionSampler:
                 current[k] = torch.where(
                     s["observed"][..., None], s["value"], candidate
                 ).masked_fill(~s["valid"][..., None], 0)
-        return current
+        return {k: current[k] for k in model.streams}

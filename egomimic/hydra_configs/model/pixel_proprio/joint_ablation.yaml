@@ -1,0 +1,6 @@
+defaults:
+- /model/pixel_proprio/joint@_here_
+- _self_
+pipeline:
+  stage_ids: ${modality_ablation.stage_ids}
+  stages: ${modality_ablation.graph}

@@ -9,7 +9,11 @@ class ImageProprioEval(Eval):
     prediction_key = "image_proprio_prediction"
 
     def __init__(
-        self, objective="visual_proprio", sample_seed=42, pixel_diagnostics=None
+        self,
+        objective="visual_proprio",
+        sample_seed=42,
+        pixel_diagnostics=None,
+        prediction_streams=None,
     ):
         if objective not in (
             "visual_only",
@@ -19,6 +23,16 @@ class ImageProprioEval(Eval):
         ):
             raise ValueError("Unknown image/proprio evaluation objective")
         self.objective, self.sample_seed = objective, int(sample_seed)
+        self.prediction_streams = (
+            None if prediction_streams is None else tuple(prediction_streams)
+        )
+        if self.prediction_streams is not None and (
+            not self.prediction_streams
+            or len(set(self.prediction_streams)) != len(self.prediction_streams)
+            or set(self.prediction_streams) - {"image", "proprio", "action"}
+            or (objective != "direct_action" and self.prediction_streams[0] != "image")
+        ):
+            raise ValueError("Declare unique supported prediction_streams")
         self.totals = {}
         self._completed_validation_step = None
         self._validation_step = None
@@ -113,13 +127,22 @@ class ImageProprioEval(Eval):
                 + 100000 * dataloader_idx
             )
             output = self.model.forward_eval(batch)
-        names = {
-            "visual_only": ("image",),
-            "visual_proprio": ("image", "proprio"),
-            "visual_state_action": ("image", "proprio", "action"),
-            "direct_action": ("action",),
-        }[self.objective]
+        names = (
+            self.prediction_streams
+            or {
+                "visual_only": ("image",),
+                "visual_proprio": ("image", "proprio"),
+                "visual_state_action": ("image", "proprio", "action"),
+                "direct_action": ("action",),
+            }[self.objective]
+        )
         for source, item in batch.items():
+            if self.prediction_streams is not None and set(
+                output[source][self.prediction_key]
+            ) != set(names):
+                raise ValueError(
+                    "Evaluator prediction_streams differ from model output"
+                )
             kinds = item["task_kind"]
             for name in names:
                 stream = item["world"][name]

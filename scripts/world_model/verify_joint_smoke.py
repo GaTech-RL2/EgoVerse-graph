@@ -204,6 +204,18 @@ def main():
     )
     require(all(p.requires_grad for p in wrapper.parameters()), "An expert was frozen")
     network = wrapper.model.pipeline.stage_by_id("joint_denoiser").model
+    require(
+        all(
+            r.get("active_streams") == list(network.streams)
+            and len(r.get("paired_rgb_batch_sha256", [])) == 3
+            for r in ranks
+        ),
+        "Missing active-stream or paired RGB controls",
+    )
+    require(
+        len({r["initial_image_weights_sha256"] for r in ranks}) == 1,
+        "Initial image experts differ across ranks",
+    )
     expert_parameters = network.expert_parameter_counts()
     require(
         sum(expert_parameters.values()) == sum(p.numel() for p in wrapper.parameters()),
@@ -238,7 +250,8 @@ def main():
         status="PASS",
         job_id=job,
         world_size=world,
-        expert_widths=dict(zip(("image", "proprio", "action"), network.expert_widths)),
+        active_streams=list(network.streams),
+        expert_widths=dict(zip(network.streams, network.expert_widths)),
         expert_parameters=expert_parameters,
         global_step=50,
         validation_batches=100,

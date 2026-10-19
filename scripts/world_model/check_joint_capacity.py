@@ -96,6 +96,9 @@ def check_capacity(cfg, data, destination):
             train_peak_allocated_bytes=peak,
             optimizer_update_lr=optimization_lr,
             sample_all_streams_finite=True,
+            active_streams=list(
+                algo.pipeline.stage_by_id("joint_denoiser").model.streams
+            ),
         )
         write_once(destination, record)
         return record

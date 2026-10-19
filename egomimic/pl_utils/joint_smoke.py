@@ -191,7 +191,10 @@ class JointSmokeProof(Callback):
             "Weights did not optimize identically across all ranks",
         )
         # Diagnostic terminal save only. All ranks participate to preserve RNG.
-        trainer.save_checkpoint(self.output / "smoke-terminal.ckpt")
+        checkpoint_name = (
+            f"smoke-epoch{trainer.current_epoch:04d}-step{trainer.global_step:09d}.ckpt"
+        )
+        trainer.save_checkpoint(self.output / checkpoint_name)
         if trainer.global_rank == 0:
             with (self.output / "smoke-config.yaml").open("x") as stream:
                 stream.write(
@@ -220,5 +223,6 @@ class JointSmokeProof(Callback):
             peak_reserved_bytes=self.peak_reserved,
             validation_seconds=time.perf_counter() - self.validation_start,
             data_context_sha256=pl_module.data_context.fingerprint(),
+            checkpoint_name=checkpoint_name,
         )
         write_once(self.output / f"fit-rank{trainer.global_rank}.json", record)

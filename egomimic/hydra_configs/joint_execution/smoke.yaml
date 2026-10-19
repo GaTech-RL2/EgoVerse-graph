@@ -1,0 +1,16 @@
+# @package _global_
+# Attach to either joint experiment; preserves its exact GPU and batch topology.
+trainer:
+  max_steps: 50
+  val_check_interval: 50
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 0
+    every_n_epochs: 0
+    save_last: false
+  joint_smoke:
+    _target_: egomimic.pl_utils.joint_smoke.JointSmokeProof
+    output: ${paths.output_dir}
+    world_size: ${trainer.devices}
+    expected_steps: 50
+    warmup_steps: 10

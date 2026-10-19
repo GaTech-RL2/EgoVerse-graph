@@ -1,0 +1,63 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.000005
+  weight_decay: 0.01
+scheduler: null
+training_behavior:
+  _target_: egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior
+  distributed_noise_seed: ${seed}
+train_log_on_step: true
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids: {joint_noising: 0, joint_denoiser: 1, image_loss: 2, proprio_loss: 3, action_loss: 4, joint_sampler: 5}
+  stages:
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointNoisingStage
+      noising:
+        _target_: egomimic.models.joint_state_action.CoupledStateActionNoising
+        maximum: 1.0
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointDenoiserStage
+      model:
+        _target_: egomimic.models.joint_state_action.JointStateActionModel
+        pose_dims: ${joint.pose_dims}
+        action_dims: ${joint.action_dims}
+        max_tokens: ${joint.max_tokens}
+        image_dim: 768
+        width: 768
+        depth: 8
+        heads: 6
+        mlp_ratio: 4
+        max_cameras: 2
+        time_mode: ${data.mode}
+        rope_axis_dims: [64, 32, 32]
+        spatial_grid_size: [10, 10]
+        attention_backend: ${world_model_attention.backend}
+        attention_dtype: ${world_model_attention.dtype}
+        token_execution: packed_valid
+        compile_mode: ${joint.compile_mode}
+        compile_dynamic: true
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: image
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: proprio
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: action
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    - _target_: egomimic.pipeline.stages_joint_state_action.JointSamplerStage
+      sampler:
+        _target_: egomimic.models.joint_state_action.JointStateActionSampler
+        state_steps: 20
+        action_steps: 20

@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - /experiment/pixel_proprio/joint_continuous
+  - _self_
+name: pixel_joint_discrete_s42_300k
+description: joint_pixel160_state36_action28_discrete16_stride4_lr5e6_s42
+joint:
+  pose_dims: {libero_gripper: 36}
+  action_dims: {libero_gripper: 28}
+  max_tokens: 3232
+data:
+  mode: discrete
+  sampling_strategy: discrete_window
+  discrete_frames: 16
+  stride: 4
+  batch_size: 16
+  distributed_world_size: 2
+trainer:
+  devices: 2

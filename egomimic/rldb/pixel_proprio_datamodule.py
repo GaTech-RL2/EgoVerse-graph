@@ -48,6 +48,7 @@ class PixelProprioDataModule(WorldModelDataModule):
         persistent_workers=False,
         prefetch_factor=None,
         balance_training_work=False,
+        couple_state_observations=False,
     ):
         if type(batch_size) is not int or batch_size < 1:
             raise ValueError("batch_size must be a positive integer")
@@ -129,6 +130,12 @@ class PixelProprioDataModule(WorldModelDataModule):
         # Preserve historical conditioned checkpoint contexts when disabled.
         if image_only:
             self.settings["image_only"] = True
+        if type(couple_state_observations) is not bool:
+            raise ValueError("couple_state_observations must be boolean")
+        if couple_state_observations:
+            if image_only:
+                raise ValueError("Coupled state observations require image and proprio")
+            self.settings["couple_state_observations"] = True
         self.validation_anchors_per_episode = validation_anchors_per_episode
         self.validation_settings = {
             key: value

@@ -236,6 +236,19 @@ def test_legacy_mean_timing_and_noncartesian_models_fail_closed():
     assert "model.inference" in artifact["reason"]
 
 
+@pytest.mark.parametrize("mode", [None, "cartesian"])
+def test_cartesian_abc_metadata_preserves_existing_sidecars_and_resume(tmp_path, mode):
+    legacy = training_config()
+    path = tmp_path / "inference-config.yaml"
+    _, artifact = write_inference_config(legacy, path)
+    current = deepcopy(legacy)
+    current.abc = {"action_mode": mode, "arc_waypoints": 100}
+    current.run_provenance = {"action_contract": {"representation": "cartesian"}}
+    assert validate_inference_config(artifact, current)["output"]["shape"] == [100, 14]
+    # Resuming a baseline must not trip the immutable-sidecar writer.
+    assert write_inference_config(current, path)[1] == artifact
+
+
 def test_artifact_is_bound_to_exact_pipeline_and_graph_content():
     training = training_config()
     artifact = build_inference_config(training)

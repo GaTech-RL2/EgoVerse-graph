@@ -1,0 +1,79 @@
+# @package _global_
+# Shared visual-only legacy HPT300 family and training contract.
+# The family label is historical, not an exact total parameter count.
+defaults:
+  - override /model: abc_arc/hpt_yam_visual
+  - override /data: abc_arc/abc_visual
+  - override /evaluator: eval_open_loop_sim
+  - override /logger: wandb
+  - _self_
+launch_params: {gpus_per_node: 2, nodes: 1}
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  action_dim: 14
+  action_horizon: 100
+  flow_blocks: 6
+  flow_hidden_dim: 320
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: ${hpt.num_heads}
+      crossattn_dim_head: 84
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}
+abc:
+  action_mode: cartesian
+  action_horizon: 100
+  arc_distance: 0.40
+  arc_rotation_distance: null
+  arc_waypoints: 100
+  # Wide velocity layout: each velocity row sits BESIDE its waypoint, so the
+  # token is (M, 28) -- M rows of 28 columns, not the historical (2M, 14).
+  arc_token_rows: 100
+  arc_token_dim: 28
+  arc_velocity_mode: per_waypoint
+  arc_chunking_mode: joint_distance
+  task_predicate: ???
+# _build_model_config_tree retains this block in Lightning checkpoints.
+run_provenance:
+  action_contract:
+    representation: ${abc.action_mode}
+    arc_chunking_mode: ${abc.arc_chunking_mode}
+    translation_distance_m: ${abc.arc_distance}
+    rotation_distance_radians: ${abc.arc_rotation_distance}
+    waypoints: ${abc.arc_waypoints}
+    velocity_mode: ${abc.arc_velocity_mode}
+    control_dt: ${evaluator.control_dt}
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  precision: 32-true
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+norm_stats: {sample_frac: 0.10}
+evaluator:
+  action_mode: baseline
+  ground_truth_action_key: actions_cartesian
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.30
+  arc_execution_cap_mode: waypoints
+  arc_chunking_mode: ${abc.arc_chunking_mode}
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  velocity_mode: per_waypoint
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags: [hpt300m, abc, visual_only, no_language, open_loop, video]

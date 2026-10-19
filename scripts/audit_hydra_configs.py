@@ -29,13 +29,21 @@ EXPERIMENT_CONTEXTS = {
     "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
     "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
     "model/e1/hpt_flow_wrists": "e1/abcs_time",
-    "data/abc_arc/abc_fstshirt_arc_bc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model/abc_arc/yam_bimanual_dp_arc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
+    "model_contract/abc_visual": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_bimanual_visual": "abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline",
+    "model/abc_arc/abc_dit_yam_visual": "abc_arc/robot_bc/abc_multitask4_abcdit_baseline_visual_openloop",
+    "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "data/abc_arc/stationery_rl2_hpt_baseline": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
+    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
+    "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
+    "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
+    "data/abc_arc/organize_rl2_elmo_cotrain": "abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline",
+    "experiment/abc_arc/robot_bc/abc_visual_hpt300_base": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
     "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
     "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
-    "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
     "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
     "evaluator/e1/yam_action_flow": "e1/yam_stationary_action_flow_h816_s42",
@@ -83,6 +91,9 @@ AUDIT_ENVIRONMENT = {
         )
     },
     "DP_DATASET_DIR": "/tmp/egoverse-config-audit/chain",
+    "EGOVERSE_ABC_DATASET_DIR": "/tmp/egoverse-config-audit/abc",
+    "EGOVERSE_DINOV3_CHECKPOINT": "/tmp/egoverse-config-audit/dinov3.pth",
+    "EGOVERSE_CLIP_CHECKPOINT": "/tmp/egoverse-config-audit/clip.pth",
     "DP_U_DATASET_DIR": "/tmp/egoverse-config-audit/usocket",
     "DP_CHAIN_DATASET_DIR": "/tmp/egoverse-config-audit/chain",
     "AF_COTRAIN_NORM": "/tmp/egoverse-config-audit/normalizer.json",
@@ -123,6 +134,10 @@ def audit_context(path):
             "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
         ]
     group, _, entry = name.partition("/")
+    if group == "visualization":
+        # Standalone data-visualization roots composed from their own
+        # directory (egomimic/scripts/data_visualization), not under a run.
+        return None, [f"+visualization@_global_={entry}"]
     experiment = None
     if group == "experiment":
         experiment = entry
@@ -131,9 +146,9 @@ def audit_context(path):
     elif group in {"model", "data"} and entry.startswith(("bf/", "pusht/")):
         experiment = "pusht/planar_v2_usocket_dp_standard"
     elif group in {"model", "data"} and entry.startswith(("abc/", "abc_arc/")):
-        experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
-        if "arc_D" in entry or "arcD" in entry or "arc_cotrain" in entry:
-            experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100"
+        # The retired language-conditioned ABC ablations are gone; the kept
+        # 20-episode fstshirt baseline is the remaining shared ABC context.
+        experiment = "abc/yam_fstshirt_dp"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

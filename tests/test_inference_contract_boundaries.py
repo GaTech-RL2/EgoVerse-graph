@@ -43,11 +43,13 @@ def test_resampled_yam_contract_restores_native_duration():
 
 
 def test_chunk_mean_timing_is_non_deployable_even_with_same_model_shape():
+    # A diagnostic-only timing declaration on an otherwise deployable recipe.
     cfg = compose_recipe(
         config_name="train_zarr_cartesian",
         overrides=[
-            "+experiment=abc_arc/abc_fstshirt_arc_bc",
-            "abc.arc_velocity_mode=mean",
+            "+experiment=abc/yam_fstshirt_dp",
+            "model.inference.native_output.timing.kind=chunk_mean",
+            "model.inference.native_output.timing.temporally_resolved=false",
         ],
     )
     artifact = build_inference_config(cfg)

@@ -1,0 +1,32 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_visual_hpt300_base
+  - _self_
+
+name: abc_towels_hpt180_baseline_visual_openloop
+description: HPT180 ABC towels visual-only baseline 100-frame chunks
+
+abc:
+  task_predicate: "row['task'] == 'fold and stack the towels'"
+  action_mode: cartesian
+  arc_distance: 0.40
+  arc_rotation_distance: 0.4188790204786391
+
+hpt:
+  embed_dim: 640
+  num_heads: 8
+  action_horizon: 100
+  flow_blocks: 10
+  flow_hidden_dim: 384
+  stem_specs:
+    cross_attn:
+      crossattn_dim_head: 80
+
+evaluator:
+  action_mode: baseline
+  ground_truth_action_key: actions_cartesian
+  limit_val_episodes: 4
+
+logger:
+  wandb:
+    tags: [hpt180, abc, towels, visual_only, no_language, baseline, open_loop, video]

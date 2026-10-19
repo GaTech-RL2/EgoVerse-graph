@@ -136,6 +136,7 @@ include = ["egomimic*"]
 
 [tool.setuptools.package-data]
 egomimic = [
+    "scripts/data_visualization/arc_tsne.html",
     "resources/*",
     "robot/eva/stanford_repo/models/meshes/X5/*.STL",
     "robot/eva/stanford_repo/LICENSE",

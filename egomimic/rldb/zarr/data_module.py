@@ -514,6 +514,7 @@ class ZarrDataModule(MultiDataModuleWrapper):
                 if mode == "normalization"
                 else None
             ),
+            action_contract=options.get("action_contract"),
         )
         return owner
 

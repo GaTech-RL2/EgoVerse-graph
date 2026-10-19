@@ -1,0 +1,38 @@
+# Local-only example. Override resolver.folder_path to your episode directory.
+# Supply trusted YAML only: Hydra targets and DatasetFilter lambdas execute code.
+train_datasets:
+  yam_bimanual:
+    mode: train
+    valid_ratio: 0.05
+    split_seed: 42
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_ABC_DATASET_DIR}
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: hybrid_arc_tokenizer_cartesian
+        annotation_key: null
+        min_distance_unit: 0.4
+        rotation_distance_unit: 0.4188790204786391
+        arc_chunking_mode: multistream
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: hybrid_arc_tokenizer_cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+        min_distance_unit: 0.4
+        rotation_distance_unit: 0.4188790204786391
+        arc_chunking_mode: multistream
+        resampled_vector_length: 100
+        velocity_mode: per_waypoint
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['is_deleted'] == False"
+valid_datasets:
+  yam_bimanual:
+    mode: valid
+    valid_ratio: 0.05
+    split_seed: 42
+    resolver: ${train_datasets.yam_bimanual.resolver}
+    filters: ${train_datasets.yam_bimanual.filters}

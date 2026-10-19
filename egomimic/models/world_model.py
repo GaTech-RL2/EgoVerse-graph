@@ -85,6 +85,7 @@ class MoTBlock(nn.Module):
         attention_backend="sdpa",
         attention_dtype="native",
         image_adaln=False,
+        expert_widths=None,
     ):
         super().__init__()
         if width % heads or (width // heads) % 2:
@@ -112,30 +113,44 @@ class MoTBlock(nn.Module):
         if type(image_adaln) is not bool:
             raise ValueError("image_adaln must be bool")
         self.image_adaln = image_adaln
-        self.norm1 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-            if image_adaln and i == 0
-            else nn.LayerNorm(width)
-            for i, _ in enumerate(modalities)
+        modalities = tuple(modalities)
+        self.expert_widths = (
+            (width,) * len(modalities)
+            if expert_widths is None
+            else tuple(expert_widths)
         )
-        self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in modalities)
-        self.out = nn.ModuleList(nn.Linear(width, width) for _ in modalities)
-        self.norm2 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+        if len(self.expert_widths) != len(modalities) or any(
+            type(d) is not int or d < 1 for d in self.expert_widths
+        ):
+            raise ValueError("Declare one positive residual width per expert")
+        self.norm1 = nn.ModuleList(
+            nn.LayerNorm(d, elementwise_affine=False, eps=1e-6)
             if image_adaln and i == 0
-            else nn.LayerNorm(width)
-            for i, _ in enumerate(modalities)
+            else nn.LayerNorm(d)
+            for i, d in enumerate(self.expert_widths)
+        )
+        # Attention heads share a width; private residual/FFN widths need not.
+        self.qkv = nn.ModuleList(nn.Linear(d, 3 * width) for d in self.expert_widths)
+        self.out = nn.ModuleList(nn.Linear(width, d) for d in self.expert_widths)
+        self.norm2 = nn.ModuleList(
+            nn.LayerNorm(d, elementwise_affine=False, eps=1e-6)
+            if image_adaln and i == 0
+            else nn.LayerNorm(d)
+            for i, d in enumerate(self.expert_widths)
         )
         self.ffn = nn.ModuleList(
             nn.Sequential(
-                nn.Linear(width, width * mlp_ratio),
+                nn.Linear(d, d * mlp_ratio),
                 nn.GELU(),
-                nn.Linear(width * mlp_ratio, width),
+                nn.Linear(d * mlp_ratio, d),
             )
-            for _ in modalities
+            for d in self.expert_widths
         )
         if image_adaln:
-            self.adaln_image = nn.Sequential(nn.SiLU(), nn.Linear(width, 6 * width))
+            image_width = self.expert_widths[0]
+            self.adaln_image = nn.Sequential(
+                nn.SiLU(), nn.Linear(image_width, 6 * image_width)
+            )
             nn.init.zeros_(self.adaln_image[-1].weight)
             nn.init.zeros_(self.adaln_image[-1].bias)
         self.configure_compilation()
@@ -168,7 +183,7 @@ class MoTBlock(nn.Module):
     ):
         qs, ks, vs = [], [], []
         for i, x in enumerate(streams):
-            b, n, d = x.shape
+            b, n, _ = x.shape
             normalized = self.norm1[i](x)
             if i == 0 and self.image_adaln:
                 shift, scale = (
@@ -178,7 +193,7 @@ class MoTBlock(nn.Module):
                 normalized = normalized * (1 + scale) + shift
             q, k, v = (
                 self.qkv[i](normalized)
-                .reshape(b, n, 3, self.heads, d // self.heads)
+                .reshape(b, n, 3, self.heads, self.head_dim)
                 .permute(2, 0, 3, 1, 4)
             )
             qs.append(

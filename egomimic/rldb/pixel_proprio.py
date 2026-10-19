@@ -411,6 +411,7 @@ class PreparedPixelProprioDataset(Dataset):
         verification_memo=None,
         sampling_strategy="full_episode_uniform",
         image_only=False,
+        couple_state_observations=False,
     ):
         if task not in (
             "visual_diffusion",
@@ -426,6 +427,13 @@ class PreparedPixelProprioDataset(Dataset):
         if type(image_only) is not bool or (image_only and task != "visual_diffusion"):
             raise ValueError("image_only requires visual_diffusion and a boolean flag")
         self.image_only = image_only
+        if type(couple_state_observations) is not bool or (
+            couple_state_observations and image_only
+        ):
+            raise ValueError(
+                "Coupled state observations require image and proprio streams"
+            )
+        self.couple_state_observations = couple_state_observations
         self.path, self.task, self.split, self.seed, self.mode = (
             Path(manifest_path),
             task,
@@ -815,6 +823,13 @@ class PreparedPixelProprioDataset(Dataset):
                     observed["image"][rng.integers(f)] = True
                 if observed["image"].all():
                     observed["image"][rng.integers(f)] = False
+
+            if self.couple_state_observations:
+                if not pose_valid.all():
+                    raise ValueError(
+                        "Coupled state training requires valid measured states"
+                    )
+                observed["proprio"] = observed["image"].copy()
 
             def base(value, repeats, known):
                 n = f * repeats

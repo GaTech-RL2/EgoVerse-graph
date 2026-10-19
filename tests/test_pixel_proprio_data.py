@@ -25,6 +25,39 @@ from egomimic.rldb.pixel_proprio_datamodule import PixelProprioDataModule
 from egomimic.rldb.world_model import HomogeneousWorldBatchSampler
 
 
+@pytest.mark.parametrize(
+    "mode,strategy",
+    [("continuous", "full_episode_uniform"), ("discrete", "discrete_window")],
+)
+def test_joint_state_observation_masks_are_tied_at_data_boundary(
+    tmp_path, mode, strategy
+):
+    manifest = pixel_manifest(tmp_path, include_sharpa=False, frames=16)
+    dataset = PreparedPixelProprioDataset(
+        manifest,
+        task="visual_state_action",
+        mode=mode,
+        sampling_strategy=strategy,
+        min_frames=2,
+        max_frames=8,
+        discrete_frames=3,
+        stride=4,
+        couple_state_observations=True,
+    )
+    kinds = set()
+    for draw in range(20):
+        sample = dataset[(draw % len(dataset), draw, draw)]
+        streams = sample["world"]
+        kinds.add(sample["task_kind"])
+        observed = streams["image"]["observed"].reshape(-1, 8)
+        assert (observed == streams["proprio"]["observed"][:, None]).all()
+        assert not streams["action"]["observed"].any()
+        assert streams["proprio"]["value"].shape[-1] == (
+            36 if mode == "discrete" else 9
+        )
+    assert kinds == {"forecast", "completion"}
+
+
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 

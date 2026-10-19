@@ -1,5 +1,6 @@
+# rl2 fold_towels pool over the shared YAM loader; the frozen pools (towels_*_20261015) pin episodes.
 defaults:
-- /data/abc_arc/stationery_tempo_fast_time@_here_
+- /data/abc_arc/stationery_yam_loader@_here_
 - _self_
 train_datasets:
   yam_bimanual:

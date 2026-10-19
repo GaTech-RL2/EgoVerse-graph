@@ -171,7 +171,9 @@ def test_projection_rejects_unimplemented_timing(mode):
 
 @pytest.mark.parametrize("variant,mode", [("dur", "dur"), ("vel", "profile")])
 def test_recipe_training_evaluator_and_rollout_use_identical_projection(variant, mode):
-    cfg = compose_recipe(f"bc_rl2_stattempo_slowpace366_arc_projection_{variant}")
+    cfg = compose_recipe(
+        f"bc_rl2_stattempo_slowpace366_arc_projection_{variant}_m200_d033"
+    )
     OmegaConf.to_container(cfg, resolve=True)
     artifact = build_inference_config(cfg)
     assert artifact["status"] == "ready", artifact.get("reason")
@@ -183,9 +185,9 @@ def test_recipe_training_evaluator_and_rollout_use_identical_projection(variant,
     decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
     evaluator = instantiate(cfg.evaluator)
     assert isinstance(decoder, BimanualArcDecoder)
-    # Declared with the training codec and fastest-stream termination; the
-    # whole-token comparison below turns termination off.
-    assert decoder.codec_source == "training" and decoder.first_stream == 1
+    # Declared with fastest-stream termination on; the whole-token comparison
+    # below turns it off.
+    assert decoder.first_stream == 1
     decoder.first_stream = 0
     assert evaluator.tick_prefix
     assert evaluator.arc_video_trajectory_cap_mode == "execution_horizon"
@@ -229,7 +231,7 @@ def test_recipe_training_evaluator_and_rollout_use_identical_projection(variant,
 
 
 def test_offset_override_is_shared_by_data_inference_and_evaluation():
-    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arc_projection_dur")
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033")
     original_contract = inference_contract_sha256(cfg)
     cfg.model.projection_offset_m = [0.01, -0.03, 0.04]
     assert inference_contract_sha256(cfg) != original_contract
@@ -246,7 +248,7 @@ def test_offset_override_is_shared_by_data_inference_and_evaluation():
 
 def test_duration_and_velocity_have_distinct_checkpoint_contracts():
     configs = [
-        compose_recipe(f"bc_rl2_stattempo_slowpace366_arc_projection_{v}")
+        compose_recipe(f"bc_rl2_stattempo_slowpace366_arc_projection_{v}_m200_d033")
         for v in ("dur", "vel")
     ]
     assert inference_contract_sha256(configs[0]) != inference_contract_sha256(
@@ -262,7 +264,9 @@ def test_plain_decoder_rejects_projection_parameters():
 @pytest.mark.parametrize("variant", ["dur", "vel"])
 def test_projection_graph_can_train_and_sample(variant):
     torch.set_num_threads(1)
-    cfg = compose_recipe(f"bc_rl2_stattempo_slowpace366_arc_projection_{variant}")
+    cfg = compose_recipe(
+        f"bc_rl2_stattempo_slowpace366_arc_projection_{variant}_m200_d033"
+    )
     for name, value in dict(
         embed_dim=32,
         attention_heads=4,
@@ -302,9 +306,10 @@ def test_projection_graph_can_train_and_sample(variant):
     model.nets.eval()
     with torch.no_grad():
         prediction = model.forward_eval(batch)["opaque"]["pred_action"]
-    assert prediction.shape == (2, 100, 16)
+    assert prediction.shape == (2, int(cfg.model.action_horizon), 16) == (2, 200, 16)
     assert torch.isfinite(prediction).all()
     decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
+    decoder.first_stream = 0  # whole-token decode for the shape check below
     decoded = decoder(prediction)
     assert decoded.shape == (2, 100, 14)
     assert np.isfinite(decoded).all()

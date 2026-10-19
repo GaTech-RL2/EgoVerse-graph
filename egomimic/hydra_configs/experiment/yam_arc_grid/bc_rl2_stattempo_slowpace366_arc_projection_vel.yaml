@@ -1,5 +1,0 @@
-# @package _global_
-defaults:
-- /experiment/yam_arc_grid/_base/arc_projection
-- override /model: e1/hpt_flow_wrists_ft_arc_projection_vel
-- _self_

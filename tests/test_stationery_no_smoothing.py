@@ -17,7 +17,7 @@ def test_no_smoothing_preserves_a_speed_transition():
 
 
 def test_stationery_recipe_drops_only_speed_smoothing():
-    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_nosmooth")
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033")
     assert cfg.evaluator.token_layout == "e1_profile"
     for split in ("train_datasets", "valid_datasets"):
         transforms = instantiate(cfg.data[split].yam_bimanual.resolver.transform_list)

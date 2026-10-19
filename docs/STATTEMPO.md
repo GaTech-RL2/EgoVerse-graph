@@ -32,45 +32,21 @@ sbatch --export=ALL,ARM=<tag>,EXPERIMENT=yam_arc_grid/<leaf>,PY=<venv python>,OU
 
 | Task | Frozen pool | Leaves under `experiment/yam_arc_grid/` | Small change per run |
 | --- | --- | --- | --- |
-| Stationery (sort, slow-pace 366) | `scripts/e1/stationery_slowpace366_manifest.json` | `bc_rl2_stattempo_slowpace366_{arcdur,arcvel}`, `..._arcdur_abstime`, `..._arcvel_nosmooth`, `..._m200_d033` twins, `..._arc_projection_{dur,vel}[_m200_d033]`, plus the hyb/tri/evt/ref r72 / r360 builder recipes | `logger.wandb.id`; pick the variant leaf (or `_base/m200_d033` for M 200 / D 0.33) |
-| Earbuds (`wireless_earbuds_updated`) | `scripts/e1/earbuds_updated_manifest.json` (refresh with `scripts/e1/build_earbuds_updated.py`) | `earbuds_updated_{time,arcdur,arcvel}_hpt300`, `earbuds_updated_arcdur_abstime_{m200,d03}_hpt300`, `earbuds_updated_arcvel_nosmooth_{m200,d03}_hpt300`; `earbuds_all_*_hpt300` for the unfrozen pool | `logger.wandb.id`; a new pool is one builder run plus the data leaf it writes |
-| Towels (`fold_towels`) | `scripts/e1/towels_plus74_20261015_manifest.json`, `scripts/e1/towels_20261011_manifest.json` | `towels_{new290plus74,since0924plus74}_{time,arcdur,arcvel}_hpt300` (HPT300, `_base/towels_hpt300`) | `logger.wandb.id`; `towels_pool` + the data leaf for another frozen pool |
+| Stationery (sort, slow-pace 366) | `scripts/e1/stationery_slowpace366_manifest.json` (366 train / 24 validation) | `bc_rl2_stattempo_slowpace366_{arcdur,arcvel,arcdur_abstime,arcvel_nosmooth,arc_projection_dur,arc_projection_vel}_m200_d033` | `logger.wandb.id`; pick the variant leaf |
+| Earbuds (`wireless_earbuds_updated`) | `scripts/e1/earbuds_updated_manifest.json` (refresh with `scripts/e1/build_earbuds_updated.py`) | `earbuds_updated_time_hpt300`, `earbuds_updated_{arcdur,arcvel,arcdur_abstime,arcvel_nosmooth}_m200_d033_hpt300` | `logger.wandb.id`; a new pool is one builder run plus the data leaf it writes |
+| Towels (`fold_towels`) | `scripts/e1/towels_plus74_20261015_manifest.json` (pools `since0924plus74`, `new290plus74`) | `towels_{since0924plus74,new290plus74}_time_hpt300`, `towels_{since0924plus74,new290plus74}_{arcdur,arcvel}_m200_d033_hpt300` | `logger.wandb.id`; `towels_pool` + the data leaf for another frozen pool |
 
-`e1.variant` selects the codec and its inference contract in every leaf
-(`time`, `arcdur`, `arcvel`, `..._abstime`, `..._nosmooth`, hybrid / tri / evt
-/ ref, projection); `e1.M` / `e1.D` are threaded through the data transforms,
-tokenizer and graph by `_base/m200_d033`. Aniketh's `experiment/abc_arc`
-recipes (RL2 organize cotrain, ABC + RL2 towels multistream and log clocks,
-ABC-DiT) stay launchable from the same tree.
-
-### Rollout runtime on the same branch (2026-10-18)
-
-The station rollout work that lived on PR #229, Elmo's PR #230 and rl2-yam-only
-branches is consolidated here too, so a bundle trained from these recipes
-deploys from the same checkout (`docs/YAM_RUNTIME.md` has the details):
-
-- Elmo's PR #230 port of the ARC runtime onto main's inference contracts:
-  `decoder_attribute` controls, replay / hold tempo, fastest-stream chunk
-  termination with its waypoint cap, hybrid / tri / lab / M28 decoders over the
-  checkpoint-era codec copies in `robot/arc_codecs/`, demo-format HDF5 episode
-  recording, the server-owned rollout timer.
-- `BimanualArcDecoder(codec="training")` (the default) decodes the layouts only
-  this repository trains, including absolute timing, event / reference and
-  projection tokens, with the same tempo and termination controls; the E1
-  contracts declare them (`model.arc_decoder_controls`), and the `time`
-  contract wraps its chunk in a `TimeChunkRetimer` for the naive speed-up.
-- The camera alignment monitor (with the station's direct-D405 source), the HDF5
-  tempo checker, the stalled-episode fixes, `--check-model`, IK pose relaxation,
-  bounded differential IK recovery, the TRAC-IK selector and the HPT300 towels /
-  earbuds rollout profiles.
-- Station-only extras: the view-only reset guides (`reset_overlay_templates.yaml`,
-  `egomimic.scripts.build_reset_guides`) and the hash-bound `pinned_arc_bbb813a0`
-  decoder routing (`egomimic.robot.rollout_pinned_arc`).
-
-Not carried: the overlapped-inference loop (tried 2026-10-08, reverted on the
-arms) and the unbound 2026-10-12 default bundle (main's loader refuses
-checkpoints without a binding; the shared profile defaults to the bound towels
-HPT300 180k bundle and the env variables select another).
+Every ARC leaf trains at M 200 waypoints and D 0.33 m (`_base/m200_d033` for the
+stationery recipes, `_base/m200_d033_hpt300` for the HPT-300M towels / earbuds
+recipes); the time leaves have no M or D. `e1.variant` selects the codec and its
+inference contract (`time`, `arcdur`, `arcvel`, `..._abstime`, `..._nosmooth`,
+projection). The hybrid / tri / event / reference codecs, the 72 / 360 degree
+recipes, the tempo-bucket and Elmo+Aidan scratch recipes, the Aria cotrain
+recipes and the M 100 twins were removed from this branch on 2026-10-18 at
+Aidan's request; their runtime (codecs, decoders, evaluator modes) stays, so
+`scripts/e1/build_slowpace366.py` can regenerate those recipes from the manifest
+when a run needs them. Aniketh's `experiment/abc_arc` recipes stay launchable
+from the same tree.
 
 ## Configuration structure
 
@@ -78,72 +54,66 @@ HPT300 180k bundle and the env variables select another).
 whose single per-arm clock uses a point 2 cm along each end-effector-local axis.
 Its recipes inherit the existing BC infrastructure and frozen slowpace366 pool.
 
-All 50 existing stattempo experiment selectors remain available under
-`experiment/yam_arc_grid/`. Their shared parents are:
+The shared parents under `experiment/yam_arc_grid/_base/` are:
 
 - `_base/stattempo`: FT optimizer/scheduler, h640/t8/d384x10 dimensions,
-  240k steps, checkpoint cadence, data paths and logging defaults.
+  240k steps, checkpoint cadence, data paths and logging defaults, on the frozen
+  slow-pace 366 pool (`data/abc_arc/stationery_slowpace366_bc_time` over the
+  shared `data/abc_arc/stationery_yam_loader`).
 - `_base/stattempo_openloop`: complete-episode robot validation.
-- `_base/stattempo_aria`: the human source and cotrain graph selection.
-- `_base/stattempo_reference`: 24D reference-stream normalization and tick-prefix
-  evaluation. Leaves supply the duration/rate ranges and run identity.
+- `_base/arc_projection`: the projection model and data over the same pool.
+- `_base/m200_d033`: M 200 / D 0.33 threaded through the data transforms,
+  tokenizer, token-row horizons and the open-loop evaluator.
+- `_base/towels_hpt300`: the HPT-300M recipe (embed 840, 19 trunk blocks,
+  flow 6 x 320) with the tempo evaluator, on the `since0924plus74` towel pool;
+  `_base/earbuds_updated_hpt300` selects the frozen earbuds pool over it;
+  `_base/m200_d033_hpt300` threads M 200 / D 0.33 through that family.
 
 `model/e1/hpt_flow_wrists_ft.yaml` owns the graph. Its named `model.graph`
 components resolve into the original ordered `pipeline.stages` list, preserving
-checkpoint parameter names. Cotrain adds its human stem/domain; reference models
-set `clip_sample_range=1.0`. Neither duplicates the stage list.
-Observation/inference fields are inherited from `model_contract/e1_wrists`.
-Data codec leaves inherit the same pool and loader. The YAM keymap and transform
-explicitly pin 100 source frames; main's other recipes retain their own horizons.
+checkpoint parameter names. Observation/inference fields are inherited from
+`model_contract/e1_wrists`. Data codec leaves inherit the same pool and loader.
+The YAM keymap and transform explicitly pin 100 source frames; main's other
+recipes retain their own horizons.
 
 Builders write Hydra defaults and actual differences, never flattened resolved
-configs. The existing slowpace366 commands remain:
-
-```bash
-python scripts/e1/build_slowpace366.py
-python scripts/e1/build_slowpace366.py --rotation-deg 360 --kinds bc --stamp 20261011 --fixes --variants arcdurhyb arcvelhyb arcdurtri arcveltri arcdurevt arcvelevt
-python scripts/e1/build_slowpace366.py --rotation-deg 360 --kinds bc --stamp 20261011 --variants arcdurref arcvelref
-```
-
-On PACE, run Python through a scheduled allocation and use the existing project
-venv. These commands generate configs; they do not launch jobs. Launch wrappers
-still use the frozen manifest, reject uncommitted regenerated configs, and send
-smokes and training to W&B online. The 366 train / 24 validation / 38 optional
-human episode lists are unchanged in `scripts/e1/stationery_slowpace366_manifest.json`.
+configs. `scripts/e1/build_slowpace366.py` regenerates the hybrid / tri / event /
+reference slow-pace 366 recipes from the frozen manifest when they are needed
+again; `scripts/e1/build_earbuds_updated.py` refreshes the earbuds pool. These
+commands generate configs; they do not launch jobs. The 366 train / 24
+validation episode lists are unchanged in
+`scripts/e1/stationery_slowpace366_manifest.json`.
 
 ## Preserved runtime and compatibility
 
-The port includes hybrid, tri, event and reference tokenization; the 72-degree
-and 360-degree recipes; decode speed floors; whole-token tick-prefix evaluation;
-optional quantile widening; fixed action ranges; and clipped flow sampling.
-Fixed-range contexts reject incompatible restored scales in either direction.
-Main's partial-normalization recovery remains available; ambiguous fixed-range
-stats-only recovery is rejected. Every declared E1 decoder now accepts its
-18D/20D/24D layout, including event and reference profiles that the old robot
-adapter did not implement.
+The codecs keep hybrid, tri, event and reference tokenization, decode speed
+floors, whole-token tick-prefix evaluation, optional quantile widening, fixed
+action ranges and clipped flow sampling, so the removed recipes can be rebuilt
+without a code change. Fixed-range contexts reject incompatible restored scales
+in either direction. Main's partial-normalization recovery remains available;
+ambiguous fixed-range stats-only recovery is rejected. Every declared E1 decoder
+accepts its 16D/18D/20D/24D layout.
 
 Main's default lab open-loop evaluator retains its fixed control-prefix behavior.
 Stationery's evaluator group explicitly selects its recorded execution modes.
 Main's other source families, tests, docs, and runtime APIs are retained.
-Later commits found only on the old `arc-bc-consolidated` tip (Lambda launch packs,
-auxiliary validation-loss tools) are historical tooling, not additional source
-for the current streams/ref runs. They are not reintroduced as duplicate launch
-menus; consult their recorded branch for those historical runs.
 
 ## Validation and limits
 
-`tests/fixtures/stattempo_contracts.json` pins the original source's resolved
-configuration hashes, 36 numeric codec cases, and five full model state schemas.
-The config comparison removes only documented structural differences: the new
-named graph (already expanded in pipeline.stages), explicit null sampling clip,
-explicit 100-frame transform pin, factored reference ranges, and main's retired
-`eval_logger_enabled=false` flag. Dataset selection, network structure,
-optimizer/scheduler, callbacks, evaluation settings and logging identity remain
-in the comparison.
+`tests/fixtures/stattempo_contracts.json` pins the resolved configuration hashes
+of the six stationery M 200 / D 0.33 recipes as they were authored on 2026-10-17
+(source `8e80f090`, the branch tip before the rollout consolidation), 36 numeric
+codec cases, and the six models' full state schemas. The config comparison
+removes only documented structural differences: the new named graph (already
+expanded in pipeline.stages), explicit null sampling clip, explicit 100-frame
+transform pin, factored reference ranges, main's retired
+`eval_logger_enabled=false` flag, and the deploy-only decoder controls added on
+2026-10-18. Dataset selection, network structure, optimizer/scheduler,
+callbacks, evaluation settings and logging identity remain in the comparison.
 
 ```bash
 python scripts/e1/validate_stattempo_configs.py
-pytest -q tests/test_stattempo_consolidation.py tests/test_data_context_contract.py
+pytest -q tests/test_stattempo_consolidation.py tests/test_stationery_m200_d033.py tests/test_hpt300_m200_d033.py
 ```
 
 CPU tests cover token/clock parity, inference declaration and decoder construction,

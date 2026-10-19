@@ -1,9 +1,0 @@
-# @package _global_
-defaults:
-- /experiment/yam_arc_grid/_base/earbuds_hpt300
-- _self_
-e1:
-  variant: arcvel
-  action_dim: 16
-hpt:
-  action_dim: ${e1.action_dim}

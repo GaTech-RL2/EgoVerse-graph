@@ -1,6 +1,6 @@
 """CPU-only contract audit of the consolidated stationery config family.
 
-The fixture hashes were exported from stattempo-streams-ref at 51cd2bf8.
+The fixture hashes were exported from the six M 200 / D 0.33 recipes at 8e80f090 (the branch tip before the rollout consolidation).
 Only the documented structural migrations are removed before comparison.
 No episode resolution, model weights, SQL or network access is required.
 """
@@ -20,7 +20,6 @@ CONFIGS = REPO / "egomimic/hydra_configs"
 # added to the model contracts on 2026-10-18 (fastest-stream termination, replay
 # tempo); they do not change what is trained, so they stay out of the fingerprint.
 DECODER_RUNTIME_KEYS = {
-    "codec",
     "first_stream",
     "execute_percent",
     "speed",
@@ -104,7 +103,7 @@ def fingerprint(value):
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def compose_recipe(name):
+def compose_recipe(name, overrides=()):
     with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
         return compose(
             "train_zarr_cartesian",
@@ -112,6 +111,7 @@ def compose_recipe(name):
                 f"+experiment=yam_arc_grid/{name}",
                 "paths.output_dir=/tmp/stattempo-parity",
                 "paths.work_dir=/tmp/stattempo-parity",
+                *overrides,
             ],
         )
 

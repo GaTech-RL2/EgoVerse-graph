@@ -70,7 +70,7 @@ def test_invalid_mode_cannot_silently_use_absolute_times():
 def test_stationery_open_loop_evaluator_decodes_absolute_times():
     from egomimic.eval.open_loop_sim import truncate_e1_wide_token
 
-    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcdur_abstime")
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcdur_abstime_m200_d033")
     for split in ("train_datasets", "valid_datasets"):
         transforms = instantiate(cfg.data[split].yam_bimanual.resolver.transform_list)
         assert transforms[-1].duration_timing == "absolute"

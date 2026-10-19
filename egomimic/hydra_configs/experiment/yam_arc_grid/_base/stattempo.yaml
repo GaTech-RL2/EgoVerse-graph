@@ -5,13 +5,13 @@
 defaults:
 - /experiment/e1/fold_base
 - override /model: e1/hpt_flow_wrists_ft
-- override /data: abc_arc/stationery_tempo_fast_time
+- override /data: abc_arc/stationery_slowpace366_bc_time
 - override /trainer: ddp
 - override /logger: wandb
 - override /callbacks: checkpoints
 - _self_
-name: scratch_rl2_stattempo_fast_time
-description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stattempo_fast_time
+name: bc_rl2_stattempo_slowpace366_${e1.variant}
+description: h640t8_d384x10_cos10k_240k_s42_${name}
 ft:
   max_steps: 240000
   warmup_steps: 10000
@@ -38,15 +38,15 @@ callbacks:
 logger:
   wandb:
     save_dir: null
-    id: scratch_rl2_stattempo_fast_time_20260925_s42
+    id: ${name}_s42
     project: arc
     tags:
     - rl2
     - stationery
     - stattempo
-    - tempo_fast
-    - scratch
-    - time
+    - slowpace366
+    - bc
+    - ${e1.variant}
     resume: never
 norm_stats:
   sample_frac: 0.2

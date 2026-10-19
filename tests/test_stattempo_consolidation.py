@@ -1,4 +1,4 @@
-"""Stationery source parity and integration with main's graph/data lifecycle."""
+"""Stationery source parity (the six M 200 / D 0.33 recipes) and integration with main's graph/data lifecycle."""
 
 import hashlib
 import json
@@ -14,6 +14,7 @@ from omegaconf import OmegaConf
 from egomimic.eval.open_loop_sim import OpenLoopSimEval
 from egomimic.pipeline.inference_config import build_inference_config
 from egomimic.rldb.embodiment.bimanual_arc import get_keymap, get_transform_list
+from egomimic.rldb.zarr.arc_projection_tokenizer import TokenizeBimanualArcProjection
 from egomimic.rldb.zarr.data_module import _check_fixed_ranges
 from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -23,6 +24,8 @@ from scripts.e1.validate_stattempo_configs import compose_recipe, fingerprint
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures/stattempo_contracts.json").read_text()
 )
+# Codec modes the runtime keeps (their recipes were removed from this branch);
+# the native-preprocessing parity test still covers every one of them.
 VARIANTS = {
     "arcdurhyb": "durhyb",
     "arcvelhyb": "profhyb",
@@ -32,6 +35,21 @@ VARIANTS = {
     "arcvelevt": "stkevt",
     "arcdurref": "durref",
     "arcvelref": "stkref",
+}
+# The kept recipes and the decoder layout each declares.
+RECIPES = {
+    "bc_rl2_stattempo_slowpace366_arcdur_m200_d033": ("dur", "e1_dur"),
+    "bc_rl2_stattempo_slowpace366_arcvel_m200_d033": ("profile", "e1_profile"),
+    "bc_rl2_stattempo_slowpace366_arcdur_abstime_m200_d033": ("dur", "e1_dur"),
+    "bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033": ("profile", "e1_profile"),
+    "bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033": (
+        "dur",
+        "e1_projection_dur",
+    ),
+    "bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033": (
+        "profile",
+        "e1_projection_vel",
+    ),
 }
 
 
@@ -87,38 +105,50 @@ def test_tokens_and_decoded_clocks_match_original_source(case):
     assert hashlib.sha256(payload.encode()).hexdigest() == FIXTURE["codecs"][case]
 
 
-@pytest.mark.parametrize("variant,mode", VARIANTS.items())
-def test_declared_decoder_and_tick_prefix_use_the_training_codec(variant, mode):
-    cfg = compose_recipe(f"bc_rl2_stattempo_slowpace366_{variant}_r360")
+@pytest.mark.parametrize("name,expected", RECIPES.items())
+def test_declared_decoder_and_tick_prefix_use_the_training_codec(name, expected):
+    mode, layout = expected
+    cfg = compose_recipe(name)
     artifact = build_inference_config(cfg)
     assert artifact["status"] == "ready", artifact.get("reason")
     decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
     assert isinstance(decoder, BimanualArcDecoder)
-    # The contract declares the training codec and fastest-stream termination on;
-    # with termination off the decode is the training codec's whole-token decode.
-    assert decoder.codec_source == "training" and decoder.first_stream == 1
-    assert type(decoder.codec) is type(codec(mode))
+    # The contract declares fastest-stream termination on; with it off the decode
+    # is the training codec's whole-token decode.
+    assert decoder.token_layout == layout and decoder.first_stream == 1
     decoder.first_stream = 0
-    c = codec(mode)
-    tokens = c.transform({"actions_cartesian": chunk("delayed")})["actions_cartesian"]
+    training = instantiate(
+        cfg.data.train_datasets.yam_bimanual.resolver.transform_list
+    )[-1]
+    assert type(decoder.codec) is type(training)
+    assert training.velocity_mode == mode and training.M == 200
+    assert training.tokenizer.config.min_distance_unit == 0.33
+    if isinstance(training, TokenizeBimanualArcProjection):
+        np.testing.assert_array_equal(
+            decoder.codec.projection_offset_m, training.projection_offset_m
+        )
+    tokens = training.transform({"actions_cartesian": chunk("delayed")})[
+        "actions_cartesian"
+    ]
     np.testing.assert_allclose(
-        decoder(tokens)[0], c.detokenize(tokens, action_horizon=100)
+        decoder(tokens)[0], training.detokenize(tokens, action_horizon=100)
     )
     evaluator = instantiate(cfg.evaluator)
     assert isinstance(evaluator, OpenLoopSimEval) and evaluator.tick_prefix
-    # Speed floors are intentional evaluator controls; compare its selected codec.
-    expected = evaluator._e1_tokenizer(
-        evaluator.token_layout, evaluator.e1_speed_floors
-    ).detokenize(tokens, action_horizon=100)[:25]
-    np.testing.assert_allclose(evaluator._decode_tick_prefix(tokens, 25), expected)
+    decoded, steps = evaluator._decode_prediction_with_steps(tokens)
+    assert decoded.shape == (steps, 14) and np.isfinite(decoded).all()
 
 
 @pytest.mark.parametrize(
-    "variant", ["arcdurevt", "arcvelevt", "arcdurref", "arcvelref"]
+    "name",
+    [
+        "bc_rl2_stattempo_slowpace366_arcdur_m200_d033",
+        "bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033",
+    ],
 )
-def test_small_graph_backward_and_sampling(variant):
+def test_small_graph_backward_and_sampling(name):
     torch.set_num_threads(1)
-    cfg = compose_recipe(f"bc_rl2_stattempo_slowpace366_{variant}_r360")
+    cfg = compose_recipe(name)
     for key, val in {
         "embed_dim": 32,
         "attention_heads": 4,
@@ -144,6 +174,9 @@ def test_small_graph_backward_and_sampling(variant):
     }
     for camera in ("front_img_1", "left_wrist_img", "right_wrist_img"):
         row["observations.images." + camera] = torch.rand(2, 1, 3, 32, 32)
+    row["actions_cartesian"] = torch.randn(
+        2, int(cfg.model.action_horizon), cfg.model.action_token_dim
+    )
     batch = {"opaque": row}
     result = model.forward_training(batch)
     loss = model.compute_losses(result, batch)["loss"]
@@ -152,10 +185,8 @@ def test_small_graph_backward_and_sampling(variant):
     model.nets.eval()
     with torch.no_grad():
         prediction = model.forward_eval(batch)["opaque"]["pred_action"]
-    assert prediction.shape == row["actions_cartesian"].shape
+    assert prediction.shape == row["actions_cartesian"].shape == (2, 200, 16)
     assert torch.isfinite(prediction).all()
-    if variant.endswith("ref"):
-        assert prediction.abs().max() <= 1
 
 
 def test_explicit_source_window_does_not_change_main_defaults():

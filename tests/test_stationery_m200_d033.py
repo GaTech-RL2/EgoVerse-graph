@@ -1,4 +1,4 @@
-"""The six slow-pace 366 M 200 / D 0.33 leaves change only M and D against their parents, everywhere they are read."""
+"""The six slow-pace 366 M 200 / D 0.33 leaves thread M and D everywhere they are read: composing a leaf back at M 100 / D 0.4 changes only M- and D-valued keys."""
 
 import numpy as np
 import pytest
@@ -34,7 +34,9 @@ def flat(d, p=""):
 
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_leaf_changes_only_m_and_d(variant):
-    old, new = compose_recipe(P + variant), compose_recipe(P + variant + "_m200_d033")
+    name = P + variant + "_m200_d033"
+    old = compose_recipe(name, overrides=["e1.M=100", "e1.D=0.4"])
+    new = compose_recipe(name)
     a, b = [flat(OmegaConf.to_container(c, resolve=True)) for c in (old, new)]
     for k in {k for k in set(a) | set(b) if a.get(k) != b.get(k)}:
         if (
@@ -64,6 +66,10 @@ def test_targets_evaluator_and_decoder_agree(variant):
     assert (
         decoder.codec.M == M and decoder.codec.tokenizer.config.min_distance_unit == D
     )
+    # Declared with fastest-stream termination on; the whole-token comparison
+    # below turns it off.
+    assert decoder.first_stream == 1 and decoder.execute_percent == 50
+    decoder.first_stream = 0
     assert int(cfg.model.action_horizon) == int(cfg.hpt.action_horizon) == M
     chunk = np.zeros((100, 14))
     for o in (0, 7):  # 0.5 m of path per arm: longer than D

@@ -1,5 +1,0 @@
-# Shared graph inheritance preserves the observation encoder and training recipe.
-defaults:
-- /model/e1/hpt_flow_wrists_ft_arcdurhyb_cotrain@_here_
-- _self_
-action_token_dim: 20

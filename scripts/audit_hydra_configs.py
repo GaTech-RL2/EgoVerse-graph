@@ -158,31 +158,19 @@ def audit_context(path):
         name.startswith("model/e1/hpt_flow_wrists_ft")
         or name
         in {
-            "model/e1/dp300_wrists_arcdur",
-            "model/e1/dp300pt_wrists_arcdur",
-            "model/e1/dp180pt_wrists_time",
             "model/e1/hpt300_flow_wrists_time",
             "model/e1/hpt300_flow_wrists_arcdur",
             "model_contract/e1_wrists",
         }
         or name.startswith("data/abc_arc/stationery_")
     ):
-        experiment = "yam_arc_grid/scratch_rl2_stattempo_fast_time"
+        experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdur_m200_d033"
     if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
         # Frozen YAM pools select their codec through the HPT300 recipe's e1.*.
-        experiment = "yam_arc_grid/towels_since0924plus74_arcdur_hpt300"
-    if name == "model/e1/hpt_flow_wrists_ft_arcdurevt":
-        experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurevt_r360"
+        experiment = "yam_arc_grid/towels_since0924plus74_arcdur_m200_d033_hpt300"
     if "arc_projection" in name and group in {"model", "data"}:
         variant = "vel" if name.endswith("_vel") else "dur"
-        experiment = (
-            f"yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_{variant}"
-        )
-    if name in {
-        "model/e1/hpt_flow_wrists_ft_arcdurref",
-        "experiment/yam_arc_grid/_base/stattempo_reference",
-    }:
-        experiment = "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdurref_r360"
+        experiment = f"yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_{variant}_m200_d033"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

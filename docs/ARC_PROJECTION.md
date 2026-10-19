@@ -69,8 +69,8 @@ Its two leaves are:
 
 Complete experiment selectors are:
 
-- `yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_dur`
-- `yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_vel`
+- `yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033`
+- `yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033`
 
 They inherit the maintained stattempo BC graph, optimizer, scheduler and frozen
 366/24 stationery split. HPT is width 640 with eight blocks; flow is width 384

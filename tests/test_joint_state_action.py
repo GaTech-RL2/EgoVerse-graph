@@ -15,6 +15,7 @@ from egomimic.models.joint_state_action import (
     JointStateActionSampler,
 )
 from egomimic.models.pixel_diffusion import PlainPixelMSE
+from egomimic.models.world_model import MoTBlock
 from egomimic.pipeline.core import Pipeline, sum_losses
 from egomimic.pipeline.stages_joint_state_action import (
     JointDenoiserStage,
@@ -68,6 +69,8 @@ def model(**kwargs):
         action_dims={"robot": 2},
         image_dim=12,
         width=16,
+        proprio_width=5,
+        action_width=7,
         heads=2,
         depth=2,
         mlp_ratio=2,
@@ -76,6 +79,39 @@ def model(**kwargs):
         spatial_grid_size=(2, 2),
         **kwargs,
     )
+
+
+def test_private_widths_keep_one_common_attention_space():
+    network = model()
+    block = network.blocks[0]
+    assert block.expert_widths == (16, 5, 7)
+    assert [layer.in_features for layer in block.qkv] == [16, 5, 7]
+    assert [layer.out_features for layer in block.qkv] == [48, 48, 48]
+    assert [layer.out_features for layer in block.out] == [16, 5, 7]
+    assert [layers[0].out_features for layers in block.ffn] == [32, 10, 14]
+    # Vector residual widths need not be divisible by the attention head count.
+    assert block.heads == 2 and block.head_dim == 8
+
+
+def test_shared_mot_default_is_unchanged_and_supports_private_widths():
+    torch.manual_seed(42)
+    implicit = MoTBlock(16, 2)
+    torch.manual_seed(42)
+    explicit = MoTBlock(16, 2, expert_widths=(16, 16, 16))
+    for key, value in implicit.state_dict().items():
+        torch.testing.assert_close(value, explicit.state_dict()[key], atol=0, rtol=0)
+    small = MoTBlock(16, 2, expert_widths=(16, 5, 7))
+    streams = [torch.randn(2, 3, d) for d in (16, 5, 7)]
+    times = [torch.arange(3).float().expand(2, -1) for _ in streams]
+    valid = [torch.ones(2, 3, dtype=torch.bool) for _ in streams]
+    outputs = small(streams, times, valid)
+    assert [out.shape for out in outputs] == [x.shape for x in streams]
+    sum(out.square().mean() for out in outputs).backward()
+    assert all(
+        p.grad is not None and torch.isfinite(p.grad).all() for p in small.parameters()
+    )
+    with pytest.raises(ValueError, match="one positive residual width"):
+        MoTBlock(16, 2, expert_widths=(16, 5))
 
 
 def make_nonzero(model):
@@ -247,9 +283,18 @@ def test_exact_pair_config(arm, gpus, per_rank, pose, action):
     assert not cfg.model.pipeline.get("initialization")
     resolved = OmegaConf.to_container(cfg.model.pipeline, resolve=True)
     arguments = resolved["stages"][1]["model"]
+    with torch.device("meta"):
+        exact = instantiate(arguments)
+    counts = exact.expert_parameter_counts()
+    assert counts["image"] == 88178688
+    assert counts["proprio"] <= 20000000 and counts["action"] <= 20000000
+    assert exact.expert_widths == (768, 256, 256)
+    assert sum(counts.values()) == sum(p.numel() for p in exact.parameters())
     arguments.update(
         image_dim=12,
         width=16,
+        proprio_width=64,
+        action_width=64,
         heads=2,
         depth=2,
         mlp_ratio=2,

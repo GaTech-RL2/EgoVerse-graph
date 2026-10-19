@@ -156,6 +156,12 @@ def main():
     wrapper.data_context = context
     wrapper.load_state_dict(checkpoint["state_dict"], strict=True)
     require(all(p.requires_grad for p in wrapper.parameters()), "An expert was frozen")
+    network = wrapper.model.pipeline.stage_by_id("joint_denoiser").model
+    expert_parameters = network.expert_parameter_counts()
+    require(
+        sum(expert_parameters.values()) == sum(p.numel() for p in wrapper.parameters()),
+        "Per-expert counts do not account for every trained parameter",
+    )
     sample = torch.load(root / "sample-input.pt", map_location="cpu", weights_only=True)
     groups = wrapper.model.process_batch_for_training({"libero_gripper": sample})
     wrapper.model.device = next(wrapper.parameters()).device
@@ -185,6 +191,8 @@ def main():
         status="PASS",
         job_id=job,
         world_size=world,
+        expert_widths=dict(zip(("image", "proprio", "action"), network.expert_widths)),
+        expert_parameters=expert_parameters,
         global_step=50,
         validation_batches=100,
         strict_full_wrapper_reload=True,

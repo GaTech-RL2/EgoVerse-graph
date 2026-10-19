@@ -12,18 +12,28 @@ image-only checkpoints and run identities remain separate experiments.
 | Recorded times | 16 stride-four anchors, covering 64 raw frames | 2–64 timestamps over the full episode |
 | Measured-state width | 36: four chronological 9D states per anchor | 9 |
 | Command width | 28: four chronological 7D commands per anchor | 7 |
-| Parameters, total and trainable | 262,270,528 | 262,196,752 |
+| Image expert parameters | 88,178,688 | 88,178,688 |
+| Proprio expert parameters | 13,956,388 | 13,942,537 |
+| Action expert parameters | 13,952,284 | 13,941,511 |
+| Parameters, total and trainable | 116,087,360 | 116,062,736 |
 | Optimizer | AdamW, LR **5e-6 constant**, weight decay 0.01 | same |
 | Budget | 300,000 optimizer updates | same |
 
 Both use gripper-only LIBERO, the existing balanced 450/50 episode split, two
 160×160 RGB camera streams and 16×16 RGB patches. Each camera contributes
-100 patch tokens per timestamp. The pixel denoising dimension is 768, and each
-expert has width 768, eight blocks, six heads and MLP ratio four. The additional
-experts increase stored parameters; they process far fewer tokens than images.
+100 patch tokens per timestamp. The pixel denoising dimension and image residual
+width remain 768. Proprio and action each use residual width **256**, eight blocks
+and MLP ratio four (FFN hidden width 1024, versus 3072 for images). Each vector
+expert is below the human's 20M parameter budget, including all input/output,
+noise-conditioning and AdaLN parameters. No image parameters or patch dimensions
+were reduced.
 
 Each layer has separate image/proprio/action QKV projections, output projections,
 FFNs and AdaLN-Zero modulation, with a single joint full-attention operation.
+Attention uses six heads of width 128 for all streams. A vector expert projects
+its 256-wide normalized state into Q/K/V of width 768, participates in the same
+attention, then projects the 768-wide result back to its private width 256.
+Shared attention therefore does not require equal expert residual/FFN widths.
 Camera embeddings apply to images. Images use spatial plus temporal RoPE;
 vectors use the same temporal frequencies and zero spatial phase. Discrete uses
 grid indices; continuous uses signed physical seconds with an arbitrary origin.
@@ -118,7 +128,7 @@ maximum-length memory failure. The check uses a disposable model instance.
 Production saves and validates every **20,000 global optimizer updates**. Retain
 all 15 immutable epoch-plus-step checkpoints and the `last.ckpt` symlink; there
 are no extra epoch, wall-clock, signal or terminal saves. Estimated full-state
-size is about 3.15 GB each, about 47.2 GB per run before overhead. Preserve every
+size is about 1.4 GB each, about 20.9 GB per run before overhead. Preserve every
 historical checkpoint as well. Verify destination free space before submission.
 
 GPU memory fit and compiled CUDA execution are launch gates, not claims made by

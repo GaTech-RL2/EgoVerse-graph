@@ -130,6 +130,7 @@ class JointMoTBlock(MoTBlock):
         compile_mode,
         compile_dynamic,
         compile_backend,
+        expert_widths,
     ):
         super().__init__(
             width,
@@ -138,15 +139,18 @@ class JointMoTBlock(MoTBlock):
             modalities=STREAMS,
             attention_backend=attention_backend,
             attention_dtype=attention_dtype,
+            expert_widths=expert_widths,
         )
         self.norm1 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6) for _ in STREAMS
+            nn.LayerNorm(d, elementwise_affine=False, eps=1e-6)
+            for d in self.expert_widths
         )
         self.norm2 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6) for _ in STREAMS
+            nn.LayerNorm(d, elementwise_affine=False, eps=1e-6)
+            for d in self.expert_widths
         )
         self.adaln = nn.ModuleList(
-            nn.Sequential(nn.SiLU(), nn.Linear(width, 6 * width)) for _ in STREAMS
+            nn.Sequential(nn.SiLU(), nn.Linear(d, 6 * d)) for d in self.expert_widths
         )
         for mod in self.adaln:
             nn.init.zeros_(mod[-1].weight)
@@ -234,6 +238,8 @@ class JointStateActionModel(nn.Module):
         action_dims,
         image_dim=768,
         width=768,
+        proprio_width=256,
+        action_width=256,
         depth=8,
         heads=6,
         mlp_ratio=4,
@@ -259,6 +265,8 @@ class JointStateActionModel(nn.Module):
             raise ValueError("State/action dimensions must be positive integers")
         if image_dim > width:
             raise ValueError("Raw RGB patch compression must be explicitly redesigned")
+        if any(type(d) is not int or d < 1 for d in (proprio_width, action_width)):
+            raise ValueError("Vector expert widths must be positive integers")
         if time_mode not in ("continuous", "discrete") or token_execution not in (
             "padded",
             "packed_valid",
@@ -266,16 +274,17 @@ class JointStateActionModel(nn.Module):
             raise ValueError("Unknown time mode or token execution")
         self.pose_dims, self.action_dims = dict(pose_dims), dict(action_dims)
         self.image_dim, self.width, self.max_tokens = image_dim, width, max_tokens
+        self.expert_widths = (width, proprio_width, action_width)
         self.time_mode, self.token_execution = time_mode, token_execution
         self.rope_axis_dims, self.spatial_grid_size = rope_axis_dims, spatial_grid_size
         self.inputs = nn.ModuleDict(
             {
                 "image": nn.Linear(image_dim, width),
                 "proprio": nn.ModuleDict(
-                    {k: nn.Linear(d, width) for k, d in pose_dims.items()}
+                    {k: nn.Linear(d, proprio_width) for k, d in pose_dims.items()}
                 ),
                 "action": nn.ModuleDict(
-                    {k: nn.Linear(d, width) for k, d in action_dims.items()}
+                    {k: nn.Linear(d, action_width) for k, d in action_dims.items()}
                 ),
             }
         )
@@ -283,17 +292,17 @@ class JointStateActionModel(nn.Module):
             {
                 "image": nn.Linear(width, image_dim),
                 "proprio": nn.ModuleDict(
-                    {k: nn.Linear(width, d) for k, d in pose_dims.items()}
+                    {k: nn.Linear(proprio_width, d) for k, d in pose_dims.items()}
                 ),
                 "action": nn.ModuleDict(
-                    {k: nn.Linear(width, d) for k, d in action_dims.items()}
+                    {k: nn.Linear(action_width, d) for k, d in action_dims.items()}
                 ),
             }
         )
         self.camera = nn.Embedding(max_cameras, width)
         self.noise_embeddings = nn.ModuleList(
-            nn.Sequential(nn.Linear(256, width), nn.SiLU(), nn.Linear(width, width))
-            for _ in STREAMS
+            nn.Sequential(nn.Linear(256, d), nn.SiLU(), nn.Linear(d, d))
+            for d in self.expert_widths
         )
         for embedding in self.noise_embeddings:
             for layer in (embedding[0], embedding[2]):
@@ -309,14 +318,16 @@ class JointStateActionModel(nn.Module):
                 compile_mode,
                 compile_dynamic,
                 compile_backend,
+                self.expert_widths,
             )
             for _ in range(depth)
         )
         self.norms = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6) for _ in STREAMS
+            nn.LayerNorm(d, elementwise_affine=False, eps=1e-6)
+            for d in self.expert_widths
         )
         self.final_adaln = nn.ModuleList(
-            nn.Sequential(nn.SiLU(), nn.Linear(width, 2 * width)) for _ in STREAMS
+            nn.Sequential(nn.SiLU(), nn.Linear(d, 2 * d)) for d in self.expert_widths
         )
         for module in self.final_adaln:
             nn.init.zeros_(module[-1].weight)
@@ -325,6 +336,27 @@ class JointStateActionModel(nn.Module):
             if isinstance(module, nn.Linear):
                 nn.init.zeros_(module.weight)
                 nn.init.zeros_(module.bias)
+
+    def expert_parameter_counts(self):
+        """Count every private parameter, including input/output and AdaLN heads."""
+        result = {}
+        for i, name in enumerate(STREAMS):
+            modules = [
+                self.inputs[name],
+                self.outputs[name],
+                self.noise_embeddings[i],
+                self.norms[i],
+                self.final_adaln[i],
+            ]
+            if name == "image":
+                modules.append(self.camera)
+            for block in self.blocks:
+                modules.extend(
+                    getattr(block, key)[i]
+                    for key in ("norm1", "qkv", "out", "norm2", "ffn", "adaln")
+                )
+            result[name] = sum(p.numel() for m in modules for p in m.parameters())
+        return result
 
     def validate(self, world, embodiment):
         if set(world) != set(STREAMS) or embodiment not in self.pose_dims:

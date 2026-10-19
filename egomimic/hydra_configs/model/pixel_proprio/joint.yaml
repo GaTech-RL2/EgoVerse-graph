@@ -26,6 +26,8 @@ pipeline:
         max_tokens: ${joint.max_tokens}
         image_dim: 768
         width: 768
+        proprio_width: 256
+        action_width: 256
         depth: 8
         heads: 6
         mlp_ratio: 4

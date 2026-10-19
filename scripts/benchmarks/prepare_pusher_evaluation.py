@@ -39,7 +39,8 @@ def bind(base, campaign, complete, bank, shard, shards):
 def main(args):
     root = Path(__file__).resolve().parents[2]
     base = yaml.safe_load((root / "egomimic/hydra_configs/benchmark/pusher_holdout_evaluation.yaml").read_text())
-    campaign = yaml.safe_load((root / "egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml").read_text())
+    campaign_path = os.environ.get("PUSHER_CAMPAIGN", "egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml")
+    campaign = yaml.safe_load((root / campaign_path).read_text())
     complete = json.loads(args.training.read_text())
     assert complete["source_commit"] == os.environ["SOURCE_COMMIT"]
     client = boto3.client("s3", endpoint_url=os.environ["R2_ENDPOINT_URL"],

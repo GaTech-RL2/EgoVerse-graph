@@ -23,7 +23,7 @@ class PlanarArcGroupedNativeDecoder(PlanarArcTimedNativeDecoder):
         delta = torch.atan2(torch.sin(diff), torch.cos(diff))
         unwrapped = torch.cat((angle[..., :1], angle[..., :1] + delta.cumsum(-1)), dim=-1)
         streams.extend([("rotation", unwrapped[..., None]), ("gripper", value[..., 4:5])])
-        return [(name, geometry, self._durations(geometry, value[:, :-1, 5 + i]))
+        return [(name, geometry, self._durations(geometry, self._timing_intervals(value[..., 5 + i])))
                 for i, (name, geometry) in enumerate(streams)]
 
     def _tensor(self, actions):

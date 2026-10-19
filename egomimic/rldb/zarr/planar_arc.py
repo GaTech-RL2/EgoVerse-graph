@@ -572,8 +572,9 @@ class TokenizePlanarArcTimed:
 
     The common seven-channel layout keeps ChainGripper aperture instead of
     dropping it as the historical U-Socket-only six-channel codec did.  The
-    two supported timing modes differ only in channels 2 and 5: ``velocity``
-    stores local rates and ``duration`` stores the elapsed interval seconds.
+    timing modes differ only in channels 2 and 5: ``velocity`` stores local
+    rates, ``duration`` stores interval seconds, and ``absolute_duration``
+    stores each waypoint's seconds since the chunk's causal anchor.
     """
 
     def __init__(
@@ -598,8 +599,8 @@ class TokenizePlanarArcTimed:
             not math.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0
         ):
             raise ValueError("rotation_distance_unit must be finite and positive")
-        if timing_mode not in {"velocity", "duration"}:
-            raise ValueError("timing_mode must be 'velocity' or 'duration'")
+        if timing_mode not in {"velocity", "duration", "absolute_duration"}:
+            raise ValueError("timing_mode must be 'velocity', 'duration', or 'absolute_duration'")
         self.action_key = str(action_key)
         self.output_action_key = str(output_action_key)
         self.distance = float(min_distance_unit)
@@ -629,7 +630,7 @@ class TokenizePlanarArcTimed:
             support_frames = np.linspace(0.0, frames[-1], self.num_waypoints)
         else:
             support_frames = None
-            if self.timing_mode == "duration":
+            if self.timing_mode in {"duration", "absolute_duration"}:
                 support_frames = duration_support_frames(
                     cumulative, targets, self.num_waypoints, self.zero_dist_epsilon
                 )
@@ -647,8 +648,13 @@ class TokenizePlanarArcTimed:
                           np.linalg.norm(np.diff(points, axis=0), axis=-1))
         rates = np.divide(delta_geometry, delta_t, out=np.zeros_like(delta_geometry),
                           where=delta_t > self.zero_dist_epsilon)
-        interval = delta_t if self.timing_mode == "duration" else rates
-        timing = np.r_[interval, interval[-1]]
+        if self.timing_mode == "absolute_duration":
+            # All M entries are waypoint timestamps, including the zero origin
+            # and final endpoint. Each stream retains its own support clock.
+            timing = support_frames * self.dt
+        else:
+            interval = delta_t if self.timing_mode == "duration" else rates
+            timing = np.r_[interval, interval[-1]]
         return points, timing, support_frames
 
     def tokenize(self, actions: np.ndarray) -> np.ndarray:

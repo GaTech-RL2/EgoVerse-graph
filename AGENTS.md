@@ -1,5 +1,16 @@
 # Repo Agent Rules
 
+## Absolute-duration ablation
+
+`benchmark/pusher_absolute_duration.yaml` selects one grouped-XY ARC arm at
+seeds 42/43/44. Use `launch_pusher_holdout.py --campaign
+egomimic/hydra_configs/benchmark/pusher_absolute_duration.yaml` for four L40S
+training GPUs and seven dependent evaluation shards per seed. This changes
+only duration targets to per-stream cumulative waypoint seconds from the chunk
+anchor. Keep the parent's data release, geometry, network, 240k updates, frozen
+resets, simulator and fixed8 execution. Fit fresh training-only normalization.
+Tests and launch evidence live in `../pusher-absolute-duration-20261018-artifacts/`.
+
 ## Pusher holdout campaign
 
 This branch launches pusher-only co-training with triangle obstacle data held

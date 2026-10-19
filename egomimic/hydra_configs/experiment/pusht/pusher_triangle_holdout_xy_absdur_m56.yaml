@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+- /experiment/pusht/pusher_triangle_holdout_xy_dur_m56
+- _self_
+name: pusher_triangle_holdout_xy_absdur_m56
+planar:
+  arc_timing_mode: absolute_duration
+evaluator:
+  native_decoders:
+    pushshapes_sim_circle_small:
+      timing_mode: ${planar.arc_timing_mode}
+    pushshapes_sim_stick:
+      timing_mode: ${planar.arc_timing_mode}
+    pushshapes_sim_pentagon:
+      timing_mode: ${planar.arc_timing_mode}
+    pushshapes_sim_triangle:
+      timing_mode: ${planar.arc_timing_mode}
+run_provenance:
+  campaign: pusher-absolute-duration-20261018
+  timing_ablation: Cumulative waypoint seconds from chunk start, independently per stream;
+    same geometry, model, data, optimizer budget, and fixed8 evaluation as xy_dur_m56.

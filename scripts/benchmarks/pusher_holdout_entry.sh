@@ -35,7 +35,7 @@ if [[ "$RUN_KIND" == train ]]; then
 elif [[ "$RUN_KIND" == evaluation ]]; then
     # Retain the exact dependencies of the previous frozen simulator benchmark.
     uv pip install --python "$VIRTUAL_ENV/bin/python" numpy==2.4.4 gymnasium==1.1.1 pygame==2.6.1 pymunk==7.1.0 shapely==2.1.1 opencv-python==4.13.0.92
-    python scripts/benchmarks/prepare_pusher_evaluation.py --training /tmp/training-complete.json --shard "$EVAL_SHARD"
+    python scripts/benchmarks/prepare_pusher_evaluation.py --training /tmp/training-complete.json --shard "$EVAL_SHARD" --shards "${EVAL_SHARDS:-3}"
     python scripts/benchmarks/evaluate_planar_streams.py
 else
     printf '%s\n' 'Unknown run kind' >&2

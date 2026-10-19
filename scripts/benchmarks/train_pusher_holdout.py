@@ -39,7 +39,8 @@ def digest(path):
 def main(args):
     for folder in (OUT, RUN, DATA, NORMALIZERS):
         folder.mkdir(parents=True, exist_ok=True)
-    spec = yaml.safe_load((SOURCE / "egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml").read_text())
+    campaign = os.environ.get("PUSHER_CAMPAIGN", "egomimic/hydra_configs/benchmark/pusher_triangle_holdout.yaml")
+    spec = yaml.safe_load((SOURCE / campaign).read_text())
     spec["updates"] = spec["optimizer_updates"]
     arm = spec["arms"][args.arm]
     destination = spec["artifact_prefix"] + "runs/" + args.run_id + "/"
@@ -156,7 +157,7 @@ def main(args):
 
     full_args = common(RUN) + [f"trainer.max_steps={spec['updates']}", "norm_stats.save_cache_dir=null",
         f"norm_stats.precomputed_norm_path={NORMALIZERS}/norm_stats", f"logger.wandb.id={args.run_id}",
-        f"++logger.wandb.name={args.run_id}", "logger.wandb.group=pusher-holdout-20261012",
+        f"++logger.wandb.name={args.run_id}", f"logger.wandb.group={spec['name']}",
         "++logger.wandb.resume=allow", "callbacks.model_checkpoint.every_n_epochs=0",
         "++callbacks.model_checkpoint.every_n_train_steps=10000", "++callbacks.model_checkpoint.save_on_train_epoch_end=false",
         "callbacks.model_checkpoint.filename='step_{step:09d}'", f"callbacks.run_progress.path={OUT}/training-progress.json"]

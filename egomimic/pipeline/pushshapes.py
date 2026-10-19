@@ -324,14 +324,22 @@ class PlanarArcTimedNativeDecoder:
             raise ValueError("waypoints, action_horizon, and dt must be positive")
         if self.native_action_dim not in (2, 3, 4):
             raise ValueError("native_action_dim must be 2, 3, or 4")
-        if self.timing_mode not in {"velocity", "duration"}:
-            raise ValueError("timing_mode must be 'velocity' or 'duration'")
+        if self.timing_mode not in {"velocity", "duration", "absolute_duration"}:
+            raise ValueError("timing_mode must be 'velocity', 'duration', or 'absolute_duration'")
+
+    def _timing_intervals(self, timing):
+        if self.timing_mode != "absolute_duration":
+            return timing[..., :-1]
+        # The causal anchor is always at t=0. Preserve waypoint order; invalid
+        # predicted differences use the same slow-motion guard as delta time.
+        clock = torch.cat((torch.zeros_like(timing[..., :1]), timing[..., 1:]), dim=-1)
+        return torch.diff(clock, dim=-1)
 
     def _durations(self, geometry, timing):
         distance = torch.linalg.vector_norm(geometry[:, 1:] - geometry[:, :-1], dim=-1)
         active = distance > self.epsilon
         stop = torch.full_like(timing, self.dt * (self.action_horizon + 1))
-        if self.timing_mode == "duration":
+        if self.timing_mode in {"duration", "absolute_duration"}:
             return torch.where(active & (timing <= self.epsilon), stop, timing.clamp_min(0.0))
         usable = timing.abs() > self.epsilon
         duration = torch.where(
@@ -361,10 +369,10 @@ class PlanarArcTimedNativeDecoder:
         return (1 - alpha[..., None]) * lo + alpha[..., None] * hi
 
     def _clock_durations(self, value):
-        xy_duration = self._durations(value[..., :2], value[:, :-1, 2])
+        xy_duration = self._durations(value[..., :2], self._timing_intervals(value[..., 2]))
         heading_geometry = value[..., 3:5]
-        if self.timing_mode == "duration":
-            heading_duration = self._durations(heading_geometry, value[:, :-1, 5])
+        if self.timing_mode in {"duration", "absolute_duration"}:
+            heading_duration = self._durations(heading_geometry, self._timing_intervals(value[..., 5]))
         else:
             dot = (heading_geometry[:, 1:] * heading_geometry[:, :-1]).sum(-1)
             cross = (

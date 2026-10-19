@@ -17,6 +17,7 @@ from omegaconf import OmegaConf
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from egomimic.pipeline.checkpoint_binding import validate_checkpoint_binding
 from egomimic.pipeline.construction import checkpoint_construction
 from egomimic.pl_utils.joint_smoke import require, weights_digest, write_once
 from egomimic.pl_utils.pl_model import ModelWrapper
@@ -105,7 +106,9 @@ def main():
         )
     rng = checkpoint.get("mot_rng_state", {})
     require(
-        rng.get("world_size") == world and len(rng.get("ranks", [])) == world,
+        rng.get("schema") == "mot_rng_state.distributed.v1"
+        and rng.get("world_size") == world
+        and len(rng.get("ranks", [])) == world,
         "Missing all-rank RNG state",
     )
     require(
@@ -139,6 +142,7 @@ def main():
         context.fingerprint() == ranks[0]["data_context_sha256"],
         "Restored data context changed",
     )
+    validate_checkpoint_binding(checkpoint, cfg, context)
     with checkpoint_construction():
         wrapper = ModelWrapper(config_tree=cfg, enable_grad_norm=False).cuda().eval()
         context.bind(wrapper.model)

@@ -109,6 +109,12 @@ passing smoke. Full submission additionally requires the exact matched source,
 configuration, passing postflight and zero native/host exit. Report expected
 training time from measured throughput before production launch.
 
+Before the fit smoke, `scripts/world_model/check_joint_capacity.py` takes the
+resolved configuration and an output JSON path. It checks a real batch with the
+maximum frame count, actual optimization and sampling, using the exact per-rank
+batch size. This prevents typical short continuous batches from hiding a
+maximum-length memory failure. The check uses a disposable model instance.
+
 Production saves and validates every **20,000 global optimizer updates**. Retain
 all 15 immutable epoch-plus-step checkpoints and the `last.ckpt` symlink; there
 are no extra epoch, wall-clock, signal or terminal saves. Estimated full-state

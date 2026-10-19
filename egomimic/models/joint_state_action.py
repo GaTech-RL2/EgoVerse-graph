@@ -110,7 +110,9 @@ class CoupledStateActionNoising:
             result["targets"][name] = clean
             result["masks"][name] = known & ~observed
             result["metadata"][name] = {
-                k: stream[k] for k in ("time", "valid", "observed")
+                "timestamps": stream["time"],
+                "valid": valid,
+                "observed": observed,
             }
         return result
 

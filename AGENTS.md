@@ -5,7 +5,7 @@
 `benchmark/pusher_absolute_duration.yaml` selects one grouped-XY ARC arm at
 seeds 42/43/44. Use `launch_pusher_holdout.py --campaign
 egomimic/hydra_configs/benchmark/pusher_absolute_duration.yaml` for four L40S
-training GPUs and seven dependent evaluation shards per seed. This changes
+training GPUs and one dependent evaluation shard per level per seed. This changes
 only duration targets to per-stream cumulative waypoint seconds from the chunk
 anchor. Keep the parent's data release, geometry, network, 240k updates, frozen
 resets, simulator and fixed8 execution. Fit fresh training-only normalization.

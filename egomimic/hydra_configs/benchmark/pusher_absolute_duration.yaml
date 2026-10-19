@@ -130,4 +130,4 @@ data_finalizer_sha256: 085aa44475ae83ee18fbb4a521270a2441db0d3442c1ae85e163b521b
 regimes:
   cotrain:
     episodes: 19303
-evaluation_shards: 7
+evaluation_shards: 31

@@ -105,10 +105,11 @@ enabled; no activation checkpointing or gradient clipping is added.
 
 ## Reproduce a run
 
-The Lambda smoke requests submitted on October 19 pin scientific source
-`984a87aa66b5a0a4a31bab32f87a3bd5187f76ce`. Later documentation-only commits on
-`codex/joint-state-action-diffusion-20261019` preserve those exact training
-configs. Check out that pinned revision for a byte-identical source snapshot.
+Use `codex/joint-state-action-diffusion-20261019` and record the exact commit in
+each launch request. Keep Hydra's full `.hydra/config.yaml` alongside the
+model-only `smoke-config.yaml`. The postflight verifier checks that their model
+and provenance agree, uses the full snapshot to restore data/trainer settings,
+and preserves the minimal model construction tree for strict checkpoint binding.
 
 Use the repository's dependencies plus the attention overlay versions recorded
 in `scripts/world_model/joint_runtime_versions.json`. The GPU runtime uses

@@ -14,14 +14,18 @@ from pathlib import Path
 
 import torch
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from egomimic.pipeline.checkpoint_binding import validate_checkpoint_binding
 from egomimic.pipeline.construction import checkpoint_construction
-from egomimic.pl_utils.joint_smoke import require, weights_digest, write_once
+from egomimic.pl_utils.joint_smoke import (
+    load_smoke_configs,
+    require,
+    weights_digest,
+    write_once,
+)
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 
@@ -84,7 +88,7 @@ def main():
     checkpoint = torch.load(
         checkpoint_path, weights_only=False, map_location="cpu", mmap=True
     )
-    cfg = OmegaConf.load(root / "smoke-config.yaml")
+    cfg, model_config = load_smoke_configs(root)
     require(
         checkpoint["global_step"] == 50
         and cfg.model.optimizer.lr == 5e-6
@@ -176,9 +180,11 @@ def main():
         context.fingerprint() == ranks[0]["data_context_sha256"],
         "Restored data context changed",
     )
-    validate_checkpoint_binding(checkpoint, cfg, context)
+    validate_checkpoint_binding(checkpoint, model_config, context)
     with checkpoint_construction():
-        wrapper = ModelWrapper(config_tree=cfg, enable_grad_norm=False).cuda().eval()
+        wrapper = (
+            ModelWrapper(config_tree=model_config, enable_grad_norm=False).cuda().eval()
+        )
         context.bind(wrapper.model)
     wrapper.data_context = context
     wrapper.load_state_dict(checkpoint["state_dict"], strict=True)

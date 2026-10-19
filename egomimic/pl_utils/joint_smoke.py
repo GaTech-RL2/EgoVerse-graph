@@ -31,6 +31,42 @@ def weights_digest(state):
     return digest.hexdigest()
 
 
+def load_smoke_configs(output):
+    """Join Hydra's full run snapshot with the checkpoint's model-only tree.
+
+    trainHydra deliberately excludes data/trainer settings from model hparams.
+    Validate both snapshots together rather than treating model hparams as the
+    full experiment or weakening the strict data/context restoration checks.
+    """
+    output = Path(output)
+    cfg = OmegaConf.load(output / ".hydra" / "config.yaml")
+    model_config = OmegaConf.load(output / "smoke-config.yaml")
+    require(
+        all(key in cfg for key in ("model", "data", "trainer", "paths"))
+        and "model" in model_config,
+        "Missing full Hydra run snapshot or model construction snapshot",
+    )
+    require(
+        OmegaConf.to_container(cfg.model, resolve=True)
+        == OmegaConf.to_container(model_config.model, resolve=True),
+        "Hydra model config differs from the optimized checkpoint construction",
+    )
+    require(
+        OmegaConf.to_container(
+            OmegaConf.create(cfg.get("run_provenance", {})), resolve=True
+        )
+        == OmegaConf.to_container(
+            OmegaConf.create(model_config.get("run_provenance", {})), resolve=True
+        ),
+        "Hydra run provenance differs from the model snapshot",
+    )
+    require(
+        Path(cfg.paths.output_dir).resolve() == output.resolve(),
+        "Hydra snapshot belongs to another smoke output",
+    )
+    return cfg, model_config
+
+
 class JointSmokeProof(Callback):
     def __init__(self, output, world_size, expected_steps=50, warmup_steps=10):
         require(world_size in (2, 4), "Joint pilots use two/four dedicated GPUs")

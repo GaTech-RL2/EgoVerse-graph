@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from egomimic.robot.arc_codecs.e1 import ARM_LAYOUT
+from egomimic.rldb.zarr.e1_arc_tokenizer import ARM_LAYOUT
 from egomimic.robot.arc_decoder import BimanualArcDecoder
 from egomimic.robot.arc_speed import ARC_SPEED_RANGE
 
@@ -150,25 +150,6 @@ def test_lab_tokens_take_a_uniform_speed():
     slow = BimanualArcDecoder("lab", 0.4, M, DT, H)(token)[0]
     unit = BimanualArcDecoder("lab", 0.4, M, DT, H, speed=2.0)
     np.testing.assert_allclose(unit(token)[0][: H // 2], slow[::2], atol=1e-9)
-    assert unit.last_stats["hold_speed"] is None
-
-
-def test_cartesian_per_waypoint_tokens_take_a_uniform_speed():
-    # The (2M, 14) per-waypoint velocity token has no per-waypoint clock to warp,
-    # so it gets the lab treatment: the whole replay runs at one faster tempo.
-    t = np.arange(H) / H
-    chunk = np.zeros((H, 14))
-    for k, (xyz, _ypr, grip, _vsl) in enumerate(ARM_LAYOUT):
-        chunk[:, xyz + k] = 0.3 * t  # 0.3 m over the chunk, left along x, right along y
-        chunk[:, grip] = t
-    unit = BimanualArcDecoder("cartesian_per_waypoint", 0.4, M, DT, H)
-    token = unit.codec.transform({"actions_cartesian": chunk.copy()})[
-        "actions_cartesian"
-    ]
-    slow = unit(token)[0]
-    unit.set_speed(2.0)
-    fast = unit(token)[0]
-    np.testing.assert_allclose(fast[: H // 2 - 1], slow[: H - 2 : 2], atol=2e-3)
     assert unit.last_stats["hold_speed"] is None
 
 

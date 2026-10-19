@@ -69,16 +69,14 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
 - `arc_decoder.py`: decode native ARC predictions before frame conversion and IK.
   E1 timing channels follow all 14 pose channels; they are not interleaved.
   Decoder settings belong to explicit model YAML `decoder_attribute` controls;
-  never append controls based on a model class or inferred token width. Preserve
-  `arc_codecs/` checkpoint-era copies separately from current training codecs.
-  Generic inference consumes an optional `execution_steps()` capability, not
-  ARC-specific statistics. Keep immutable DataContext/checkpoint binding and
-  schema-2 artifacts; do not restore the legacy inferred exporter/JSON loader.
-  `codec` selects the tokenizer copy: `training` (default, the live
-  `egomimic.rldb.zarr` codec that trains this repository's recipes) or
-  `b1ecba63` (the station snapshot under `arc_codecs/`). Anything the live
-  codec needs for deployment (``detokenize(times=)``, `stream_clocks`,
-  `stream_ends`) is decode-only; never change tokenize for the decoder.
+  never append controls based on a model class or inferred token width. The
+  decoders use the live `egomimic.rldb.zarr` tokenizers only; no checkpoint-era
+  codec copies are carried. Anything the codec needs for deployment
+  (``detokenize(times=)``, `stream_clocks`, `stream_ends`) is decode-only; never
+  change tokenize for the decoder. Generic inference consumes an optional
+  `execution_steps()` capability, not ARC-specific statistics. Keep immutable
+  DataContext/checkpoint binding and schema-2 artifacts; do not restore the
+  legacy inferred exporter/JSON loader.
 - `ik_options.py`, `yam/rollout_ik.py`, `yam/tracik.py`: opt-in pose
   relaxation, bounded differential recovery and the TRAC-IK endpoint backend.
   MuJoCo stays the default; every candidate still passes the joint-step guard.

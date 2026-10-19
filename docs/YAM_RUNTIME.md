@@ -397,45 +397,40 @@ decoder's optional `execution_steps()` capability for a prefix; otherwise
 when a property rejects a value. Keep percentage bounds compatible with the
 waypoint count (e.g. step 2 for M=50).
 
-The compatibility decoders support E1 duration/log-duration/profile, hybrid and
-tri clocks, PR193 wide/stacked tokens, M28 multistream tokens, and explicitly
-selected historical Cartesian layouts. Their checkpoint-era codec copies live
-under `robot/arc_codecs/`; current training tokenizers are unchanged. Duration
-is the decoder default; legacy mean timing is not a new-training default.
+The decoders support E1 duration/log-duration/profile, hybrid and tri clocks,
+event, reference and projection layouts, the lab mean token and the multistream
+interval tokens, all through the current training tokenizers. Duration is the
+decoder default; legacy mean timing is not a new-training default.
 Decoding precedes IK. The inference policy returns
 the profile-selected executable prefix; the rollout loop has no model-specific
 replanning parameter. Both arms' commands must pass the joint step limit before
 either command is sent. Camera loss pauses commands and discards the old plan.
 Quit with q/Escape or Ctrl-C.
 
-### Codec source: which tokenizer decodes a bundle
+### One codec: the training tokenizer
 
-`BimanualArcDecoder(codec=...)` names the tokenizer copy a bundle's tokens were
-written by. `training` (the default) is this repository's own
-`egomimic.rldb.zarr` codec, the one every recipe under `experiment/yam_arc_grid`
-trains with; it is the only source that knows the event (`e1_durevt` /
-`e1_stkevt`), reference (`e1_durref` / `e1_stkref`) and projection layouts,
-absolute waypoint timing (`duration_timing: absolute`) and the hybrid rotation
-budget. `b1ecba63` is the rl2-yam station snapshot under `robot/arc_codecs/`
-that trained the 10-06 .. 10-12 hybrid / tri bundles; pin it in a declaration
-whose weights were trained by that code (the example above does). The
-`lab_pw_*` and `cartesian_*` layouts always decode with their vendored copies.
-A bundle exported before the key existed decodes with `training`, i.e. with the
-codec that trained it. Replay tempo and fastest-stream termination work on both
-sources: the training codec gained a decode-only `detokenize(times=...)` and
-`stream_clocks` / `stream_ends`; tokenize is untouched, and the 50 pinned
-stationery recipe contracts still match.
+`BimanualArcDecoder` decodes every layout with the tokenizer that trains it, the
+live `egomimic.rldb.zarr` codecs (`e1_arc_tokenizer`, `arc_projection_tokenizer`,
+`arc_length_tokenizer`): E1 duration / log-duration / profile, hybrid and tri
+clocks, event and reference layouts, projection layouts, absolute waypoint
+timing, the hybrid rotation budget and speed floors. `FirstStreamArcDecoder`
+executes the multistream interval tokens of `arc_length_tokenizer` (wide,
+stacked and four-clock layouts) to their first moving stream, and
+`BimanualIntervalArcDecoder` decodes them whole. No checkpoint-era tokenizer
+copies are carried: a bundle trained by another revision of a tokenizer needs
+that revision's runtime. Replay tempo and fastest-stream termination run on the
+codec's own clocks through decode-only helpers (`detokenize(times=...)`,
+`stream_clocks`, `stream_ends`); tokenize is untouched.
 
-The shared E1 contracts (`model_contract/e1_wrists.yaml` and the event /
-reference / projection model leaves) now declare the decoder with
-`codec: training`, `first_stream: 1` and `execute_percent: 50`, and expose the
-four `decoder_attribute` controls from `model.arc_decoder_controls`
+The shared E1 contracts (`model_contract/e1_wrists.yaml` and the projection
+model leaves) declare the decoder with `first_stream: 1` and
+`execute_percent: 50`, and expose the four `decoder_attribute` controls from `model.arc_decoder_controls`
 (`multistream_fastest_stream`, `execute_waypoint_percent`, `arc_speed_percent`,
 `arc_hold_speed_percent`) next to `inference_steps` and `replan_every`. The
 `time` contract declares a `TimeChunkRetimer` so a time-indexed policy gets the
 same replay / hold tempo controls; at 100 % it returns the chunk untouched.
-Bundles exported before 2026-10-18 carry neither the key nor the controls: they
-decode as before and show only the sampler and replanning controls. ARC models
+Bundles exported before 2026-10-18 carry no decoder controls: they decode as
+before and show only the sampler and replanning controls. ARC models
 trained from the stack keep the recipe's own sampler default
 (`model.sampling_steps`, 50 for the HPT-Flow E1 models); the station's former
 20-step ARC default is a dashboard setting, not a contract value.
@@ -485,19 +480,6 @@ task-agnostic (its canonical block lives in `teleop_dashboard_static/app.js`;
 the builder synchronizes rollout's copy); keep template coordinates out of
 JavaScript. Refresh the browser to load these static-only changes; no
 collection or robot session restart is needed.
-
-### Pinned ARC decoder routing
-
-`python -m egomimic.robot.rollout_pinned_arc --config <profile>` is the rollout
-entry point for the organize multistream bundles trained at EgoVerse-graph
-`bbb813a0`. A `<checkpoint>.pinned-arc.json` manifest beside the checkpoint pins
-the training commit, the bundle files' SHA-256 and the adapter package's own
-hashes; `egomimic/robot/pinned_arc_bbb813a0/` holds byte-exact snapshots of that
-revision's tokenizer, evaluator decode and distance helpers, compiled into a
-private namespace, and `PinnedArcDecoder` executes the variable-length
-first-stream prefix exactly as validation scored it (no padding, no fixed
-replan). A bundle with a manifest refuses any other decoder, a changed adapter
-file or a replan limit; the profile must run at the training 30 Hz.
 
 ### Optional rollout IK pose relaxation
 

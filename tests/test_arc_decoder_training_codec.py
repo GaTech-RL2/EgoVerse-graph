@@ -1,7 +1,6 @@
-"""The station decoder reads this repository's own tokens: the ``codec="training"``
-path of ``BimanualArcDecoder`` (the default) decodes every live E1 layout with the
-training tokenizer, warps its tempo through the codec's own clocks, and ends a
-chunk at the first moving stream. Hardware-free."""
+"""The station decoder reads this repository's own tokens: ``BimanualArcDecoder``
+decodes every E1 layout with the training tokenizer, warps its tempo through the
+codec's own clocks, and ends a chunk at the first moving stream. Hardware-free."""
 
 import numpy as np
 import pytest
@@ -13,19 +12,12 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
 )
 from egomimic.rldb.zarr.e1_arc_tokenizer import (
     ARM_LAYOUT,
-    TokenizeBimanualArcLengthE1,
-)
-from egomimic.robot.arc_codecs.e1 import (
-    TokenizeBimanualArcLengthE1 as StationE1Codec,
 )
 from egomimic.robot.arc_decoder import (
     ARC_TOKEN_LAYOUTS,
-    CHECKPOINT_ERA_LAYOUTS,
     E1_VELOCITY_MODE,
-    STATION_E1_LAYOUTS,
     BimanualArcDecoder,
     FirstStreamArcDecoder,
-    resolve_codec_source,
 )
 
 M, H, DT = 100, 100, 1 / 30
@@ -53,25 +45,6 @@ def _training_token(layout, chunk, **codec_kwargs):
     ]
     assert token.shape == decoder.shape
     return decoder, token
-
-
-def test_training_codec_is_the_default_and_checkpoint_layouts_keep_their_copies():
-    assert resolve_codec_source("e1_dur", None) == "training"
-    assert resolve_codec_source("e1_durhyb", "b1ecba63") == "b1ecba63"
-    for layout in CHECKPOINT_ERA_LAYOUTS:
-        assert resolve_codec_source(layout, None) == "b1ecba63"
-        with pytest.raises(ValueError, match="checkpoint-era"):
-            resolve_codec_source(layout, "training")
-    for layout in set(E1_VELOCITY_MODE) - set(STATION_E1_LAYOUTS):
-        with pytest.raises(ValueError, match="does not know"):
-            resolve_codec_source(layout, "b1ecba63")
-    with pytest.raises(ValueError, match="codec must be"):
-        resolve_codec_source("e1_dur", "station")
-    assert isinstance(
-        BimanualArcDecoder("e1_dur", codec="b1ecba63").codec, StationE1Codec
-    )
-    assert isinstance(BimanualArcDecoder("e1_dur").codec, TokenizeBimanualArcLengthE1)
-    assert isinstance(BimanualArcDecoder("lab").codec, TrainingCartesianCodec)
 
 
 @pytest.mark.parametrize("layout", [*E1_VELOCITY_MODE, "lab"])
@@ -173,8 +146,8 @@ def test_absolute_duration_timing_decodes_and_terminates_with_the_training_codec
     plan = decoder(token)
     assert plan.shape == (1, H, 14) and np.isfinite(plan).all()
     assert decoder.last_stats["replan_steps"] >= 1
-    with pytest.raises(ValueError, match="training codec"):
-        BimanualArcDecoder("e1_dur", duration_timing="absolute", codec="b1ecba63")
+    with pytest.raises(ValueError, match="e1_dur"):
+        BimanualArcDecoder("e1_profile", duration_timing="absolute")
 
 
 @pytest.mark.parametrize("layout", ["e1_durevt", "e1_stkevt", "e1_durref", "e1_stkref"])
@@ -214,29 +187,13 @@ def test_hybrid_rotation_budget_and_speed_floors_reach_the_training_codec():
     )
     assert decoder.codec.rotation_distance_unit == pytest.approx(1.2566)
     assert decoder.codec.speed_floors == (0.02, 0.1, 0.05)
-    with pytest.raises(ValueError, match="training E1 codec"):
-        BimanualArcDecoder(
-            "e1_profhyb", codec="b1ecba63", speed_floors=(0.02, 0.1, 0.05)
-        )
+    with pytest.raises(ValueError, match="E1 layouts"):
+        BimanualArcDecoder("lab", speed_floors=(0.02, 0.1, 0.05))
     with pytest.raises(ValueError, match="hybrid token layout"):
         BimanualArcDecoder("e1_dur", rotation_distance_unit=1.0)
 
 
-def test_station_copy_and_training_codec_agree_on_a_plain_duration_token():
-    """A duration token has no codec-specific encoding: both copies read it alike."""
-    chunk = _chunk(seed=9)
-    training = BimanualArcDecoder("e1_dur", 0.4, M, DT, H, first_stream=1)
-    station = BimanualArcDecoder(
-        "e1_dur", 0.4, M, DT, H, first_stream=1, codec="b1ecba63"
-    )
-    token = training.codec.transform({"actions_cartesian": chunk.copy()})[
-        "actions_cartesian"
-    ]
-    np.testing.assert_allclose(training(token), station(token), atol=1e-9)
-    assert training.last_stats["replan_steps"] == station.last_stats["replan_steps"]
-
-
-def test_first_stream_decoder_can_use_the_training_multistream_codec():
+def test_first_stream_decoder_uses_the_training_multistream_codec():
     dt, waypoints = 1 / 30, 100
     t = np.arange(400)[:, None] * dt
     actions = np.zeros((400, 14))
@@ -244,9 +201,7 @@ def test_first_stream_decoder_can_use_the_training_multistream_codec():
     actions[:, 8] = t[:, 0] * 0.1
     actions[:, 3] = actions[:, 10] = t[:, 0] * 0.2
     actions[:, [6, 13]] = 0.5
-    decoder = FirstStreamArcDecoder(
-        "duration", "clock", 0.7, 2.0, waypoints, dt, H, codec="training"
-    )
+    decoder = FirstStreamArcDecoder("duration", "clock", 0.7, 2.0, waypoints, dt, H)
     assert type(decoder.codec) is TrainingCartesianCodec
     wide = decoder._lib.TokenizeBimanualArcLengthCartesian(
         min_distance_unit=0.7,
@@ -263,8 +218,6 @@ def test_first_stream_decoder_can_use_the_training_multistream_codec():
     n = decoder.last_stats["replan_steps"]
     assert 1 <= n <= H and prediction.shape == (1, H, 14)
     assert np.all(prediction[0, n:] == prediction[0, n - 1])
-    with pytest.raises(ValueError, match="codec must be"):
-        FirstStreamArcDecoder("duration", "clock", 0.7, 2.0, codec="m29")
 
 
 def test_every_declared_layout_is_constructible_with_its_natural_codec():

@@ -58,7 +58,6 @@ inference:
           resampled_vector_length: ${e1.M}
           dt: 0.03333333333333333
           action_horizon: ${e1.time_rows}
-          codec: training
           first_stream: 1
           execute_percent: 50
         rotation_mode: euler

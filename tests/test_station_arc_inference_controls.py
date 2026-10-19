@@ -15,7 +15,7 @@ from egomimic.pipeline.inference_controls import (
     apply_control_bindings,
     configure_profile_controls,
 )
-from egomimic.robot.arc_codecs import m28
+from egomimic.rldb.zarr import arc_length_tokenizer
 from egomimic.robot.arc_decoder import (
     BimanualArcDecoder,
     BimanualIntervalArcDecoder,
@@ -118,7 +118,7 @@ def test_fastest_stream_prefix_is_shared_by_tensor_and_robot_consumers(mode, lay
     actions[:, 8] = t[:, 0] * 0.1
     actions[:, 3] = actions[:, 10] = t[:, 0] * 0.2
     actions[:, [6, 13]] = 0.5
-    codec = m28.TokenizeBimanualArcLengthCartesian(
+    codec = arc_length_tokenizer.TokenizeBimanualArcLengthCartesian(
         min_distance_unit=0.7,
         rotation_distance_unit=2.0,
         resampled_vector_length=waypoints,

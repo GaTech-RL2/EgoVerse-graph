@@ -36,10 +36,17 @@ decoder reconstructs `q` from each predicted pose to measure the waypoint
 path. It then queries the arm's clock at each control tick, interpolating xyz
 and grip linearly and rotation with SLERP.
 
-- **`arc_projection_dur` / `e1_projection_dur`:** elapsed seconds in rows
-  `0..M-2`; the last row repeats the last interval and is ignored by the clock.
-  Decode clamps intervals nonnegative and cumulatively sums them. The existing
-  whole-clock mean-speed bounds apply using projected distance.
+- **`arc_projection_dur` / `e1_projection_dur`:** absolute waypoint times by
+  default since 2026-10-20 (`model.projection_duration_timing: absolute`): row
+  k is the seconds from the chunk anchor to waypoint k, row 0 is 0. Decode
+  projects the predicted times onto the nearest non-decreasing, non-negative
+  clock by isotonic regression, so a local timing error never sums into later
+  rows and noisy predictions do not drift late. Setting
+  `model.projection_duration_timing=delta` restores the original interval
+  seconds in rows `0..M-2` (last row repeats the last interval), decoded by
+  clamping intervals nonnegative and summing them; checkpoints trained before
+  2026-10-20 need it. Either way the existing whole-clock mean-speed bounds
+  apply using projected distance, and on ground truth both decode identically.
 - **`arc_projection_vel` / `e1_projection_vel`:** each waypoint segment's mean
   projected speed in m/s: its projected length over the true seconds it took
   (`speed_encoding: interval`, the default since 2026-10-20). Decode is
@@ -62,8 +69,9 @@ There is no independent rotation cutoff. Validation decodes the whole token and
 scores a fixed control-time prefix (25 ticks, tick-prefix regime). The rollout
 decoder executes the first 50 % of the waypoints and replans when the first arm
 reaches its last kept waypoint (`first_stream: 1`, `execute_percent: 50`), with
-the dashboard's replay-speed controls. Absolute waypoint timing is not
-supported for projection layouts; `arc_projection_dur` is delta timing only.
+the dashboard's replay-speed controls. The evaluator and the rollout decoder
+accept absolute waypoint timing on `e1_projection_dur` as on `e1_dur`;
+velocity layouts are delta only.
 
 ## Configuration
 
@@ -83,8 +91,10 @@ They inherit the maintained stattempo BC graph, optimizer, scheduler and frozen
 with ten blocks. The token head is 16-wide, matching ordinary single-stream
 ARC. No new network modules are introduced.
 
-`model.projection_offset_m`, `model.projection_min_speed` and
-`model.projection_speed_smooth_frames` own the geometry and speed settings.
+`model.projection_offset_m`, `model.projection_min_speed`,
+`model.projection_speed_smooth_frames` (read only by the legacy point speed
+encoding) and `model.projection_duration_timing` own the geometry, speed and
+timing settings.
 Training/validation transforms and model-owned inference declarations refer to
 these fields. Geometry, speed floor and timing variant are included in the
 inference compatibility contract: existing xyz-only ARC checkpoints and

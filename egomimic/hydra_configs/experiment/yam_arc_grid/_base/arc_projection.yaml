@@ -19,6 +19,7 @@ evaluator:
   arc_video_trajectory_cap_mode: execution_horizon
   projection_offset_m: ${model.projection_offset_m}
   projection_min_speed: ${model.projection_min_speed}
+  duration_timing: ${model.projection_duration_timing}
 logger:
   wandb:
     id: ${name}_20261015_s42

@@ -313,3 +313,33 @@ def test_projection_graph_can_train_and_sample(variant):
     decoded = decoder(prediction)
     assert decoded.shape == (2, 100, 14)
     assert np.isfinite(decoded).all()
+
+
+def test_projection_duration_defaults_to_absolute_isotonic_waypoint_times():
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033")
+    evaluator = instantiate(cfg.evaluator)
+    decoder = instantiate(cfg.model.inference.profiles.default.adapter.decoder)
+    codecs = [
+        instantiate(split.yam_bimanual.resolver.transform_list)[-1]
+        for split in (cfg.data.train_datasets, cfg.data.valid_datasets)
+    ] + [evaluator._e1_tokenizer(evaluator.token_layout, None), decoder.codec]
+    assert {(c.velocity_mode, c.duration_timing) for c in codecs} == {
+        ("dur", "absolute")
+    }
+    assert cfg.model.inference.native_output.timing.kind == "per_waypoint_absolute_time"
+    assert cfg.model.inference.compatibility.tokenizer.duration_timing == "absolute"
+    actions = rotation_chunk(rate=0.7)
+    values = token(codecs[0], actions)
+    np.testing.assert_allclose(values[1:, 14:], np.maximum.accumulate(values[1:, 14:]))
+    delta = TokenizeBimanualArcProjection(
+        velocity_mode="dur",
+        min_distance_unit=0.33,
+        resampled_vector_length=200,
+        dt=1 / 30,
+    )
+    decoder.first_stream = 0  # compare whole tokens, as the identity test above does
+    np.testing.assert_allclose(
+        decoder(values)[0], delta.detokenize(token(delta, actions), 100), atol=1e-10
+    )
+    vel = compose_recipe("bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033")
+    assert vel.evaluator.duration_timing == "delta"

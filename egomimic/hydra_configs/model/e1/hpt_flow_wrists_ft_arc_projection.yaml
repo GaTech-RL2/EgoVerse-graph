@@ -7,6 +7,8 @@ projection_layout: e1_projection_dur
 projection_offset_m: [0.02, 0.02, 0.02]
 projection_min_speed: 0.000001
 projection_speed_smooth_frames: 7
+# The dur leaf sets absolute waypoint times (isotonic decode); velocity is delta-only.
+projection_duration_timing: delta
 data_contracts:
   yam:
     preprocessing:
@@ -15,6 +17,7 @@ data_contracts:
           projection_offset_m: ${model.projection_offset_m}
           projection_min_speed: ${model.projection_min_speed}
           speed_smooth_frames: ${model.projection_speed_smooth_frames}
+          duration_timing: ${model.projection_duration_timing}
   human:
     preprocessing:
       '3':
@@ -22,6 +25,7 @@ data_contracts:
           projection_offset_m: ${model.projection_offset_m}
           projection_min_speed: ${model.projection_min_speed}
           speed_smooth_frames: ${model.projection_speed_smooth_frames}
+          duration_timing: ${model.projection_duration_timing}
 inference:
   input: ${model.inference_contracts.arcdur.input}
   native_output: ${model.inference_contracts.arcdur.native_output}
@@ -36,6 +40,7 @@ inference:
       projection_offset_m: ${model.projection_offset_m}
       min_speed: ${model.projection_min_speed}
       speed_smooth_frames: ${model.projection_speed_smooth_frames}
+      duration_timing: ${model.projection_duration_timing}
       distance: ${e1.D}
       waypoints: ${e1.M}
       velocity_norm: ${e1.velocity_norm}
@@ -53,6 +58,7 @@ inference:
           _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
           token_layout: ${model.projection_layout}
           speed_encoding: interval
+          duration_timing: ${model.projection_duration_timing}
           projection_offset_m: ${model.projection_offset_m}
           projection_min_speed: ${model.projection_min_speed}
           min_distance_unit: ${e1.D}

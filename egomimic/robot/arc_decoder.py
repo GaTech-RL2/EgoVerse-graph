@@ -351,8 +351,13 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
             raise ValueError("Invalid ARC distance, time, horizon or waypoint count")
-        if duration_timing != "delta" and token_layout != "e1_dur":
-            raise ValueError("Absolute waypoint timing requires token_layout='e1_dur'")
+        if duration_timing != "delta" and token_layout not in (
+            "e1_dur",
+            "e1_projection_dur",
+        ):
+            raise ValueError(
+                "Absolute waypoint timing requires token_layout 'e1_dur' or 'e1_projection_dur'"
+            )
         projection = token_layout in PROJECTION_LAYOUTS
         if projection_offset_m is not None and not projection:
             raise ValueError("projection_offset_m requires an ARC Projection layout")

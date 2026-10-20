@@ -1280,8 +1280,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
             raise ValueError("projection_offset_m requires an ARC Projection layout")
         self.projection_offset_m = projection_offset_m
         self.projection_min_speed = projection_min_speed
-        if duration_timing != "delta" and self.token_layout != "e1_dur":
-            raise ValueError("Absolute waypoint timing requires token_layout='e1_dur'")
+        if duration_timing != "delta" and self.token_layout not in (
+            "e1_dur",
+            "e1_projection_dur",
+        ):
+            raise ValueError(
+                "Absolute waypoint timing requires token_layout 'e1_dur' or 'e1_projection_dur'"
+            )
         self.duration_timing = str(duration_timing)
         self.speed_encoding = str(speed_encoding)
         self.tick_prefix = (

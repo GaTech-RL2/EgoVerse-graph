@@ -116,6 +116,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
+from scipy.optimize import isotonic_regression
 from scipy.signal import butter, sosfiltfilt
 from scipy.spatial.transform import Rotation as R
 
@@ -625,9 +626,12 @@ def absolute_times_to_clock(
 ) -> np.ndarray:
     """Waypoint seconds from the chunk anchor, without accumulating predictions.
 
-    Anchor row zero at zero, project backwards predictions to a monotone clock,
-    and hold padded supports at the preceding time. Retain the duration codec's
-    whole-clock speed bounds. A local timing error never sums into later rows.
+    Anchor row zero at zero and project the predicted times onto the nearest
+    (least-squares) non-decreasing, non-negative clock by isotonic regression,
+    which averages a backwards pair instead of raising the later row as a
+    running max does, so noisy predictions do not drift late. Padded supports
+    hold the preceding time. Retain the duration codec's whole-clock speed
+    bounds. A local timing error never sums into later rows.
     """
     clock = np.asarray(col, dtype=np.float64).copy()
     cum = np.asarray(cum, dtype=np.float64)
@@ -635,13 +639,11 @@ def absolute_times_to_clock(
         raise ValueError("Absolute times require matching waypoint and arc vectors")
     if not np.isfinite(clock).all() or not np.isfinite(cum).all():
         raise ValueError("Absolute times and arc supports must be finite")
-    clock[0] = 0.0
-    for i in range(1, len(clock)):
-        clock[i] = (
-            max(clock[i - 1], clock[i], 0.0)
-            if cum[i] - cum[i - 1] > 1e-9
-            else clock[i - 1]
-        )
+    moving = np.r_[False, np.diff(cum) > 1e-9]
+    if moving.any():
+        clock[moving] = np.maximum(isotonic_regression(clock[moving]).x, 0.0)
+    clock[~moving] = 0.0
+    clock = np.maximum.accumulate(clock)  # padded supports hold the preceding time
     span = max(float(cum[-1]), 1e-9)
     lo, hi = span / max_speed, span / min_speed
     if clock[-1] > 1e-12 and not lo <= clock[-1] <= hi:

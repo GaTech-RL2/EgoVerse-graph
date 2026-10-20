@@ -54,7 +54,12 @@ def test_local_time_error_does_not_accumulate_and_padding_is_ignored():
     np.testing.assert_allclose(error, [0, 0, 0.03, 0, 0], atol=1e-12)
     np.testing.assert_allclose(
         absolute_times_to_clock([5, 0.1, -1, 0.3, 99], [0, 0.1, 0.2, 0.3, 0.3]),
-        [0, 0.1, 0.1, 0.3, 0.3],
+        [0, 0, 0, 0.3, 0.3],
+    )
+    # A backwards pair is averaged, not resolved by raising the later row.
+    np.testing.assert_allclose(
+        absolute_times_to_clock([0, 0.1, 0.35, 0.3, 0.4], arc),
+        [0, 0.1, 0.325, 0.325, 0.4],
     )
     with pytest.raises(ValueError, match="finite"):
         absolute_times_to_clock([0, np.nan], [0, 0.1])

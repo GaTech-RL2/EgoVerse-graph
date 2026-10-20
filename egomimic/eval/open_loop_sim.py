@@ -69,6 +69,37 @@ XYZ_COLS = (0, 1, 2, 7, 8, 9)
 YPR_COLS = (3, 4, 5, 10, 11, 12)
 GRIP_COLS = (6, 13)
 PAIRED_COLS = XYZ_COLS + GRIP_COLS
+# Tick-prefix-only terms, logged when the native training token is available: the model's YPR
+# error with angles wrapped, the codec floor (decoded GT token vs GT) and the model against its own
+# codec's decode of the GT token. The last two are split by component and their YPR is wrapped.
+ORACLE_TERMS = (
+    "ypr_wrap_mse",
+    "oracle_xyz_mse",
+    "oracle_ypr_mse",
+    "oracle_grip_mse",
+    "own_xyz_mse",
+    "own_ypr_mse",
+    "own_grip_mse",
+)
+METRIC_DIMS = {
+    "mse": 14,
+    "xyz_mse": len(XYZ_COLS),
+    "ypr_mse": len(YPR_COLS),
+    "grip_mse": len(GRIP_COLS),
+    "paired_mse": len(PAIRED_COLS),
+    **{key: len(GRIP_COLS) if "grip" in key else len(XYZ_COLS) for key in ORACLE_TERMS},
+}
+
+
+def _wrapped_component_sq(error: np.ndarray) -> dict[str, float]:
+    ypr = np.mod(error[:, YPR_COLS] + np.pi, 2 * np.pi) - np.pi
+    return {
+        "xyz_mse": float(np.square(error[:, XYZ_COLS]).sum()),
+        "ypr_mse": float(np.square(ypr).sum()),
+        "grip_mse": float(np.square(error[:, GRIP_COLS]).sum()),
+    }
+
+
 ARC_EXECUTION_CAP_MODES = ("waypoints", "distance")
 ARC_VIDEO_TRAJECTORY_CAP_MODES = (
     "execution_horizon",
@@ -1071,6 +1102,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
     unchanged; the new regime is reported as ``tick_prefix`` in the results and ``Tick_Prefix/*`` in
     the logger. ``e1_speed_floors`` (speed layouts, tick prefix only) decodes the speed columns as
     distance / max(|speed|, floor); the waypoint-cut metric keeps the legacy decode.
+
+    With the tick prefix on, each record also keeps the native training token, and the tick prefix
+    adds ``ORACLE_TERMS`` (``Tick_Prefix/Oracle_*``, ``Tick_Prefix/Model_vs_Oracle_*`` and
+    ``Tick_Prefix/YPR_Wrapped_MSE``): the GT token decoded the same way is the codec floor, and the
+    model scored against it is the comparison that is fair across codecs. Floors cannot be subtracted
+    from the model MSE because model and codec errors interact. All are per component (xyz, ypr,
+    grip) with YPR wrapped to (-pi, pi]; the legacy keys are unchanged.
 
     The event and reference layouts have no row cut: they are always decoded whole (``tick_prefix`` is forced
     on), so their ``micro`` / ``macro`` results EQUAL the ``tick_prefix`` ones and are not comparable
@@ -2261,6 +2299,20 @@ class OpenLoopSimEval(BimanualCartesianEval):
             source_batch[target_key], target_key, embodiment_id
         )
         target_native = target_value.detach().cpu().numpy()
+        token_native = None
+        if (
+            getattr(self, "tick_prefix", False)
+            and target_key != self.action_key
+            and self.action_key in source_batch
+        ):
+            token_native = (
+                self._native_key(
+                    source_batch[self.action_key], self.action_key, embodiment_id
+                )
+                .detach()
+                .cpu()
+                .numpy()
+            )
         metric_anchors = None
         if getattr(self, "distance_dtw_enabled", False):
             if METRIC_FRAME_KEY not in source_batch:
@@ -2298,6 +2350,15 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     # control-frame stride at episode replay time.
                     "prediction": np.asarray(prediction_value, dtype=np.float32),
                     "ground_truth": np.asarray(target_native[index], dtype=np.float32),
+                    **(
+                        {
+                            "target_token": np.asarray(
+                                token_native[index], dtype=np.float32
+                            )
+                        }
+                        if token_native is not None
+                        else {}
+                    ),
                     **(
                         {METRIC_FRAME_KEY: metric_anchors[index].copy()}
                         if metric_anchors is not None
@@ -2381,6 +2442,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
         tick_sq = (
             dict.fromkeys(sq, 0.0) if getattr(self, "tick_prefix", False) else None
         )
+        oracle = tick_sq is not None and "target_token" in records[0]
+        if oracle:
+            tick_sq.update(dict.fromkeys(ORACLE_TERMS, 0.0))
         executed = 0
         segments = 0
         segment_control_steps = []
@@ -2425,14 +2489,22 @@ class OpenLoopSimEval(BimanualCartesianEval):
             sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
             sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
             if tick_sq is not None:
-                error = (
-                    self._decode_tick_prefix(record["prediction"], n) - ground_truth[:n]
-                )
+                decoded = self._decode_tick_prefix(record["prediction"], n)
+                error = decoded - ground_truth[:n]
                 tick_sq["mse"] += float(np.square(error).sum())
                 tick_sq["xyz_mse"] += float(np.square(error[:, XYZ_COLS]).sum())
                 tick_sq["ypr_mse"] += float(np.square(error[:, YPR_COLS]).sum())
                 tick_sq["grip_mse"] += float(np.square(error[:, GRIP_COLS]).sum())
                 tick_sq["paired_mse"] += float(np.square(error[:, PAIRED_COLS]).sum())
+                if oracle:
+                    floor = self._decode_tick_prefix(record["target_token"], n)
+                    tick_sq["ypr_wrap_mse"] += _wrapped_component_sq(error)["ypr_mse"]
+                    for name, err in (
+                        ("oracle_", floor - ground_truth[:n]),
+                        ("own_", decoded - floor),
+                    ):
+                        for key, value in _wrapped_component_sq(err).items():
+                            tick_sq[name + key] += value
             if dump is not None:
                 dump.append((cursor, prediction[:n], ground_truth[:n]))
             executed += n
@@ -2453,13 +2525,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             )
 
         episode_length = end_frame - frames[0]
-        denominators = {
-            "mse": executed * 14,
-            "xyz_mse": executed * len(XYZ_COLS),
-            "ypr_mse": executed * len(YPR_COLS),
-            "grip_mse": executed * len(GRIP_COLS),
-            "paired_mse": executed * len(PAIRED_COLS),
-        }
+        denominators = {key: executed * dims for key, dims in METRIC_DIMS.items()}
         return {
             "group": records[0].get("group", DEFAULT_VALID_GROUP),
             "episode": records[0]["episode"],
@@ -2473,7 +2539,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             **(
                 {
                     "tick_prefix": {
-                        key: tick_sq[key] / max(denominators[key], 1) for key in sq
+                        key: tick_sq[key] / max(denominators[key], 1) for key in tick_sq
                     }
                 }
                 if tick_sq is not None
@@ -2495,11 +2561,8 @@ class OpenLoopSimEval(BimanualCartesianEval):
         total_segments = sum(item["segments"] for item in episodes)
         micro = {}
         dimensions = {
-            "mse": 14,
-            "xyz_mse": len(XYZ_COLS),
-            "ypr_mse": len(YPR_COLS),
-            "grip_mse": len(GRIP_COLS),
-            "paired_mse": len(PAIRED_COLS),
+            key: METRIC_DIMS[key]
+            for key in ("mse", "xyz_mse", "ypr_mse", "grip_mse", "paired_mse")
         }
         for key, dims in dimensions.items():
             micro[key] = sum(
@@ -2529,17 +2592,19 @@ class OpenLoopSimEval(BimanualCartesianEval):
                     "tick_prefix": {
                         "micro": {
                             key: sum(
-                                item["tick_prefix"][key] * item["executed_steps"] * dims
+                                item["tick_prefix"][key]
+                                * item["executed_steps"]
+                                * METRIC_DIMS[key]
                                 for item in episodes
                             )
-                            / max(total_steps * dims, 1)
-                            for key, dims in dimensions.items()
+                            / max(total_steps * METRIC_DIMS[key], 1)
+                            for key in episodes[0]["tick_prefix"]
                         },
                         "macro": {
                             key: float(
                                 np.mean([item["tick_prefix"][key] for item in episodes])
                             )
-                            for key in micro
+                            for key in episodes[0]["tick_prefix"]
                         },
                     }
                 }
@@ -2754,6 +2819,22 @@ class OpenLoopSimEval(BimanualCartesianEval):
                             f"{prefix}/{name}Paired_MSE": regime["micro"]["paired_mse"],
                         }
                     )
+                    if "own_xyz_mse" in regime["micro"]:
+                        micro = regime["micro"]
+                        metrics[f"{prefix}/{name}YPR_Wrapped_MSE"] = micro[
+                            "ypr_wrap_mse"
+                        ]
+                        for part, label in (
+                            ("xyz", "XYZ"),
+                            ("ypr", "YPR"),
+                            ("grip", "Grip"),
+                        ):
+                            metrics[f"{prefix}/{name}Oracle_{label}_MSE"] = micro[
+                                f"oracle_{part}_mse"
+                            ]
+                            metrics[f"{prefix}/{name}Model_vs_Oracle_{label}_MSE"] = (
+                                micro[f"own_{part}_mse"]
+                            )
             metrics.update(
                 {
                     f"{prefix}/Coverage": summary["coverage"],

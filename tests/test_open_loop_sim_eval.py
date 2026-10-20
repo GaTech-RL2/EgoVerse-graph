@@ -731,3 +731,58 @@ def test_causal_history_video_uses_current_pose_and_current_image():
     )
     assert len(poses) == 2 and all(pose.equal(torch.ones(1, 14)) for pose in poses)
     assert len(rendered) == 1 and rendered[0].equal(torch.ones(1, 4, 4, 3))
+
+
+def test_tick_prefix_oracle_terms_separate_codec_floor_from_model_error():
+    from hydra.utils import instantiate
+
+    from egomimic.eval.open_loop_sim import _wrapped_component_sq
+    from scripts.e1.validate_stattempo_configs import compose_recipe
+
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_m200_d033")
+    evaluator = instantiate(cfg.evaluator)
+    evaluator.distance_dtw_enabled = False
+    codec = instantiate(cfg.data.valid_datasets.yam_bimanual.resolver.transform_list)[
+        -1
+    ]
+    t = np.arange(140) / 30
+    path = np.zeros((140, 14))
+    for off in (0, 7):  # move, hold, move: arcvel's floor is non-zero on the hold
+        path[:, off] = 0.1 * np.minimum(t, 1.5) + 0.1 * np.maximum(t - 3.0, 0)
+        path[:, off + 3] = 0.3 * np.minimum(t, 1.5)
+        path[:, off + 6] = np.clip(t - 1.0, 0, 1)
+
+    def records(perturb):
+        out = []
+        for frame in range(40):
+            gt = path[frame : frame + 100] - path[frame]
+            token = codec.transform({"actions_cartesian": gt.copy()})[
+                "actions_cartesian"
+            ]
+            out.append(
+                dict(
+                    source="yam_bimanual",
+                    label="yam_bimanual",
+                    episode="oracle",
+                    frame=frame,
+                    prediction=token + perturb,
+                    ground_truth=gt,
+                    target_token=token,
+                )
+            )
+        return out
+
+    exact = evaluator._compute_results(records(0.0))["tick_prefix"]["micro"]
+    for part in ("xyz", "ypr", "grip"):
+        assert exact[f"own_{part}_mse"] == pytest.approx(0.0, abs=1e-20)
+    assert exact["oracle_xyz_mse"] == pytest.approx(exact["xyz_mse"])
+    assert exact["oracle_grip_mse"] == pytest.approx(exact["grip_mse"])
+    assert exact["oracle_ypr_mse"] == pytest.approx(exact["ypr_wrap_mse"])
+    assert exact["oracle_xyz_mse"] > 0
+    noisy = evaluator._compute_results(records(1e-3))["tick_prefix"]["micro"]
+    assert noisy["own_xyz_mse"] > 0
+    assert noisy["oracle_xyz_mse"] == pytest.approx(exact["oracle_xyz_mse"])
+
+    error = np.zeros((3, 14))
+    error[:, 3] = 2 * np.pi - 0.01
+    assert _wrapped_component_sq(error)["ypr_mse"] == pytest.approx(3 * 0.01**2)

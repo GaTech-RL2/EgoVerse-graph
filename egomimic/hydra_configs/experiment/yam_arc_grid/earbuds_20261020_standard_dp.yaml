@@ -1,0 +1,47 @@
+# @package _global_
+# Standard U-Net DP, sharing the ARC run's refreshed frozen membership,
+# 100-frame source windows, three cameras, proprio, trainer and tempo evaluator.
+defaults:
+- /experiment/yam_arc_grid/_base/earbuds_updated_hpt300
+- override /data: abc_arc/earbuds_20261020
+- override /model: abc/earbuds_dp
+- _self_
+
+name: earbuds_20261020_standard_dp
+description: standard_dp_ddim100_native100_threecams_s42
+seed: 42
+ckpt_path: null
+init_weights_from: null
+earbuds_distance_m: ???
+e1:
+  variant: time
+  # TIME has no distance cap, but its geometry metrics must use the same
+  # measured distance as ARC. Use the same earbuds_distance_m in both runs.
+  # This fresh mandatory field also avoids OmegaConf retaining an inherited D
+  # when a derived leaf merely sets it to ???.
+  D: ${earbuds_distance_m}
+  action_dim: 14
+  action_horizon: 100
+  time_rows: 100
+hpt:
+  action_dim: ${e1.action_dim}
+  action_horizon: ${e1.action_horizon}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          min_distance_unit: ${e1.D}
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          min_distance_unit: ${e1.D}
+evaluator:
+  # E_arc and d_clock integrate at M support points even for TIME predictions.
+  # Match the ARC evaluator without changing this model's native 100 rows.
+  M: 200
+logger:
+  wandb:
+    id: ${name}_s42
+    tags: [rl2, wireless_earbuds_updated, earbuds_20261020, standard_dp, ddim, native100, three_cameras]

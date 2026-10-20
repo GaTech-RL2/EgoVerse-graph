@@ -52,7 +52,9 @@ from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     ARC_TOK_BIMANUAL_DIM,
     CLOCK_COLUMNS,
+    FIRST_DELAY_LAYOUTS,
     LOG_CLOCK_EPS,
+    LOG_SIX_CLOCK_LAYOUTS,
     SIX_CLOCK_COLUMNS,
     SIX_CLOCK_LAYOUTS,
     _rotation_to_ypr,
@@ -248,6 +250,10 @@ def truncate_arc_token(
     The legacy standalone helper defaults to joint distance explicitly.
     """
 
+    if velocity_layout in FIRST_DELAY_LAYOUTS:
+        raise ValueError(
+            "First-delay clocks require arc_execution_cap_mode='waypoints'"
+        )
     mode = validate_bimanual_velocity_mode(velocity_mode)
     value = stack_arc_token(np.asarray(token, dtype=np.float64))
     if value.ndim != 2 or value.shape[1] != 14:
@@ -474,6 +480,8 @@ def _arc_clock_durations(
     The codec uses a horizon-sized hold for a moving interval with no rate.
     Without a caller-provided horizon this has no finite replan boundary.
     """
+    if velocity_layout in FIRST_DELAY_LAYOUTS:
+        raise ValueError("Use the first-delay codec's prefix timing helper")
     from egomimic.rldb.zarr.arc_length_tokenizer import (
         TokenizeBimanualArcLengthCartesian,
     )
@@ -866,6 +874,10 @@ def arc_execution_prefix(
     cap_mode = validate_arc_execution_cap_mode(arc_execution_cap_mode)
     if cap_mode == "waypoints":
         return truncate_arc_token_by_waypoints(token, execute_fraction, velocity_mode)
+    if velocity_layout in FIRST_DELAY_LAYOUTS:
+        raise ValueError(
+            "First-delay clocks require arc_execution_cap_mode='waypoints'"
+        )
     return truncate_arc_token(
         token,
         execute_fraction,
@@ -921,6 +933,30 @@ def arc_prefix_control_steps(
     M = len(partial) // 2 if granular else len(partial) - 1
     waypoints = partial[:M]
     timing = partial[M:]
+    if velocity_layout in FIRST_DELAY_LAYOUTS:
+        from egomimic.rldb.zarr.arc_length_tokenizer import (
+            TokenizeBimanualArcLengthCartesian,
+        )
+
+        codec = TokenizeBimanualArcLengthCartesian(
+            min_distance_unit=min_distance_unit,
+            rotation_distance_unit=rotation_distance_unit,
+            gripper_distance_unit=gripper_distance_unit,
+            gripper_stream_mode=gripper_stream_mode,
+            resampled_vector_length=M,
+            dt=dt,
+            velocity_mode=mode,
+            velocity_layout=velocity_layout,
+            arc_chunking_mode=arc_chunking_mode,
+        )
+        native_prefix = np.concatenate(
+            (waypoints, timing[:, list(SIX_CLOCK_COLUMNS)]), axis=-1
+        )
+        # Like the original log-clock path, callers pass seconds here after
+        # _native() has undone normalization and the log exactly once.
+        return codec.first_delay_control_steps(
+            native_prefix, max_steps=max_steps, clocks_in_seconds=True
+        )
     chunking_mode = resolve_arc_chunking_mode(arc_chunking_mode, rotation_distance_unit)
     clocks, rotation_clock, gripper_clock = _arc_clock_durations(
         waypoints,
@@ -1256,6 +1292,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
         # Only "log_clock" changes decoding: its timing columns are converted
         # back to seconds as soon as a token is unnormalized (see _native).
         self.velocity_layout = None if velocity_layout is None else str(velocity_layout)
+        if (
+            self.velocity_layout in FIRST_DELAY_LAYOUTS
+            and self.arc_execution_cap_mode != "waypoints"
+        ):
+            raise ValueError(
+                "First-delay clocks require arc_execution_cap_mode='waypoints'"
+            )
         self.execute_arc_waypoints = (
             executed_arc_waypoints(self.resampled_vector_length, self.execute_fraction)
             if mode == "arc" and self.arc_execution_cap_mode == "waypoints"
@@ -2070,14 +2113,13 @@ class OpenLoopSimEval(BimanualCartesianEval):
         """
         layout = getattr(self, "velocity_layout", None)
         columns = (
-            SIX_CLOCK_COLUMNS
-            if layout in ("log_clock6", "log_absolute_clock6")
-            else CLOCK_COLUMNS
+            SIX_CLOCK_COLUMNS if layout in LOG_SIX_CLOCK_LAYOUTS else CLOCK_COLUMNS
         )
         if layout not in (
             "log_clock",
             "log_clock6",
             "log_absolute_clock6",
+            "log_clock6_start_delay",
         ) or value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(columns):
             return value
         out = value.clone()
@@ -2218,9 +2260,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 velocity_mode=self.velocity_mode,
                 velocity_layout=(
                     velocity_layout
-                    if input_dim == 20
-                    and self.velocity_mode == "duration"
-                    and velocity_layout in SIX_CLOCK_LAYOUTS
+                    if input_dim == 20 and velocity_layout in SIX_CLOCK_LAYOUTS
                     else "rate_clock"
                     if input_dim == 20 and self.velocity_mode == "per_waypoint"
                     else "stacked"
@@ -2266,7 +2306,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             )
         clock_options = (
             {"clocks_in_seconds": True}
-            if velocity_layout in ("log_clock6", "log_absolute_clock6")
+            if velocity_layout in LOG_SIX_CLOCK_LAYOUTS
             else {}
         )
         decoded = self._arc_tokenizer.detokenize(

@@ -739,6 +739,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             rotation_cap = (
                 None
                 if rotation_distance_unit is None
+                or self.streams in ("translation", "projection")
                 else self.execute_fraction * rotation_distance_unit
             )
             gripper_cap = (

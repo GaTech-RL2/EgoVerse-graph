@@ -6,6 +6,12 @@ abc:
   arc_stream_dims:
     full_separation: 20
     translation_rotation: 18
+    translation: 16
+    projection: 16
+  # Duration rows are absolute seconds from the anchor; velocity rows are incoming rates.
+  arc_timing_layouts:
+    velocity: first_delay_incoming_v1
+    duration: first_delay_absolute_v1
   arc_token_dim: ${abc.arc_stream_dims.${abc.arc_streams}}
   arc_token_rows: ${abc.arc_waypoints}
 run_provenance:
@@ -17,7 +23,7 @@ run_provenance:
     waypoints: ${abc.arc_waypoints}
     clock_mode: ${abc.arc_clock_mode}
     streams: ${abc.arc_streams}
-    timing_layout: first_delay_incoming_v1
+    timing_layout: ${abc.arc_timing_layouts.${abc.arc_clock_mode}}
     hold_window_frames: 400
     gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
     gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}

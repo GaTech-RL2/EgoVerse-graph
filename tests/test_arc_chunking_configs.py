@@ -170,4 +170,8 @@ def test_retained_recipe_shapes_and_clocks_agree(recipe):
                 contract = cfg.run_provenance.action_contract
                 assert contract.clock_mode == codec.clock_mode
                 assert contract.streams == codec.streams
-                assert contract.timing_layout == "first_delay_incoming_v1"
+                assert contract.timing_layout == (
+                    "first_delay_absolute_v1"
+                    if codec.clock_mode == "duration"
+                    else "first_delay_incoming_v1"
+                )

@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    LOG_CLOCK_EPS,
     TokenizeBimanualArcLengthCartesian,
     clock_token_seconds,
 )
@@ -59,8 +58,8 @@ def test_no_delay_has_zero_first_clock_and_incoming_intervals(layout):
     token = encode(codec, delayed_translation(delay=0))
     native = clock_token_seconds(token, layout)
     np.testing.assert_allclose(native[:, 14], [0, 0.1, 0.1, 0.1], atol=1e-12)
-    if layout == "duration":
-        assert token[0, 14] == pytest.approx(np.log(LOG_CLOCK_EPS))
+    if layout == "duration":  # absolute seconds from the anchor
+        np.testing.assert_allclose(token[:, 14], [0, 0.1, 0.2, 0.3], atol=1e-12)
 
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
@@ -113,7 +112,7 @@ def test_partial_waypoint_prefix_retains_delay_and_incoming_interval(layout):
     np.testing.assert_allclose(decoded, expected, atol=1e-12)
 
 
-def test_log_clock_is_decoded_exactly_once():
+def test_absolute_clock_is_decoded_exactly_once():
     codec = make_codec("duration")
     token = encode(codec, delayed_translation())
     seconds = clock_token_seconds(token, codec.clock_mode)
@@ -156,14 +155,23 @@ def test_gripper_can_win_the_six_stream_race(layout):
     np.testing.assert_array_equal(decoded[5:, 6], 1)
 
 
-@pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
-def test_only_invalid_moving_stream_requires_a_bound(layout):
-    codec = make_codec(layout)
+def test_only_invalid_moving_stream_requires_a_bound():
+    codec = make_codec("velocity")
     token = encode(codec, delayed_translation())
-    token[1:, 14] = 0 if layout == "velocity" else np.log(LOG_CLOCK_EPS)
+    token[1:, 14] = 0
     with pytest.raises(ValueError, match="finite replan"):
         codec.control_steps(token)
     assert codec.control_steps(token, max_steps=20) == 20
+
+
+def test_collapsed_absolute_clock_still_moves_at_bounded_speed():
+    codec = make_codec("duration")
+    token = encode(codec, delayed_translation())
+    token[1:, 14] = 0  # every waypoint predicted at the anchor
+    seconds = clock_token_seconds(token, "duration")[:, 14]
+    assert np.all(seconds >= 0)
+    assert np.all(seconds[1:] >= 0.01 / 5.0 - 1e-12)  # 1 cm segments, <= 5 m/s
+    assert 1 <= codec.control_steps(token) < 20
 
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)

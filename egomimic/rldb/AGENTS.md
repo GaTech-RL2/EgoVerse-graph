@@ -16,7 +16,9 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
 - `zarr/action_chunk_transforms.py`: shared pose, rotation, gripper, interpolation
   and key-routing transforms. Add general transform behavior here.
 - `zarr/arc_length_tokenizer.py`: Cartesian ARC with `clock_mode` velocity or
-  duration and `streams` full_separation (M×20) or translation_rotation (M×18).
+  duration (absolute seconds, speed-bounded isotonic decode) and `streams`
+  full_separation (M×20), translation_rotation (M×18), translation or
+  projection (M×16, one clock per arm).
   See `docs/ARC_CLOCK_CONTRACT.md`; row zero is a start delay.
 - `zarr/embodiment_resolvers.py`, `zarr/progress_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.

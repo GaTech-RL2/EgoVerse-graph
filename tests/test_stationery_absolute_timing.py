@@ -54,15 +54,76 @@ def test_local_time_error_does_not_accumulate_and_padding_is_ignored():
     np.testing.assert_allclose(error, [0, 0, 0.03, 0, 0], atol=1e-12)
     np.testing.assert_allclose(
         absolute_times_to_clock([5, 0.1, -1, 0.3, 99], [0, 0.1, 0.2, 0.3, 0.3]),
-        [0, 0, 0, 0.3, 0.3],
+        [0, 0.02, 0.04, 0.3, 0.3],
     )
-    # A backwards pair is averaged, not resolved by raising the later row.
+    # Average the backwards pair's slack above the fastest possible clock.
+    # The repaired waypoints retain enough elapsed time to traverse 10 cm.
     np.testing.assert_allclose(
         absolute_times_to_clock([0, 0.1, 0.35, 0.3, 0.4], arc),
-        [0, 0.1, 0.325, 0.325, 0.4],
+        [0, 0.1, 0.315, 0.335, 0.4],
     )
     with pytest.raises(ValueError, match="finite"):
         absolute_times_to_clock([0, np.nan], [0, 0.1])
+
+
+@pytest.mark.parametrize(
+    "predicted",
+    [
+        [0, 0.1, 0.35, 0.3, 0.4],  # positive backwards pair
+        [0, -0.1, -0.2, 0.3, 0.4],  # previously skipped two supports at t=0
+        [0, 0, 0, 0, 0],  # previously started at the final pose
+    ],
+)
+def test_repaired_absolute_clocks_preserve_anchor_and_bound_decoded_motion(predicted):
+    c = codec(duration_timing="absolute")
+    values = np.zeros((5, 16))
+    values[:, 0] = np.arange(5) * 0.1
+    values[:, 14] = predicted
+    clock = c.clock_at_waypoints(values)[0]
+    np.testing.assert_allclose(clock[0], 0.0)
+    assert np.all(np.diff(clock) >= 0.1 / 5.0 - 1e-14)
+
+    # Check control-rate output and a dense grid around the former 0.325 s
+    # discontinuity. Checking only monotonic clock values misses teleportation.
+    times = np.unique(
+        np.r_[np.arange(16) / 30, np.arange(0.30, 0.351, 0.001), 0.324999, 0.325]
+    )
+    decoded = c.detokenize(values, len(times), times=times)
+    np.testing.assert_array_equal(decoded[0], values[0, :14])
+    assert np.all(np.diff(decoded[:, 0]) >= -1e-14)
+    assert np.all(np.diff(decoded[:, 0]) <= 5.0 * np.diff(times) + 1e-12)
+    np.testing.assert_allclose(decoded[-1, 0], 0.4)
+    np.testing.assert_array_equal(decoded[:, 7:], 0.0)
+
+
+def test_absolute_total_duration_bound_preserves_local_speed_and_padding():
+    # Uniformly shrinking this clock to its 20 s total limit would turn the
+    # first 10 cm / 20 ms interval into a 25 m/s segment.
+    clock = absolute_times_to_clock(
+        [8, 0.02, 100, 999], [0, 0.1, 0.2, 0.2]
+    )
+    np.testing.assert_allclose(clock, [0, 0.02, 20, 20])
+    np.testing.assert_allclose(
+        absolute_times_to_clock([8, 0.1, 999, 0.3, 999], [0, 0.1, 0.1, 0.2, 0.2]),
+        [0, 0.1, 0.1, 0.3, 0.3],
+    )
+    np.testing.assert_array_equal(absolute_times_to_clock([9, 10], [0, 0]), [0, 0])
+
+
+@pytest.mark.parametrize(
+    "arc,kwargs",
+    [
+        ([1, 2], {}),
+        ([0, -1], {}),
+        ([0, 1], {"min_speed": 0}),
+        ([0, 1], {"max_speed": 0}),
+        ([0, 1], {"min_speed": 6, "max_speed": 5}),
+        ([0, 1], {"max_speed": np.inf}),
+    ],
+)
+def test_absolute_clock_rejects_invalid_geometry_and_speed_bounds(arc, kwargs):
+    with pytest.raises(ValueError):
+        absolute_times_to_clock([0, 1], arc, **kwargs)
 
 
 def test_invalid_mode_cannot_silently_use_absolute_times():

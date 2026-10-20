@@ -633,12 +633,14 @@ def absolute_times_to_clock(
 ) -> np.ndarray:
     """Waypoint seconds from the chunk anchor, without accumulating predictions.
 
-    Anchor row zero at zero and project the predicted times onto the nearest
-    (least-squares) non-decreasing, non-negative clock by isotonic regression,
-    which averages a backwards pair instead of raising the later row as a
-    running max does, so noisy predictions do not drift late. Padded supports
-    hold the preceding time. Retain the duration codec's whole-clock speed
-    bounds. A local timing error never sums into later rows.
+    Anchor row zero at zero and project onto the nearest (least-squares) clock
+    whose moving intervals respect ``max_speed``. Isotonic regression acts on
+    the residual ``time - cumulative_distance / max_speed``: a backwards pair
+    can be averaged without assigning zero time to a nonzero segment. Bound
+    that residual between zero and the largest slack permitted by the existing
+    whole-clock ``min_speed`` bound. Rescaling the entire clock afterwards
+    would invalidate the per-segment speed bound. Padded supports hold the
+    preceding time; already-valid clocks stay unchanged.
     """
     clock = np.asarray(col, dtype=np.float64).copy()
     cum = np.asarray(cum, dtype=np.float64)
@@ -646,15 +648,20 @@ def absolute_times_to_clock(
         raise ValueError("Absolute times require matching waypoint and arc vectors")
     if not np.isfinite(clock).all() or not np.isfinite(cum).all():
         raise ValueError("Absolute times and arc supports must be finite")
-    moving = np.r_[False, np.diff(cum) > 1e-9]
+    if cum[0] != 0.0 or np.any(np.diff(cum) < 0.0):
+        raise ValueError("Arc supports must start at zero and be non-decreasing")
+    if not (np.isfinite(min_speed) and np.isfinite(max_speed)) or not (
+        0.0 < min_speed <= max_speed
+    ):
+        raise ValueError("Speed bounds must be finite with 0 < min_speed <= max_speed")
+    moving = np.r_[False, np.diff(cum) > 0.0]
     if moving.any():
-        clock[moving] = np.maximum(isotonic_regression(clock[moving]).x, 0.0)
+        fastest_clock = cum / max_speed
+        max_slack = cum[-1] / min_speed - fastest_clock[-1]
+        slack = isotonic_regression(clock[moving] - fastest_clock[moving]).x
+        clock[moving] = fastest_clock[moving] + np.clip(slack, 0.0, max_slack)
     clock[~moving] = 0.0
     clock = np.maximum.accumulate(clock)  # padded supports hold the preceding time
-    span = max(float(cum[-1]), 1e-9)
-    lo, hi = span / max_speed, span / min_speed
-    if clock[-1] > 1e-12 and not lo <= clock[-1] <= hi:
-        clock *= min(max(clock[-1], lo), hi) / clock[-1]
     return clock
 
 

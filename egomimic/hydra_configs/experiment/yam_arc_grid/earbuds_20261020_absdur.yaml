@@ -1,0 +1,30 @@
+# @package _global_
+# Both 20261020 leaves consume the same refreshed frozen earbuds membership.
+# Supply earbuds_distance_m from the recorded training-pool 100-frame median.
+# A fresh mandatory field is necessary: OmegaConf merging `D: ???` into an
+# inherited numeric D preserves that old value instead of making it mandatory.
+defaults:
+- /experiment/yam_arc_grid/earbuds_updated_arcdur_abstime_m200_d033_hpt300
+- override /data: abc_arc/earbuds_20261020
+- _self_
+
+name: earbuds_20261020_absdur
+description: hpt300_absdur_m200_dmedian_native100_s42
+seed: 42
+ckpt_path: null
+init_weights_from: null
+earbuds_distance_m: ???
+e1:
+  D: ${earbuds_distance_m}
+  M: 200
+model:
+  data_contracts:
+    yam:
+      preprocessing:
+        '7':
+          transforms:
+            duration_timing: absolute
+logger:
+  wandb:
+    id: ${name}_s42
+    tags: [rl2, wireless_earbuds_updated, earbuds_20261020, hpt300, arcdur, absolute_waypoint_time, m200, median_distance]

@@ -50,11 +50,9 @@ def main():
         request["target_steps"] == (50 if smoke else 100000),
         "Wrong authorized training budget",
     )
-    need(
-        os.environ["SLURMD_NODENAME"] == "gpu21"
-        and os.environ.get("SLURM_RESTART_COUNT", "0") == "0",
-        "Wrong allocation",
-    )
+    from scripts.train.joint.allocation import admit
+
+    allocation = admit(request)
     need(
         sha(request["source_manifest"]) == request["source_manifest_sha256"],
         "Changed source manifest",
@@ -94,7 +92,6 @@ def main():
             "Fresh W&B identity exists; inspect rather than reset",
         )
     import torch
-    from gpu_health_set import admit_gpu_set
     from hydra import compose, initialize_config_dir
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
@@ -222,10 +219,15 @@ def main():
     )
     if not smoke:
         provenance["run_id"] = request["run_id"]
-    admit_gpu_set(
-        root / "status" / (path.stem + "-" + os.environ["SLURM_JOB_ID"] + "-gpu.json"),
-        world,
-    )
+    if allocation is None:
+        from gpu_health_set import admit_gpu_set
+
+        admit_gpu_set(
+            root
+            / "status"
+            / (path.stem + "-" + os.environ["SLURM_JOB_ID"] + "-gpu.json"),
+            world,
+        )
     write_once(
         path.with_suffix(".preflight.json"),
         dict(
@@ -239,6 +241,7 @@ def main():
             active_streams=request["active_streams"],
             world_size=world,
             global_batch=32,
+            allocation_attestation=allocation,
         ),
     )
     with path.with_suffix(".resolved.yaml").open("x") as stream:

@@ -54,11 +54,44 @@ def verify_evidence(request):
         native["JobId"] == str(evidence["job_id"])
         and native["JobState"] == "COMPLETED"
         and native["ExitCode"] == "0:0"
-        and native["NodeList"] == "gpu21"
         and native["UserId"].startswith("paphiwetsa3(")
         and native["JobName"] == smoke["job_name"],
         "Wrong native smoke proof",
     )
+    if smoke.get("allocation") is None:
+        need(
+            request.get("allocation") is None and native["NodeList"] == "gpu21",
+            "Wrong Lambda smoke allocation",
+        )
+    else:
+        from scripts.train.joint.allocation import verify_pace
+
+        need(
+            request.get("allocation") == smoke["allocation"],
+            "Destination policy changed after smoke",
+        )
+        allocation = bound(evidence["allocation"])
+        reference = preflight.get("allocation_attestation")
+        need(
+            reference and reference["sha256"] == evidence["allocation"]["sha256"],
+            "Unbound smoke allocation attestation",
+        )
+        verify_pace(
+            smoke,
+            allocation,
+            dict(
+                SLURM_JOB_ID=str(evidence["job_id"]),
+                SLURMD_NODENAME=native["NodeList"],
+                SLURM_RESTART_COUNT="0",
+            ),
+        )
+        need(
+            native["Account"] == smoke["allocation"]["account"]
+            and native["QOS"] == smoke["allocation"]["qos"]
+            and native["UserId"]
+            == f"{smoke['allocation']['user']}({smoke['allocation']['uid']})",
+            "Native smoke association differs from ownership proof",
+        )
     for key in (
         "arm",
         "source",
@@ -143,6 +176,12 @@ def verify_evidence(request):
         "Wrong GPU topology",
     )
     need(len({r["weights_sha256"] for r in ranks}) == 1, "Ranks diverged")
+    if smoke.get("allocation") is not None:
+        need(
+            [r["gpu_uuid"].lower() for r in ranks]
+            == [r["uuid"].lower() for r in allocation["gpu_probe"]["ranks"]],
+            "Training ranks differ from admitted physical GPUs",
+        )
     for rank, record in enumerate(ranks):
         need(
             record["status"] == "FIT_PASS"

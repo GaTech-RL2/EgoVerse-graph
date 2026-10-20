@@ -234,10 +234,10 @@ class Human(Embodiment):
         camera_keys: dict | None = None,
         min_distance_unit: float = 0.60,
         rotation_distance_unit: float | None = None,
-        arc_chunking_mode: str | None = None,
+        arc_chunking_mode: str = "multistream",
         action_horizon: int | None = None,
         source_buffer_frames: int | None = None,
-        gripper_stream_mode: str = "distance",
+        gripper_stream_mode: str = "events",
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
@@ -462,20 +462,19 @@ class Human(Embodiment):
         stride: int = 3,
         # Arc-tokenizer args, consulted only by the arc_tokenizer_* modes.
         min_distance_unit: float = 0.60,
-        rotation_distance_unit: float | None = None,
+        rotation_distance_unit: float = 1.7453292519943295,
         gripper_distance_unit: float | None = None,
-        gripper_stream_mode: str = "distance",
+        gripper_stream_mode: str = "events",
         resampled_vector_length: int = 20,
         preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
-        # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
-        velocity_mode: str = "mean",
+        # docs/ARC_CLOCK_CONTRACT.md.
+        clock_mode: str = "velocity",
         local_frame_rotations: dict | None = None,
         pad_proprio_gripper: bool = False,
         keypoint_gripper: bool = False,
-        arc_chunking_mode: str | None = None,
-        velocity_layout: str | None = None,
+        streams: str = "full_separation",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -496,7 +495,7 @@ class Human(Embodiment):
         native_arc = action_mode in (
             "arc_tokenizer_cartesian_gripper_padded",
             "hybrid_arc_tokenizer_cartesian",
-        ) and (arc_chunking_mode is not None or rotation_distance_unit is not None)
+        )
         if native_arc:
             # Keep both clocks' complete source path, including rotation after
             # translation finishes. None also bypasses source stride thinning.
@@ -573,9 +572,8 @@ class Human(Embodiment):
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
                 dt=1.0 / 30.0 if native_arc else float(stride) / 30.0,
-                velocity_mode=velocity_mode,
-                arc_chunking_mode=arc_chunking_mode,
-                velocity_layout=velocity_layout,
+                clock_mode=clock_mode,
+                streams=streams,
                 preserve_action_rows=(
                     (100 if preserve_action_rows is None else int(preserve_action_rows))
                     if native_arc

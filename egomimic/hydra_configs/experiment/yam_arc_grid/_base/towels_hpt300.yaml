@@ -4,15 +4,15 @@
 # (towels_pool + data override), the codec (e1.variant) and the run identity.
 defaults:
 - /experiment/yam_arc_grid/_base/stattempo
-- override /model: e1/hpt300_flow_wrists_arcdur
+- override /model: e1/hpt300_flow_wrists_time
 - override /data: abc_arc/towels_since0924plus74_20261015
 - _self_
 towels_pool: since0924plus74
 e1:
   policy_domain: yam
   spread: towels
-  variant: arcdur
-  action_dim: 16
+  variant: time
+  action_dim: 14
 hpt:
   action_dim: ${e1.action_dim}
   embed_dim: 840

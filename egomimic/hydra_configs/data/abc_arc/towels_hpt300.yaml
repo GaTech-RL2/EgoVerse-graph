@@ -1,4 +1,3 @@
-# rl2 fold_towels pool over the shared YAM loader; the frozen pools (towels_*_20261015) pin episodes.
 defaults:
 - /data/abc_arc/stationery_yam_loader@_here_
 - _self_
@@ -9,9 +8,9 @@ train_datasets:
         variant: ${e1.variant}
     filters:
       filter_lambdas:
-      - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment'']
-        == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and row[''num_frames'']
-        > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']'
+      - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment''] == ''yam_bimanual''
+        and not row[''is_deleted''] and not row[''is_eval''] and row[''num_frames''] > 0 and bool(row[''zarr_processed_path''])
+        and not row[''zarr_processing_error'']'
 valid_datasets:
   yam_bimanual:
     resolver:
@@ -19,6 +18,6 @@ valid_datasets:
         variant: ${e1.variant}
     filters:
       filter_lambdas:
-      - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment'']
-        == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and row[''num_frames'']
-        > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']'
+      - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment''] == ''yam_bimanual''
+        and not row[''is_deleted''] and not row[''is_eval''] and row[''num_frames''] > 0 and bool(row[''zarr_processed_path''])
+        and not row[''zarr_processing_error'']'

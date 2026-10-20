@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.robot.arc_decoder import BimanualArcDecoder
+from egomimic.robot.arc_decoder import FirstStreamArcDecoder
 from egomimic.robot.graph_policy import (
     CartesianGraphAdapter,
     GraphRobotPolicy,
@@ -391,23 +391,6 @@ def test_6d_rotation_and_invalid_output():
         adapter(rotation_mode="6D").actions(native, obs)
 
 
-@pytest.mark.parametrize("layout", ["lab", "e1_dur", "e1_logdur", "e1_profile"])
-def test_graph_adapter_decodes_all_arc_layouts_before_frame_conversion(layout):
-    decoder = BimanualArcDecoder(
-        token_layout=layout, resampled_vector_length=4, action_horizon=7
-    )
-    tokens = np.zeros((1, *decoder.shape))
-    tokens[:, :, 6] = 0.5
-    tokens[:, :, 13] = 0.5
-    if layout == "lab":
-        tokens[:, 0, :] = 0.01
-    else:
-        tokens[:, :, -2:] = 0.1 if layout != "e1_logdur" else np.log(0.1)
-    poses = adapter(decoder=decoder).actions(tokens, FakeRobot().get_obs())
-    assert poses.shape == (7, 14)
-    assert np.isfinite(poses).all()
-
-
 @pytest.mark.parametrize(
     ("variant", "action_dim", "expected_layout"),
     [
@@ -457,7 +440,7 @@ def test_selected_e1_model_derives_its_rollout_decoder(
                 "decoder": None
                 if expected_layout is None
                 else {
-                    "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+                    "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
                     "token_layout": expected_layout,
                 }
             },
@@ -469,7 +452,7 @@ def test_selected_e1_model_derives_its_rollout_decoder(
         assert "decoder" not in selected
     else:
         assert selected["decoder"] == {
-            "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
+            "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
             "token_layout": expected_layout,
         }
 
@@ -717,3 +700,23 @@ def test_mujoco_fk_ik_roundtrip_on_actual_numeric_model(tmp_path):
     actual = solver.fk(solver.ik(expected, np.zeros(6)))
     np.testing.assert_allclose(actual[:3, 3], expected[:3, 3], atol=0.002)
     assert Rotation.from_matrix(actual[:3, :3] @ expected[:3, :3].T).magnitude() < 0.02
+
+
+@pytest.mark.parametrize("clock", ["velocity", "duration"])
+@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+def test_graph_adapter_decodes_canonical_arc_before_frame_conversion(clock, streams):
+    decoder = FirstStreamArcDecoder(
+        clock_mode=clock,
+        streams=streams,
+        resampled_vector_length=4,
+        action_horizon=7,
+        execute_percent=50,
+    )
+    tokens = np.zeros((1, *decoder.shape))
+    tokens[:, :, [6, 13]] = 0.5
+    if clock == "duration":
+        tokens[:, 0, 14:] = np.log(0.001)
+        tokens[:, 1:, 14:] = np.log(0.1 + 0.001)
+    poses = adapter(decoder=decoder).actions(tokens, FakeRobot().get_obs())
+    assert poses.shape == (7, 14)
+    assert np.isfinite(poses).all()

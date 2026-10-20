@@ -103,7 +103,7 @@ scheduler: null
 
 # Inference semantics belong to this model (see model_contract/abc_visual).
 native_action_horizon: ${hpt.action_horizon}
-native_action_dim: ${hpt.action_dim}
+native_action_dim: ${oc.select:hpt.token_dim,${hpt.action_dim}}
 inference: ${model.inference_contracts.${abc.action_mode}}
 
 # Model-owned data semantics. This model trains human-only or robot + human

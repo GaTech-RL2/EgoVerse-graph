@@ -9,22 +9,23 @@ Launch from this experiment group, not from retired model/data templates:
 | `robot_bc` | ABC four-task multitask | `abc_multitask4_hpt300_{baseline,hybrid}_visual_openloop` |
 | `human_bc` | MECKA folding clothes, 40-hour subset | `mecka_fold_clothes_40h_human_visual_{baseline,hybrid}_openloop` |
 
-Brace notation in this table denotes two separate YAML files, not Hydra syntax.
-`robot_bc/abc_visual_hpt300_base` is an abstract shared template with a required
-task predicate; `cotrain` currently has no supported launch recipe.
+Brace notation denotes separate YAML files, not Hydra syntax.
 
-All retained recipes are visual/proprioceptive HPT, without a text encoder or
-language conditioning. They share executed-prefix open-loop evaluation, full
-frame validation overlays, and 10% normalization sampling. Every ARC recipe has
-hybrid rotation, a separate R target/clock, and per-waypoint velocity.
+`robot_bc/abc_visual_hpt300_base` is a shared template requiring a task
+predicate. Cotraining has four explicit
+`organize_clock_{velocity,duration}_{full_separation,translation_rotation}`
+leaves. See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
 
-Select translation semantics with `abc.arc_chunking_mode=joint_distance`,
-`race`, or `multistream`. The default is `joint_distance`. ARC reads up to 600
-native source frames, then caps/resamples to M=100 waypoints; per-waypoint rate
-rows make the model token horizon 200. This is distinct from both the raw source
-buffer and the baseline's 100 control frames. Execution defaults to the first
-30 waypoints, or the first 30 control frames for the baseline. See
-`docs/ARC_CHUNKING_MODES.md` for short-arm holds and normalization compatibility.
+Select `abc.arc_clock_mode=velocity|duration` and
+`abc.arc_streams=full_separation|translation_rotation`, with token dimension
+20 or 18 respectively. All tokens have M rows. Row zero stores start delay;
+later clocks describe incoming intervals. Duration means log seconds, not
+cumulative time. The clock contract describes gripper and hold semantics.
+
+Source-window size is embodiment/recipe-owned. Execution keeps a waypoint
+prefix (normally 30 of M100), then replans when the first moving stream ends.
+Baselines execute 30 control frames. Legacy distance-prefix ARC and E1
+fixed-tick execution are no longer selectable.
 
 ## Model names and checkpoint compatibility
 
@@ -58,9 +59,8 @@ establish that restriction.
 
 ## Robot inference export
 
-The newer `main` exports model-owned robot inference sidecars for Cartesian and
-E1 codecs. The three ABC hybrid ARC modes require their own mode-aware robot
-adapter, so automatic robot export explicitly reports `unsupported` for them.
-It must never label the 200 waypoint/rate rows as 200 Cartesian control frames.
-This guard does not disable ARC training, detokenization, validation metrics,
-or validation videos.
+HPT visual model declarations select `FirstStreamArcDecoder` for Cartesian ARC.
+The native M×18/M×20 output is decoded to Cartesian control frames, and the
+adapter reports the actual execution boundary. This does not authorize robot
+operation. Historical checkpoints require their recorded source and normalizer;
+they must not be silently migrated to this representation.

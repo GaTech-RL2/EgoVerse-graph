@@ -1,8 +1,4 @@
 # @package _global_
-# Aidan 2026-10-17: M 200 waypoints and D 0.33 m on the slow-pace 366 ARC recipes. e1.M / e1.D alone
-# do not reach the training tokens: the data transforms, arc_tokenizer and the token-row horizons hold
-# literals, so every read follows e1 here. The decoded chunk stays e1.time_rows (100 frames). Tick-prefix
-# scoring is on for every codec so the row-cut-free metric compares across them.
 e1:
   M: 200
   D: 0.33

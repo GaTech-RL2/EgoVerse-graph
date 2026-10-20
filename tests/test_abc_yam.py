@@ -248,7 +248,9 @@ def test_yam_baseline_uses_native_100_frame_source_window():
 
 
 def test_yam_arc_uses_distance_buffer_not_fixed_action_horizon():
-    keymap = Yam.get_keymap(keymap_mode="arc_tokenizer_cartesian")
+    keymap = Yam.get_keymap(
+        keymap_mode="arc_tokenizer_cartesian", gripper_stream_mode="distance"
+    )
     specs = [
         spec["horizon"]
         for spec in keymap.values()

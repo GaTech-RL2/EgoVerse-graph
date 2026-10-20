@@ -368,7 +368,7 @@ def test_extra_metrics_land_on_the_prediction_device():
     evaluator.min_distance_unit = 0.4
     evaluator.resampled_vector_length = _M
     evaluator.action_horizon = 32
-    evaluator.velocity_mode = "mean"
+    evaluator.clock_mode = "velocity"
     evaluator.arc_metrics = True
     evaluator.include_reconstruction_loss = False
     evaluator.arcmatch_points = 8
@@ -393,11 +393,11 @@ def test_extra_metrics_land_on_the_prediction_device():
     evaluator.normalizer = _Passthrough()
 
     gt = torch.from_numpy(np.stack([_path(60)]))
-    token = torch.zeros(1, _M + 1, 14, dtype=torch.float64)
+    token = torch.zeros(1, _M, 20, dtype=torch.float64)
     token[0, :_M, 0] = torch.linspace(0.0, 0.4, _M)
     token[0, :_M, 7] = torch.linspace(0.0, 0.4, _M)
-    token[0, _M, 0] = 0.3
-    token[0, _M, 7] = 0.3
+    token[0, 1:, 14] = 0.3
+    token[0, 1:, 15] = 0.3
 
     metrics = evaluator._extra_metrics(
         label="yam_bimanual",
@@ -454,7 +454,7 @@ def test_extra_metrics_can_be_turned_off():
 # Overlay still always detokenizes ARC for viz.
 
 
-def _arc_evaluator(velocity_mode="mean", action_horizon=45):
+def _arc_evaluator(clock_mode="velocity", action_horizon=45):
     from egomimic.eval.arc_bimanual_cartesian_eval import ArcBimanualCartesianEval
     from egomimic.rldb.zarr.arc_length_tokenizer import (
         TokenizeBimanualArcLengthCartesian,
@@ -466,7 +466,7 @@ def _arc_evaluator(velocity_mode="mean", action_horizon=45):
     ev.min_distance_unit = 0.4
     ev.resampled_vector_length = _M
     ev.action_horizon = action_horizon
-    ev.velocity_mode = velocity_mode
+    ev.clock_mode = clock_mode
     ev.arc_metrics = True
     ev.include_reconstruction_loss = False
     ev.arcmatch_points = 8
@@ -481,8 +481,7 @@ def _arc_evaluator(velocity_mode="mean", action_horizon=45):
         min_distance_unit=0.4,
         resampled_vector_length=_M,
         preserve_action_key=None,
-        velocity_mode=velocity_mode,
-        velocity_layout="stacked",
+        clock_mode=clock_mode,
     )
 
     class _Passthrough:
@@ -494,24 +493,22 @@ def _arc_evaluator(velocity_mode="mean", action_horizon=45):
     return ev
 
 
-def _arc_token(velocity_mode="mean"):
+def _arc_token(clock_mode="velocity"):
     import torch
 
-    rows = _M + 1 if velocity_mode == "mean" else 2 * _M
-    token = torch.zeros(1, rows, 14, dtype=torch.float64)
-    token[0, :_M, 0] = torch.linspace(0.0, 0.4, _M)
-    token[0, :_M, 7] = torch.linspace(0.0, 0.4, _M)
-    if velocity_mode == "mean":
-        token[0, _M, 0] = token[0, _M, 7] = 0.3
-    else:
-        token[0, _M:, 0] = token[0, _M:, 7] = 0.3
+    token = torch.zeros(1, _M, 20, dtype=torch.float64)
+    token[0, :, 0] = token[0, :, 7] = torch.linspace(0.0, 0.4, _M)
+    token[0, 1:, 14:16] = 0.3
+    if clock_mode == "duration":
+        token[0, 1:, 14:16] = (0.4 / (_M - 1)) / 0.3
+        token[..., 14:] = torch.log(token[..., 14:] + 0.001)
     return token
 
 
-@pytest.mark.parametrize("velocity_mode", ["mean", "per_waypoint"])
-def test_the_predicate_recognises_an_arc_token_of_either_layout(velocity_mode):
-    evaluator = _arc_evaluator(velocity_mode)
-    assert evaluator._is_arc(_arc_token(velocity_mode))
+@pytest.mark.parametrize("clock_mode", ["velocity", "duration"])
+def test_the_predicate_recognises_an_arc_token_of_either_layout(clock_mode):
+    evaluator = _arc_evaluator(clock_mode)
+    assert evaluator._is_arc(_arc_token(clock_mode))
 
 
 def test_the_predicate_rejects_a_baseline_pose_chunk():
@@ -522,9 +519,9 @@ def test_the_predicate_rejects_a_baseline_pose_chunk():
     assert not evaluator._is_arc(torch.zeros(1, 45, 14))
 
 
-def test_the_predicate_rejects_the_other_velocity_modes_row_count():
-    evaluator = _arc_evaluator("mean")
-    assert not evaluator._is_arc(_arc_token("per_waypoint"))
+def test_the_predicate_rejects_the_other_streams_width():
+    evaluator = _arc_evaluator("velocity")
+    assert not evaluator._is_arc(_arc_token()[..., :18])
 
 
 def test_the_same_evaluator_scores_a_baseline_chunk_too():
@@ -674,15 +671,15 @@ def test_deinterpolation_matters_for_arc_length():
 def test_viz_source_passes_a_baseline_chunk_through():
     import torch
 
-    evaluator = _arc_evaluator("per_waypoint")
+    evaluator = _arc_evaluator("duration")
     chunk = torch.zeros(4, 100, 14)
     out = evaluator._viz_source(chunk, 7)
     assert out.shape == chunk.shape
 
 
 def test_viz_source_still_detokenizes_an_arc_token():
-    evaluator = _arc_evaluator("per_waypoint")
-    out = evaluator._viz_source(_arc_token("per_waypoint"), 7)
+    evaluator = _arc_evaluator("duration")
+    out = evaluator._viz_source(_arc_token("duration"), 7)
     assert out.shape == (1, evaluator.action_horizon, 14)
 
 
@@ -690,8 +687,8 @@ def test_viz_source_rejects_a_non_bimanual_width():
     """A wrong width IS a misconfiguration, unlike a baseline row count."""
     import torch
 
-    evaluator = _arc_evaluator("per_waypoint")
-    with pytest.raises(ValueError, match=r"\(B, T, 14\)"):
+    evaluator = _arc_evaluator("duration")
+    with pytest.raises(ValueError, match="token shape disagree"):
         evaluator._viz_source(torch.zeros(4, 100, 7), 7)
 
 
@@ -699,9 +696,9 @@ def test_both_paths_agree_on_the_run_type():
     """metrics and overlay must never disagree about what they were handed."""
     import torch
 
-    evaluator = _arc_evaluator("per_waypoint")
+    evaluator = _arc_evaluator("duration")
     for actions, is_arc in (
-        (_arc_token("per_waypoint"), True),
+        (_arc_token("duration"), True),
         (torch.zeros(1, 100, 14), False),
     ):
         assert evaluator._is_arc(actions) is is_arc

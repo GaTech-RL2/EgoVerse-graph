@@ -1,0 +1,114 @@
+# Cartesian ARC: one codec, two clocks, two stream layouts
+
+This contract replaces the historical Cartesian mean/wide/stacked/clock/E1
+families. It builds on PR #263 and preserves the local first-row-delay
+implementation. It does not change the separate planar or Libero codecs.
+
+```yaml
+_target_: egomimic.rldb.zarr.arc_length_tokenizer.TokenizeBimanualArcLengthCartesian
+clock_mode: velocity                 # velocity | duration
+streams: full_separation              # full_separation | translation_rotation
+resampled_vector_length: 100
+min_distance_unit: 0.42               # meters, per arm
+rotation_distance_unit: 1.7453292519943295  # radians, per arm (100 degrees)
+dt: 0.03333333333333333
+hold_window_frames: 400
+gripper_stream_mode: events           # events | distance; separate streams only
+gripper_distance_unit: null           # required positive for distance mode
+```
+
+## Shape and clock order
+
+Geometry always occupies the first 14 columns:
+`[left xyz, left YPR, left gripper, right xyz, right YPR, right gripper]`.
+
+| streams | Shape | Remaining columns |
+| --- | --- | --- |
+| full_separation | M × 20 | T-left, T-right, R-left, R-right, G-left, G-right |
+| translation_rotation | M × 18 | T-left, T-right, R-left, R-right |
+
+Each arm and stream spends its own spatial budget. Supports from different
+streams in the same row are not necessarily simultaneous.
+
+In translation_rotation, grippers are sampled at their arm's translation
+supports and interpolated with its translation clock. There is no independent
+gripper termination racer or gripper distance budget. A fully stationary
+translation stream retains its initial gripper target; use full_separation to
+represent independent gripper movement.
+
+## Timing rows
+
+Row zero of every timing column represents that stream's initial delay.
+Rows i > 0 represent the incoming interval from waypoint i-1 to waypoint i.
+There is no repeated final padding clock.
+
+- velocity: row zero is seconds; later rows are the distance between emitted
+  supports divided by the source interval's seconds. Units are m/s, rad/s,
+  and gripper units/s.
+- duration: every row is `log(seconds + 0.001)`, including the initial delay.
+  The codec removes the log exactly once. `duration` does not mean absolute
+  timestamps or raw seconds.
+
+Translation distances are Euclidean, rotation distances are SO(3) geodesic,
+and gripper distances are absolute value differences. No velocity smoothing,
+physical speed clamp, or decoder-duration floor is introduced.
+
+An initial wait retains constant geometry before the first movement. Rotation
+and distance-gripper target times use first arrival, so a final stationary
+plateau does not stretch the last moving interval.
+
+Full-window holds retain constant waypoints. Velocity interval rates are zero.
+Duration intervals span the configured hold_window_frames × dt. Constant
+streams do not terminate a chunk. Internal dwells are not explicitly allocated
+duplicate supports; zero speed alone cannot encode a zero-distance dwell time.
+
+Separate event grippers are held commands, not E1's fitted aperture ramps.
+Command-change supports and endpoint padding retain the prior local semantics.
+
+## Evaluation and rollout
+
+Both use the same codec and `control_steps()`:
+
+1. Keep an exact integer waypoint prefix, e.g. 30 of M100.
+2. Decode every stream using its own start delay and incoming intervals.
+3. Replan when the first moving stream reaches its prefix endpoint.
+4. Ignore fully constant streams in this race.
+
+Validation is an open-loop segment simulation against recorded observations.
+Ground truth and videos cover the executed control steps. It does not apply a
+second fixed-tick E1 regime. Distance-prefix token truncation is unsupported.
+
+The robot adapter pads its fixed output tensor after the executed prefix and
+reports the actual replan boundary via `execution_steps()`. No hardware is
+started by constructing a decoder.
+
+Malformed/nonfinite tokens fail. A moving stream with unusable timing cannot
+win the termination race; an explicit caller horizon can bound a stalled clock.
+
+## Migration and checkpoint safety
+
+The old keyword options velocity_mode, velocity_layout and velocity_norm are
+not accepted by the Cartesian codec. TokenizeBimanualArcLengthE1 and its
+projection subclass are removed, along with their selectable ARC recipes and
+codec-specific diagnostics. Baseline time-chunk retiming and unrelated model,
+dataset, planar and Libero implementations remain separate.
+
+Old serialized configs/checkpoints must use their original recorded source.
+Do not reinterpret them by token width, rename their normalizers, or resume
+training after changing this representation. Generate fresh normalization
+statistics and a fresh run. The sparse row-zero delay may require existing
+quantile widening (`norm_stats.widen_degenerate_quantiles: true`).
+
+The first-delay six-stream refactor was compared numerically against its
+preceding local implementation across 32 synthetic clock/gripper/hold cases,
+including token, detokenizer, and termination parity. New regression tests cover
+all four clock/stream combinations and validation/rollout agreement.
+
+Verification for this migration: 536 focused CPU tests passed, including
+normalization-cache rejection, baseline graph forward/backward, source adapters,
+and planar ARC regressions. All 379 shipped Hydra YAML files composed.
+The 32 six-stream comparisons used predecessor
+`f364923a3e675106882823da17f840a9505ab972`, with token tolerance 1e-10,
+decoded-trajectory tolerance 1e-9, and identical execution-step counts.
+These checks do not establish GPU throughput, full pretrained-checkpoint
+reload compatibility, or hardware safety. No cluster or robot process was run.

@@ -103,7 +103,50 @@ inference_contracts:
               kind: policy_attribute
               attribute_path: replan_every
   hybrid_arc_tokenizer_cartesian:
-    status: unsupported
-    reason: ABC ARC requires a mode-aware hybrid rollout adapter; automatic robot inference
-      export is unsupported. Token rows are not Cartesian control frames. Training and
-      offline evaluation continue to use the ARC tokenizer/detokenizer.
+    input: ${model.inference_contracts.cartesian.input}
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: ["${model.native_action_horizon}", "${model.native_action_dim}"]
+      frame: eef_frame
+      timing:
+        kind: first_delay_stream_clock
+        temporally_resolved: true
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
+    output: ${model.inference_contracts.cartesian.output}
+    compatibility:
+      normalizer_schema: ${model.inference_contracts.cartesian.compatibility.normalizer_schema}
+      tokenizer:
+        contract: cartesian_arc_first_delay_v1
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
+        distance: ${abc.arc_distance}
+        rotation_distance: ${abc.arc_rotation_distance}
+        gripper_distance: ${oc.select:abc.arc_gripper_distance,null}
+        gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
+        waypoints: ${abc.arc_waypoints}
+        hold_window_frames: 400
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: ["${model.native_action_horizon}", "${model.native_action_dim}"]
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            clock_mode: ${abc.arc_clock_mode}
+            streams: ${abc.arc_streams}
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}
+            gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: 0.03333333333333333
+            action_horizon: 100
+            execute_percent: 30
+            first_stream: 1
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps: ${model.inference_contracts.cartesian.profiles.default.overrides.inference_steps}

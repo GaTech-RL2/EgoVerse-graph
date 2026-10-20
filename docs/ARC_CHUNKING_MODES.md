@@ -194,3 +194,9 @@ uses.
 6. Validation videos (`video_overlay_mode: executed_chunk`) draw the executed
    chunk and its ground truth at the replan frame and hold that pair while the
    video advances through the chunk, then replan.
+# Historical ARC modes
+
+This document describes retired source contracts. For the supported Cartesian
+API in this stack, use [ARC_CLOCK_CONTRACT.md](ARC_CLOCK_CONTRACT.md). Historical
+checkpoints require their recorded revision; the mode names below are not
+current selectable settings.

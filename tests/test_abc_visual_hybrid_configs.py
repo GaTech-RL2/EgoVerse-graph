@@ -50,12 +50,12 @@ def test_single_task_visual_launch_contract(name, embodiment, hybrid, monkeypatc
     monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/unused-abc-data")
     cfg = config(name)
     assert "qwen" not in OmegaConf.to_yaml(cfg.model, resolve=True).lower()
-    # The wide arc token is 100 rows of 28, so the horizon no longer doubles.
+    # The ARC token is 100 rows of 20, so the horizon no longer doubles.
     assert cfg.hpt.action_horizon == 100
-    assert cfg.hpt.get("token_dim") == (28 if hybrid else None)
+    assert cfg.hpt.get("token_dim") == (20 if hybrid else None)
     assert cfg.norm_stats.sample_frac == 0.10
     assert cfg.evaluator.distance_dtw_enabled
-    assert cfg.evaluator.velocity_mode == "per_waypoint"
+    assert cfg.evaluator.clock_mode == "velocity"
     assert cfg.evaluator.action_mode == ("arc" if hybrid else "baseline")
     for split in ("train_datasets", "valid_datasets"):
         dataset = cfg.data[split][embodiment]
@@ -71,7 +71,7 @@ def test_single_task_visual_launch_contract(name, embodiment, hybrid, monkeypatc
         if stage._target_.endswith("ActionTargetBuilder")
     ]
     stage = hydra.utils.instantiate(targets[0])
-    actions = torch.zeros((1, cfg.hpt.action_horizon, 28 if hybrid else 14))
+    actions = torch.zeros((1, cfg.hpt.action_horizon, 20 if hybrid else 14))
     assert stage({"actions_cartesian": actions})["target"] is actions
 
 
@@ -80,9 +80,9 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
     monkeypatch.setenv("EGOVERSE_ABC_DATASET_DIR", "/tmp/unused-abc-data")
     cfg = config(name)
     assert cfg.hpt.embed_dim == width
-    # The wide arc token is 100 rows of 28, so the horizon no longer doubles.
+    # The ARC token is 100 rows of 20, so the horizon no longer doubles.
     assert cfg.hpt.action_horizon == 100
-    assert cfg.hpt.get("token_dim") == (28 if hybrid else None)
+    assert cfg.hpt.get("token_dim") == (20 if hybrid else None)
     assert cfg.norm_stats.sample_frac == 0.10
     targets = [
         stage
@@ -106,7 +106,7 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
         transform = data.resolver.transform_list
         if hybrid:
             assert transform.action_mode == "hybrid_arc_tokenizer_cartesian"
-            assert transform.velocity_mode == "per_waypoint"
+            assert transform.clock_mode == "velocity"
             assert transform.rotation_distance_unit == pytest.approx(math.radians(24))
             assert transform.min_distance_unit == cfg.evaluator.min_distance_unit
             for key in (
@@ -115,11 +115,7 @@ def test_visual_config_contract(name, hybrid, width, episodes, monkeypatch):
                 "left.cmd_gripper",
                 "right.cmd_gripper",
             ):
-                assert keymap[key]["horizon"]["distance"] == cfg.abc.arc_distance
-                assert (
-                    keymap[key]["horizon"]["rotation_distance"]
-                    == cfg.abc.arc_rotation_distance
-                )
+                assert keymap[key]["horizon"] == Yam.ARC_SOURCE_BUFFER_FRAMES
         else:
             assert keymap["left.cmd_ee_pose"]["horizon"] == 100
         predicate = hydra.utils.instantiate(data.filters)
@@ -160,9 +156,12 @@ def test_keymap_override_does_not_mutate_default():
         "hybrid_arc_tokenizer_cartesian",
         min_distance_unit=0.71,
         rotation_distance_unit=0.8,
+        gripper_stream_mode="distance",
     )
     assert configured["left.cmd_ee_pose"]["horizon"]["distance"] == 0.71
-    default = Yam.get_keymap("hybrid_arc_tokenizer_cartesian")
+    default = Yam.get_keymap(
+        "hybrid_arc_tokenizer_cartesian", gripper_stream_mode="distance"
+    )
     assert default["left.cmd_ee_pose"]["horizon"]["distance"] == 0.4
 
 
@@ -173,8 +172,7 @@ def test_keymap_override_does_not_mutate_default():
 )
 def test_visual_recipe_inference_export_does_not_mislabel_arc_tokens(name, hybrid):
     artifact = build_inference_config(config(name))
-    assert artifact["status"] == ("unsupported" if hybrid else "ready")
-    if hybrid:
-        assert "ABC ARC" in artifact["reason"]
-    else:
-        assert artifact["inference_graph"]["output"]["shape"] == [100, 14]
+    assert artifact["status"] == "ready"
+    profile = artifact["inference_graph"]["profiles"]["default"]
+    assert profile["native_shape"] == [100, 20 if hybrid else 14]
+    assert artifact["inference_graph"]["output"]["shape"] == [100, 14]

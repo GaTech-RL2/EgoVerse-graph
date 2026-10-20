@@ -1,53 +1,32 @@
-"""Configurable bimanual Cartesian chunks and ARC timing targets.
+"""Bimanual raw-window transforms for baseline and canonical ARC targets."""
 
-Dataset selection and experimental parameters belong in Hydra YAML.
-"""
-
-from __future__ import annotations
+import numpy as np
 
 from egomimic.rldb.embodiment.human import (
     Human,
     _build_human_cartesian_eef_frame_transform_list,
     _pad_human_cartesian_gripper,
 )
-from egomimic.rldb.zarr.arc_projection_tokenizer import (
-    PROJECTION_OFFSET_M,
-    PROJECTION_VARIANTS,
-    TokenizeBimanualArcProjection,
-)
-from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
 
-VARIANTS = (
-    "time",
-    "arcmean",
-    "arcvel",
-    "arclogdur",
-    "arcdur",
-    "arcdurhyb",
-    "arcvelhyb",
-    "arcdurtri",
-    "arcveltri",
-    "arcdurevt",
-    "arcvelevt",
-    "arcdurref",
-    "arcvelref",
-    *PROJECTION_VARIANTS,
-)
-VELOCITY_MODES = {
-    "arcmean": "mean",
-    "arcvel": "profile",
-    "arclogdur": "logdur",
-    "arcdur": "dur",
-    "arcdurhyb": "durhyb",
-    "arcvelhyb": "profhyb",
-    "arcdurtri": "durtri",
-    "arcveltri": "proftri",
-    "arcdurevt": "durevt",
-    "arcvelevt": "stkevt",
-    "arcdurref": "durref",
-    "arcvelref": "stkref",
-    **PROJECTION_VARIANTS,
-}
+VARIANTS = ("time", "arc")
+
+
+class CopyKeyRows:
+    def __init__(self, src, dst, n_rows):
+        self.src, self.dst, self.n_rows = src, dst, int(n_rows)
+
+    def transform(self, batch):
+        value = np.asarray(batch[self.src])
+        if len(value) == 0 or self.n_rows < 1:
+            raise ValueError("Cannot preserve an empty source or nonpositive horizon")
+        out = value[: self.n_rows].copy()
+        if len(out) < self.n_rows:
+            out = np.concatenate(
+                (out, np.repeat(out[-1:], self.n_rows - len(out), axis=0))
+            )
+        batch[self.dst] = out
+        return batch
 
 
 def get_keymap(
@@ -102,26 +81,19 @@ def get_transform_list(
     resampled_vector_length: int = 100,
     stride: int = 1,
     rotation_mode: str = "euler",
-    speed_smooth_frames: int = 1,
-    speed_encoding: str = "interval",
-    duration_timing: str = "delta",
-    velocity_norm: str = "path",
-    progress_smooth_hz: float | None = None,
     embodiment: str = "human",
-    fixed_spacing: bool = False,
     source_fps: float = 30.0,
     yam_source_frames: int | None = None,
-    rotation_distance_unit: float = 6.283185307179586,  # hybrid / tri / evt / ref variants only; see e1_arc_tokenizer
-    projection_offset_m=None,
-    projection_min_speed: float = 1e-6,
+    rotation_distance_unit: float = 1.7453292519943295,
+    clock_mode: str = "velocity",
+    streams: str = "full_separation",
+    gripper_distance_unit: float | None = None,
+    gripper_stream_mode: str = "events",
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
-    projection = variant in PROJECTION_VARIANTS
-    if projection_offset_m is not None and not projection:
-        raise ValueError("projection_offset_m requires an ARC Projection variant")
     if embodiment == "human":
         tl = _build_human_cartesian_eef_frame_transform_list(
             stride=int(stride),
@@ -152,40 +124,19 @@ def get_transform_list(
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
-    if variant != "time":
-        codec_class = (
-            TokenizeBimanualArcProjection if projection else TokenizeBimanualArcLengthE1
-        )
-        projection_kwargs = (
-            dict(
-                projection_offset_m=PROJECTION_OFFSET_M
-                if projection_offset_m is None
-                else projection_offset_m,
-                min_speed=projection_min_speed,
-            )
-            if projection
-            else {}
-        )
+    if variant == "arc":
         tl.append(
-            codec_class(
-                action_key="actions_cartesian",
-                output_action_key="actions_cartesian",
-                min_distance_unit=float(min_distance_unit),
-                resampled_vector_length=int(resampled_vector_length),
-                dt=(
-                    1.0 / source_fps
-                    if embodiment == "yam" and yam_source_frames is not None
-                    else float(stride) / source_fps
-                ),
-                velocity_norm=velocity_norm,
-                velocity_mode=VELOCITY_MODES[variant],
-                speed_smooth_frames=int(speed_smooth_frames),
-                speed_encoding=speed_encoding,
-                duration_timing=duration_timing,
-                progress_smooth_hz=progress_smooth_hz,
-                fixed_spacing=bool(fixed_spacing),
-                rotation_distance_unit=float(rotation_distance_unit),
-                **projection_kwargs,
+            TokenizeBimanualArcLengthCartesian(
+                min_distance_unit=min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
+                resampled_vector_length=resampled_vector_length,
+                clock_mode=clock_mode,
+                streams=streams,
+                gripper_distance_unit=gripper_distance_unit,
+                gripper_stream_mode=gripper_stream_mode,
+                dt=1 / source_fps
+                if embodiment == "yam" and yam_source_frames is not None
+                else stride / source_fps,
             )
         )
     return tl

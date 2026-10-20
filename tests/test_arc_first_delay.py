@@ -219,6 +219,13 @@ def test_validation_and_robot_use_identical_prefix_clocks(layout, fraction):
     )
     decoder.first_stream = 0
     np.testing.assert_allclose(decoder(token)[0], codec.detokenize(token, 20))
+    # Mode 0 defers the replan to the policy's fixed replan_every.
+    from egomimic.pipeline.action_adapter import execution_prefix
+
+    assert decoder.execution_steps() is None
+    assert (
+        len(execution_prefix(decoder(token)[0], decoder=decoder, replan_every=5)) == 5
+    )
 
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)

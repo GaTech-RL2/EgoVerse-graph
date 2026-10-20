@@ -35,6 +35,7 @@ def test_protocol_values_reach_data_evaluator_and_rollout(task, distance):
         assert (abc.arc_token_dim, abc.arc_waypoints) == (16, 200)
         assert abc.arc_distance == distance
         assert abc.arc_source_buffer_frames == 100
+        assert cfg.logger.wandb.id == f"{cfg.name}_s{cfg.seed}"
         assert (
             cfg.run_provenance.action_contract.timing_layout
             == "first_delay_absolute_v1"
@@ -95,6 +96,8 @@ def test_stationery_pool_is_slowpace366_plus_elmo51_with_frozen_validation():
     with compose_for_audit(CONFIGS / f"{FOLDER}/organize_stationary.yaml") as cfg:
         filters = cfg.data.train_datasets.yam_bimanual.filters
         assert len(_hashes(filters.filter_lambdas[0])) == 417
+        assert cfg.data.train_datasets.yam_bimanual.expected_train_episode_count == 417
+        assert cfg.data.valid_datasets.yam_bimanual.expected_train_episode_count == 24
         val = _hashes(cfg.data.valid_datasets.yam_bimanual.filters.filter_lambdas[0])
         assert len(val) == 24
         assert val == _hashes(old.valid_datasets.yam_bimanual.filters.filter_lambdas[0])

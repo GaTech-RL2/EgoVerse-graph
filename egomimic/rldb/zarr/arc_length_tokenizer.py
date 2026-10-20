@@ -1138,8 +1138,9 @@ STREAM_DIMS = {
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 CLOCK_COLUMNS = (0, 7, 3, 10)
 SINGLE_CLOCK_COLUMNS = (0, 7)
-# (min, max) speed bounds of an absolute translation clock, m/s.
-TRANSLATION_SPEED_BOUNDS = (0.01, 5.0)
+# Max speed of an absolute translation clock, m/s. There is no min speed: a slow arm
+# also times the rotation and gripper riding its clock, and a floor replays them fast.
+MAX_SPEED = 5.0
 
 
 def validate_clock_mode(mode):
@@ -1174,7 +1175,7 @@ def stream_distances(waypoints, off, stream):
     return np.abs(np.diff(waypoints[:, off + 6]))
 
 
-def absolute_times_to_seconds(times, distances, min_speed=None, max_speed=None):
+def absolute_times_to_seconds(times, distances, max_speed=None):
     """Absolute waypoint seconds -> start delay and incoming interval seconds.
 
     Elmo's speed-bounded isotonic decode (PR #266): project the predicted times
@@ -1182,9 +1183,8 @@ def absolute_times_to_seconds(times, distances, min_speed=None, max_speed=None):
     last at least distance / max_speed, by isotonic regression on the slack above
     that fastest clock. A backwards pair is averaged instead of drifting later
     rows late, and no local error sums into later rows. Row zero is the start
-    delay and stays >= 0. min_speed caps the moving duration at total distance /
-    min_speed by clipping only the rows past it. Without motion, or without
-    bounds, this is plain isotonic regression.
+    delay and stays >= 0. Without motion, or without a bound, this is plain
+    isotonic regression.
     """
     t = np.asarray(times, dtype=np.float64)
     cum = np.r_[0.0, np.cumsum(np.asarray(distances, dtype=np.float64))]
@@ -1193,8 +1193,6 @@ def absolute_times_to_seconds(times, distances, min_speed=None, max_speed=None):
     moving = cum[-1] > 0.0
     fastest = cum / max_speed if moving and max_speed else np.zeros_like(cum)
     slack = np.maximum(isotonic_regression(t - fastest).x, 0.0)
-    if moving and min_speed:
-        slack = np.minimum(slack, slack[0] + cum[-1] / min_speed - fastest[-1])
     clock = fastest + slack
     return np.r_[clock[0], np.diff(clock)]
 
@@ -1204,7 +1202,7 @@ def clock_token_seconds(token, clock_mode, streams=None):
 
     Velocity row zero is already seconds. Duration rows are absolute seconds from
     the chunk anchor, decoded once by :func:`absolute_times_to_seconds` with the
-    translation speed bounds; rotation and gripper clocks are only made monotone.
+    translation max speed; rotation and gripper clocks are only made monotone.
     """
     validate_clock_mode(clock_mode)
     value = np.array(token, dtype=np.float64)
@@ -1218,7 +1216,6 @@ def clock_token_seconds(token, clock_mode, streams=None):
         )
         if STREAM_DIMS[validate_streams(streams)] != value.shape[-1]:
             raise ValueError(f"{streams} tokens have {STREAM_DIMS[streams]} columns")
-        bounds = TRANSLATION_SPEED_BOUNDS
         rows = value.reshape(-1, *value.shape[-2:])
         for row in rows:
             for index, name in enumerate(STREAM_NAMES[streams]):
@@ -1227,7 +1224,7 @@ def clock_token_seconds(token, clock_mode, streams=None):
                     row[:, col] = absolute_times_to_seconds(
                         row[:, col],
                         stream_distances(row, off, name),
-                        *(bounds if name == "translation" else (None, None)),
+                        MAX_SPEED if name == "translation" else None,
                     )
         value = rows.reshape(value.shape)
     return value

@@ -55,7 +55,8 @@ There is no repeated final padding clock.
 - duration: every row is the absolute seconds from the chunk anchor to that
   waypoint (row zero is the start delay). Decoding projects the rows once onto
   the nearest non-decreasing clock by isotonic regression on the slack above
-  the fastest clock allowed by the translation speed bounds (0.01-5 m/s), so a backwards pair is averaged and no local
+  the fastest clock allowed by the 5 m/s translation max speed (no min speed:
+  rotation and gripper ride slow arms), so a backwards pair is averaged and no local
   error accumulates into later rows. Provenance `timing_layout` is
   `first_delay_absolute_v1`; velocity keeps `first_delay_incoming_v1`.
 

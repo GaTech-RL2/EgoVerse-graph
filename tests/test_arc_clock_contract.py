@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
+    MAX_SPEED,
     TokenizeBimanualArcLengthCartesian,
     absolute_times_to_seconds,
     bimanual_arc_token_shape,
@@ -30,12 +31,12 @@ def codec(clock="velocity", streams="full_separation", **kwargs):
     return TokenizeBimanualArcLengthCartesian(**options)
 
 
-def trajectory():
+def trajectory(xyz_step=0.01):
     frames = np.arange(30)
     raw = np.zeros((30, 14))
     for col, delay, step in (
-        (0, 3, 0.01),
-        (7, 5, 0.01),
+        (0, 3, xyz_step),
+        (7, 5, xyz_step),
         (3, 4, 0.1),
         (10, 2, 0.1),
         (6, 6, 0.1),
@@ -80,19 +81,17 @@ def test_one_clock_per_arm_carries_rotation_and_gripper_on_translation(clock):
 
 def test_absolute_duration_is_elmos_speed_bounded_isotonic_projection():
     # A backwards pair keeps enough elapsed time to traverse 10 cm at 5 m/s.
-    seconds = absolute_times_to_seconds([0, 0.1, 0.35, 0.3, 0.4], [0.1] * 4, 0.01, 5.0)
+    seconds = absolute_times_to_seconds([0, 0.1, 0.35, 0.3, 0.4], [0.1] * 4, 5.0)
     np.testing.assert_allclose(np.cumsum(seconds), [0, 0.1, 0.315, 0.335, 0.4])
     # Without bounds it is plain isotonic regression; the start delay stays >= 0.
     seconds = absolute_times_to_seconds([-0.2, 0.3, 0.1, 0.6], [0.1] * 3)
     np.testing.assert_allclose(np.cumsum(seconds), [0, 0.2, 0.2, 0.6])
-    # The min_speed bound clips only the rows past total distance / min_speed.
-    seconds = absolute_times_to_seconds([0, 0.02, 100, 999], [0.1, 0.1, 0], 0.01, 5.0)
-    np.testing.assert_allclose(np.cumsum(seconds), [0, 0.02, 20, 20])
 
 
 @pytest.mark.parametrize("streams", ALL_STREAMS)
-def test_velocity_and_duration_reconstruct_same_moving_intervals(streams):
-    raw = trajectory()
+@pytest.mark.parametrize("xyz_step", [0.01, 0.0005])  # 0.1 and 0.005 m/s (slow pace)
+def test_velocity_and_duration_reconstruct_same_moving_intervals(streams, xyz_step):
+    raw = trajectory(xyz_step)
     a, b = codec("velocity", streams), codec("duration", streams)
     va = a.transform({"actions": raw})["actions"]
     vb = b.transform({"actions": raw})["actions"]
@@ -324,3 +323,46 @@ def test_normalization_cache_requires_identical_clock_contract(tmp_path, change)
             normalizer().infer_norm_from_dataset([], **options)
     else:
         normalizer().infer_norm_from_dataset([], **options)
+
+
+def test_rows_past_the_executed_prefix_never_change_robot_motion():
+    """Eval and robot decode only the cropped prefix's clocks, agree on a noisy
+    predicted token, and never move an arm faster than MAX_SPEED per tick."""
+    from egomimic.eval.open_loop_sim import OpenLoopSimEval
+    from egomimic.robot.arc_decoder import FirstStreamArcDecoder
+
+    dt = 1 / 30
+    shared = dict(
+        clock_mode="duration",
+        streams="translation",
+        min_distance_unit=0.22,
+        rotation_distance_unit=0.3,
+        resampled_vector_length=200,
+        gripper_stream_mode="events",
+    )
+    raw = np.zeros((100, 14))
+    raw[:, 0] = np.linspace(0, 0.12, 100)
+    raw[:, 8] = np.linspace(0, 0.08, 100) ** 1.5
+    raw[:, 3] = np.linspace(0, 0.4, 100)
+    c = TokenizeBimanualArcLengthCartesian(
+        action_key="actions", output_action_key="actions", dt=dt, **shared
+    )
+    token = c.transform({"actions": raw})["actions"]
+    token[:, 14:16] += np.random.default_rng(0).normal(scale=0.05, size=(200, 2))
+    assert (np.diff(token[:, 14:16], axis=0) < 0).any() and (token[:, 14:16] < 0).any()
+    dec = FirstStreamArcDecoder(**shared, dt=dt, execute_percent=25, action_horizon=100)
+    ev = OpenLoopSimEval(
+        **shared, control_dt=dt, action_mode="arc", execute_fraction=0.25
+    )
+    base = dec(token)[0]
+    steps = dec.execution_steps()
+    e_out, e_steps = ev._decode_prediction_with_steps(token, max_steps=100)
+    assert e_steps == steps
+    np.testing.assert_allclose(base[:steps], e_out, atol=1e-9)
+    later = token.copy()
+    later[50:, 14:16] = -5.0  # every unexecuted waypoint "earlier" than the prefix
+    np.testing.assert_array_equal(dec(later)[0], base)
+    assert dec.execution_steps() == steps
+    for off in (0, 7):
+        step = np.linalg.norm(np.diff(base[:steps, off : off + 3], axis=0), axis=1)
+        assert step.max(initial=0) <= MAX_SPEED * dt + 1e-9

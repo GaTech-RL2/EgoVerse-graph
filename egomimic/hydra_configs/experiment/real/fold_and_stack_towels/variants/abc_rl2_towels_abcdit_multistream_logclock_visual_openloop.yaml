@@ -1,7 +1,14 @@
 # @package _global_
 defaults:
-- /experiment/real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop
-- _self_
+  - /experiment/real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/abc_dit_yam_visual
+  - override /data: abc_arc/abc_visual
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
+  - _self_
 name: abc_rl2_towels_abcdit_multistream_logclock_visual_openloop
 description: ABC-DiT XL ABC + RL2 towels multistream ARC D0.714 R2.10 M100, log-seconds duration clocks
 abc:

@@ -1,8 +1,14 @@
 # @package _global_
 defaults:
-- /experiment/_shared/frozen_yam/earbuds_updated_hpt300
-- override /model: abc_arc/frozen_yam_hpt300_time
-- _self_
+  - /experiment/_shared/frozen_yam/earbuds_updated_hpt300
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - override /data: abc_arc/earbuds_updated
+  - override /evaluator: frozen_yam_time
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
+  - _self_
 frozen_yam:
   variant: time
   action_dim: 14

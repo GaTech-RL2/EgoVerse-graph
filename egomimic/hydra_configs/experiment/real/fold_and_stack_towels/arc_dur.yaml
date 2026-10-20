@@ -1,6 +1,13 @@
 # @package _global_
 defaults:
   - /experiment/real/fold_and_stack_towels/arc_vel
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - override /data: abc_arc/towels_since0924plus74_20261015
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: fold_and_stack_towels_arc_dur
 description: Frozen since0924plus74 towels HPT300, canonical absolute-duration ARC M200 D0.33 R100

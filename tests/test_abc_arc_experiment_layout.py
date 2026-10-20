@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
@@ -18,6 +19,46 @@ TASKS = (
     "real/wireless_earbuds",
     "real/multitask",
 )
+REAL_ENTRYPOINTS = sorted(
+    path
+    for path in (CONFIGS / "experiment/real").rglob("*.yaml")
+    if "_base" not in path.parts
+)
+COMPONENT_GROUPS = ("model", "data", "evaluator", "trainer", "callbacks", "logger")
+
+
+@pytest.mark.parametrize(
+    "path",
+    REAL_ENTRYPOINTS,
+    ids=lambda path: str(path.relative_to(CONFIGS / "experiment")),
+)
+def test_real_entrypoint_explicitly_links_components_with_one_selector(path):
+    """No extra model/data selection or synthetic audit bindings are needed."""
+    document = OmegaConf.to_container(OmegaConf.load(path))
+    explicit = {}
+    for entry in document["defaults"]:
+        if isinstance(entry, dict):
+            explicit.update(entry)
+    for group in COMPONENT_GROUPS:
+        key = f"override /{group}"
+        assert key in explicit
+        assert isinstance(explicit[key], str) and explicit[key]
+        assert (CONFIGS / group / f"{explicit[key]}.yaml").is_file()
+
+    selector = path.relative_to(CONFIGS / "experiment").with_suffix("").as_posix()
+    with initialize_config_dir(version_base="1.2", config_dir=str(CONFIGS)):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[f"+experiment={selector}"],
+            return_hydra_config=True,
+        )
+    for group in COMPONENT_GROUPS:
+        assert cfg.hydra.runtime.choices[group] == explicit[f"override /{group}"]
+        assert cfg[group] is not None
+    assert cfg.model.pipeline.stages
+    assert cfg.model.optimizer._target_
+    assert cfg.data.train_datasets
+    assert cfg.data.valid_datasets
 
 
 @pytest.mark.parametrize("task", TASKS)

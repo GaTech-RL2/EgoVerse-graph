@@ -3,6 +3,13 @@
 defaults:
   - /experiment/_shared/frozen_yam/towels_hpt300
   - /experiment/real/arcdur_abstime/_base/arcdur_abstime
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - override /data: abc_arc/towels_since0924plus74_20261015
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: arcdur_abstime_fold_and_stack_towels
 description: Frozen since0924plus74 towels (443 train / 17 val), HPT300, absolute-duration single-clock ARC M200 D0.33

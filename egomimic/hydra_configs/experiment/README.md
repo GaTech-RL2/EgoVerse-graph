@@ -26,8 +26,24 @@ Each public task YAML is a **complete experiment entry point**: its defaults
 select the model graph, data filters/splits/transforms, evaluator, optimizer,
 trainer, callbacks and logging. No additional `model=` or `data=` selection
 is needed. Shared parents avoid copying those definitions into every leaf.
+Every runnable YAML under `real/`, including `variants/`, directly lists its
+`/model`, `/data`, `/evaluator`, `/trainer`, `/callbacks` and `/logger` config
+links in `defaults`. The optimizer is owned by the selected model config.
+Shared experiment parents supply task-specific values; `_base/` contains
+internal parents, not standalone run entry points.
 Supply machine-specific data/weight paths, credentials, a fresh W&B identity
 and the reviewed cluster allocation at launch.
+Activate the project environment first (or set `PYTHONPATH=.` from the checkout).
+Recipes using the shared ABC data cache require `EGOVERSE_ABC_DATASET_DIR` to
+point to that host's cache. This is a storage binding, not another data/model
+config selection.
+
+For example, inspect the complete configuration without starting training:
+
+```bash
+python egomimic/trainHydra.py \
+  +experiment=real/organize_stationary/arc_vel --cfg job --resolve
+```
 
 Example (submits a run; execute only after launch preflight):
 

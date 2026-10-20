@@ -1,9 +1,14 @@
 # @package _global_
 defaults:
-- /experiment/_shared/frozen_yam/towels_hpt300
-- override /data: abc_arc/towels_since0924plus74_20261015
-- override /model: abc_arc/frozen_yam_hpt300_time
-- _self_
+  - /experiment/_shared/frozen_yam/towels_hpt300
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - override /data: abc_arc/towels_since0924plus74_20261015
+  - override /evaluator: frozen_yam_time
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
+  - _self_
 towels_pool: since0924plus74
 frozen_yam:
   variant: time

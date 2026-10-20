@@ -4,6 +4,13 @@
 # keeping the ResNet-MLP image stems. 182.5M parameters.
 defaults:
   - /experiment/real/organize_stationary/baseline
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/hpt_bimanual_visual
+  - override /data: abc_arc/organize_rl2_elmo_cotrain
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: organize_rl2_elmo_hpt180_cotrain_baseline
 description: HPT180 ResNet-MLP stems, robot + human cotraining, 100-frame chunks

@@ -1,6 +1,13 @@
 # @package _global_
 defaults:
   - /experiment/real/multitask/arc_vel
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/hpt_yam_visual
+  - override /data: abc_arc/abc_visual
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: multitask_arc_dur
 description: HPT300 ABC four-task first-delay absolute-duration ARC

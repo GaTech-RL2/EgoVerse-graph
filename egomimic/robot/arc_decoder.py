@@ -300,7 +300,7 @@ class FirstStreamArcDecoder(BimanualIntervalArcDecoder, ChunkTermination):
                 (decoded, np.repeat(decoded[-1:], self.action_horizon - steps, axis=0))
             )
         self.last_stats = {
-            "replan_steps": steps,
+            "replan_steps": steps if self.first_stream else None,  # 0: replan_every
             "horizon": self.action_horizon,
             "execute_waypoints": len(token),
         }

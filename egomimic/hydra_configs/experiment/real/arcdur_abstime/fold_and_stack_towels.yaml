@@ -10,5 +10,4 @@ abc:
   arc_distance: 0.33
 logger:
   wandb:
-    id: ${name}_s42
     tags: [rl2, fold_towels, since0924plus74, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d033, open_loop]

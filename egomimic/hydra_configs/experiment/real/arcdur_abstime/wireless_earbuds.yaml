@@ -11,5 +11,4 @@ abc:
   arc_distance: 0.22
 logger:
   wandb:
-    id: ${name}_s42
     tags: [rl2, wireless_earbuds_updated, plus49_20261020, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d022, open_loop]

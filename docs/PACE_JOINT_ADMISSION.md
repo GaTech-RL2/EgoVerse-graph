@@ -54,3 +54,10 @@ a separate CPU checkpoint mirror with no pruning. Actual four-rank optimization,
 scheduled validation, strict full-state reload and hidden-label-NaN sampling
 smokes on the selected destinations still gate full launch. All four modality
 arms must pass the actual paired RGB control verifier before any full arm starts.
+
+`assemble_payload.py` merges explicit hash-bound runtime,data and source archives
+without filesystem extraction. Each regular member is checked against its
+component manifest while streamed; canonical prefixes, complete closure,
+non-overlapping paths, symlink targets, hardlink identity and byte budgets are
+verified before the final payload receipt is published. Source/data files and
+model semantics are unchanged by assembly.

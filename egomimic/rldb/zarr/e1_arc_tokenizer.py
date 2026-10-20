@@ -23,8 +23,10 @@ changes. Three things over the parent:
   carries the per-arm speed at that arc-length position as two extra columns:
   ``(M, 16) = [14 canonical | v_L(u_m), v_R(u_m)]``. ``detokenize`` integrates
   the clock, t(u) = ∫ du / v(u) with v piecewise linear between waypoints.
-  The waypoint speeds are the raw 30 Hz chunk's path speed (7-frame moving
-  average — see ``chunk_speed`` for why not a Butterworth here).
+  The waypoint speeds are the raw 30 Hz chunk's path speed, unsmoothed by
+  default (``speed_smooth_frames=1``, Aidan 2026-10-19; the fold-era 7-frame
+  moving average is still available — see ``chunk_speed`` for why not a
+  Butterworth).
 
 * ``velocity_mode="logdur"`` — the tempo-invariance ablation's channel
   (Ideas note *Arc Tokenizer Tempo Invariance Changes*, #1 + #2). Same
@@ -682,7 +684,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         *,
         velocity_norm: str = "chord",
         velocity_mode: str = "mean",
-        speed_smooth_frames: int = 7,
+        speed_smooth_frames: int = 1,
         duration_timing: str = "delta",
         min_speed: float = 0.01,
         progress_smooth_hz: float | None = None,

@@ -66,7 +66,7 @@ def chunk(kind):
     return actions
 
 
-def codec(mode):
+def codec(mode, **kwargs):
     return TokenizeBimanualArcLengthE1(
         min_distance_unit=0.4,
         resampled_vector_length=100,
@@ -74,6 +74,7 @@ def codec(mode):
         velocity_norm="path",
         velocity_mode=mode,
         rotation_distance_unit=2 * np.pi,
+        **kwargs,
     )
 
 
@@ -95,7 +96,8 @@ def test_resolved_recipes_preserve_original_scientific_contract(name):
 @pytest.mark.parametrize("case", FIXTURE["codecs"])
 def test_tokens_and_decoded_clocks_match_original_source(case):
     kind, mode = case.split("/")
-    c = codec(mode)
+    # The original source smoothed speeds over 7 frames; recipes now default to 1.
+    c = codec(mode, speed_smooth_frames=7)
     tokens = c.transform({"actions_cartesian": chunk(kind)})["actions_cartesian"]
     decoded = c.detokenize(tokens, action_horizon=100)
     payload = json.dumps(

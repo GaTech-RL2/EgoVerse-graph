@@ -16,6 +16,14 @@ def test_no_smoothing_preserves_a_speed_transition():
     assert not np.allclose(chunk_speed(positions, 1 / 30, 7), expected)
 
 
+def test_arcvel_defaults_to_no_smoothing():
+    cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_m200_d033")
+    for split in ("train_datasets", "valid_datasets"):
+        transforms = instantiate(cfg.data[split].yam_bimanual.resolver.transform_list)
+        assert transforms[-1].velocity_mode == "profile"
+        assert transforms[-1].speed_smooth_frames == 1
+
+
 def test_stationery_recipe_drops_only_speed_smoothing():
     cfg = compose_recipe("bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033")
     assert cfg.evaluator.token_layout == "e1_profile"

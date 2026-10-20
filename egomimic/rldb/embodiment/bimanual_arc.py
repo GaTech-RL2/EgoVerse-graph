@@ -102,7 +102,7 @@ def get_transform_list(
     resampled_vector_length: int = 100,
     stride: int = 1,
     rotation_mode: str = "euler",
-    speed_smooth_frames: int = 7,
+    speed_smooth_frames: int = 1,
     duration_timing: str = "delta",
     velocity_norm: str = "path",
     progress_smooth_hz: float | None = None,

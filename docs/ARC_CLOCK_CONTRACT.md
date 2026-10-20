@@ -13,7 +13,7 @@ for models, frozen data pools, budgets, retained variants and migration.
 ```yaml
 _target_: egomimic.rldb.zarr.arc_length_tokenizer.TokenizeBimanualArcLengthCartesian
 clock_mode: velocity                 # velocity | duration
-streams: full_separation              # full_separation | translation_rotation
+streams: full_separation              # full_separation | translation_rotation | translation
 resampled_vector_length: 100
 min_distance_unit: 0.42               # meters, per arm
 rotation_distance_unit: 1.7453292519943295  # radians, per arm (100 degrees)
@@ -32,6 +32,7 @@ Geometry always occupies the first 14 columns:
 | --- | --- | --- |
 | full_separation | M × 20 | T-left, T-right, R-left, R-right, G-left, G-right |
 | translation_rotation | M × 18 | T-left, T-right, R-left, R-right |
+| translation | M × 16 | T-left, T-right (rotation and gripper ride the translation supports) |
 
 Each arm and stream spends its own spatial budget. Supports from different
 streams in the same row are not necessarily simultaneous.
@@ -51,9 +52,12 @@ There is no repeated final padding clock.
 - velocity: row zero is seconds; later rows are the distance between emitted
   supports divided by the source interval's seconds. Units are m/s, rad/s,
   and gripper units/s.
-- duration: every row is `log(seconds + 0.001)`, including the initial delay.
-  The codec removes the log exactly once. `duration` does not mean absolute
-  timestamps or raw seconds.
+- duration: every row is the absolute seconds from the chunk anchor to that
+  waypoint (row zero is the start delay). Decoding projects the rows once onto
+  the nearest non-decreasing clock by isotonic regression on the slack above
+  the fastest clock allowed by the translation speed bounds (0.01-5 m/s), so a backwards pair is averaged and no local
+  error accumulates into later rows. Provenance `timing_layout` is
+  `first_delay_absolute_v1`; velocity keeps `first_delay_incoming_v1`.
 
 Translation distances are Euclidean, rotation distances are SO(3) geodesic,
 and gripper distances are absolute value differences. No velocity smoothing,

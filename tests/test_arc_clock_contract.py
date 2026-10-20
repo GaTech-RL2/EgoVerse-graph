@@ -4,11 +4,13 @@ import numpy as np
 import pytest
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    LOG_CLOCK_EPS,
     TokenizeBimanualArcLengthCartesian,
+    absolute_times_to_seconds,
     bimanual_arc_token_shape,
     clock_token_seconds,
 )
+
+ALL_STREAMS = ["full_separation", "translation_rotation", "translation"]
 
 
 def codec(clock="velocity", streams="full_separation", **kwargs):
@@ -45,22 +47,50 @@ def trajectory():
 
 @pytest.mark.parametrize("clock", ["velocity", "duration"])
 @pytest.mark.parametrize(
-    "streams,dim", [("full_separation", 20), ("translation_rotation", 18)]
+    "streams,dim",
+    [("full_separation", 20), ("translation_rotation", 18), ("translation", 16)],
 )
 def test_contract_shape_and_first_delay(clock, streams, dim):
     c = codec(clock, streams)
     token = c.transform({"actions": trajectory()})["actions"]
     assert token.shape == bimanual_arc_token_shape(10, clock, streams) == (10, dim)
-    seconds = clock_token_seconds(token, clock)
+    seconds = clock_token_seconds(token, clock, streams)
     expected = [0.3, 0.5, 0.4, 0.2, 0.6, 0.1][: dim - 14]
     np.testing.assert_allclose(seconds[0, 14:], expected, atol=1e-10)
-    interval = [0.1, 0.1, 1.0, 1.0] if clock == "velocity" else [0.1] * 4
+    interval = ([0.1, 0.1, 1.0, 1.0] if clock == "velocity" else [0.1] * 4)[: dim - 14]
     np.testing.assert_allclose(
         seconds[1:, 14:18], np.tile(interval, (9, 1)), atol=1e-10
     )
 
 
-@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+@pytest.mark.parametrize("clock", ["velocity", "duration"])
+def test_one_clock_per_arm_carries_rotation_and_gripper_on_translation(clock):
+    c = codec(clock, "translation")
+    raw = trajectory()
+    token = c.transform({"actions": raw})["actions"]
+    result = c.detokenize(token, 30)
+    for off in (0, 7):  # gripper and each ypr angle follow the translation clock
+        for col in (off + 3, off + 6):
+            np.testing.assert_allclose(
+                result[:, col],
+                np.interp(result[:, off], token[:, off], token[:, col]),
+                atol=1e-9,
+            )
+
+
+def test_absolute_duration_is_elmos_speed_bounded_isotonic_projection():
+    # A backwards pair keeps enough elapsed time to traverse 10 cm at 5 m/s.
+    seconds = absolute_times_to_seconds([0, 0.1, 0.35, 0.3, 0.4], [0.1] * 4, 0.01, 5.0)
+    np.testing.assert_allclose(np.cumsum(seconds), [0, 0.1, 0.315, 0.335, 0.4])
+    # Without bounds it is plain isotonic regression; the start delay stays >= 0.
+    seconds = absolute_times_to_seconds([-0.2, 0.3, 0.1, 0.6], [0.1] * 3)
+    np.testing.assert_allclose(np.cumsum(seconds), [0, 0.2, 0.2, 0.6])
+    # The min_speed bound clips only the rows past total distance / min_speed.
+    seconds = absolute_times_to_seconds([0, 0.02, 100, 999], [0.1, 0.1, 0], 0.01, 5.0)
+    np.testing.assert_allclose(np.cumsum(seconds), [0, 0.02, 20, 20])
+
+
+@pytest.mark.parametrize("streams", ALL_STREAMS)
 def test_velocity_and_duration_reconstruct_same_moving_intervals(streams):
     raw = trajectory()
     a, b = codec("velocity", streams), codec("duration", streams)
@@ -89,13 +119,13 @@ def test_four_stream_gripper_follows_translation_not_an_independent_clock(clock)
 
 
 @pytest.mark.parametrize("clock", ["velocity", "duration"])
-@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+@pytest.mark.parametrize("streams", ALL_STREAMS)
 def test_full_hold_has_constant_waypoints_and_configured_duration(clock, streams):
     c = codec(clock, streams, hold_window_frames=400)
     raw = np.tile(np.arange(14) * 0.01, (400, 1))
     token = c.transform({"actions": raw})["actions"]
     np.testing.assert_allclose(token[:, :14], np.tile(raw[0], (10, 1)))
-    timing = clock_token_seconds(token, clock)[:, 14:]
+    timing = clock_token_seconds(token, clock, streams)[:, 14:]
     np.testing.assert_allclose(timing[0], 0, atol=1e-12)
     if clock == "velocity":
         np.testing.assert_array_equal(timing[1:], 0)
@@ -106,7 +136,7 @@ def test_full_hold_has_constant_waypoints_and_configured_duration(clock, streams
 
 
 @pytest.mark.parametrize("clock", ["velocity", "duration"])
-@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+@pytest.mark.parametrize("streams", ALL_STREAMS)
 @pytest.mark.parametrize("fraction", [0.5, 1.0])
 def test_eval_rollout_parity_all_contracts(clock, streams, fraction):
     from egomimic.eval.open_loop_sim import OpenLoopSimEval
@@ -169,18 +199,17 @@ def test_unknown_streams_rejected(streams):
         codec(streams=streams)
 
 
-@pytest.mark.parametrize("clock", ["velocity", "duration"])
-def test_moving_interval_with_unusable_clock_cannot_win_race(clock):
-    c = codec(clock)
+def test_moving_interval_with_unusable_clock_cannot_win_race():
+    c = codec("velocity")
     token = c.transform({"actions": trajectory()})["actions"]
-    token[1:, 14:] = 0 if clock == "velocity" else np.log(LOG_CLOCK_EPS)
+    token[1:, 14:] = 0
     with pytest.raises(ValueError, match="finite replan"):
         c.control_steps(token)
     assert c.control_steps(token, max_steps=30) == 30
 
 
 @pytest.mark.parametrize("clock", ["velocity", "duration"])
-@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+@pytest.mark.parametrize("streams", ALL_STREAMS)
 def test_preserved_ground_truth_is_not_reconstructed_from_tokens(clock, streams):
     c = codec(clock, streams, preserve_action_key="raw", preserve_action_rows=40)
     raw = trajectory()
@@ -204,7 +233,12 @@ def test_nonfinite_source_and_tokens_rejected(bad):
 
 @pytest.mark.parametrize("clock", ["velocity", "duration"])
 @pytest.mark.parametrize(
-    "streams,dim", [("full_separation", 20), ("translation_rotation", 18)]
+    "streams,dim",
+    [
+        ("full_separation", 20),
+        ("translation_rotation", 18),
+        ("translation", 16),
+    ],
 )
 def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, streams, dim):
     from hydra.utils import instantiate

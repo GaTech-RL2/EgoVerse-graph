@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
+from scipy.optimize import isotonic_regression
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
@@ -1121,11 +1122,24 @@ def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None):
 
 
 CLOCK_MODES = ("velocity", "duration")
-STREAM_MODES = ("full_separation", "translation_rotation")
-LOG_CLOCK_EPS = 1e-3
-# Timing columns always follow geometry; four-stream order is the same prefix.
+STREAM_MODES = ("full_separation", "translation_rotation", "translation")
+# translation: one clock per arm; rotation and gripper ride its supports.
+STREAM_NAMES = {
+    "full_separation": ("translation", "rotation", "gripper"),
+    "translation_rotation": ("translation", "rotation"),
+    "translation": ("translation",),
+}
+STREAM_DIMS = {
+    "full_separation": 20,
+    "translation_rotation": 18,
+    "translation": 16,
+}
+# Timing columns always follow geometry; four- and two-stream order is the same prefix.
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 CLOCK_COLUMNS = (0, 7, 3, 10)
+SINGLE_CLOCK_COLUMNS = (0, 7)
+# (min, max) speed bounds of an absolute translation clock, m/s.
+TRANSLATION_SPEED_BOUNDS = (0.01, 5.0)
 
 
 def validate_clock_mode(mode):
@@ -1148,42 +1162,99 @@ def bimanual_arc_token_shape(
     m = int(resampled_vector_length)
     if m < 2:
         raise ValueError("resampled_vector_length must be at least two")
-    return m, 20 if streams == "full_separation" else 18
+    return m, STREAM_DIMS[streams]
 
 
-def clock_token_seconds(token, clock_mode):
-    """Unlog duration targets ONCE. Velocity row zero is already seconds."""
+def stream_distances(waypoints, off, stream):
+    """Per-segment distance one arm's stream covers between emitted waypoints."""
+    if stream == "translation":
+        return np.linalg.norm(np.diff(waypoints[:, off : off + 3], axis=0), axis=1)
+    if stream == "rotation":
+        return np.diff(cumulative_rotation_length(waypoints[:, off + 3 : off + 6]))
+    return np.abs(np.diff(waypoints[:, off + 6]))
+
+
+def absolute_times_to_seconds(times, distances, min_speed=None, max_speed=None):
+    """Absolute waypoint seconds -> start delay and incoming interval seconds.
+
+    Elmo's speed-bounded isotonic decode (PR #266): project the predicted times
+    onto the nearest (least-squares) non-decreasing clock whose moving intervals
+    last at least distance / max_speed, by isotonic regression on the slack above
+    that fastest clock. A backwards pair is averaged instead of drifting later
+    rows late, and no local error sums into later rows. Row zero is the start
+    delay and stays >= 0. min_speed caps the moving duration at total distance /
+    min_speed by clipping only the rows past it. Without motion, or without
+    bounds, this is plain isotonic regression.
+    """
+    t = np.asarray(times, dtype=np.float64)
+    cum = np.r_[0.0, np.cumsum(np.asarray(distances, dtype=np.float64))]
+    if t.shape != cum.shape or not np.isfinite(t).all():
+        raise ValueError("Absolute times require one finite time per waypoint")
+    moving = cum[-1] > 0.0
+    fastest = cum / max_speed if moving and max_speed else np.zeros_like(cum)
+    slack = np.maximum(isotonic_regression(t - fastest).x, 0.0)
+    if moving and min_speed:
+        slack = np.minimum(slack, slack[0] + cum[-1] / min_speed - fastest[-1])
+    clock = fastest + slack
+    return np.r_[clock[0], np.diff(clock)]
+
+
+def clock_token_seconds(token, clock_mode, streams=None):
+    """Timing rows as seconds: start delay, then incoming intervals.
+
+    Velocity row zero is already seconds. Duration rows are absolute seconds from
+    the chunk anchor, decoded once by :func:`absolute_times_to_seconds` with the
+    translation speed bounds; rotation and gripper clocks are only made monotone.
+    """
     validate_clock_mode(clock_mode)
     value = np.array(token, dtype=np.float64)
-    if value.ndim < 2 or value.shape[-1] not in (18, 20):
-        raise ValueError("Expected an ARC token with 18 or 20 columns")
+    if value.ndim < 2 or value.shape[-1] not in (16, 18, 20):
+        raise ValueError("Expected an ARC token with 16, 18 or 20 columns")
     if not np.isfinite(value).all():
         raise ValueError("ARC tokens must be finite")
     if clock_mode == "duration":
-        with np.errstate(over="ignore"):
-            value[..., 14:] = np.maximum(np.exp(value[..., 14:]) - LOG_CLOCK_EPS, 0)
-        if not np.isfinite(value).all():
-            raise ValueError("Decoded ARC clocks must be finite")
+        streams = streams or {20: "full_separation", 18: "translation_rotation"}.get(
+            value.shape[-1], "translation"
+        )
+        if STREAM_DIMS[validate_streams(streams)] != value.shape[-1]:
+            raise ValueError(f"{streams} tokens have {STREAM_DIMS[streams]} columns")
+        bounds = TRANSLATION_SPEED_BOUNDS
+        rows = value.reshape(-1, *value.shape[-2:])
+        for row in rows:
+            for index, name in enumerate(STREAM_NAMES[streams]):
+                for arm, off in enumerate((0, 7)):
+                    col = 14 + 2 * index + arm
+                    row[:, col] = absolute_times_to_seconds(
+                        row[:, col],
+                        stream_distances(row, off, name),
+                        *(bounds if name == "translation" else (None, None)),
+                    )
+        value = rows.reshape(value.shape)
     return value
 
 
 def stack_arc_token(token):
     """Internal geometry/timing view, not a selectable serialized layout."""
     value = np.asarray(token, dtype=np.float64)
-    if value.shape[-1] not in (18, 20):
-        raise ValueError("Only the explicit 18D/20D ARC contracts are supported")
-    cols = SIX_CLOCK_COLUMNS if value.shape[-1] == 20 else CLOCK_COLUMNS
+    if value.shape[-1] not in (16, 18, 20):
+        raise ValueError("Only the explicit 16D/18D/20D ARC contracts are supported")
+    cols = {20: SIX_CLOCK_COLUMNS, 18: CLOCK_COLUMNS, 16: SINGLE_CLOCK_COLUMNS}[
+        value.shape[-1]
+    ]
     timing = np.zeros(value.shape[:-1] + (14,))
     timing[..., cols] = value[..., 14:]
     return np.concatenate((value[..., :14], timing), axis=-2)
 
 
 class TokenizeBimanualArcLengthCartesian:
-    """First-delay ARC: M x (14 geometry + four or six clocks).
+    """First-delay ARC: M x (14 geometry + two, four or six clocks).
 
     Row zero holds start delay. Rows i>0 describe incoming interval i-1 -> i.
     Velocity: seconds in row zero, emitted segment distance/second thereafter.
-    Duration: log(seconds + 0.001) in every timing row.
+    Duration: absolute seconds from the chunk anchor in every timing row (row
+    zero is the start delay), decoded by speed-bounded isotonic regression.
+    ``translation`` gives each arm one clock; rotation and the gripper ride its
+    supports.
     There is no automatic interpretation of historical checkpoint layouts.
     """
 
@@ -1257,6 +1328,10 @@ class TokenizeBimanualArcLengthCartesian:
     def M(self):
         return self.shape[0]
 
+    @property
+    def _stream_names(self):
+        return STREAM_NAMES[self.streams]
+
     def transform(self, batch):
         raw = np.asarray(batch[self.action_key], dtype=np.float64)
         if (
@@ -1282,7 +1357,7 @@ class TokenizeBimanualArcLengthCartesian:
         waypoints = self._hybrid_waypoints(raw)
         clocks = self._stream_targets(raw, waypoints)
         if self.clock_mode == "duration":
-            clocks = np.log(np.maximum(clocks, 0) + LOG_CLOCK_EPS)
+            clocks = np.cumsum(clocks, axis=0)  # start delay + intervals -> absolute
         batch[self.output_action_key] = np.concatenate((waypoints, clocks), axis=1)
         return batch
 
@@ -1327,7 +1402,7 @@ class TokenizeBimanualArcLengthCartesian:
             specs = [
                 ("translation", t_cum, t_targets, hold is not None),
                 ("rotation", r_cum, r_targets, r_cum[-1] < self.zero_dist_epsilon),
-            ]
+            ][: len(self._stream_names)]
             if gripper is not None:
                 cum, targets, held = gripper[arm]
                 specs.append(("gripper", cum, targets, held))
@@ -1353,20 +1428,13 @@ class TokenizeBimanualArcLengthCartesian:
                         where=intervals > 1e-12,
                     )
                 clocks[name, arm] = np.r_[times[0], intervals]
-        names = (
-            ("translation", "rotation", "gripper")
-            if gripper is not None
-            else ("translation", "rotation")
+        return np.stack(
+            [clocks[name, arm] for name in self._stream_names for arm in (0, 1)],
+            axis=1,
         )
-        return np.stack([clocks[name, arm] for name in names for arm in (0, 1)], axis=1)
 
-    @staticmethod
-    def _distances(waypoints, off, stream):
-        if stream == "translation":
-            return np.linalg.norm(np.diff(waypoints[:, off : off + 3], axis=0), axis=1)
-        if stream == "rotation":
-            return np.diff(cumulative_rotation_length(waypoints[:, off + 3 : off + 6]))
-        return np.abs(np.diff(waypoints[:, off + 6]))
+    def _distances(self, waypoints, off, stream):
+        return stream_distances(waypoints, off, stream)
 
     def _native(self, token, clocks_in_seconds=False):
         value = np.asarray(token, dtype=np.float64)
@@ -1379,7 +1447,7 @@ class TokenizeBimanualArcLengthCartesian:
         return (
             value.copy()
             if clocks_in_seconds
-            else clock_token_seconds(value, self.clock_mode)
+            else clock_token_seconds(value, self.clock_mode, self.streams)
         )
 
     def _intervals(self, delta, stored, horizon):
@@ -1399,21 +1467,20 @@ class TokenizeBimanualArcLengthCartesian:
     def control_steps(self, token, *, max_steps=None, clocks_in_seconds=False):
         value = self._native(token, clocks_in_seconds)
         ends = []
-        names = (
-            ("translation", "rotation", "gripper")
-            if self.streams == "full_separation"
-            else ("translation", "rotation")
-        )
-        for index, name in enumerate(names):
+        for index, name in enumerate(self._stream_names):
             for arm, off in enumerate((0, 7)):
                 delta = self._distances(value, off, name)
                 moving = delta > 1e-12
                 if not moving.any():
                     continue
                 stored = value[1:, 14 + index * 2 + arm]
+                # Decoded absolute clocks are monotone: a zero interval is a move
+                # within one tick, not missing timing.
                 usable = (
-                    stored if self.clock_mode == "duration" else np.abs(stored)
-                ) > 1e-8
+                    np.abs(stored) > 1e-8
+                    if self.clock_mode == "velocity"
+                    else np.ones_like(moving)
+                )
                 if np.any(moving & ~usable):
                     ends.append(float("inf"))
                 else:
@@ -1442,12 +1509,7 @@ class TokenizeBimanualArcLengthCartesian:
         arms = []
         for arm, off in enumerate((0, 7)):
             indices, clocks = {}, {}
-            names = (
-                ("translation", "rotation", "gripper")
-                if self.streams == "full_separation"
-                else ("translation", "rotation")
-            )
-            for index, name in enumerate(names):
+            for index, name in enumerate(self._stream_names):
                 col = 14 + index * 2 + arm
                 durations = self._intervals(
                     self._distances(value, off, name), value[1:, col], h
@@ -1458,7 +1520,7 @@ class TokenizeBimanualArcLengthCartesian:
             lo, hi, a = indices["translation"]
             xyz = value[:, off : off + 3]
             xyz = xyz[lo] + a[:, None] * (xyz[hi] - xyz[lo])
-            rlo, _, ra = indices["rotation"]
+            rlo, _, ra = indices.get("rotation", indices["translation"])
             ypr = _slerp_segments_ypr(value[:, off + 3 : off + 6], rlo, ra)
             grip = value[:, off + 6 : off + 7]
             if self.streams == "full_separation":
@@ -1587,14 +1649,26 @@ class TokenizeBimanualArcLengthCartesian:
                 )
             else:
                 grip = np.repeat(raw[0:1, offset + 6 : offset + 7], self.M, axis=0)
-            # Rotation always keeps its own clock: a translation hold must not
-            # cut the independent rotation stream short.
-            ypr = _slerp_segments_ypr(
-                raw[:, offset + 3 : offset + 6],
-                rotation_indices,
-                rotation_alpha,
-            )
-            if rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon:
+            if "rotation" in self._stream_names:
+                # Rotation keeps its own clock: a translation hold must not
+                # cut the independent rotation stream short.
+                ypr = _slerp_segments_ypr(
+                    raw[:, offset + 3 : offset + 6],
+                    rotation_indices,
+                    rotation_alpha,
+                )
+                still = (
+                    rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon
+                )
+            else:  # one clock per arm: rotation at the translation supports
+                ypr = _slerp_segments_ypr(
+                    raw[:, offset + 3 : offset + 6],
+                    *_first_crossing_brackets(
+                        translation_cumulative, translation_targets
+                    ),
+                )
+                still = hold is not None
+            if still:
                 ypr = np.repeat(raw[0:1, offset + 3 : offset + 6], self.M, axis=0)
             arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
         return np.concatenate(arms, axis=-1)

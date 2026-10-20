@@ -142,7 +142,12 @@
   "yam_arc_grid/_base/stattempo": "_shared/frozen_yam/stattempo",
   "yam_arc_grid/_base/stattempo_openloop": "_shared/frozen_yam/stattempo_openloop",
   "yam_arc_grid/_base/towels_hpt300": "_shared/frozen_yam/towels_hpt300",
+  "yam_arc_grid/bc_rl2_stattempo_slowpace366_arcdur_abstime_m200_d033": "real/arcdur_abstime/organize_stationary",
+  "yam_arc_grid/bc_rl2_stattempo_sp366e51_arcdur_abstime_m200_d022": "real/arcdur_abstime/organize_stationary",
+  "yam_arc_grid/earbuds_plus49_arcdur_abstime_m200_d022_hpt300": "real/arcdur_abstime/wireless_earbuds",
+  "yam_arc_grid/earbuds_updated_arcdur_abstime_m200_d033_hpt300": "real/arcdur_abstime/wireless_earbuds",
   "yam_arc_grid/earbuds_updated_time_hpt300": "real/wireless_earbuds/baseline",
   "yam_arc_grid/towels_new290plus74_time_hpt300": "real/fold_and_stack_towels/variants/new290plus74_baseline",
+  "yam_arc_grid/towels_since0924plus74_arcdur_m200_d033_hpt300": "real/arcdur_abstime/fold_and_stack_towels",
   "yam_arc_grid/towels_since0924plus74_time_hpt300": "real/fold_and_stack_towels/baseline"
 }

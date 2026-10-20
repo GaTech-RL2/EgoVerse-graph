@@ -1,0 +1,15 @@
+# @package _global_
+# Earbuds updated + Elmo's 49 takes of 2026-10-20 (319 train / 15 val), HPT300, absolute-duration single-clock ARC M200 D0.22.
+defaults:
+  - /experiment/_shared/frozen_yam/earbuds_updated_hpt300
+  - /experiment/real/arcdur_abstime/_base/arcdur_abstime
+  - override /data: abc_arc/earbuds_plus49_20261020
+  - _self_
+name: arcdur_abstime_wireless_earbuds
+description: Earbuds updated + Elmo's 49 takes of 2026-10-20 (319 train / 15 val), HPT300, absolute-duration single-clock ARC M200 D0.22
+abc:
+  arc_distance: 0.22
+logger:
+  wandb:
+    id: ${name}_s42
+    tags: [rl2, wireless_earbuds_updated, plus49_20261020, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d022, open_loop]

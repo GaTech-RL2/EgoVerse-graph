@@ -587,6 +587,9 @@ class FirstStreamArcDecoder(ChunkTermination):
         arc_chunking_mode="multistream",
         execute_percent=50,
         first_stream=1,
+        gripper_distance_unit=None,
+        gripper_stream_mode="distance",
+        hold_window_frames=400,
     ):
         if arc_chunking_mode != "multistream":
             raise ValueError("FirstStreamArcDecoder executes multistream tokens only")
@@ -603,6 +606,8 @@ class FirstStreamArcDecoder(ChunkTermination):
         self.shape = self._lib.bimanual_arc_token_shape(
             self.M, self.velocity_mode, velocity_layout
         )
+        self.velocity_layout = velocity_layout
+        first_delay = velocity_layout in self._lib.FIRST_DELAY_LAYOUTS
         # Tokens are restacked once in _decode, so the codec reads the stacked form.
         self.codec = self._lib.TokenizeBimanualArcLengthCartesian(
             min_distance_unit=min_distance_unit,
@@ -610,8 +615,11 @@ class FirstStreamArcDecoder(ChunkTermination):
             resampled_vector_length=self.M,
             dt=self.dt,
             velocity_mode=self.velocity_mode,
-            velocity_layout="stacked",
+            velocity_layout=velocity_layout if first_delay else "stacked",
             arc_chunking_mode="multistream",
+            gripper_distance_unit=gripper_distance_unit,
+            gripper_stream_mode=gripper_stream_mode,
+            hold_window_frames=hold_window_frames,
         )
         self.last_stats = None
         self.execute_percent = execute_percent
@@ -661,6 +669,29 @@ class FirstStreamArcDecoder(ChunkTermination):
 
     def _decode(self, row):
         h = self.action_horizon
+        if self.velocity_layout in self._lib.FIRST_DELAY_LAYOUTS:
+            # Keep the declared 20-column representation; restacking into the
+            # legacy codec would erase delay/incoming-interval semantics.
+            count = (
+                self.M * self.execute_percent // 100 if self.first_stream else self.M
+            )
+            prefix = row[:count]
+            steps = (
+                self.codec.first_delay_control_steps(prefix, max_steps=h)
+                if self.first_stream
+                else h
+            )
+            decoded = self.codec.detokenize(prefix, action_horizon=steps)
+            self.last_stats = {
+                "speed": 1.0,
+                "hold_speed": None,
+                "horizon": h,
+                "valid_steps": steps,
+                "replan_steps": steps if self.first_stream else None,
+                "hold_fraction": None,
+                "execute_waypoints": count,
+            }
+            return np.concatenate((decoded, np.repeat(decoded[-1:], h - steps, axis=0)))
         token = self._lib.stack_arc_token(row)
         if not self.first_stream:
             # Original method: the whole token, and replan_every decides the replan.
@@ -783,6 +814,9 @@ class BimanualIntervalArcDecoder:
         velocity_layout="stacked",
         rotation_distance_unit=None,
         arc_chunking_mode=None,
+        gripper_distance_unit=None,
+        gripper_stream_mode="distance",
+        hold_window_frames=400,
     ):
         if velocity_mode not in {"per_waypoint", "duration"}:
             raise ValueError(
@@ -802,6 +836,9 @@ class BimanualIntervalArcDecoder:
             velocity_layout=velocity_layout,
             rotation_distance_unit=rotation_distance_unit,
             arc_chunking_mode=arc_chunking_mode,
+            gripper_distance_unit=gripper_distance_unit,
+            gripper_stream_mode=gripper_stream_mode,
+            hold_window_frames=hold_window_frames,
         )
 
         self.shape = bimanual_arc_token_shape(self.M, velocity_mode, velocity_layout)

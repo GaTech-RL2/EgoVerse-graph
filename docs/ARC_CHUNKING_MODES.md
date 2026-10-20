@@ -106,6 +106,68 @@ action-dependent sample selection.
 
 ## Open-loop decoding
 
+### Opt-in six-stream first-row start delays
+
+The non-E1 Cartesian tokenizer supports two versioned layouts:
+
+| `velocity_mode` | `velocity_layout` | Row 0 of each timing column | Rows 1 through M-1 |
+| --- | --- | --- | --- |
+| `per_waypoint` | `rate_clock6_start_delay` | Start delay in seconds | Speed for the incoming interval i-1 → i |
+| `duration` | `log_clock6_start_delay` | `log(start_delay + 0.001)` | `log(incoming_interval_seconds + 0.001)` |
+
+The token remains M × 20: `[L xyz/ypr/grip, R xyz/ypr/grip,
+T_L, T_R, R_L, R_R, G_L, G_R]`. Geometry row 0 is the initial
+pose; there is no extra waypoint and no repeated final timing entry. Each
+stream waits at its first waypoint until its own delay, then interpolates on
+its own interval clock. Translation and rotation use linear and SO(3)
+interpolation respectively; event grippers retain held-command semantics.
+
+The delay is the time of the last stationary source frame preceding the first
+moving source interval. Times use fractional source indices times configured
+`dt`, not measured timestamps. No smoothing or control-period duration floor
+is added. Rotation and distance-gripper endpoint clocks use first crossing, so
+a trailing stationary plateau does not stretch the final moving interval.
+Full holds have zero delay: duration intervals carry the configured window
+time, while PW intervals are zero. Numerical SO(3) noise on fully held source
+streams is not emitted as a nonzero rate.
+
+For example, 4 waypoints spaced by 0.01 m after a 0.6 s initial wait and three
+0.1 s moves have raw duration timings `[0.6, 0.1, 0.1, 0.1]`. Their waypoint
+times are `[0.6, 0.7, 0.8, 0.9]`; before 0.6 s the first pose is held. In PW
+the incoming rates happen to be 0.1 m/s in this example, but row 0 remains
+seconds. A log token is exponentiated exactly once after unnormalization.
+
+These layouts require `arc_chunking_mode: multistream` and
+`arc_execution_cap_mode: waypoints`. Fractional distance-prefix execution is
+explicitly rejected, not approximated by folding the delay into a movement.
+Keeping K waypoint rows also keeps the start delay and exactly K-1 incoming
+intervals. Replanning is at the earliest delay-plus-prefix-duration of a
+moving stream, including grippers; stationary streams cannot win. If all six
+streams hold, the configured hold-window convention applies. A caller's
+explicit remaining-episode/output-horizon bound is still respected.
+
+`OpenLoopSimEval` and `FirstStreamArcDecoder` share
+`TokenizeBimanualArcLengthCartesian.first_delay_control_steps`. The
+`BimanualIntervalArcDecoder` also accepts the new layouts for full-token
+decoding. Declare `velocity_layout`, gripper mode/budget and D/R/M/dt in the
+checkpoint-bound tokenizer, evaluator, rollout decoder and action contract;
+do not infer the layout from the 20-column shape.
+
+This is an opt-in target change, not a migration of old checkpoint tensors.
+Existing `rate_clock`, `log_clock6`, absolute clocks and E1 codecs are unchanged.
+New runs need fresh normalization statistics and a new experiment identity.
+With quantile normalization, enable the existing
+`norm_stats.widen_degenerate_quantiles: true` option and inspect row-zero
+statistics: rare nonzero delays can otherwise be amplified by a zero-width
+quantile range. The option falls back to observed min/max; it cannot cover
+delays absent from the statistics sample, so check held-out normalized targets
+as well. Never reuse legacy timing statistics merely because shapes match.
+This change only separates leading holds; internal dwells still need suitable
+supports, and PW cannot encode a zero-distance dwell duration or terminal
+gripper dwell by speed alone.
+
+### Legacy layouts
+
 This is the decoder every open-loop evaluation, DTW score and validation video
 uses.
 

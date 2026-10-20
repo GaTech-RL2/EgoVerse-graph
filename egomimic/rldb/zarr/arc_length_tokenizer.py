@@ -1161,6 +1161,11 @@ BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 # "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
 # velocity mode, which emits a single row for the whole token. That is the only
 # place "stacked" is still the default.
+# Versioned, opt-in layouts: row 0 is a per-stream start delay; row i>0
+# describes the incoming interval i-1 -> i. Old checkpoints retain their
+# outgoing-interval + repeated-final-row contract.
+FIRST_DELAY_LAYOUTS = ("rate_clock6_start_delay", "log_clock6_start_delay")
+LOG_SIX_CLOCK_LAYOUTS = ("log_clock6", "log_absolute_clock6", "log_clock6_start_delay")
 BIMANUAL_VELOCITY_LAYOUTS = (
     "wide",
     "stacked",
@@ -1169,6 +1174,7 @@ BIMANUAL_VELOCITY_LAYOUTS = (
     "rate_clock",
     "log_clock6",
     "log_absolute_clock6",
+    *FIRST_DELAY_LAYOUTS,
 )
 CLOCK_LAYOUTS = (
     "clock",
@@ -1176,8 +1182,9 @@ CLOCK_LAYOUTS = (
     "rate_clock",
     "log_clock6",
     "log_absolute_clock6",
+    *FIRST_DELAY_LAYOUTS,
 )
-SIX_CLOCK_LAYOUTS = ("rate_clock", "log_clock6", "log_absolute_clock6")
+SIX_CLOCK_LAYOUTS = ("rate_clock", *LOG_SIX_CLOCK_LAYOUTS, "rate_clock6_start_delay")
 CLOCK_COLUMNS = (0, 3, 7, 10)
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 # Seconds added before the log so a zero (hold) interval stays finite. Small
@@ -1192,12 +1199,10 @@ def clock_token_seconds(token, velocity_layout: str | None) -> np.ndarray:
     through unchanged. Accepts one token or a batch.
     """
     value = np.array(token, dtype=np.float64)
-    if velocity_layout not in ("log_clock", "log_clock6", "log_absolute_clock6"):
+    if velocity_layout not in ("log_clock", *LOG_SIX_CLOCK_LAYOUTS):
         return value
     clock_columns = (
-        SIX_CLOCK_COLUMNS
-        if velocity_layout in ("log_clock6", "log_absolute_clock6")
-        else CLOCK_COLUMNS
+        SIX_CLOCK_COLUMNS if velocity_layout in LOG_SIX_CLOCK_LAYOUTS else CLOCK_COLUMNS
     )
     if value.shape[-1] != ARC_TOK_BIMANUAL_DIM + len(clock_columns):
         expected = ARC_TOK_BIMANUAL_DIM + len(clock_columns)
@@ -1256,15 +1261,18 @@ def validate_bimanual_velocity_layout(
             "velocity_mode='mean' emits a single row for the whole token"
         )
     if (
-        velocity_layout in ("clock", "log_clock", "log_clock6", "log_absolute_clock6")
+        velocity_layout in ("clock", "log_clock", *LOG_SIX_CLOCK_LAYOUTS)
         and velocity_mode != "duration"
     ):
         raise ValueError(
             f"velocity_layout={velocity_layout!r} requires velocity_mode='duration'"
         )
-    if velocity_layout == "rate_clock" and velocity_mode != "per_waypoint":
+    if (
+        velocity_layout in ("rate_clock", "rate_clock6_start_delay")
+        and velocity_mode != "per_waypoint"
+    ):
         raise ValueError(
-            "velocity_layout='rate_clock' requires velocity_mode='per_waypoint'"
+            f"velocity_layout={velocity_layout!r} requires velocity_mode='per_waypoint'"
         )
     return velocity_layout
 
@@ -1464,6 +1472,13 @@ class TokenizeBimanualArcLengthCartesian:
             arc_chunking_mode, rotation_distance_unit
         )
         if (
+            self.velocity_layout in FIRST_DELAY_LAYOUTS
+            and self.arc_chunking_mode != "multistream"
+        ):
+            raise ValueError(
+                "First-delay clocks require arc_chunking_mode='multistream'"
+            )
+        if (
             rotation_distance_unit is not None
             and self.velocity_mode == "duration"
             and self.arc_chunking_mode == "joint_distance"
@@ -1631,7 +1646,7 @@ class TokenizeBimanualArcLengthCartesian:
         if self.velocity_layout in SIX_CLOCK_LAYOUTS:
             if velocity_rows.shape[-1] != len(SIX_CLOCK_COLUMNS):
                 raise AssertionError("six-clock token requires six clock columns")
-            if self.velocity_layout in ("log_clock6", "log_absolute_clock6"):
+            if self.velocity_layout in LOG_SIX_CLOCK_LAYOUTS:
                 velocity_rows = np.log(np.maximum(velocity_rows, 0.0) + LOG_CLOCK_EPS)
         elif self.velocity_layout in CLOCK_LAYOUTS:
             velocity_rows = velocity_rows[:, CLOCK_COLUMNS]
@@ -1908,6 +1923,27 @@ class TokenizeBimanualArcLengthCartesian:
                 g_times = _source_times_at_targets(grip_cum, grip_targets, dt)
                 g_distance = grip_targets
 
+            if self.velocity_layout in FIRST_DELAY_LAYOUTS:
+                # The first support is the last stationary source frame before
+                # movement, not the anchor at t=0. Keep the initial geometry:
+                # only its clock origin changes. Event grippers keep the same
+                # event arrival times and held-command interpolation.
+                if hold is None:
+                    t_times[0] = self._motion_start_time(cum, dt)
+                if rot_cum[-1] >= self.tokenizer.config.zero_dist_epsilon:
+                    # Match the geometry's first arrival at the final angle;
+                    # trailing constant frames must not lengthen the final turn.
+                    indices, alpha = _first_crossing_brackets(rot_cum, rot_targets)
+                    r_times = (indices + alpha) * dt
+                    r_times[0] = self._motion_start_time(rot_cum, dt)
+                if not grip_hold:
+                    if self.gripper_stream_mode != "events":
+                        indices, alpha = _first_crossing_brackets(
+                            grip_cum, grip_targets
+                        )
+                        g_times = (indices + alpha) * dt
+                    g_times[0] = self._motion_start_time(grip_cum, dt)
+
             for stream, (distance, times) in enumerate(
                 (
                     (t_distance, t_times),
@@ -1916,7 +1952,7 @@ class TokenizeBimanualArcLengthCartesian:
                 )
             ):
                 interval_seconds = np.diff(times)
-                if self.velocity_layout == "rate_clock":
+                if self.velocity_layout in ("rate_clock", "rate_clock6_start_delay"):
                     # Rates describe the emitted geometry, not source-path arc
                     # increments (which can be longer across bends/reversals).
                     if stream == 0:
@@ -1932,6 +1968,17 @@ class TokenizeBimanualArcLengthCartesian:
                         )
                     else:
                         interval_distance = np.abs(np.diff(waypoints[:, offset + 6]))
+                    if (
+                        self.velocity_layout in FIRST_DELAY_LAYOUTS
+                        and (
+                            (
+                                hold is not None,
+                                rot_cum[-1] < self.tokenizer.config.zero_dist_epsilon,
+                                grip_hold,
+                            )[stream]
+                        )
+                    ):
+                        interval_distance[:] = 0.0
                     clock = np.divide(
                         interval_distance,
                         interval_seconds,
@@ -1945,7 +1992,9 @@ class TokenizeBimanualArcLengthCartesian:
                 else:
                     clock = interval_seconds
                 streams.append(
-                    clock
+                    np.r_[times[0], clock]
+                    if self.velocity_layout in FIRST_DELAY_LAYOUTS
+                    else clock
                     if self.velocity_layout == "log_absolute_clock6"
                     else np.r_[clock, clock[-1]]
                 )
@@ -1954,6 +2003,91 @@ class TokenizeBimanualArcLengthCartesian:
         per_arm = np.stack(streams, axis=-1)
         order = (0, 3, 1, 4, 2, 5)
         return per_arm[:, order]
+
+    @staticmethod
+    def _motion_start_time(cumulative: np.ndarray, dt: float) -> float:
+        """Last frame of the initial stationary plateau; no smoothing/floor."""
+        moving = np.flatnonzero(np.diff(cumulative) > 1e-12)
+        return float(moving[0] * dt) if len(moving) else 0.0
+
+    def _six_stream_delay(self, timing_rows, offset, stream) -> float:
+        if self.velocity_layout not in FIRST_DELAY_LAYOUTS:
+            return 0.0
+        column = offset + {"translation": 0, "rotation": 3, "gripper": 6}[stream]
+        value = float(timing_rows[0, column])
+        if not np.isfinite(value):
+            raise ValueError("Start-delay clocks require finite seconds")
+        return max(value, 0.0)
+
+    def first_delay_control_steps(
+        self, token, *, max_steps=None, clocks_in_seconds=False
+    ) -> int:
+        """First moving six-stream endpoint, including its independent delay.
+
+        Shared by validation and rollout. ``token`` is an already selected
+        waypoint prefix, in native (unnormalized) units. A full hold uses the
+        source-window convention; an invalid moving interval has no finite end.
+        """
+        if self.velocity_layout not in FIRST_DELAY_LAYOUTS:
+            raise ValueError("first_delay_control_steps requires a first-delay layout")
+        value = np.asarray(token, dtype=np.float64)
+        if value.ndim != 2 or value.shape[1] != 20 or len(value) < 2:
+            raise ValueError("Expected a first-delay token with shape (M>=2, 20)")
+        if not np.isfinite(value).all():
+            raise ValueError("Start-delay tokens must be finite")
+        if not clocks_in_seconds:
+            value = clock_token_seconds(value, self.velocity_layout)
+        if not np.isfinite(value).all():
+            raise ValueError("Decoded start-delay clocks must be finite")
+        m = len(value)
+        stacked = stack_arc_token(value)
+        waypoints, timing = stacked[:m], stacked[m:]
+        ends = []
+        for offset in (0, 7):
+            for stream in ("translation", "rotation", "gripper"):
+                column = (
+                    offset + {"translation": 0, "rotation": 3, "gripper": 6}[stream]
+                )
+                if stream == "translation":
+                    delta = np.linalg.norm(
+                        np.diff(waypoints[:, offset : offset + 3], axis=0), axis=1
+                    )
+                elif stream == "rotation":
+                    delta = np.diff(
+                        cumulative_rotation_length(
+                            waypoints[:, offset + 3 : offset + 6]
+                        )
+                    )
+                else:
+                    delta = np.abs(np.diff(waypoints[:, column]))
+                moving = delta > 1e-12
+                if not np.any(moving):
+                    continue
+                stored = timing[1:, column]
+                usable = (
+                    stored if self.velocity_mode == "duration" else np.abs(stored)
+                ) > 1e-8
+                if np.any(moving & ~usable):
+                    ends.append(float("inf"))
+                    continue
+                durations = self._six_stream_duration(
+                    waypoints, timing, offset, stream, max_steps or 1
+                )
+                ends.append(
+                    self._six_stream_delay(timing, offset, stream)
+                    + float(durations.sum())
+                )
+        duration = (
+            min(ends) if ends else self.hold_window_frames * self.tokenizer.config.dt
+        )
+        if not np.isfinite(duration):
+            if max_steps is None:
+                raise ValueError(
+                    "ARC prefix timing does not define a finite replan boundary"
+                )
+            return int(max_steps)
+        steps = max(1, int(np.ceil(duration / self.tokenizer.config.dt - 1e-9)))
+        return min(steps, int(max_steps)) if max_steps is not None else steps
 
     def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
         """Resample both streams against their own source coordinates."""
@@ -2012,6 +2146,11 @@ class TokenizeBimanualArcLengthCartesian:
                 rotation_indices,
                 rotation_alpha,
             )
+            if (
+                self.velocity_layout in FIRST_DELAY_LAYOUTS
+                and rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon
+            ):
+                ypr = np.repeat(raw[0:1, offset + 3 : offset + 6], self.M, axis=0)
             arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
         return np.concatenate(arms, axis=-1)
 
@@ -2341,9 +2480,9 @@ class TokenizeBimanualArcLengthCartesian:
         return duration
 
     def _hybrid_clock_indices(
-        self, duration: np.ndarray, action_horizon: int
+        self, duration: np.ndarray, action_horizon: int, start_delay: float = 0.0
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        elapsed = np.concatenate(([0.0], np.cumsum(duration)))
+        elapsed = start_delay + np.concatenate(([0.0], np.cumsum(duration)))
         targets = self.tokenizer.config.dt * np.arange(action_horizon, dtype=np.float64)
         upper = np.searchsorted(elapsed, targets, side="right")
         upper = np.clip(upper, 1, len(elapsed) - 1)
@@ -2368,9 +2507,14 @@ class TokenizeBimanualArcLengthCartesian:
     ) -> np.ndarray:
         """Decode one translation, rotation, or gripper clock."""
         column = offset + {"translation": 0, "rotation": 3, "gripper": 6}[stream]
+        interval_rows = (
+            timing_rows[1:]
+            if self.velocity_layout in FIRST_DELAY_LAYOUTS
+            else timing_rows[:-1]
+        )
         if self.velocity_mode == "duration":
             if self.velocity_layout != "log_absolute_clock6":
-                return np.clip(timing_rows[:-1, column], 0.0, None)
+                return np.clip(interval_rows[:, column], 0.0, None)
             timestamps = timing_rows[:, column]
             raw_duration = np.diff(timestamps)
             valid = np.isfinite(raw_duration) & (raw_duration > 0.0)
@@ -2402,7 +2546,7 @@ class TokenizeBimanualArcLengthCartesian:
             )
         else:
             delta = np.abs(np.diff(waypoints[:, offset + 6]))
-        rate = np.abs(timing_rows[:-1, column])
+        rate = np.abs(interval_rows[:, column])
         moving, usable = delta > 1e-12, rate > 1e-8
         if not np.any(moving):
             interval = (
@@ -2433,19 +2577,28 @@ class TokenizeBimanualArcLengthCartesian:
                     waypoints, velocity_rows, offset, "gripper", action_horizon
                 )
                 t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
-                    translation_duration, action_horizon
+                    translation_duration,
+                    action_horizon,
+                    self._six_stream_delay(velocity_rows, offset, "translation"),
                 )
                 r_lo, _, r_alpha = self._hybrid_clock_indices(
-                    rotation_duration, action_horizon
+                    rotation_duration,
+                    action_horizon,
+                    self._six_stream_delay(velocity_rows, offset, "rotation"),
                 )
                 g_lo, g_hi, g_alpha = self._hybrid_clock_indices(
-                    gripper_duration, action_horizon
+                    gripper_duration,
+                    action_horizon,
+                    self._six_stream_delay(velocity_rows, offset, "gripper"),
                 )
                 xyz = waypoints[:, offset : offset + 3]
                 grip = waypoints[:, offset + 6 : offset + 7]
                 xyz_t = xyz[t_lo] + t_alpha[:, None] * (xyz[t_hi] - xyz[t_lo])
                 if self.gripper_stream_mode == "events":
-                    clock = np.r_[0.0, np.cumsum(gripper_duration)]
+                    clock = (
+                        self._six_stream_delay(velocity_rows, offset, "gripper")
+                        + np.r_[0.0, np.cumsum(gripper_duration)]
+                    )
                     queries = self.tokenizer.config.dt * np.arange(action_horizon)
                     tolerance = 8 * np.finfo(np.float32).eps * max(1.0, clock[-1])
                     indices = (
@@ -2531,10 +2684,14 @@ class TokenizeBimanualArcLengthCartesian:
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
         if clocks_in_seconds and self.velocity_layout not in (
             "log_clock",
-            "log_clock6",
-            "log_absolute_clock6",
+            *LOG_SIX_CLOCK_LAYOUTS,
         ):
             raise ValueError("clocks_in_seconds is only valid for log-clock layouts")
+        if (
+            self.velocity_layout in FIRST_DELAY_LAYOUTS
+            and not np.isfinite(arc_actions).all()
+        ):
+            raise ValueError("Start-delay tokens must be finite")
         expected_dim = {
             "stacked": ARC_TOK_BIMANUAL_DIM,
             "wide": 2 * ARC_TOK_BIMANUAL_DIM,
@@ -2543,6 +2700,8 @@ class TokenizeBimanualArcLengthCartesian:
             "rate_clock": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
             "log_clock6": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
             "log_absolute_clock6": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
+            "rate_clock6_start_delay": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
+            "log_clock6_start_delay": ARC_TOK_BIMANUAL_DIM + len(SIX_CLOCK_COLUMNS),
         }[self.velocity_layout]
         if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(
@@ -2581,6 +2740,11 @@ class TokenizeBimanualArcLengthCartesian:
         else:
             waypoints = arc_actions[:M]  # (M, 14)
             vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
+        if (
+            self.velocity_layout in FIRST_DELAY_LAYOUTS
+            and not np.isfinite(vel_rows).all()
+        ):
+            raise ValueError("Decoded start-delay clocks must be finite")
         vel_token = vel_rows[0]
         dt = self.tokenizer.config.dt
         h = int(action_horizon)

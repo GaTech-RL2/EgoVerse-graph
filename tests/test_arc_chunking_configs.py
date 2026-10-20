@@ -137,7 +137,17 @@ def test_legacy_mode_omission_preserves_source_semantics():
     )
 
 
-RECIPES = sorted((CONFIGS / "experiment/abc_arc").glob("*/*.yaml"))
+RECIPES = sorted(
+    path
+    for folder in (
+        "abc_arc",
+        "organize_stationary",
+        "fold_and_stack_towels",
+        "wireless_earbuds",
+        "multitask",
+    )
+    for path in (CONFIGS / "experiment" / folder).rglob("*.yaml")
+)
 
 
 @pytest.mark.parametrize("recipe", RECIPES, ids=lambda p: p.stem)

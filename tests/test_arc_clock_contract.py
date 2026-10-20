@@ -214,10 +214,11 @@ def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, stream
 
     recipe = (
         CONFIGS
-        / "experiment/abc_arc/cotrain"
-        / f"organize_clock_{clock}_{streams}.yaml"
+        / "experiment/organize_stationary"
+        / ("arc_vel.yaml" if clock == "velocity" else "arc_dur.yaml")
     )
     with compose_for_audit(recipe) as cfg:
+        cfg.abc.arc_streams = streams
         transforms = instantiate(
             cfg.data.train_datasets.yam_bimanual.resolver.transform_list
         )

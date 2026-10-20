@@ -4,6 +4,12 @@ This contract replaces the historical Cartesian mean/wide/stacked/clock/E1
 families. It builds on PR #263 and preserves the local first-row-delay
 implementation. It does not change the separate planar or Libero codecs.
 
+New run presets are grouped by task under `hydra_configs/experiment/`:
+`organize_stationary`, `fold_and_stack_towels`, `wireless_earbuds`, and
+`multitask`, each with `arc_vel`, `arc_dur`, and `baseline`.
+See the [experiment menu](../egomimic/hydra_configs/experiment/README.md)
+for models, frozen data pools, budgets, retained variants and migration.
+
 ```yaml
 _target_: egomimic.rldb.zarr.arc_length_tokenizer.TokenizeBimanualArcLengthCartesian
 clock_mode: velocity                 # velocity | duration

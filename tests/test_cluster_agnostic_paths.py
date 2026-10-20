@@ -16,7 +16,7 @@ def test_abc_dit_weights_follow_env(monkeypatch):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_visual_openloop",
+                "+experiment=fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop",
                 "++paths.root_dir=.",
             ],
         )

@@ -1,0 +1,31 @@
+# @package _global_
+# The ABC-DiT towel multistream recipe with only the model swapped for the
+# HPT180 ResNet-MLP policy of abc_arc/cotrain/organize_rl2_elmo_hpt180_*
+# (182.5M: h640, t8, flow d384x10). Data, ARC tokens (D0.714 R2.10 M100),
+# source window, trainer and evaluator are inherited unchanged.
+defaults:
+  - /experiment/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop
+  - override /model: abc_arc/hpt_yam_visual
+  - _self_
+name: abc_rl2_towels_hpt180_multistream_visual_openloop
+description: HPT180 ResNet-MLP ABC + RL2 towels multistream ARC D0.714 R2.10 M100
+hpt:
+  embed_dim: 640
+  num_blocks: 8
+  num_heads: 8
+  action_dim: 14
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+  flow_blocks: 10
+  flow_hidden_dim: 384
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: ${hpt.num_heads}
+      crossattn_dim_head: 80
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}
+logger:
+  wandb:
+    tags: [hpt180m, resnet_mlp, abc, rl2, towels, multistream, M100, per_waypoint, open_loop, video]

@@ -1,8 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/abc_arc/cotrain/organize_clock_velocity_translation_rotation
-  - _self_
-name: organize_clock_duration_translation_rotation
-description: First-delay ARC log-duration, four clocks with grippers on translation
-abc:
-  arc_clock_mode: duration

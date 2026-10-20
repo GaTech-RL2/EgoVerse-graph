@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - /experiment/multitask/arc_vel
+  - _self_
+name: multitask_arc_dur
+description: HPT300 ABC four-task first-delay log-duration ARC
+abc:
+  arc_clock_mode: duration
+logger:
+  wandb:
+    tags: [hpt300m, abc, multitask4, visual_only, duration, open_loop, video]

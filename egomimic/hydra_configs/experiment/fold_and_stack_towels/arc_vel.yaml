@@ -1,0 +1,7 @@
+# @package _global_
+defaults:
+  - /experiment/fold_and_stack_towels/baseline
+  - /experiment/_shared/frozen_yam_arc
+  - _self_
+name: fold_and_stack_towels_arc_vel
+description: Frozen since0924plus74 towels HPT300, canonical velocity ARC M200 D0.33 R100

@@ -1,0 +1,93 @@
+# @package _global_
+# Canonical ARC over the retained frozen YAM baseline graph and episode lists.
+defaults:
+  - /experiment/_shared/clock_settings
+  - /model_contract/abc_visual@model
+  - override /evaluator: eval_open_loop_sim
+  - _self_
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  arc_chunking_mode: multistream
+  arc_distance: 0.33
+  arc_rotation_distance: 1.7453292519943295
+  arc_waypoints: 200
+  arc_source_buffer_frames: 400
+  arc_gripper_stream_mode: events
+  arc_gripper_distance: null
+e1:
+  variant: arc
+  yam_source_frames: ${abc.arc_source_buffer_frames}
+  M: ${abc.arc_waypoints}
+  D: ${abc.arc_distance}
+arc_tokenizer:
+  min_distance_unit: ${abc.arc_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+model:
+  action_token_dim: ${abc.arc_token_dim}
+  action_horizon: ${abc.arc_token_rows}
+  native_action_horizon: ${abc.arc_token_rows}
+  native_action_dim: ${abc.arc_token_dim}
+  inference: ${model.inference_contracts.hybrid_arc_tokenizer_cartesian}
+  data_requirements:
+    preprocessing:
+      '7':
+        key_map:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+          horizon: 200
+          embodiment: yam
+          drop_wrist_images: false
+          yam_source_frames: ${abc.arc_source_buffer_frames}
+        transforms:
+          _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+          variant: arc
+          chunk_length: 200
+          time_rows: ${abc.arc_source_buffer_frames}
+          min_distance_unit: ${abc.arc_distance}
+          rotation_distance_unit: ${abc.arc_rotation_distance}
+          resampled_vector_length: ${abc.arc_waypoints}
+          stride: 1
+          rotation_mode: euler
+          embodiment: yam
+          yam_source_frames: ${abc.arc_source_buffer_frames}
+          clock_mode: ${abc.arc_clock_mode}
+          streams: ${abc.arc_streams}
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+        source_fps: 30.0
+  graph:
+    noising:
+      action_horizon: ${abc.arc_token_rows}
+    sampler:
+      action_horizon: ${abc.arc_token_rows}
+      model:
+        act_seq: ${abc.arc_token_rows}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map: ${model.data_requirements.preprocessing.7.key_map}
+        transform_list: ${model.data_requirements.preprocessing.7.transforms}
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        key_map: ${model.data_requirements.preprocessing.7.key_map}
+        transform_list: ${model.data_requirements.preprocessing.7.transforms}
+trainer:
+  limit_val_batches: 1.0
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_time
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  arc_chunking_mode: ${abc.arc_chunking_mode}
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  streams: ${abc.arc_streams}
+logger:
+  wandb:
+    id: ${name}_s42
+    tags: [rl2, hpt300, "${abc.arc_clock_mode}", "${abc.arc_streams}", open_loop, video]

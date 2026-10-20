@@ -1,75 +1,127 @@
+"""Task-first recipes share one clock contract without changing frozen pools."""
+
+import json
 from pathlib import Path
 
 import pytest
-from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+
+from egomimic.pipeline.inference_config import build_inference_config
+from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
+from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPERIMENT_ROOT = ROOT / "egomimic/hydra_configs/experiment/abc_arc"
-
-EXPECTED_YAMLS = {
-    "robot_bc": {
-        "abc_visual_hpt300_base.yaml",
-        "abc_multitask4_hpt300_baseline_visual_openloop.yaml",
-        "abc_multitask4_hpt300_hybrid_visual_openloop.yaml",
-        "abc_towels_hpt180_baseline_visual_openloop.yaml",
-        "abc_towels_hpt180_hybrid_visual_openloop.yaml",
-        "stationery_rl2_hpt300_visual_baseline_openloop.yaml",
-        "stationery_rl2_hpt300_visual_hybrid_openloop.yaml",
-    },
-    "human_bc": {
-        "mecka_fold_clothes_40h_human_visual_baseline_openloop.yaml",
-        "mecka_fold_clothes_40h_human_visual_hybrid_openloop.yaml",
-    },
-    "cotrain": set(),
-}
+TASKS = (
+    "organize_stationary",
+    "fold_and_stack_towels",
+    "wireless_earbuds",
+    "multitask",
+)
 
 
-def test_abc_arc_experiments_are_grouped_by_training_population():
-    assert not list(EXPERIMENT_ROOT.glob("*.yaml"))
-    assert {path.name for path in EXPERIMENT_ROOT.iterdir() if path.is_dir()} == set(
-        EXPECTED_YAMLS
-    )
-
-    for folder, expected in EXPECTED_YAMLS.items():
-        actual = {path.name for path in (EXPERIMENT_ROOT / folder).glob("*.yaml")}
-        assert actual == expected
-
-
-def test_retained_experiments_are_visual_only_and_qwen_free():
-    for path in EXPERIMENT_ROOT.rglob("*.yaml"):
-        text = path.read_text().lower()
-        assert "qwen" not in text, path
-
-
-def test_every_arc_recipe_has_a_matching_baseline_recipe():
-    expected_pairs = {
-        "robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop.yaml": "robot_bc/abc_multitask4_hpt300_baseline_visual_openloop.yaml",
-        "robot_bc/abc_towels_hpt180_hybrid_visual_openloop.yaml": "robot_bc/abc_towels_hpt180_baseline_visual_openloop.yaml",
-        "robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop.yaml": "robot_bc/stationery_rl2_hpt300_visual_baseline_openloop.yaml",
-        "human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop.yaml": "human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop.yaml",
+@pytest.mark.parametrize("task", TASKS)
+def test_three_public_entries_per_task(task):
+    assert {p.name for p in (CONFIGS / "experiment" / task).glob("*.yaml")} == {
+        "arc_vel.yaml",
+        "arc_dur.yaml",
+        "baseline.yaml",
     }
 
-    for arc_path, baseline_path in expected_pairs.items():
-        assert (EXPERIMENT_ROOT / arc_path).is_file()
-        assert (EXPERIMENT_ROOT / baseline_path).is_file()
 
-
+@pytest.mark.parametrize("task", TASKS)
 @pytest.mark.parametrize(
-    "data",
-    [
-        "abc_visual",
-        "stationery_rl2_hpt_baseline",
-        "stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg",
-        "mecka_fold_clothes_40h_human_baseline",
-        "mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg",
-    ],
+    "clock,leaf", [("velocity", "arc_vel"), ("duration", "arc_dur")]
 )
-def test_retained_data_components_do_not_request_language_inputs(data):
-    with initialize_config_dir(
-        version_base=None, config_dir=str(ROOT / "egomimic/hydra_configs")
-    ):
-        cfg = compose("train_zarr_cartesian", overrides=[f"data=abc_arc/{data}"])
-    for split in ("train_datasets", "valid_datasets"):
-        for dataset in cfg.data[split].values():
-            assert "annotations" not in dataset.batch_keys
-            assert dataset.resolver.key_map.get("annotation_key") is None
+@pytest.mark.parametrize(
+    "streams,width", [("full_separation", 20), ("translation_rotation", 18)]
+)
+def test_task_clocks_match_data_eval_and_rollout(task, clock, leaf, streams, width):
+    with compose_for_audit(CONFIGS / f"experiment/{task}/{leaf}.yaml") as cfg:
+        cfg.abc.arc_streams = streams
+        assert cfg.abc.arc_token_dim == width
+        evaluator = instantiate(cfg.evaluator)
+        assert evaluator.clock_mode == clock
+        assert evaluator.streams == streams
+        flow_stages = [
+            stage
+            for stage in cfg.model.pipeline.stages
+            if stage._target_.rsplit(".", 1)[-1]
+            in ("FlowNoisingStage", "FlowDenoiserStage")
+        ]
+        assert len(flow_stages) == 2
+        for stage in flow_stages:
+            assert stage.action_dim == width
+            assert stage.action_horizon == cfg.abc.arc_waypoints
+        for split in ("train_datasets", "valid_datasets"):
+            for dataset in cfg.data[split].values():
+                transforms = instantiate(dataset.resolver.transform_list)
+                codecs = [
+                    t
+                    for t in transforms
+                    if isinstance(t, TokenizeBimanualArcLengthCartesian)
+                ]
+                assert len(codecs) == 1
+                codec = codecs[0]
+                assert codec.clock_mode == clock
+                assert codec.streams == streams
+                assert codec.shape == (cfg.abc.arc_waypoints, width)
+                assert evaluator._codec().shape == codec.shape
+                instantiate(dataset.resolver.key_map)
+        contract = build_inference_config(cfg)
+        assert contract["status"] == "ready"
+        profile = contract["inference_graph"]["profiles"]["default"]
+        assert profile["native_shape"] == [cfg.abc.arc_waypoints, width]
+        decoder = instantiate(profile["adapter"]["decoder"])
+        assert decoder.codec.clock_mode == clock
+        assert decoder.codec.streams == streams
+        assert decoder.codec.shape == evaluator._codec().shape
+        assert cfg.run_provenance.action_contract.clock_mode == clock
+
+
+@pytest.mark.parametrize("task", TASKS)
+def test_task_variants_preserve_identical_episode_selection(task):
+    selections = []
+    for leaf in ("baseline", "arc_vel", "arc_dur"):
+        with compose_for_audit(CONFIGS / f"experiment/{task}/{leaf}.yaml") as cfg:
+            selections.append(
+                {
+                    (split, name): {
+                        key: OmegaConf.to_container(value, resolve=True)
+                        if OmegaConf.is_config(value)
+                        else value
+                        for key, value in dataset.items()
+                        if key in ("filters", "mode", "valid_ratio", "split_seed")
+                        or key.startswith("expected_")
+                    }
+                    for split in ("train_datasets", "valid_datasets")
+                    for name, dataset in cfg.data[split].items()
+                }
+            )
+    assert selections[0] == selections[1] == selections[2]
+
+
+@pytest.mark.parametrize("task", TASKS)
+def test_baseline_remains_time_indexed_and_rollout_ready(task):
+    with compose_for_audit(CONFIGS / f"experiment/{task}/baseline.yaml") as cfg:
+        for split in ("train_datasets", "valid_datasets"):
+            for dataset in cfg.data[split].values():
+                assert not any(
+                    isinstance(t, TokenizeBimanualArcLengthCartesian)
+                    for t in instantiate(dataset.resolver.transform_list)
+                )
+        artifact = build_inference_config(cfg)
+        assert artifact["status"] == "ready"
+        assert artifact["inference_graph"]["profiles"]["default"]["native_shape"] == [
+            100,
+            14,
+        ]
+
+
+def test_migration_targets_exist_and_retired_folders_are_empty():
+    mapping = json.loads((ROOT / "docs/experiment_config_migration.json").read_text())
+    assert all(
+        (CONFIGS / f"experiment/{target}.yaml").is_file() for target in mapping.values()
+    )
+    for folder in ("abc_arc/cotrain", "abc_arc/robot_bc", "yam_arc_grid"):
+        assert not list((CONFIGS / "experiment" / folder).rglob("*.yaml"))

@@ -29,7 +29,8 @@ train_datasets:
         min_distance_unit: ${abc.arc_distance}
         rotation_distance_unit: ${abc.arc_rotation_distance}
         resampled_vector_length: ${abc.arc_waypoints}
-        clock_mode: velocity
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

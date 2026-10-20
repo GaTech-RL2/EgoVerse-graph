@@ -1,5 +1,9 @@
 # Aidan stationery source and recipes
 
+> Historical source record: this cleanup stack removes the E1 ARC codec and
+> its recipes. Use [ARC_CLOCK_CONTRACT.md](ARC_CLOCK_CONTRACT.md) for new ARC
+> work. Existing checkpoints require their original pinned source.
+
 New ARC/stattempo source work starts from `aidan/stattempo-consolidated-main-20261011`
 in `GaTech-RL2/EgoVerse-graph`. This is the main-based consolidation of
 `aidan/stattempo-streams-ref-20261011` at `51cd2bf8bc52380757130b209ae1f686cbe42b6f`.

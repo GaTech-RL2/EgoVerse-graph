@@ -4,11 +4,12 @@ import numpy as np
 import pytest
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    FIRST_DELAY_LAYOUTS,
     LOG_CLOCK_EPS,
     TokenizeBimanualArcLengthCartesian,
     clock_token_seconds,
 )
+
+FIRST_DELAY_LAYOUTS = ("velocity", "duration")
 
 
 def make_codec(layout, **kwargs):
@@ -20,9 +21,8 @@ def make_codec(layout, **kwargs):
         gripper_stream_mode="events",
         resampled_vector_length=4,
         dt=0.1,
-        velocity_mode="per_waypoint" if layout.startswith("rate") else "duration",
-        velocity_layout=layout,
-        arc_chunking_mode="multistream",
+        clock_mode=layout,
+        streams="full_separation",
     )
     options.update(kwargs)
     return TokenizeBimanualArcLengthCartesian(**options)
@@ -59,7 +59,7 @@ def test_no_delay_has_zero_first_clock_and_incoming_intervals(layout):
     token = encode(codec, delayed_translation(delay=0))
     native = clock_token_seconds(token, layout)
     np.testing.assert_allclose(native[:, 14], [0, 0.1, 0.1, 0.1], atol=1e-12)
-    if layout.startswith("log"):
+    if layout == "duration":
         assert token[0, 14] == pytest.approx(np.log(LOG_CLOCK_EPS))
 
 
@@ -95,7 +95,7 @@ def test_full_hold_zero_delay_and_constant_geometry(layout):
     token = encode(codec, raw)
     native = clock_token_seconds(token, layout)
     np.testing.assert_allclose(native[0, 14:], 0, atol=1e-12)
-    if layout.startswith("rate"):
+    if layout == "velocity":
         np.testing.assert_array_equal(native[:, 14:], 0)
     else:
         np.testing.assert_allclose(native[1:, 14:], 400 * 0.1 / 3)
@@ -114,9 +114,9 @@ def test_partial_waypoint_prefix_retains_delay_and_incoming_interval(layout):
 
 
 def test_log_clock_is_decoded_exactly_once():
-    codec = make_codec("log_clock6_start_delay")
+    codec = make_codec("duration")
     token = encode(codec, delayed_translation())
-    seconds = clock_token_seconds(token, codec.velocity_layout)
+    seconds = clock_token_seconds(token, codec.clock_mode)
     np.testing.assert_allclose(
         codec.detokenize(token, 10),
         codec.detokenize(seconds, 10, clocks_in_seconds=True),
@@ -133,44 +133,15 @@ def test_nonfinite_tokens_fail_closed(layout):
         codec.detokenize(token, 10)
 
 
-def test_new_layout_requires_multistream_and_correct_velocity_mode():
-    with pytest.raises(ValueError, match="multistream"):
-        make_codec("rate_clock6_start_delay", arc_chunking_mode="race")
-    with pytest.raises(ValueError, match="per_waypoint"):
-        make_codec("rate_clock6_start_delay", velocity_mode="duration")
-    with pytest.raises(ValueError, match="duration"):
-        make_codec("log_clock6_start_delay", velocity_mode="per_waypoint")
-
-
-@pytest.mark.parametrize(
-    "layout,new_layout",
-    [
-        ("rate_clock", "rate_clock6_start_delay"),
-        ("log_clock6", "log_clock6_start_delay"),
-    ],
-)
-def test_old_layout_still_smears_leading_wait_and_keeps_final_padding(
-    layout, new_layout
-):
-    raw = delayed_translation()
-    old = make_codec(layout)
-    new = make_codec(new_layout)
-    old_token = encode(old, raw)
-    old_native = clock_token_seconds(old_token, layout)
-    np.testing.assert_array_equal(old_native[-1, 14:], old_native[-2, 14:])
-    assert old.detokenize(old_token, 10)[3, 0] > raw[3, 0]
-    assert new.detokenize(encode(new, raw), 10)[3, 0] == raw[3, 0]
-
-
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
 def test_replanning_includes_delay_and_excludes_constant_streams(layout):
     codec = make_codec(layout)
     token = encode(codec, delayed_translation())
-    assert codec.first_delay_control_steps(token) == 9
-    assert codec.first_delay_control_steps(token[:2]) == 7
-    assert codec.first_delay_control_steps(token[:2], max_steps=5) == 5
+    assert codec.control_steps(token) == 9
+    assert codec.control_steps(token[:2]) == 7
+    assert codec.control_steps(token[:2], max_steps=5) == 5
     # Only left translation moves: right-arm holds must not win the race.
-    assert codec.first_delay_control_steps(encode(codec, np.zeros((400, 14)))) == 400
+    assert codec.control_steps(encode(codec, np.zeros((400, 14)))) == 400
 
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
@@ -179,7 +150,7 @@ def test_gripper_can_win_the_six_stream_race(layout):
     raw[5:, 6] = 1
     codec = make_codec(layout)
     token = encode(codec, raw)
-    assert codec.first_delay_control_steps(token[:2]) == 5
+    assert codec.control_steps(token[:2]) == 5
     decoded = codec.detokenize(token, len(raw))
     np.testing.assert_array_equal(decoded[:5, 6], 0)
     np.testing.assert_array_equal(decoded[5:, 6], 1)
@@ -189,10 +160,10 @@ def test_gripper_can_win_the_six_stream_race(layout):
 def test_only_invalid_moving_stream_requires_a_bound(layout):
     codec = make_codec(layout)
     token = encode(codec, delayed_translation())
-    token[1:, 14] = 0 if layout.startswith("rate") else np.log(LOG_CLOCK_EPS)
+    token[1:, 14] = 0 if layout == "velocity" else np.log(LOG_CLOCK_EPS)
     with pytest.raises(ValueError, match="finite replan"):
-        codec.first_delay_control_steps(token)
-    assert codec.first_delay_control_steps(token, max_steps=20) == 20
+        codec.control_steps(token)
+    assert codec.control_steps(token, max_steps=20) == 20
 
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
@@ -215,8 +186,7 @@ def test_validation_and_robot_use_identical_prefix_clocks(layout, fraction):
         gripper_stream_mode="events",
         resampled_vector_length=4,
         control_dt=0.1,
-        velocity_mode=codec.velocity_mode,
-        velocity_layout=layout,
+        clock_mode=layout,
     )
     native = evaluator._clock_seconds(torch.from_numpy(token)).numpy()
     decoded, steps = evaluator._decode_prediction_with_steps(native, max_steps=20)
@@ -224,10 +194,9 @@ def test_validation_and_robot_use_identical_prefix_clocks(layout, fraction):
     assert steps == expected_steps
     np.testing.assert_allclose(decoded, raw[:steps], atol=1e-12)
     decoder = FirstStreamArcDecoder(
-        codec.velocity_mode,
-        layout,
-        0.03,
-        0.3,
+        clock_mode=layout,
+        min_distance_unit=0.03,
+        rotation_distance_unit=0.3,
         resampled_vector_length=4,
         dt=0.1,
         action_horizon=20,
@@ -251,14 +220,12 @@ def test_whole_token_rollout_decoder_preserves_first_delay(layout):
     codec = make_codec(layout)
     token = encode(codec, delayed_translation())
     decoder = BimanualIntervalArcDecoder(
-        codec.velocity_mode,
-        0.03,
-        4,
-        0.1,
-        20,
-        velocity_layout=layout,
+        clock_mode=layout,
+        min_distance_unit=0.03,
+        resampled_vector_length=4,
+        dt=0.1,
+        action_horizon=20,
         rotation_distance_unit=0.3,
-        arc_chunking_mode="multistream",
         gripper_stream_mode="events",
     )
     np.testing.assert_allclose(decoder(token[None])[0], codec.detokenize(token, 20))
@@ -266,14 +233,9 @@ def test_whole_token_rollout_decoder_preserves_first_delay(layout):
 
 @pytest.mark.parametrize("layout", FIRST_DELAY_LAYOUTS)
 def test_distance_prefix_fails_closed_instead_of_misreading_first_delay(layout):
-    from egomimic.eval.open_loop_sim import arc_execution_prefix, truncate_arc_token
+    from egomimic.eval.open_loop_sim import OpenLoopSimEval
 
-    codec = make_codec(layout)
-    native = clock_token_seconds(encode(codec, delayed_translation()), layout)
-    kwargs = dict(velocity_layout=layout, arc_chunking_mode="multistream")
-    with pytest.raises(ValueError, match="waypoints"):
-        arc_execution_prefix(
-            native, 0.5, codec.velocity_mode, 0.03, "distance", **kwargs
+    with pytest.raises(ValueError, match="waypoint-prefix"):
+        OpenLoopSimEval(
+            action_mode="arc", clock_mode=layout, arc_execution_cap_mode="distance"
         )
-    with pytest.raises(ValueError, match="waypoints"):
-        truncate_arc_token(native, 0.5, codec.velocity_mode, 0.03, **kwargs)

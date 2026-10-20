@@ -14,7 +14,8 @@ The root AGENTS.md applies here. Configure evaluators in
   DTW, Fréchet, reverse-KL and coverage calculations.
 - `arc_bimanual_cartesian_eval.py`, `arc_metrics.py`: ARC-specific decoding and
   trajectory alignment layered on the shared Cartesian evaluator.
-- `bimanual_tempo_eval.py`, `e1_metrics.py`: tempo/duration scoring.
+- `open_loop_sim.py`, `distance_budget_dtw.py`: shared first-moving-stream
+  simulation and trajectory scoring with the canonical Cartesian ARC codec.
 - `planar_action_eval.py`, `synthetic_trajectory_eval.py`: nonrobot evaluation.
 - `checkpoint_loading.py`: strict graph checkpoint restoration and EMA selection.
 - `token_diagnostics.py`, `latent_archive.py`: provider-owned token capture,

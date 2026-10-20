@@ -168,17 +168,16 @@ class Yam(Embodiment):
         # Arc-tokenizer args, only consulted when
         # action_mode="arc_tokenizer_cartesian".
         min_distance_unit: float = 0.40,
-        rotation_distance_unit: float | None = None,
+        rotation_distance_unit: float = 1.7453292519943295,
         gripper_distance_unit: float | None = None,
-        gripper_stream_mode: str = "distance",
+        gripper_stream_mode: str = "events",
         resampled_vector_length: int = 100,
         preserve_action_rows: int | None = None,
         chunk_length: int | None = None,
         # How the arc token carries timing; see
-        # arc_length_tokenizer.BIMANUAL_VELOCITY_MODES.
-        velocity_mode: str = "mean",
-        arc_chunking_mode: str | None = None,
-        velocity_layout: str | None = None,
+        # docs/ARC_CLOCK_CONTRACT.md.
+        clock_mode: str = "velocity",
+        streams: str = "full_separation",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -266,9 +265,8 @@ class Yam(Embodiment):
                 gripper_stream_mode=gripper_stream_mode,
                 resampled_vector_length=resampled_vector_length,
                 rotation_mode=rotation_mode,
-                velocity_mode=velocity_mode,
-                arc_chunking_mode=arc_chunking_mode,
-                velocity_layout=velocity_layout,
+                clock_mode=clock_mode,
+                streams=streams,
                 # Keep a fixed 100-step native-cadence GT copy for evaluator
                 # metrics/videos. The source window itself is variable, but
                 # the control horizon is always 100 steps; repeat-last at an
@@ -369,11 +367,11 @@ class Yam(Embodiment):
         camera_keys: dict | None = None,
         min_distance_unit: float | None = None,
         rotation_distance_unit: float | None = None,
-        arc_chunking_mode: str | None = None,
+        arc_chunking_mode: str = "multistream",
         task_key: str | None = None,
         task_zarr_key: str = "task_description",
         source_buffer_frames: int | None = None,
-        gripper_stream_mode: str = "distance",
+        gripper_stream_mode: str = "events",
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps.
 

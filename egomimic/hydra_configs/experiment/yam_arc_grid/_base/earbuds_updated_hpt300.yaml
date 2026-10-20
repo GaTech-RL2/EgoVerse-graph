@@ -1,6 +1,4 @@
 # @package _global_
-# Towel HPT300 recipe on the rl2 wireless_earbuds_updated pool. Membership is
-# frozen in data/abc_arc/earbuds_updated by scripts/e1/build_earbuds_updated.py.
 defaults:
 - /experiment/yam_arc_grid/_base/towels_hpt300
 - override /data: abc_arc/earbuds_updated

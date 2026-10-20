@@ -64,17 +64,11 @@ def test_plain_cartesian_modes_are_untouched():
 # -- the part that is easy to get wrong: dt tracks stride -------------------
 
 
-@pytest.mark.parametrize("stride, expected_dt", [(1, 1 / 30), (2, 2 / 30), (3, 3 / 30)])
-def test_tokenizer_dt_follows_the_stride(stride, expected_dt):
-    """The chunk is subsampled by actions[::stride].
-
-    Consecutive samples are stride/30 s apart, so leaving the tokenizer's 1/30
-    default inflates the velocity channel by exactly `stride`. It cancels
-    inside tokenize -> detokenize, but it is what the model learns and what a
-    deployed policy would command.
-    """
+@pytest.mark.parametrize("stride", [1, 2, 3])
+def test_arc_keeps_native_source_dt_without_stride_thinning(stride):
+    """ARC consumes native rows; baseline stride must not retime its clocks."""
     tokenizer = _tokenizer(_transforms(stride=stride))
-    assert tokenizer.tokenizer.config.dt == pytest.approx(expected_dt)
+    assert tokenizer.tokenizer.config.dt == pytest.approx(1 / 30)
 
 
 def test_yam_keeps_the_unstrided_default_for_contrast():
@@ -133,10 +127,10 @@ def test_arc_does_not_resample_before_tokenizing():
         for t in transforms
         if isinstance(t, InterpolatePose) and hasattr(t, "new_chunk_length")
     }
-    assert lengths == {Human.ARC_TOK_ACTION_HORIZON}, lengths
+    assert lengths == {None}, lengths
 
 
-def test_an_explicit_chunk_length_overrides_the_arc_default():
+def test_arc_does_not_thin_source_even_with_baseline_chunk_length():
     from egomimic.rldb.zarr.action_chunk_transforms import InterpolatePose
 
     transforms = _transforms(chunk_length=200)
@@ -145,4 +139,4 @@ def test_an_explicit_chunk_length_overrides_the_arc_default():
         for t in transforms
         if isinstance(t, InterpolatePose) and hasattr(t, "new_chunk_length")
     }
-    assert lengths == {200}
+    assert lengths == {None}

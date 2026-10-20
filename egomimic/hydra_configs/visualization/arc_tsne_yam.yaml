@@ -1,5 +1,3 @@
-# Local-only example. Override resolver.folder_path to your episode directory.
-# Supply trusted YAML only: Hydra targets and DatasetFilter lambdas execute code.
 train_datasets:
   yam_bimanual:
     mode: train
@@ -22,13 +20,12 @@ train_datasets:
         rotation_mode: euler
         min_distance_unit: 0.4
         rotation_distance_unit: 0.4188790204786391
-        arc_chunking_mode: multistream
         resampled_vector_length: 100
-        velocity_mode: per_waypoint
+        clock_mode: velocity
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['is_deleted'] == False"
+      - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''is_deleted''] == False'
 valid_datasets:
   yam_bimanual:
     mode: valid

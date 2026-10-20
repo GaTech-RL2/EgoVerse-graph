@@ -15,8 +15,9 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
   used by the E1 recipes. `e1_fold.py` is an old import name only.
 - `zarr/action_chunk_transforms.py`: shared pose, rotation, gripper, interpolation
   and key-routing transforms. Add general transform behavior here.
-- `zarr/arc_length_tokenizer.py`, `zarr/e1_arc_tokenizer.py`: the two ARC timing
-  representations. Check their layouts before interpreting the last channels.
+- `zarr/arc_length_tokenizer.py`: Cartesian ARC with `clock_mode` velocity or
+  duration and `streams` full_separation (M×20) or translation_rotation (M×18).
+  See `docs/ARC_CLOCK_CONTRACT.md`; row zero is a start delay.
 - `zarr/e1_resolvers.py`, `zarr/e1_anchor_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.
 - `filters.py`: dataset query builder. Filter values belong in the selected YAML.

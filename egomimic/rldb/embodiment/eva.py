@@ -54,10 +54,10 @@ class Eva(Embodiment):
         rotation_mode: Literal["euler", "quat", "6D"] = "euler",
         extrinsics: dict | None = None,
         min_distance_unit: float = 0.40,
-        rotation_distance_unit: float | None = None,
+        rotation_distance_unit: float = 1.7453292519943295,
         resampled_vector_length: int = 100,
-        velocity_mode: str = "mean",
-        arc_chunking_mode: str | None = None,
+        clock_mode: str = "velocity",
+        streams: str = "full_separation",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -104,8 +104,8 @@ class Eva(Embodiment):
             rotation_distance_unit=rotation_distance_unit,
             resampled_vector_length=resampled_vector_length,
             rotation_mode=rotation_mode,
-            velocity_mode=velocity_mode,
-            arc_chunking_mode=arc_chunking_mode,
+            clock_mode=clock_mode,
+            streams=streams,
             preserve_action_rows=100,
         )
 
@@ -118,7 +118,7 @@ class Eva(Embodiment):
         camera_keys: dict | None = None,
         min_distance_unit: float = 0.40,
         rotation_distance_unit: float | None = None,
-        arc_chunking_mode: str | None = None,
+        arc_chunking_mode: str = "multistream",
     ):
         is_arc = keymap_mode in (
             "arc_tokenizer_cartesian",
@@ -621,18 +621,17 @@ def _append_arc_tokenizer(
     transform_list: list[Transform],
     *,
     min_distance_unit: float,
-    rotation_distance_unit: float | None = None,
+    rotation_distance_unit: float = 1.7453292519943295,
     gripper_distance_unit: float | None = None,
-    gripper_stream_mode: str = "distance",
+    gripper_stream_mode: str = "events",
     resampled_vector_length: int,
     rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     dt: float | None = None,
     action_key: str = "actions_cartesian",
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
     preserve_action_rows: int | None = None,
-    velocity_mode: str = "mean",
-    arc_chunking_mode: str | None = None,
-    velocity_layout: str | None = None,
+    clock_mode: str = "velocity",
+    streams: str = "full_separation",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
@@ -667,9 +666,8 @@ def _append_arc_tokenizer(
         resampled_vector_length=int(resampled_vector_length),
         preserve_action_key=preserve_action_key,
         preserve_action_rows=preserve_action_rows,
-        velocity_mode=velocity_mode,
-        arc_chunking_mode=arc_chunking_mode,
-        velocity_layout=velocity_layout,
+        clock_mode=clock_mode,
+        streams=streams,
         **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):

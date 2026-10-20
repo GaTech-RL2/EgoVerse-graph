@@ -28,41 +28,28 @@ def raw_chunk(frame=0):
 def codec(**kwargs):
     return TokenizeBimanualArcLengthCartesian(
         min_distance_unit=0.4,
-        rotation_distance_unit=(
-            0.3 if kwargs.get("velocity_mode") == "per_waypoint" else None
-        ),
+        rotation_distance_unit=0.3,
         resampled_vector_length=28,
-        arc_chunking_mode=(
-            "multistream" if kwargs.get("velocity_mode") == "per_waypoint" else None
-        ),
         **kwargs,
     )
 
 
-@pytest.mark.parametrize("mode", ["mean", "per_waypoint", "duration"])
-def test_clock_removal_and_layout_parity(mode):
-    stacked = codec(velocity_mode=mode, velocity_layout="stacked")
-    token = stacked.transform({"actions_cartesian": raw_chunk()})["actions_cartesian"]
-    geometry = arc_features(token, stacked, False)
+@pytest.mark.parametrize("mode", ["velocity", "duration"])
+@pytest.mark.parametrize("streams", ["full_separation", "translation_rotation"])
+def test_clock_removal_and_layout_parity(mode, streams):
+    c = codec(clock_mode=mode, streams=streams)
+    token = c.transform({"actions_cartesian": raw_chunk()})["actions_cartesian"]
+    geometry = arc_features(token, c, False)
     assert geometry.shape == (28 * 14,)
     mutated = token.copy()
-    mutated[28:] += 55
-    np.testing.assert_array_equal(geometry, arc_features(mutated, stacked, False))
-    assert not np.array_equal(
-        arc_features(token, stacked), arc_features(mutated, stacked)
-    )
-    if mode != "mean":
-        wide = codec(velocity_mode=mode, velocity_layout="wide")
-        wtoken = wide.transform({"actions_cartesian": raw_chunk()})["actions_cartesian"]
-        for clock in [False, True]:
-            np.testing.assert_allclose(
-                arc_features(token, stacked, clock), arc_features(wtoken, wide, clock)
-            )
+    mutated[:, 14:] += 55
+    np.testing.assert_array_equal(geometry, arc_features(mutated, c, False))
+    assert not np.array_equal(arc_features(token, c), arc_features(mutated, c))
 
 
 class Leaf:
     def __init__(self):
-        self.transform = [codec(velocity_mode="per_waypoint")]
+        self.transform = [codec(clock_mode="velocity")]
         self.metadata = {"task": "fold </script><script>alert(1)</script>"}
 
     def __len__(self):
@@ -157,10 +144,9 @@ def test_rl2_inventory_configs_preserve_native_source(embodiment):
     tokenizer = next(
         t for t in transforms if isinstance(t, TokenizeBimanualArcLengthCartesian)
     )
-    assert tokenizer.arc_chunking_mode == "multistream"
     assert tokenizer.M == 100
-    assert tokenizer.velocity_mode == "duration"
-    assert tokenizer.velocity_layout == "clock"
+    assert tokenizer.clock_mode == "duration"
+    assert tokenizer.streams == "translation_rotation"
     assert tokenizer.tokenizer.config.min_distance_unit == 0.42
     assert "elmo" in str(cfg.data.filters.filter_lambdas[0])
 
@@ -170,7 +156,7 @@ def test_clock_layout_features_separate_waypoints_from_clocks():
     from egomimic.scripts.data_visualization.arc_tsne import arc_features
 
     class Codec:
-        M, velocity_mode, velocity_layout = 4, "duration", "clock"
+        M, clock_mode, streams = 4, "duration", "translation_rotation"
 
     token = np.arange(4 * 18, dtype=float).reshape(4, 18) + 1
     with_clock = arc_features(token, Codec, True).reshape(-1, 14)
@@ -270,9 +256,8 @@ def test_real_zarr_config_pipeline(tmp_path):
                         {
                             "_target_": target
                             + "arc_length_tokenizer.TokenizeBimanualArcLengthCartesian",
-                            "arc_chunking_mode": "multistream",
                             "rotation_distance_unit": 0.3,
-                            "velocity_mode": "per_waypoint",
+                            "clock_mode": "velocity",
                             "resampled_vector_length": 28,
                         }
                     ],
@@ -289,7 +274,7 @@ def test_real_zarr_config_pipeline(tmp_path):
     assert len(records) == 9
     assert values["arc_clock"].shape == (9, 28 * 28)
     assert values["arc_no_clock"].shape == (9, 28 * 14)
-    assert codecs[0]["arc_chunking_mode"] == "multistream"
+    assert codecs[0]["streams"] == "full_separation"
     projections, diagnostics = project(values)
     write_report(
         tmp_path / "report",

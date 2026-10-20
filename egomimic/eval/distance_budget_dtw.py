@@ -12,9 +12,7 @@ import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     ARC_CHUNKING_MODES,  # noqa: F401 - public re-export used by validation scripts
-    SIX_CLOCK_COLUMNS,
     resolve_arc_chunking_mode,
-    stack_arc_token,
 )
 
 METRIC_VERSION = "arc_chunking_global_dtw_v6"
@@ -265,146 +263,10 @@ def global_dtw(
     return result
 
 
-def fractional_waypoint_prefix(
-    token: np.ndarray, fraction: float, velocity_mode: str = "per_waypoint"
-) -> np.ndarray:
-    """Trim an already-capped per-waypoint token at fractional source progress.
-
-    Only the final partial episode budget may interpolate an M-based boundary.
-    Velocities remain unchanged: no GT-clock retiming or spatial rescaling.
-    Duration tokens store seconds, so the partial interval keeps its rate by
-    scaling its stored durations by the same fraction.
-    """
-    from egomimic.rldb.zarr.arc_length_tokenizer import slerp_pair_ypr
-
-    value = stack_arc_token(np.asarray(token, dtype=np.float64))
-    m = len(value) // 2
-    if m < 2 or len(value) != 2 * m or not 0 < fraction <= 1:
-        raise ValueError("Expected per-waypoint token and fraction in (0,1]")
-    if fraction == 1:
-        return value.copy()
-    progress = fraction * (m - 1)
-    lower = min(int(math.floor(progress)), m - 2)
-    alpha = progress - lower
-    terminal = (1 - alpha) * value[lower] + alpha * value[lower + 1]
-    for offset in (3, 10):
-        terminal[offset : offset + 3] = slerp_pair_ypr(
-            value[lower, offset : offset + 3],
-            value[lower + 1, offset : offset + 3],
-            np.array([alpha]),
-        )[0]
-    # An exact waypoint endpoint must not be repeated (zero extra interval).
-    if alpha <= 1e-12 and lower >= 1:
-        return np.concatenate((value[: lower + 1], value[m : m + lower + 1]))
-    timing = value[m : m + lower + 1].copy()
-    if velocity_mode == "duration":
-        timing[lower, list(SIX_CLOCK_COLUMNS)] *= alpha
-    return np.concatenate(
-        (
-            value[: lower + 1],
-            terminal[None],
-            timing,
-            value[m + lower + 1 : m + lower + 2],
-        )
-    )
-
-
-def _distance_rollout(
-    evaluator,
-    records,
-    anchors,
-    budgets,
-    budget,
-    is_arc,
-    chunking_mode,
-    tokenizer,
-    gt_frames,
-):
-    """Concatenate each anchor's decoded prefix in world XYZ."""
-    from egomimic.eval.open_loop_sim import (
-        arc_execution_prefix,
-        arc_prefix_control_steps,
-    )
-
-    predictions, steps, clipped = [], [], []
-    total = 0
-    for anchor, remaining_budget in zip(anchors, budgets):
-        record = records[int(anchor)]
-        if is_arc:
-            # The scorer's truncation and fractional-prefix helpers operate on
-            # M waypoints followed by M velocity rows. Normalize the policy's
-            # default wide (M, 28) token once at this evaluation boundary.
-            token = stack_arc_token(record["prediction"])
-            fraction = min(1.0, float(remaining_budget / budget))
-            cap_fraction = evaluator.execute_fraction
-            if evaluator.arc_execution_cap_mode == "distance":
-                cap_fraction *= fraction
-            partial = arc_execution_prefix(
-                token,
-                cap_fraction,
-                evaluator.velocity_mode,
-                evaluator.min_distance_unit,
-                evaluator.arc_execution_cap_mode,
-                arc_chunking_mode=chunking_mode,
-                rotation_distance_unit=getattr(
-                    evaluator, "rotation_distance_unit", None
-                ),
-                control_dt=evaluator.control_dt,
-            )
-            if evaluator.arc_execution_cap_mode == "waypoints" and fraction < 1:
-                partial = fractional_waypoint_prefix(
-                    partial, fraction, evaluator.velocity_mode
-                )
-            segment_cap = getattr(evaluator, "dtw_max_segment_steps", None)
-            # Decode the entire prefix on its OWN clock, even if slower than GT.
-            n = arc_prefix_control_steps(
-                partial,
-                1.0,
-                evaluator.velocity_mode,
-                evaluator.control_dt,
-                evaluator.min_distance_unit,
-                rotation_distance_unit=getattr(
-                    evaluator, "rotation_distance_unit", None
-                ),
-                arc_execution_cap_mode="waypoints",
-                arc_chunking_mode=chunking_mode,
-                # With a cap, an unbounded (stalled) clock resolves to the cap
-                # instead of raising "no finite replan boundary".
-                max_steps=(None if segment_cap is None else int(segment_cap) + 1),
-            )
-            if segment_cap is not None and n > segment_cap:
-                # A predicted token with near-zero timing on a moving interval
-                # decodes to an arbitrarily long hold. Score its first
-                # segment_cap steps and report the clip instead of failing the
-                # whole validation (and the training run with it).
-                n = int(segment_cap)
-                clipped.append(int(anchor))
-            if n > evaluator.dtw_max_prediction_steps:
-                raise ValueError(
-                    f"DTW prefix has {n} samples; increase dtw_max_prediction_steps explicitly"
-                )
-            decoded = tokenizer.detokenize(partial, action_horizon=n)
-        else:
-            decoded, n = evaluator._decode_prediction_with_steps(
-                record["prediction"], max_steps=len(records) - int(anchor)
-            )
-        total += n
-        if total * gt_frames > evaluator.dtw_max_cells:
-            raise ValueError(
-                "Episode exceeds dtw_max_cells; no GT/prediction samples were discarded"
-            )
-        predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
-        steps.append(n)
-    return np.concatenate(predictions), steps, total, clipped
-
-
 def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     """Build one rollout and perform exactly one global DTW for the episode."""
     from egomimic.eval.open_loop_sim import (
         executed_arc_waypoints,
-    )
-    from egomimic.rldb.zarr.arc_length_tokenizer import (
-        TokenizeBimanualArcLengthCartesian,
     )
 
     records = sorted(records, key=lambda item: int(item["frame"]))
@@ -429,27 +291,12 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
     chunking_mode = evaluator_chunking_mode(evaluator)
     cumulative = translation_progress(gt, chunking_mode) if is_arc else joint_distance
     if is_arc:
-        if evaluator.velocity_mode not in ("per_waypoint", "duration"):
-            raise ValueError("Distance-budget DTW requires per-interval ARC timing")
+        if chunking_mode != "multistream":
+            raise ValueError("Canonical ARC requires multistream DTW execution")
         m = evaluator.resampled_vector_length
-        fraction = evaluator.execute_fraction
-        if evaluator.arc_execution_cap_mode == "waypoints":
-            fraction = (executed_arc_waypoints(m, fraction) - 1) / (m - 1)
+        fraction = (executed_arc_waypoints(m, evaluator.execute_fraction) - 1) / (m - 1)
         budget = evaluator.min_distance_unit * fraction
         anchors, budgets = chunk_distance_windows(gt, budget, chunking_mode)
-        tokenizer = TokenizeBimanualArcLengthCartesian(
-            min_distance_unit=evaluator.min_distance_unit,
-            rotation_distance_unit=getattr(evaluator, "rotation_distance_unit", None),
-            resampled_vector_length=m,
-            dt=evaluator.control_dt,
-            velocity_mode=evaluator.velocity_mode,
-            velocity_layout="stacked",
-            arc_chunking_mode=(
-                chunking_mode
-                if getattr(evaluator, "rotation_distance_unit", None) is not None
-                else None
-            ),
-        )
     else:
         anchors = np.arange(0, len(records), evaluator.execute_steps)
         budgets = np.zeros(len(anchors))
@@ -477,7 +324,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
         segments = len(segment_steps)
         segment_budgets = None
     else:
-        prediction, segment_steps, total, clipped = _distance_rollout(
+        prediction, segment_steps, total, clipped = _baseline_rollout(
             evaluator,
             records,
             anchors,
@@ -485,7 +332,7 @@ def score_distance_dtw_episode(evaluator, records: list[dict]) -> dict:
             budget,
             is_arc,
             chunking_mode,
-            tokenizer if is_arc else None,
+            None,
             len(gt),
         )
         result = global_dtw(prediction, gt, max_cells=evaluator.dtw_max_cells)
@@ -555,3 +402,31 @@ def summarize_distance_dtw(episodes: list[dict]) -> dict:
         "duration_ratio": sum(item["predicted_samples"] for item in scores) / total_gt,
         "clipped_segments": sum(item.get("clipped_segments", 0) for item in scores),
     }
+
+
+def _baseline_rollout(
+    evaluator,
+    records,
+    anchors,
+    budgets,
+    budget,
+    is_arc,
+    chunking_mode,
+    tokenizer,
+    gt_frames,
+):
+    if is_arc:
+        raise ValueError("ARC must use the multistream episode walk")
+    predictions, steps = [], []
+    total = 0
+    for anchor in anchors:
+        record = records[int(anchor)]
+        decoded, n = evaluator._decode_prediction_with_steps(
+            record["prediction"], max_steps=len(records) - int(anchor)
+        )
+        total += n
+        if total * gt_frames > evaluator.dtw_max_cells:
+            raise ValueError("Episode exceeds dtw_max_cells")
+        predictions.append(world_xyz(decoded, record[METRIC_FRAME_KEY]))
+        steps.append(n)
+    return np.concatenate(predictions), steps, total, []

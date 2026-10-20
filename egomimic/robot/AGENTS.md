@@ -67,7 +67,7 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   `rl2_yam.episode.v1` actions; require completed stores and bound reads by
   `committed_samples`/`total_frames` and EOF.
 - `arc_decoder.py`: decode native ARC predictions before frame conversion and IK.
-  E1 timing channels follow all 14 pose channels; they are not interleaved.
+  Four or six timing channels follow all 14 pose channels; they are not interleaved.
   Decoder settings belong to explicit model YAML `decoder_attribute` controls;
   never append controls based on a model class or inferred token width. The
   decoders use the live `egomimic.rldb.zarr` tokenizers only; no checkpoint-era

@@ -31,9 +31,7 @@ def array(value):
 def arc_features(token, codec, clock=True):
     """Canonicalize layouts; omit ALL timing rows before scaling/projection."""
     token = array(token)
-    expected = bimanual_arc_token_shape(
-        codec.M, codec.velocity_mode, codec.velocity_layout
-    )
+    expected = bimanual_arc_token_shape(codec.M, codec.clock_mode, codec.streams)
     if token.shape != expected:
         raise ValueError(f"ARC shape {token.shape} does not match {expected}")
     stacked = stack_arc_token(token)
@@ -122,9 +120,8 @@ def collect(
                 k: getattr(codec, k)
                 for k in (
                     "M",
-                    "velocity_mode",
-                    "velocity_layout",
-                    "arc_chunking_mode",
+                    "clock_mode",
+                    "streams",
                     "rotation_distance_unit",
                     "action_key",
                     "output_action_key",

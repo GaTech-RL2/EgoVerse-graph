@@ -9,14 +9,8 @@ from omegaconf import OmegaConf
 from egomimic.eval import distance_budget_dtw as dtw
 from egomimic.eval.open_loop_sim import (
     OpenLoopSimEval,
-    arc_execution_prefix,
-    arc_prefix_control_steps,
     truncate_cartesian_trajectory_by_arc_mode,
     truncate_cartesian_trajectory_by_joint_clocks,
-)
-from egomimic.rldb.zarr.arc_length_tokenizer import (
-    TokenizeBimanualArcLengthCartesian,
-    cumulative_rotation_length,
 )
 from scripts.eval import validate_checkpoint_sweep as sweep
 
@@ -107,97 +101,13 @@ def test_joint_progress_preserves_legacy_floating_point_accumulation():
 
 
 def token(m=6):
-    result = np.zeros((2 * m, 14))
+    result = np.zeros((m, 20))
     result[:m, 0] = np.linspace(0, 1, m)
     result[:m, 7] = np.linspace(0, 0.5, m)
     result[:m, 3] = result[:m, 10] = np.linspace(0, 0.4, m)
-    result[m:, 0], result[m:, 7] = 1, 0.25
-    result[m:, 3] = result[m:, 10] = 0.1
+    result[1:, 14], result[1:, 15] = 1, 0.25
+    result[1:, 16] = result[1:, 17] = 0.1
     return result
-
-
-@pytest.mark.parametrize(
-    "mode,endpoints",
-    [
-        ("joint_distance", [1 / 3, 1 / 6]),
-        ("race", [0.5, 0.125]),
-        ("multistream", [0.5, 0.5]),
-    ],
-)
-def test_distance_prefix_uses_translation_mode_and_independent_rotation(
-    mode, endpoints
-):
-    partial = arc_execution_prefix(
-        token(),
-        0.5,
-        "per_waypoint",
-        1,
-        "distance",
-        arc_chunking_mode=mode,
-        rotation_distance_unit=0.8,
-        control_dt=0.1,
-    )
-    m = len(partial) // 2
-    np.testing.assert_allclose(partial[m - 1, [0, 7]], endpoints)
-    per_arm_rotation = [
-        cumulative_rotation_length(partial[:m, off : off + 3])[-1] for off in (3, 10)
-    ]
-    expected_rotation = [0.05, 0.05] if mode == "race" else [0.4, 0.4]
-    np.testing.assert_allclose(per_arm_rotation, expected_rotation)
-    # Race and multistream stop at the first stream to finish: the left arm's
-    # 0.5 m at 1 m/s. Joint distance waits for every retained stream, here each
-    # arm's full 0.4-rad prefix, which takes four seconds.
-    assert arc_prefix_control_steps(
-        partial,
-        1,
-        "per_waypoint",
-        0.1,
-        1,
-        arc_chunking_mode=mode,
-        rotation_distance_unit=0.8,
-    ) == (40 if mode == "joint_distance" else 5)
-
-
-@pytest.mark.parametrize("mode", dtw.ARC_CHUNKING_MODES)
-def test_waypoint_execution_keeps_exact_rows_for_every_clock(mode):
-    value = token()
-    partial = arc_execution_prefix(
-        value,
-        0.5,
-        "per_waypoint",
-        1,
-        "waypoints",
-        arc_chunking_mode=mode,
-        rotation_distance_unit=0.8,
-    )
-    np.testing.assert_array_equal(partial, np.concatenate((value[:3], value[6:9])))
-
-
-@pytest.mark.parametrize(
-    # Multistream stops when its first stream finishes: each arm's 0.1-rad
-    # rotation takes 0.1 s, well before either translation clock.
-    "mode,steps",
-    [("joint_distance", 40), ("race", 30), ("multistream", 1)],
-)
-def test_translation_clocks_do_not_share_interval_waits_in_per_arm_modes(mode, steps):
-    value = np.zeros((6, 14))
-    value[:3, 0] = value[:3, 7] = [0, 0.1, 0.2]
-    value[:3, 3] = value[:3, 10] = [0, 0.05, 0.1]
-    value[3:, 0] = [0.05, 0.1, 0.1]
-    value[3:, 7] = [0.1, 0.05, 0.05]
-    value[3:, 3] = value[3:, 10] = 1
-    assert (
-        arc_prefix_control_steps(
-            value,
-            1,
-            "per_waypoint",
-            0.1,
-            0.4,
-            rotation_distance_unit=0.2,
-            arc_chunking_mode=mode,
-        )
-        == steps
-    )
 
 
 def test_multistream_one_stationary_arm_uses_one_fallback_prefix():
@@ -208,48 +118,19 @@ def test_multistream_one_stationary_arm_uses_one_fallback_prefix():
     np.testing.assert_allclose(budgets, [0.4])
 
 
-@pytest.mark.parametrize("mode", ["joint_distance", "race"])
-def test_unbounded_missing_translation_rate_fails_instead_of_silently_retiming(mode):
-    value = token()
-    value[6:, 0] = 0
-    with pytest.raises(ValueError, match="finite replan boundary"):
-        arc_prefix_control_steps(
-            value,
-            1,
-            "per_waypoint",
-            0.1,
-            1,
-            rotation_distance_unit=0.8,
-            arc_chunking_mode=mode,
-        )
-    assert (
-        arc_prefix_control_steps(
-            value,
-            1,
-            "per_waypoint",
-            0.1,
-            1,
-            rotation_distance_unit=0.8,
-            arc_chunking_mode=mode,
-            max_steps=7,
-        )
-        == 7
-    )
-
-
 @pytest.mark.parametrize(
     "mode,endpoints",
     [
         ("joint_distance", [1 / 3, 1 / 6]),
         ("race", [0.5, 0.25]),
-        ("multistream", [0.5, 0.5]),
+        ("multistream", [0.5, 0.25]),
     ],
 )
 def test_video_caps_follow_mode_and_keep_later_rotation(mode, endpoints):
-    trajectory = token()[:6]
+    trajectory = token()[:6, :14]
     partial = truncate_cartesian_trajectory_by_arc_mode(trajectory, 0.5, mode, 0.8)
     np.testing.assert_allclose(partial[-1, [0, 7]], endpoints)
-    rotation_end = [0.2, 0.2] if mode == "race" else [0.4, 0.4]
+    rotation_end = [0.2, 0.2] if mode in ("race", "multistream") else [0.4, 0.4]
     np.testing.assert_allclose(partial[-1, [3, 10]], rotation_end)
 
 
@@ -271,40 +152,21 @@ def test_evaluation_rotation_caps_apply_R_independently_to_each_arm():
     np.testing.assert_allclose(by_arc_mode[-1, [3, 10]], [0.3, 0.3])
 
 
-@pytest.mark.parametrize("mode", dtw.ARC_CHUNKING_MODES)
-def test_evaluator_routes_mode_and_uses_separate_rotation_clock(mode):
-    evaluator = OpenLoopSimEval(
-        action_mode="arc",
-        arc_chunking_mode=mode,
-        execute_fraction=0.5,
-        resampled_vector_length=6,
-        min_distance_unit=1,
-        rotation_distance_unit=0.8,
-        control_dt=0.1,
-    )
-    decoded, steps = evaluator._decode_prediction_with_steps(token())
-    # Exact three-waypoint prefix: rotation 1.6 s per arm, left translation
-    # 0.4 s, right 0.8 s. Multistream replans when the left arm finishes.
-    assert steps == (4 if mode == "multistream" else 16)
-    assert decoded.shape == (steps, 14)
-    assert evaluator._arc_tokenizer.arc_chunking_mode == mode
-
-
 @pytest.mark.parametrize(
-    "rotation,expected", [(None, "multistream"), (0.8, "joint_distance")]
+    "rotation,expected", [(0.4, "multistream"), (0.8, "multistream")]
 )
 def test_evaluator_default_mode_matches_codec(rotation, expected):
     evaluator = OpenLoopSimEval(rotation_distance_unit=rotation)
     assert evaluator.arc_chunking_mode == expected
 
 
-@pytest.mark.parametrize("mode", dtw.ARC_CHUNKING_MODES)
-def test_explicit_evaluator_mode_requires_rotation(mode):
-    with pytest.raises(ValueError, match="explicit arc_chunking_mode requires"):
+@pytest.mark.parametrize("mode", ["race", "joint_distance"])
+def test_evaluator_rejects_non_multistream_execution(mode):
+    with pytest.raises(ValueError, match="independent multistream"):
         OpenLoopSimEval(action_mode="arc", arc_chunking_mode=mode)
 
 
-def test_legacy_no_rotation_default_decodes_and_scores_with_resolved_metadata():
+def test_default_clocks_decode_and_score_with_resolved_metadata():
     evaluator = OpenLoopSimEval(
         action_mode="arc",
         execute_fraction=0.5,
@@ -331,49 +193,10 @@ def test_legacy_no_rotation_default_decodes_and_scores_with_resolved_metadata():
     assert result["arc_chunking_mode"] == "multistream"
 
 
-def test_multistream_short_arm_holds_absolute_endpoint_through_evaluator_horizon():
-    time = np.arange(61) * 0.1
-    raw = np.zeros((len(time), 14))
-    raw[:, 0] = 0.7 + 0.1 * np.minimum(time, 1)
-    raw[:, 7] = 0.1 * time
-    raw[:, 3] = raw[:, 10] = 0.1 * time
-    codec = TokenizeBimanualArcLengthCartesian(
-        action_key="actions",
-        output_action_key="actions",
-        min_distance_unit=0.4,
-        rotation_distance_unit=0.8,
-        resampled_vector_length=100,
-        velocity_mode="per_waypoint",
-        arc_chunking_mode="multistream",
-        dt=0.1,
-    )
-    value = codec.transform({"actions": raw})["actions"]
-    assert np.all(np.diff(value[:100, 0]) > 0)
-    np.testing.assert_allclose(value[:100, 0], np.linspace(0.7, 0.8, 100))
-    evaluator = OpenLoopSimEval(
-        action_mode="arc",
-        arc_chunking_mode="multistream",
-        execute_fraction=1,
-        min_distance_unit=0.4,
-        rotation_distance_unit=0.8,
-        resampled_vector_length=100,
-        control_dt=0.1,
-    )
-    decoded, steps = evaluator._decode_prediction_with_steps(value, max_steps=100)
-    # The short arm finishes its 0.1 m after one second; that first stream to
-    # run out ends the executed chunk. The rotations stop wherever they are.
-    assert steps == 10
-    np.testing.assert_allclose(decoded[-1, 0], 0.8, atol=0.011)
-    assert decoded[-1, 3] < 0.8
-    bounded, bounded_steps = evaluator._decode_prediction_with_steps(value, max_steps=5)
-    assert bounded_steps == 5
-    np.testing.assert_allclose(bounded, decoded[:5])
-
-
 def test_evaluator_yaml_routes_abc_mode():
     config = OmegaConf.load("egomimic/hydra_configs/evaluator/eval_open_loop_sim.yaml")
     full = OmegaConf.create({"abc": {"arc_chunking_mode": "race"}, "evaluator": config})
-    assert full.evaluator.arc_chunking_mode == "race"
+    assert full.evaluator.arc_video_trajectory_cap_mode == "race"
 
 
 def test_sweep_mode_is_in_command_and_changes_completion_signature(tmp_path):
@@ -437,7 +260,6 @@ def test_sweep_manifest_records_mode_and_metric_version(tmp_path):
 @pytest.mark.parametrize(
     "mode,expected_anchors,semantics",
     [
-        ("race", [0, 1, 2, 3], "chunk_local_per_arm_reset"),
         # One shared rollout; the first chunk's fastest stream spans the episode.
         ("multistream", [0], "first_stream_replan"),
     ],
@@ -449,7 +271,7 @@ def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(
         action_mode="arc",
         arc_chunking_mode=mode,
         execute_fraction=1,
-        arc_execution_cap_mode="distance",
+        arc_execution_cap_mode="waypoints",
         resampled_vector_length=6,
         min_distance_unit=1,
         rotation_distance_unit=0.8,
@@ -476,63 +298,3 @@ def test_dtw_rollout_uses_chunk_local_windows_and_mode_metadata(
     assert result["gt_mode_progress_m"] == 2
     assert result["gt_coverage"] == result["prediction_coverage"] == 1
     json.dumps(result)
-
-
-@pytest.mark.parametrize("mode", ["race", "multistream"])
-def test_oracle_tokens_score_zero_when_arms_move_at_different_speeds(mode):
-    """Predictions equal to the GT's own tokens must score ~0 in every mode.
-
-    The fast arm covers its D long before the slow arm. Windows shared across
-    arms charged multistream's fast arm for travel its token never claimed.
-    """
-    dt, distance, horizon, frames = 0.1, 0.3, 60, 90
-    time = np.arange(frames + horizon) * dt
-    raw = np.zeros((len(time), 14))
-    raw[:, 0], raw[:, 7] = 0.30 * time, 0.08 * time
-    raw[:, 3] = raw[:, 10] = 0.2 * time
-    options = dict(
-        min_distance_unit=distance,
-        rotation_distance_unit=0.42,
-        resampled_vector_length=20,
-        velocity_mode="per_waypoint",
-        arc_chunking_mode=mode,
-    )
-    codec = TokenizeBimanualArcLengthCartesian(
-        action_key="actions", output_action_key="actions", dt=dt, **options
-    )
-    evaluator = OpenLoopSimEval(
-        action_mode="arc", execute_fraction=1.0, control_dt=dt, **options
-    )
-    records = [
-        dict(
-            frame=frame,
-            ground_truth=raw[frame : frame + horizon],
-            prediction=codec.transform(
-                {"actions": raw[frame : frame + horizon].copy()}
-            )["actions"],
-            **{dtw.METRIC_FRAME_KEY: np.repeat(np.eye(4)[None], 2, axis=0)},
-        )
-        for frame in range(frames)
-    ]
-    result = dtw.score_distance_dtw_episode(evaluator, records)
-    # Race keeps ~1e-6 of waypoint discretization; the old multistream bug gave 1e-2.
-    assert result["xyz_mse"] < 1e-4
-
-
-def test_multistream_stalled_stream_does_not_set_the_replan_point():
-    """A stream with no usable time never finishes, so another stream decides."""
-    value = token()
-    value[6:, 0] = 0  # left translation stalls
-    # Right translation: 0.5 m at 0.25 m/s = 2 s, before each 4 s rotation.
-    assert (
-        arc_prefix_control_steps(
-            value,
-            1,
-            "per_waypoint",
-            0.1,
-            1,
-            rotation_distance_unit=0.8,
-            arc_chunking_mode="multistream",
-        )
-        == 20
-    )

@@ -21,6 +21,7 @@ CONFIGS = ROOT / "egomimic/hydra_configs"
 EXPERIMENT_CONTEXTS = {
     "experiment/_shared/clock_settings": "real/multitask/arc_vel",
     "experiment/_shared/frozen_yam_arc": "real/wireless_earbuds/arc_vel",
+    "experiment/real/arcdur_abstime/_base/arcdur_abstime": "real/arcdur_abstime/wireless_earbuds",
     "experiment/_shared/frozen_yam/base": "real/wireless_earbuds/baseline",
     "evaluator/frozen_yam_time": "real/wireless_earbuds/baseline",
     "model/abc_arc/frozen_yam_hpt_flow": "real/wireless_earbuds/baseline",

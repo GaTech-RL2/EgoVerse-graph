@@ -19,7 +19,7 @@ def test_native_fixture_is_explicit_and_does_not_read_runtime_snapshot(monkeypat
     )
     path = (
         CONFIGS
-        / "experiment/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42.yaml"
+        / "experiment/sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42.yaml"
     )
     with compose_for_audit(path) as cfg:
         before = OmegaConf.to_container(cfg.evaluator, resolve=True)
@@ -51,7 +51,7 @@ def test_meta_tokenizer_comes_from_declared_template_and_scope_restores(
     from egomimic.models.oat import factory
 
     original = factory.load_tokenizer
-    with compose_for_audit(CONFIGS / f"experiment/oat/{recipe}.yaml") as cfg:
+    with compose_for_audit(CONFIGS / f"experiment/sim/oat/{recipe}.yaml") as cfg:
         before = json.dumps(OmegaConf.to_container(cfg, resolve=True), sort_keys=True)
         with (
             torch.device("meta"),
@@ -92,7 +92,7 @@ def test_initializer_rejects_cpu_use_and_explicit_checkpoint_and_restores():
     from egomimic.models.oat import factory
 
     original = factory.load_tokenizer
-    with compose_for_audit(CONFIGS / "experiment/oat/libero_oatpolicy.yaml") as cfg:
+    with compose_for_audit(CONFIGS / "experiment/sim/oat/libero_oatpolicy.yaml") as cfg:
         with pytest.raises(ValueError, match="restricted to meta"):
             with model_inputs(cfg, CONFIGS):
                 factory.load_tokenizer(None)

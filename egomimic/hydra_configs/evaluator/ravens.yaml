@@ -1,4 +1,0 @@
-_target_: egomimic.benchmarks.ravens.evaluation.RavensComparisonEvaluator
-artifact_root: ${paths.output_dir}/validation-artifacts
-source_commit: ???
-config_sha256: ???

@@ -73,7 +73,7 @@ def training_config(
         },
     }
     if variant is not None:
-        payload["e1"] = {
+        payload["arc"] = {
             "variant": variant,
             "D": 0.4,
             "M": 100,
@@ -84,18 +84,14 @@ def training_config(
     shape = [horizon, action_dim]
     temporal = {"kind": "control_period", "temporally_resolved": True, "dt": 1 / 30}
     decoder = None
-    if variant in {"arcvel", "arcdur", "arclogdur"}:
+    if variant in {"velocity", "duration"}:
         decoder = {
-            "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
-            "token_layout": {
-                "arcvel": "e1_profile",
-                "arcdur": "e1_dur",
-                "arclogdur": "e1_logdur",
-            }[variant],
-            "min_distance_unit": "${e1.D}",
-            "resampled_vector_length": "${e1.M}",
+            "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
+            "clock_mode": variant,
+            "streams": "full_separation",
+            "min_distance_unit": "${arc.D}",
+            "resampled_vector_length": "${arc.M}",
             "dt": 1 / 30,
-            "action_horizon": "${e1.time_rows}",
         }
     payload["model"]["inference"] = {
         "input": {
@@ -178,28 +174,24 @@ def test_time_flow_artifact_owns_history_output_and_runtime_controls():
 
 
 @pytest.mark.parametrize(
-    ("variant", "layout"),
-    [
-        ("arcvel", "e1_profile"),
-        ("arcdur", "e1_dur"),
-        ("arclogdur", "e1_logdur"),
-    ],
+    "variant",
+    ["velocity", "duration"],
 )
-def test_arc_artifact_decodes_native_tokens_to_fixed_cartesian_output(variant, layout):
-    artifact = build_inference_config(training_config(variant=variant, action_dim=16))
+def test_arc_artifact_decodes_native_tokens_to_fixed_cartesian_output(variant):
+    artifact = build_inference_config(training_config(variant=variant, action_dim=20))
 
     assert artifact["status"] == "ready"
     graph = artifact["inference_graph"]
     assert graph["output"]["shape"] == [100, 14]
     profile = graph["profiles"]["default"]
-    assert profile["native_shape"] == [100, 16]
+    assert profile["native_shape"] == [100, 20]
     assert profile["adapter"]["decoder"] == {
-        "_target_": "egomimic.robot.arc_decoder.BimanualArcDecoder",
-        "token_layout": layout,
+        "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
+        "clock_mode": variant,
+        "streams": "full_separation",
         "min_distance_unit": 0.4,
         "resampled_vector_length": 100,
         "dt": 1 / 30,
-        "action_horizon": 100,
     }
 
 
@@ -262,10 +254,10 @@ def test_artifact_is_bound_to_exact_pipeline_and_graph_content():
     with pytest.raises(ValueError, match="does not match"):
         validate_inference_config(artifact, changed_training)
 
-    arc_training = training_config(variant="arcdur", action_dim=16)
+    arc_training = training_config(variant="duration", action_dim=20)
     arc_artifact = build_inference_config(arc_training)
     changed_codec = deepcopy(arc_training)
-    changed_codec.e1.D = 0.75
+    changed_codec.arc.D = 0.75
     with pytest.raises(ValueError, match="codec and inference defaults"):
         validate_inference_config(arc_artifact, changed_codec)
 

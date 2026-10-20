@@ -23,7 +23,7 @@ def _compose(row):
         return compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                f"+experiment=pusht/action_flow_bc_usocket_{row}_s42",
+                f"+experiment=sim/pusht/action_flow_bc_usocket_{row}_s42",
                 "++paths.root_dir=.",
             ],
         )

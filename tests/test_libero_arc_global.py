@@ -197,7 +197,7 @@ def test_matched_configs_and_real_network_dimensions():
             cfg = compose(
                 config_name="train_zarr_cartesian",
                 overrides=[
-                    f"+experiment=oat/libero_arc_global_{basis}",
+                    f"+experiment=sim/oat/libero_arc_global_{basis}",
                     "benchmark.dataset=/unused-for-construction",
                     "hydra/launcher=basic",
                 ],

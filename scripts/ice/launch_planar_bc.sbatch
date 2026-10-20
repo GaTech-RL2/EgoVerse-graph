@@ -319,10 +319,10 @@ else:
     assert float(cfg.trainer.limit_val_batches) > 0
 assert cfg.name.startswith("planar_v2_usocket_")
 assert experiment in {
-    "pusht/planar_v2_usocket_direct_bc",
-    "pusht/planar_v2_usocket_arc_bc",
-    "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
-    "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
+    "sim/pusht/planar_v2_usocket_direct_bc",
+    "sim/pusht/planar_v2_usocket_arc_bc",
+    "sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
+    "sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
 }
 PY
 

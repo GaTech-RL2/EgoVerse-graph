@@ -11,7 +11,7 @@ Use ``--reference`` with a previously saved report to keep bucket boundaries
 fixed across a collection session. Without a reference, boundaries are fitted
 from the completed HDF5 episodes currently present under ``--data``.
 
-The frame-speed signal matches the repository's E1 Step-0 convention: observed
+The frame-speed signal uses the shared trajectory-filter convention: observed
 Cartesian positions are low-pass filtered with a zero-phase fourth-order
 Butterworth filter, finite-differenced at the recording rate, and reduced by
 taking the maximum speed over the two arms. The episode tempo is the mean of
@@ -93,7 +93,7 @@ def _validate_pose_array(pose: np.ndarray, *, key: str, path: Path) -> np.ndarra
 def _lowpass_positions(
     pos: np.ndarray, cutoff_hz: float, sample_hz: float
 ) -> np.ndarray:
-    """Exact lightweight copy of the repository's E1 Step-0 position filter."""
+    """Lightweight position filter matching the shared trajectory convention."""
     pos = np.asarray(pos, dtype=np.float64)
     if cutoff_hz <= 0 or len(pos) < 20:
         return pos

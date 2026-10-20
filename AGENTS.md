@@ -38,10 +38,10 @@ preserving branch parents. Do not merge without an explicit user request.
 
 ## Aidan stationery source
 
-For new ARC/stattempo work, start from `aidan/stattempo-consolidated-main-20261011`.
-Read [docs/STATTEMPO.md](docs/STATTEMPO.md) for the source pins, shared config
-parents and validation limits. Original streams/ref/r72 and arc-bc-consolidated
-branches are historical run sources. Preserve existing jobs' recorded commits.
+For current ARC work, use the clock-contract cleanup stack above PR #263.
+Read [docs/STATTEMPO.md](docs/STATTEMPO.md) and the experiment README for the
+retained task recipes and source-preservation rules. Older branches are
+historical run sources. Preserve existing jobs' recorded commits.
 
 ## Current PushT recipes
 
@@ -79,7 +79,7 @@ not imply a separate runtime for that task or model.
 | Dataset filters, task prompts, camera/frame choices and experiment parameters | `egomimic/hydra_configs/`; calibration matrices in `hydra_configs/calibration/` |
 | Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](docs/YAM_RUNTIME.md) |
 | Offline normalization export for any model | [scripts/data/precompute_norm_stats.py](scripts/data/precompute_norm_stats.py), or `trainHydra.py norm_stats_only=true` |
-| Focused CPU regression checks | `tests/test_pipeline*.py`, `test_hpt*.py`, `test_arc*.py`, `test_e1*.py`, `test_pi05*.py`, `test_wrist6d_roundtrip.py`, `test_robot_runtime.py`, `test_robot_graph_policy.py` |
+| Focused CPU regression checks | `tests/test_pipeline*.py`, `test_hpt*.py`, `test_arc*.py`, `test_embodiment_resolvers.py`, `test_pi05*.py`, `test_wrist6d_roundtrip.py`, `test_robot_runtime.py`, `test_robot_graph_policy.py` |
 
 Useful searches from the repository root:
 
@@ -104,7 +104,7 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 - Evaluators expose `data_requirements()` and `trainer_overrides()`. Complete
   episode requests must reject partial loaders or validation-loop limits before
   model construction. See [the integration contract](docs/GENERIC_PIPELINE_CONTRACT.md).
-- `egomimic/campaigns/pi05/`, `e1_fold.py`, and `pi05_graph_eval.py` retain old
+- `egomimic/campaigns/pi05/` and `pi05_graph_eval.py` retain old
   import names. Their implementations now live at the canonical paths above.
   Use current YAML examples when migrating older serialized configuration APIs.
 - Read the relevant tests before changing normalization, pose conventions or

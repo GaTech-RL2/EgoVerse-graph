@@ -18,7 +18,7 @@ from egomimic.rldb.zarr.planar_arc import (
 _REPO = Path(__file__).resolve().parents[1]
 _EXPERIMENT = (
     _REPO
-    / "egomimic/hydra_configs/experiment/pusht/planar_v2_usocket_arc_graph_tok.yaml"
+    / "egomimic/hydra_configs/experiment/sim/pusht/planar_v2_usocket_arc_graph_tok.yaml"
 )
 _SPEC = importlib.util.spec_from_file_location(
     "config_graph_arc", _REPO / "tools/config_graph.py"

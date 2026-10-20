@@ -21,7 +21,7 @@ SPEC.loader.exec_module(preflight)
 
 def test_real_action_flow_config_instantiates_and_passes_full_preflight():
     report, _ = preflight.validate_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42",
+        "sim/pusht/action_flow_bc_usocket_recon1_s42",
         config_root=CONFIG_ROOT,
     )
 
@@ -79,7 +79,7 @@ def test_real_action_flow_config_instantiates_and_passes_full_preflight():
 
 def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
     report, _ = preflight.validate_experiment(
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+        "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
         config_root=CONFIG_ROOT,
     )
 
@@ -100,7 +100,7 @@ def test_option_a_200m_muon_config_has_exact_capacity_optimizer_and_schedule():
 
 def test_option_a_200m_adamw_changes_only_optimizer_family():
     report, _ = preflight.validate_experiment(
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
+        "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
         config_root=CONFIG_ROOT,
     )
 
@@ -119,10 +119,10 @@ def test_option_a_200m_adamw_changes_only_optimizer_family():
 
 def test_resolved_hash_is_stable_and_uses_runtime_sentinels():
     first = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     second = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     first_payload, first_hash = preflight.resolved_config_payload(first)
     second_payload, second_hash = preflight.resolved_config_payload(second)
@@ -135,8 +135,8 @@ def test_resolved_hash_is_stable_and_uses_runtime_sentinels():
 
 def test_pair_diff_is_only_the_declared_reconstruction_setting():
     report = preflight.validate_pair(
-        "pusht/action_flow_bc_usocket_recon1_s42",
-        "pusht/action_flow_bc_usocket_recon10_s42",
+        "sim/pusht/action_flow_bc_usocket_recon1_s42",
+        "sim/pusht/action_flow_bc_usocket_recon10_s42",
         config_root=CONFIG_ROOT,
     )
 
@@ -153,8 +153,8 @@ def test_pair_diff_is_only_the_declared_reconstruction_setting():
 
 def test_recon100_diff_is_only_the_declared_reconstruction_setting():
     report = preflight.validate_pair(
-        "pusht/action_flow_bc_usocket_recon1_s42",
-        "pusht/action_flow_bc_usocket_recon100_s42",
+        "sim/pusht/action_flow_bc_usocket_recon1_s42",
+        "sim/pusht/action_flow_bc_usocket_recon100_s42",
         config_root=CONFIG_ROOT,
     )
 
@@ -266,7 +266,7 @@ def test_recon100_diff_is_only_the_declared_reconstruction_setting():
 )
 def test_preflight_fails_closed_before_training(path, value, message):
     config = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     from omegaconf import OmegaConf
 
@@ -274,7 +274,7 @@ def test_preflight_fails_closed_before_training(path, value, message):
     with pytest.raises(preflight.PreflightError, match=message):
         preflight.validate_config(
             config,
-            experiment="pusht/action_flow_bc_usocket_recon1_s42",
+            experiment="sim/pusht/action_flow_bc_usocket_recon1_s42",
             config_root=CONFIG_ROOT,
         )
 
@@ -289,7 +289,7 @@ def test_preflight_fails_closed_before_training(path, value, message):
 )
 def test_every_energy_distance_surface_requires_the_typed_usocket_contract(path):
     config = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     from omegaconf import OmegaConf
 
@@ -303,14 +303,14 @@ def test_every_energy_distance_surface_requires_the_typed_usocket_contract(path)
     ):
         preflight.validate_config(
             config,
-            experiment="pusht/action_flow_bc_usocket_recon1_s42",
+            experiment="sim/pusht/action_flow_bc_usocket_recon1_s42",
             config_root=CONFIG_ROOT,
         )
 
 
 def test_native_error_surface_rejects_undeclared_contract_keys():
     config = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     from omegaconf import OmegaConf
 
@@ -326,7 +326,7 @@ def test_native_error_surface_rejects_undeclared_contract_keys():
     with pytest.raises(preflight.PreflightError, match="native error keys differ"):
         preflight.validate_config(
             config,
-            experiment="pusht/action_flow_bc_usocket_recon1_s42",
+            experiment="sim/pusht/action_flow_bc_usocket_recon1_s42",
             config_root=CONFIG_ROOT,
         )
 
@@ -340,7 +340,7 @@ def test_native_error_surface_rejects_undeclared_contract_keys():
 )
 def test_dataset_content_provenance_rejects_undeclared_keys(path):
     config = preflight.compose_experiment(
-        "pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
+        "sim/pusht/action_flow_bc_usocket_recon1_s42", config_root=CONFIG_ROOT
     )
     from omegaconf import OmegaConf
 
@@ -352,7 +352,7 @@ def test_dataset_content_provenance_rejects_undeclared_keys(path):
     with pytest.raises(preflight.PreflightError, match="provenance keys"):
         preflight.validate_config(
             config,
-            experiment="pusht/action_flow_bc_usocket_recon1_s42",
+            experiment="sim/pusht/action_flow_bc_usocket_recon1_s42",
             config_root=CONFIG_ROOT,
         )
 
@@ -367,7 +367,7 @@ def test_cli_emits_deterministic_machine_readable_failure(tmp_path, monkeypatch)
     status = preflight.main(
         [
             "--experiment",
-            "pusht/action_flow_bc_usocket_recon1_s42",
+            "sim/pusht/action_flow_bc_usocket_recon1_s42",
             "--output",
             str(output),
         ]
@@ -392,7 +392,7 @@ def test_direct_script_cli_resolves_repository_package(tmp_path):
             sys.executable,
             str(TOOL),
             "--experiment",
-            "pusht/action_flow_bc_usocket_recon1_s42",
+            "sim/pusht/action_flow_bc_usocket_recon1_s42",
             "--output",
             str(output),
         ],
@@ -412,7 +412,7 @@ def test_direct_script_cli_resolves_repository_package(tmp_path):
     "selector",
     [
         "pusht/action_flow_chain_manual4919_avln_80k_s42",
-        "pusht/parents/action_flow_usocket_h384",
+        "sim/pusht/parents/action_flow_usocket_h384",
         "pusht_historical/action_flow_cotrain_uc_speed_interpolation",
     ],
 )

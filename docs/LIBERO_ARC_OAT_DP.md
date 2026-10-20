@@ -47,7 +47,7 @@ only the camera/state encoder receives the observation LR.
 
 Use `--arc-backbone oat_dp` with a standalone `--arc-profile` and one ARC mode
 in `scripts/benchmarks/launch_libero_osmo.py`. The new experiment is
-`oat/libero_arc_oat_dp_policy`; the existing default remains the U-Net.
+`sim/oat/libero_arc_oat_dp_policy`; the existing default remains the U-Net.
 
 A fresh policy may reuse `--arc-replay-runs-file` without `--resume-from-run`.
 The worker still checks the complete replay confirmation, chosen R/D/M,

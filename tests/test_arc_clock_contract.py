@@ -214,7 +214,7 @@ def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, stream
 
     recipe = (
         CONFIGS
-        / "experiment/organize_stationary"
+        / "experiment/real/organize_stationary"
         / ("arc_vel.yaml" if clock == "velocity" else "arc_dur.yaml")
     )
     with compose_for_audit(recipe) as cfg:

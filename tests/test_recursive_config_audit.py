@@ -6,27 +6,21 @@ from scripts.audit_components import audit_components
 from scripts.audit_hydra_configs import CONFIGS, audit
 
 
-def test_ravens_audit_supplies_context_without_relaxing_production_identity():
-    from omegaconf import OmegaConf
-
-    from scripts.audit_hydra_configs import compose_for_audit
-
-    path = CONFIGS / "evaluator/ravens.yaml"
-    production = OmegaConf.load(path)
-    assert OmegaConf.is_missing(production, "source_commit")
-    assert OmegaConf.is_missing(production, "config_sha256")
-    for relative in (
-        "data/ravens/continuous.yaml",
-        "evaluator/ravens.yaml",
-        "experiment/ravens/action_flow.yaml",
-        "experiment/ravens/dp.yaml",
+def test_retired_config_menus_are_absent():
+    assert not list(CONFIGS.glob("**/e1/*.yaml"))
+    assert not list(CONFIGS.glob("**/ravens/*.yaml"))
+    assert not (CONFIGS / "evaluator/ravens.yaml").exists()
+    assert not list((CONFIGS / "stationary_recipe").glob("*.yaml"))
+    root = CONFIGS.parents[1]
+    for removed in (
+        "egomimic/rldb/embodiment/e1_fold.py",
+        "egomimic/models/stems/e1_image.py",
+        "egomimic/rldb/zarr/e1_resolvers.py",
+        "egomimic/rldb/zarr/e1_anchor_sampler.py",
+        "scripts/train/launch_yam_action_flow_stationary.sbatch",
     ):
-        with compose_for_audit(CONFIGS / relative) as cfg:
-            assert cfg.benchmark.suite == "ravens-continuous-v1"
-            assert cfg.evaluator.source_commit == "0" * 40
-            assert cfg.evaluator.config_sha256 == "0" * 64
-            assert cfg.benchmark.dataset == "/tmp/audit/libero"
-    assert OmegaConf.is_missing(OmegaConf.load(path), "source_commit")
+        assert not (root / removed).exists()
+    assert not list((root / "scripts/e1").glob("*.py"))
 
 
 def test_diagnostic_constructor_fixture_preserves_production_seed_binding():

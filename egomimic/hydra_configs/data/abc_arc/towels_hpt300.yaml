@@ -5,7 +5,7 @@ train_datasets:
   yam_bimanual:
     resolver:
       transform_list:
-        variant: ${e1.variant}
+        variant: ${frozen_yam.variant}
     filters:
       filter_lambdas:
       - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment''] == ''yam_bimanual''
@@ -15,7 +15,7 @@ valid_datasets:
   yam_bimanual:
     resolver:
       transform_list:
-        variant: ${e1.variant}
+        variant: ${frozen_yam.variant}
     filters:
       filter_lambdas:
       - 'lambda row: row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment''] == ''yam_bimanual''

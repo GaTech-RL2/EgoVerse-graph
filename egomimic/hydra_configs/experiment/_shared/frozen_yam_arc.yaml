@@ -14,7 +14,7 @@ abc:
   arc_source_buffer_frames: 400
   arc_gripper_stream_mode: events
   arc_gripper_distance: null
-e1:
+frozen_yam:
   variant: arc
   yam_source_frames: ${abc.arc_source_buffer_frames}
   M: ${abc.arc_waypoints}

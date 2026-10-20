@@ -99,8 +99,8 @@ episode's 30 Hz frames and the tokenizer, and `arc_dt` is the true capture
 period. A loader-side arc path that resamples before tokenizing would understate
 arc length and make that constant wrong.
 
-Compare `experiment/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
-with `experiment/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
+Compare `experiment/sim/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
+with `experiment/sim/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
 graph). Both are valid; only the second shows the tokenizer in `gt`-style graph
 output and in `tools/config_graph.py`.
 

@@ -106,7 +106,7 @@ def test_released_config_and_parameter_counts(reference):
     ):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=["+experiment=oat/libero_arc_oat_dp_policy"],
+            overrides=["+experiment=sim/oat/libero_arc_oat_dp_policy"],
         )
     denoiser = cfg.model.pipeline.stages[3].policy
     model = denoiser.model
@@ -187,10 +187,10 @@ def test_training_launcher_selects_backbone_and_keeps_legacy_default():
 
     args = ("arc_stk", "libero_spatial", "data.zarr", "out", "full", 5001)
     matched = training_arguments(*args, gpus=4, arc_backbone="oat_dp")
-    assert "+experiment=oat/libero_arc_oat_dp_policy" in matched
+    assert "+experiment=sim/oat/libero_arc_oat_dp_policy" in matched
     assert "trainer.devices=4" in matched
     assert "benchmark.batch_size=256" in matched
     assert "trainer.accumulate_grad_batches=1" in matched
-    assert "+experiment=oat/libero_arc_stk_policy" in training_arguments(*args)
+    assert "+experiment=sim/oat/libero_arc_stk_policy" in training_arguments(*args)
     with pytest.raises(ValueError, match="Unknown ARC backbone"):
         training_arguments(*args, arc_backbone="invalid")

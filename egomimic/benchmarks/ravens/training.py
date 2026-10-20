@@ -38,7 +38,7 @@ def compose(
             return_hydra_config=True,
             overrides=[
                 "hydra/launcher=basic",
-                f"+experiment=ravens/{family}",
+                f"+experiment=sim/ravens/{family}",
                 f"benchmark.dataset={dataset}",
                 f"paths.output_dir={output}",
                 f"paths.work_dir={source}",

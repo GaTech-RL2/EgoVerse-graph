@@ -60,7 +60,7 @@ selection 2–9, and final testing 35–49. Each mode freezes its own R/D/M choi
 These specs use 16 workers, recycling after four episodes, and 128 GiB memory.
 Use `--replay-spec libero_arc_replay_stk` or `libero_arc_replay_dur` when rendering
 an OSMO workflow. Their corresponding policy recipes are
-`oat/libero_arc_stk_policy` and `oat/libero_arc_dur_policy`.
+`sim/oat/libero_arc_stk_policy` and `sim/oat/libero_arc_dur_policy`.
 
 The earlier LIBERO codec/results are explicitly **`joint_dur`**, a shared-clock
 M×11 baseline. They cannot be reused as STK or independent-clock DUR evidence.

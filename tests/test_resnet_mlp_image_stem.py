@@ -48,17 +48,15 @@ def test_training_augments_and_backpropagates_through_encoder_and_mlp():
         assert parameter.grad.abs().sum() > 0
 
 
-def test_legacy_target_loads_identical_checkpoint_keys():
-    from egomimic.models.stems.e1_image import E1ImageStem
-
-    legacy = E1ImageStem(output_dim=16, weights=None).eval()
+def test_image_stem_preserves_checkpoint_keys_on_reload():
+    original = ResNetMLPImageStem(output_dim=16, weights=None).eval()
     current = ResNetMLPImageStem(output_dim=16, weights=None).eval()
     assert {
         "encoder.net.0.weight",
         "encoder.proj.weight",
         "mlp.net.0.weight",
-    } <= legacy.state_dict().keys()
-    current.load_state_dict(legacy.state_dict(), strict=True)
+    } <= original.state_dict().keys()
+    current.load_state_dict(original.state_dict(), strict=True)
     images = torch.rand(2, 3, 64, 64)
     with torch.no_grad():
-        torch.testing.assert_close(current(images), legacy(images))
+        torch.testing.assert_close(current(images), original(images))

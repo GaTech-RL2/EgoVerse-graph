@@ -1793,8 +1793,8 @@ class MultiDataset(torch.utils.data.Dataset):
         """Opt-in (norm_stats.widen_degenerate_quantiles): where an element's 1st and 99th percentiles coincide
         (it takes one value in >= 98 % of samples) but its sampled min / max differ, use min / max as its quantile
         range. Quantile normalization 2 (x - q1) / (q99 - q1 + 1e-6) - 1 otherwise maps the rare other values to
-        ~1e6: e.g. an E1 hybrid / tri token's start-delay row, 0 on almost every towel window (arcdurtri towels runs
-        diverged 2026-10-08, |z| 1.7e6). Written into the saved stats, so every normalizer that reads them (training,
+        ~1e6: for example, a timing channel that is zero on nearly every sampled window.
+        Written into the saved stats, so every normalizer that reads them (training,
         open-loop eval, the robot) agrees. Returns (stats, number of widened elements)."""
         q1, q99 = (
             np.asarray(stats["quantile_1"], dtype=np.float64),

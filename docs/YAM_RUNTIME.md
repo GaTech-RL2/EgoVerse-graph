@@ -383,57 +383,34 @@ when those frames actually coincide.
 EEF pose at inference time. `model_frame` instead uses the configured calibration.
 Predictions are unnormalized once before decoding/frame reversion. A generated
 ARC artifact contains the schema-2 model declaration and immutable binding
-hashes; it is generated, not hand-written. The explicit model-owned example
-[`station_arc_duration.yaml`](examples/station_arc_duration.yaml)
-declares the decoder, per-interval timing, sampler budget, waypoint cap,
-fastest-stream toggle, replay tempo, and hold tempo. Adapt its frame, observation
-keys, stage identifier, native shape and codec to the exact recipe **before**
-training/exporting; this example cannot migrate existing weights by itself.
+hashes; it is generated, not hand-written. Select the matching
+`experiment/real/<task>/arc_vel` or `arc_dur` recipe. Its model contract declares
+the decoder, clock mode, stream separation, waypoint cap and runtime controls.
+Changing a YAML cannot migrate weights trained with another representation.
 
-A `decoder_attribute` control binds only to that explicitly configured decoder.
-No ARC controls are injected by Python. The generic inference consumers use the
-decoder's optional `execution_steps()` capability for a prefix; otherwise
-`replan_every` remains authoritative. Setting changes are transactional even
-when a property rejects a value. Keep percentage bounds compatible with the
-waypoint count (e.g. step 2 for M=50).
+The current codec supports per-waypoint velocity or log interval duration,
+with full separation (M×20) or translation/rotation separation (M×18).
+Row zero encodes the leading delay. Retired codecs require their original
+source revision; they are not runtime alternatives in this stack.
 
-The decoders support E1 duration/log-duration/profile, hybrid and tri clocks,
-event, reference and projection layouts, the lab mean token and the multistream
-interval tokens, all through the current training tokenizers. Duration is the
-decoder default; legacy mean timing is not a new-training default.
-Decoding precedes IK. The inference policy returns
-the profile-selected executable prefix; the rollout loop has no model-specific
-replanning parameter. Both arms' commands must pass the joint step limit before
-either command is sent. Camera loss pauses commands and discards the old plan.
-Quit with q/Escape or Ctrl-C.
+A `decoder_attribute` control binds only to an explicitly configured decoder.
+Generic inference consumes the decoder's optional `execution_steps()`
+capability; otherwise `replan_every` remains authoritative. Decoding precedes
+IK, and both arms must pass joint-step guards before either command is sent.
+Camera loss pauses commands and discards the plan. Quit with q/Escape or Ctrl-C.
 
 ### One codec: the training tokenizer
 
-`BimanualArcDecoder` decodes every layout with the tokenizer that trains it, the
-live `egomimic.rldb.zarr` codecs (`e1_arc_tokenizer`, `arc_projection_tokenizer`,
-`arc_length_tokenizer`): E1 duration / log-duration / profile, hybrid and tri
-clocks, event and reference layouts, projection layouts, absolute waypoint
-timing, the hybrid rotation budget and speed floors. `FirstStreamArcDecoder`
-executes the multistream interval tokens of `arc_length_tokenizer` (wide,
-stacked and four-clock layouts) to their first moving stream, and
-`BimanualIntervalArcDecoder` decodes them whole. No checkpoint-era tokenizer
-copies are carried: a bundle trained by another revision of a tokenizer needs
-that revision's runtime. Replay tempo and fastest-stream termination run on the
-codec's own clocks through decode-only helpers (`detokenize(times=...)`,
-`stream_clocks`, `stream_ends`); tokenize is untouched.
+`FirstStreamArcDecoder` executes multistream tokens from `arc_length_tokenizer`
+until the first moving stream reaches its configured waypoint prefix cap.
+`BimanualIntervalArcDecoder` decodes the whole token. Both use the training
+codec's own clocks; no checkpoint-era tokenizer copies are carried.
 
-The shared E1 contracts (`model_contract/e1_wrists.yaml` and the projection
-model leaves) declare the decoder with `first_stream: 1` and
-`execute_percent: 50`, and expose the four `decoder_attribute` controls from `model.arc_decoder_controls`
-(`multistream_fastest_stream`, `execute_waypoint_percent`, `arc_speed_percent`,
-`arc_hold_speed_percent`) next to `inference_steps` and `replan_every`. The
-`time` contract declares a `TimeChunkRetimer` so a time-indexed policy gets the
-same replay / hold tempo controls; at 100 % it returns the chunk untouched.
-Bundles exported before 2026-10-18 carry no decoder controls: they decode as
-before and show only the sampler and replanning controls. ARC models
-trained from the stack keep the recipe's own sampler default
-(`model.sampling_steps`, 50 for the HPT-Flow E1 models); the station's former
-20-step ARC default is a dashboard setting, not a contract value.
+Use the exported model contract's `first_stream`, `execute_percent` and
+sampling budget rather than imposing a station-wide default. The frozen time
+contract (`model_contract/frozen_yam_wrists.yaml`) declares `TimeChunkRetimer`
+and replay/hold tempo controls; 100% preserves the original chunk. Replay tempo
+and termination use decode-only helpers and do not alter training targets.
 
 ### Rollout capture and active time
 

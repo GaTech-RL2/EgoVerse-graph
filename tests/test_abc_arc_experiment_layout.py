@@ -13,10 +13,10 @@ from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = (
-    "organize_stationary",
-    "fold_and_stack_towels",
-    "wireless_earbuds",
-    "multitask",
+    "real/organize_stationary",
+    "real/fold_and_stack_towels",
+    "real/wireless_earbuds",
+    "real/multitask",
 )
 
 
@@ -121,7 +121,27 @@ def test_baseline_remains_time_indexed_and_rollout_ready(task):
 def test_migration_targets_exist_and_retired_folders_are_empty():
     mapping = json.loads((ROOT / "docs/experiment_config_migration.json").read_text())
     assert all(
-        (CONFIGS / f"experiment/{target}.yaml").is_file() for target in mapping.values()
+        any(
+            (CONFIGS / f"experiment/{target}{suffix}").is_file()
+            for suffix in (".yaml", ".json")
+        )
+        for target in mapping.values()
     )
     for folder in ("abc_arc/cotrain", "abc_arc/robot_bc", "yam_arc_grid"):
         assert not list((CONFIGS / "experiment" / folder).rglob("*.yaml"))
+
+
+@pytest.mark.parametrize("task", TASKS)
+@pytest.mark.parametrize("leaf", ("baseline", "arc_vel", "arc_dur"))
+def test_public_recipe_is_a_complete_run_entrypoint(task, leaf):
+    with compose_for_audit(CONFIGS / f"experiment/{task}/{leaf}.yaml") as cfg:
+        for section in ("model", "data", "evaluator", "trainer", "callbacks", "logger"):
+            assert cfg[section] is not None
+            OmegaConf.to_container(cfg[section], resolve=True, throw_on_missing=True)
+        assert cfg.model.pipeline.stages
+        assert cfg.model.optimizer._target_
+        assert cfg.data.train_datasets
+        assert cfg.data.valid_datasets
+        assert cfg.evaluator._target_
+        assert cfg.callbacks.model_checkpoint._target_
+        assert cfg.logger.wandb._target_

@@ -32,20 +32,15 @@ def test_shared_parents_construct_their_data_boundary(parent):
         assert data.preflight_configuration()
 
 
-@pytest.mark.parametrize("recipe,expected", sorted(BASELINE["recipes"].items()))
+MOVE_BASELINE = json.loads(
+    (Path(__file__).parent / "fixtures/pusht_before_real_sim_cleanup.json").read_text()
+)
+
+
+@pytest.mark.parametrize("recipe,expected", sorted(MOVE_BASELINE["recipes"].items()))
 def test_existing_pusht_recipe_keeps_exact_configuration(recipe, expected):
-    with compose_for_audit(CONFIGS / "experiment/pusht" / f"{recipe}.yaml") as cfg:
+    with compose_for_audit(CONFIGS / "experiment/sim/pusht" / f"{recipe}.yaml") as cfg:
         actual = OmegaConf.to_container(cfg, resolve=False)
-    actual.update(BASELINE.get("parent_identity_metadata", {}).get(recipe, {}))
-    if recipe == "action_flow_cotrain_uc_multiplier_interpolation":
-        # Only the adapter selector changes: the strict wrapper delegates the
-        # same raw-rate graph, and is verified by the multiplier tests.
-        assert actual["model"]["pipeline"]["_target_"].endswith(
-            ".build_multiplier_conditioned_pipeline"
-        )
-        actual["model"]["pipeline"]["_target_"] = (
-            "egomimic.pipeline.stages_speed.build_speed_conditioned_pipeline"
-        )
     actual.pop("hydra", None)  # A parent's selection path intentionally changed.
     encoded = json.dumps(actual, sort_keys=True, separators=(",", ":")).encode()
     assert hashlib.sha256(encoded).hexdigest() == expected
@@ -73,7 +68,7 @@ def test_retired_parent_paths_have_no_selectable_config_references():
     ],
 )
 def test_selected_pair_still_has_2999_and_4919_with_two_full_batches(recipe):
-    with compose_for_audit(CONFIGS / "experiment/pusht" / f"{recipe}.yaml") as cfg:
+    with compose_for_audit(CONFIGS / "experiment/sim/pusht" / f"{recipe}.yaml") as cfg:
         for group in ("train_datasets", "valid_datasets"):
             datasets = cfg.data[group]
             assert (

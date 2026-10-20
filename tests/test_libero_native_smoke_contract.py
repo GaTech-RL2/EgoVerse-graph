@@ -19,7 +19,7 @@ class Contract(unittest.TestCase):
         self.assertEqual(PARAMETER_COUNT, 39750391)
         self.assertEqual(
             PROFILE,
-            "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+            "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
         )
 
     def test_preparation_rejected(self):

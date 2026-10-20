@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - /experiment/real/fold_and_stack_towels/arc_vel
+  - _self_
+name: fold_and_stack_towels_arc_dur
+description: Frozen since0924plus74 towels HPT300, canonical log-duration ARC M200 D0.33 R100
+abc:
+  arc_clock_mode: duration

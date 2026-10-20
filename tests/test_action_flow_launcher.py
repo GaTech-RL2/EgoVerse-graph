@@ -76,14 +76,15 @@ def test_launcher_is_one_portable_fail_closed_contract():
 
 def test_launcher_accepts_only_the_approved_sweep_and_pins_training_semantics():
     source = _source()
-    assert "pusht/action_flow_bc_usocket_recon1_s42" in source
-    assert "pusht/action_flow_bc_usocket_recon10_s42" in source
-    assert "pusht/action_flow_bc_usocket_recon100_s42" in source
+    assert "sim/pusht/action_flow_bc_usocket_recon1_s42" in source
+    assert "sim/pusht/action_flow_bc_usocket_recon10_s42" in source
+    assert "sim/pusht/action_flow_bc_usocket_recon100_s42" in source
     assert (
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42" in source
+        "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+        in source
     )
     assert (
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+        "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
         in source
     )
     assert "AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42" in source
@@ -220,7 +221,7 @@ def test_preflight_reuses_hashed_dataset_evidence_and_removes_logger_group():
     "selector",
     [
         "pusht/action_flow_chain_manual4919_avln_80k_s42",
-        "pusht/parents/action_flow_usocket_h384",
+        "sim/pusht/parents/action_flow_usocket_h384",
         "pusht_historical/action_flow_cotrain_uc_speed_interpolation",
     ],
 )
@@ -298,7 +299,7 @@ def test_joint_canonical_route_rejects_missing_operational_identity_before_runti
     env.update(dict.fromkeys(variables, "fixture"))
     env.update(
         AF_REPO=str(ROOT),
-        AF_EXPERIMENT="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        AF_EXPERIMENT="sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
         AF_PYTHON="/must-not-execute",
         AF_LAUNCH_MODE=mode,
         AF_RUN_KIND="smoke",

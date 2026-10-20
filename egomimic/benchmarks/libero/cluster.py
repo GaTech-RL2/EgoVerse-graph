@@ -284,7 +284,7 @@ def training_arguments(
         sys.executable,
         "-m",
         "egomimic.trainHydra",
-        f"+experiment=oat/{experiment}",
+        f"+experiment=sim/oat/{experiment}",
         "hydra/launcher=basic",
         f"benchmark.suite={suite}",
         f"benchmark.dataset={dataset}",
@@ -354,7 +354,7 @@ def global_basis_training_arguments(basis, dataset, evidence, mode, run_id, *, g
     cadence = 8 if mode == "smoke" else 2500
     options.update(
         {
-            "+experiment": "oat/libero_arc_global_pilot",
+            "+experiment": "sim/oat/libero_arc_global_pilot",
             "benchmark.arc_basis": basis,
             "hydra.run.dir": str(run),
             "paths.output_dir": str(run),

@@ -17,7 +17,7 @@ def resolved_config():
             config_name="train_zarr_cartesian",
             overrides=[
                 "model=bf/us_unite_register_shared_nt4_s42",
-                "+experiment=pusht/unite_usocket_register_sweep_val01_h16",
+                "+experiment=sim/pusht/unite_usocket_register_sweep_val01_h16",
                 "trainer.devices=2",
                 "++paths.root_dir=.",
             ],
@@ -91,7 +91,7 @@ def test_n8_flow42_ablation_is_explicit_and_contract_valid():
             config_name="train_zarr_cartesian",
             overrides=[
                 "model=bf/us_unite_register_shared_nt8_flow42_s42",
-                "+experiment=pusht/unite_usocket_register_sweep_val01_h16",
+                "+experiment=sim/pusht/unite_usocket_register_sweep_val01_h16",
                 "trainer.devices=1",
                 "evaluator.energy_score_validation_view.per_rank_batch_size=32",
                 "++paths.root_dir=.",

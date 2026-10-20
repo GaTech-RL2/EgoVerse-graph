@@ -1,5 +1,5 @@
 # @package _global_
-# Shared E1 stationery recipe with robot-only complete-episode open-loop
+# Shared frozen YAM stationery recipe with robot-only complete-episode open-loop
 # validation, for robot-only BC and (via _base/stattempo_aria) Aria cotrain.
 # Keep evaluator selection in defaults so teacher-forced kwargs cannot leak in.
 defaults:

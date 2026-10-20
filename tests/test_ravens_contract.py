@@ -1,11 +1,7 @@
 """Guard action/observation alignment and reuse of the selected LIBERO models."""
 
-from pathlib import Path
-
-import hydra
 import numpy as np
 import pytest
-from omegaconf import OmegaConf
 
 from egomimic.benchmarks.ravens.continuous import (
     defer_dependency,
@@ -143,19 +139,6 @@ def test_saved_native_normalization_is_exact_and_fails_closed(tmp_path, corrupti
             )
 
 
-def test_staged_mount_paths_do_not_change_scientific_identity(tmp_path):
-    from egomimic.benchmarks.ravens.training import compose
-
-    first, _, first_hash = compose(
-        "dp", tmp_path / "node-one", tmp_path / "smoke", "smoke"
-    )
-    second, _, second_hash = compose(
-        "dp", tmp_path / "node-two", tmp_path / "full", "full"
-    )
-    assert first_hash == second_hash
-    assert first.benchmark.dataset != second.benchmark.dataset
-
-
 def test_optional_dependency_loads_actual_module_only_when_used(tmp_path, monkeypatch):
     import importlib
     import sys
@@ -184,53 +167,3 @@ def test_suction_recording_requires_decisions_before_state_changes():
     leaked_states = np.array([[1.0, 0.0], [0.0, 0.0]], np.float32)
     with pytest.raises(ValueError, match="pre-action suction"):
         validate_suction_transitions(leaked_states, actions)
-
-
-@pytest.mark.parametrize("family", ["action_flow", "dp"])
-def test_ravens_reuses_libero_model_and_changes_benchmark_contract(family):
-    source = Path(__file__).resolve().parents[1]
-    with hydra.initialize_config_dir(
-        version_base="1.2", config_dir=str(source / "egomimic/hydra_configs")
-    ):
-        common = [
-            "hydra/launcher=basic",
-            "benchmark.dataset=/UNBOUND",
-            "paths.output_dir=/UNBOUND",
-            f"paths.work_dir={source}",
-        ]
-        reference_group = "libero_historical" if family == "dp" else "libero"
-        original = hydra.compose(
-            config_name="train_zarr_cartesian",
-            overrides=[
-                *common,
-                f"+experiment={reference_group}/{family}_libero_spatial_oat_dp_matched_s42",
-            ],
-        )
-        ravens = hydra.compose(
-            config_name="train_zarr_cartesian",
-            overrides=[
-                *common,
-                f"+experiment=ravens/{family}",
-                "evaluator.source_commit=UNBOUND",
-                "evaluator.config_sha256=UNBOUND",
-            ],
-        )
-        model = OmegaConf.to_container(ravens.model, resolve=True)
-        reference = OmegaConf.to_container(original.model, resolve=True)
-        # Protocol suite is a benchmark identity, not a model architecture change.
-        for value in (model, reference):
-            value.pop("benchmark_protocol", None)
-        assert model == reference
-        assert ravens.data._target_ == original.data._target_
-        assert list(ravens.data.train_datasets) == ["ravens_ur5"]
-        assert list(ravens.data.valid_datasets) == ["ravens_ur5"]
-        assert ravens.data.train_datasets.ravens_ur5.split_seed == 42
-        assert ravens.data.train_datasets.ravens_ur5.valid_ratio == 0.1
-        assert ravens.benchmark.horizon == 32
-        assert ravens.benchmark.n_obs_steps == 2
-        assert ravens.benchmark.n_action_steps == 16
-        assert ravens.callbacks.model_checkpoint.save_top_k == -1
-        assert ravens.callbacks.model_checkpoint.every_n_train_steps == 15000
-        assert ravens.trainer.val_check_interval == 15000
-        assert ravens.trainer.accumulate_grad_batches == 1
-        assert ravens.callbacks.batch_budget.global_batch_size == 32

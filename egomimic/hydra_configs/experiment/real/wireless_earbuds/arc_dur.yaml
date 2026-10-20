@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - /experiment/real/wireless_earbuds/arc_vel
+  - _self_
+name: wireless_earbuds_arc_dur
+description: Frozen earbuds HPT300, canonical log-duration ARC M200 D0.33 R100
+abc:
+  arc_clock_mode: duration

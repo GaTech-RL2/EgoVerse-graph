@@ -1,0 +1,190 @@
+# @package _global_
+# Two action interfaces, with the released Spatial observation/AF components.
+defaults:
+  - /experiment/sim/libero/action_flow_libero_spatial_oat_dp_matched_s42
+  - /model/libero/action_flow_oat_dp_matched@_global_.libero_blueprint
+  - override /evaluator: eval_planar_v2
+  - _self_
+name: action_flow_libero_spatial_sharpa_gripper_keypoints_s42
+benchmark:
+  dataset: ${oc.env:LIBERO_ORIGINAL_SPATIAL_ROOT}
+  sharpa_dataset: ${oc.env:LIBERO_SHARPA_SPATIAL_ROOT}
+  batch_size: 16
+model:
+  action_dims: {libero_panda: 7, libero_panda_sharpa: 69}
+  pipeline:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    stages:
+      - _target_: egomimic.pipeline.stages_sampler.KeyedFeatureProjection
+        selector_key: embodiment
+        selector_aliases: {21: libero_panda, 22: libero_panda_sharpa}
+        input_key: [robot0_eef_pos, robot0_eef_quat, robot0_gripper_qpos, task_uid]
+        output_key: proprio_condition
+        output_dim: 10
+        projections:
+          libero_panda: {input_dim: 10, identity: true}
+          libero_panda_sharpa: {input_dim: 30, hidden_dim: 32}
+      - _target_: egomimic.pipeline.stages_oat.OATObservationStage
+        obs_keys: [agentview_rgb, robot0_eye_in_hand_rgb, proprio_condition]
+        encoder:
+          _target_: egomimic.models.oat.factory.make_obs_encoder
+          shape_meta:
+            action: {shape: [69]}
+            obs:
+              agentview_rgb: {shape: [128, 128, 3], type: rgb}
+              robot0_eye_in_hand_rgb: {shape: [128, 128, 3], type: rgb}
+              proprio_condition: {shape: [10], type: state}
+      - ${libero_blueprint.pipeline.stages.1}
+      - ${libero_blueprint.pipeline.stages.2}
+      - _target_: egomimic.pipeline.stages_action_flow.RoutedContentEncoderStage
+        route_key: embodiment
+        route_aliases: {21: libero_panda, 22: libero_panda_sharpa}
+        encoders:
+          libero_panda: ${libero_blueprint.pipeline.stages.3.encoder}
+          libero_panda_sharpa:
+            _target_: egomimic.models.action_flow_unite.UniteActionFlowContentEncoder
+            action_dim: 69
+            action_horizon: ${model.action_horizon}
+            latent_dim: ${model.latent_dim}
+            num_latent_tokens: ${model.num_latent_tokens}
+            condition_dim: ${model.condition_dim}
+            tokenization_time_max: ${libero_blueprint.pipeline.stages.3.encoder.tokenization_time_max}
+            backbone: ${libero_blueprint.pipeline.stages.3.encoder.backbone}
+      - ${libero_blueprint.pipeline.stages.4}
+      - ${libero_blueprint.pipeline.stages.5}
+      - _target_: egomimic.pipeline.stages_action_flow.RoutedContentDecoderStage
+        route_key: embodiment
+        route_aliases: {21: libero_panda, 22: libero_panda_sharpa}
+        reconstruction_noising_start: ${libero_blueprint.pipeline.stages.6.reconstruction_noising_start}
+        reconstruction_noising_probability: ${libero_blueprint.pipeline.stages.6.reconstruction_noising_probability}
+        decoders:
+          libero_panda: ${libero_blueprint.pipeline.stages.6.decoder}
+          libero_panda_sharpa:
+            _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+            action_dim: 69
+            latent_dim: ${model.latent_dim}
+            num_latent_tokens: ${model.num_latent_tokens}
+            action_horizon: ${model.action_horizon}
+            hidden_dim: ${model.hidden_dim}
+            depth: ${libero_blueprint.pipeline.stages.6.decoder.depth}
+            num_heads: ${libero_blueprint.pipeline.stages.6.decoder.num_heads}
+            mlp_ratio: ${libero_blueprint.pipeline.stages.6.decoder.mlp_ratio}
+            dropout: ${libero_blueprint.pipeline.stages.6.decoder.dropout}
+            gradient_checkpointing: true
+      - ${libero_blueprint.pipeline.stages.7}
+normalizer:
+  _target_: egomimic.rldb.zarr.libero_dataset.LiberoMultiEmbodimentNormalizer
+norm_stats:
+  norm_mode: libero_train_limits
+trainer:
+  val_check_interval: 15000
+  limit_val_batches: 1.0
+callbacks:
+  early_recovery:
+    _target_: egomimic.pl_utils.oat_training.EarlyRecoveryCheckpoint
+    output: ${paths.output_dir}
+    first_step: 1000
+  batch_budget:
+    global_batch_size: 32
+    expected_source_batches: {libero_panda: 16, libero_panda_sharpa: 16}
+  av_only_layer_norm:
+    require_routed: true
+  dit_half:
+    source_batch_sizes: {libero_panda: 16, libero_panda_sharpa: 16}
+  model_checkpoint:
+    every_n_train_steps: 15000
+    every_n_epochs: null
+    save_on_train_epoch_end: false
+    auto_insert_metric_name: false
+    filename: epoch-{epoch:04d}-step-{step:09d}
+data:
+  train_datasets:
+    libero_panda:
+      valid_ratio: 0.1
+    libero_panda_sharpa: &sharpa
+      _target_: egomimic.rldb.zarr.libero_dataset.LiberoDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.libero_dataset.LiberoReplayResolver
+        folder_path: ${benchmark.sharpa_dataset}
+        suite: libero_spatial
+        embodiment: libero_panda_sharpa
+        action_representation: wrist_hand_keypoints
+        action_dim: 69
+        gripper_state_dim: 22
+        decoded_cache: false
+        key_map:
+          _target_: egomimic.rldb.zarr.libero_dataset.keymap
+          n_obs_steps: 2
+          horizon: 32
+      mode: train
+      valid_ratio: 0.1
+      split_seed: ${seed}
+  valid_datasets:
+    libero_panda:
+      valid_ratio: 0.1
+    libero_panda_sharpa:
+      <<: *sharpa
+      mode: valid
+  train_dataloader_params:
+    libero_panda_sharpa:
+      batch_size: 16
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      drop_last: true
+  valid_dataloader_params:
+    libero_panda:
+      batch_size: 16
+    libero_panda_sharpa:
+      batch_size: 16
+      num_workers: 4
+      pin_memory: true
+      persistent_workers: true
+      shuffle: false
+      drop_last: false
+
+evaluator:
+  semantic_blocks: [[0, 3], [3, 6], [6, 7]]
+  semantic_blocks_by_embodiment:
+    libero_panda: [[0, 3], [3, 6], [6, 7]]
+    libero_panda_sharpa: [[0, 3], [3, 6], [6, 69]]
+  energy_score_max_batches_per_rank: 1
+  energy_score_validation_view:
+    definition: first_deterministic_validation_batch_per_rank_and_embodiment
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: 16
+    world_size: 1
+  energy_score_provenance:
+    source_commit: ${run_provenance.source_commit}
+    normalization_sha256: ${run_provenance.normalization_sha256}
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    prediction_horizon: 32
+    latent_shape: [16, 16]
+    sampler: euler
+    sampler_steps: 50
+    cfg_scale: 4.0
+    model_autocast_precision: bf16
+    action_representation:
+      libero_panda: wrist6_grip1
+      libero_panda_sharpa: native_wrist6_operator_hand_xyz63
+  unite_diagnostics: null
+  action_flow_diagnostics:
+    enabled: true
+    noise_seed_bank_path: ${run_provenance.diagnostic_seed_bank_path}
+    noise_seed_bank_sha256: ${run_provenance.diagnostic_seed_bank_sha256}
+    raw_noise_levels: [0.0, 0.25, 0.5, 0.75, 1.0]
+    max_samples: 8
+    jacobian_samples: 2
+    capture_activations: true
+    activation_layer_map: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11}
+    cknna_k: 2
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/diagnostics
+    validation_view: ${evaluator.energy_score_validation_view}
+    provenance: ${evaluator.energy_score_provenance}
+run_provenance:
+  source_commit: null
+  normalization_sha256: null
+  split_manifest_sha256: null
+  diagnostic_seed_bank_path: ${oc.env:LIBERO_DIAGNOSTIC_SEED_BANK}
+  diagnostic_seed_bank_sha256: 91fb257f912235679e35eb444da887100e61b4ecef193a16b3c882c665e85129

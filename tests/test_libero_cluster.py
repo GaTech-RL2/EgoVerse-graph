@@ -369,7 +369,7 @@ def test_campaign_plan_shares_oat_and_schedules_both_arc_variants():
         assert jobs[f"{suite}/oat"]["requires"] == [f"{suite}/tokenizer"]
         for mode in ("dur", "stk"):
             assert (
-                f"+experiment=oat/libero_arc_{mode}_policy"
+                f"+experiment=sim/oat/libero_arc_{mode}_policy"
                 in jobs[f"{suite}/arc_{mode}"]["argv"]
             )
             assert (

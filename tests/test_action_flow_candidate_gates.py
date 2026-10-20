@@ -143,22 +143,22 @@ def test_candidate_two_optimizer_update_config_gate(experiment, tmp_path, monkey
     "experiment,path,value",
     [
         (
-            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42",
+            "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42",
             "model.pipeline.stages.5.flow_clean_gradient_mode",
             "attached",
         ),
         (
-            "pusht/action_flow_bc_usocket_graph_section_s42",
+            "sim/pusht/action_flow_bc_usocket_graph_section_s42",
             "model.reconstruction_weight",
             1.0,
         ),
         (
-            "pusht/action_flow_bc_usocket_bridge_likelihood_s42",
+            "sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42",
             "run_provenance.inference.sampler",
             "reverse_euler",
         ),
         (
-            "pusht/action_flow_bc_usocket_bridge_likelihood_s42",
+            "sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42",
             "model.pipeline.stages.7.tau",
             0.01,
         ),

@@ -162,6 +162,7 @@ class E1TempoAccumulator:
         progress_smooth_hz: float | None = None,
         velocity_norm: str = "path",
         duration_timing: str = "delta",
+        speed_encoding: str = "interval",
         arc_match_points: int = 100,
         span_floor_m: float = 0.01,
         arcmatch_gt_span_m: float | None = None,
@@ -222,6 +223,7 @@ class E1TempoAccumulator:
                 }[variant],
                 progress_smooth_hz=progress_smooth_hz,
                 duration_timing=duration_timing,
+                speed_encoding=speed_encoding,
             )
         self._reset()
 

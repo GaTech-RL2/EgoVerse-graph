@@ -332,6 +332,9 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
         projection_min_speed=1e-6,
         duration_timing="delta",
         speed_floors=None,
+        # A bundle exported before 2026-10-20 names no speed encoding and was trained on
+        # point speeds; current contracts declare "interval".
+        speed_encoding="point",
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
@@ -387,6 +390,7 @@ class BimanualArcDecoder(ReplayTempo, ChunkTermination):
                 velocity_norm="path",
                 velocity_mode=E1_VELOCITY_MODE[token_layout],
                 duration_timing=duration_timing,
+                speed_encoding=speed_encoding,
             )
             if speed_floors is not None:
                 kwargs["speed_floors"] = speed_floors
@@ -837,6 +841,9 @@ def main():
         "--arc-duration-timing", choices=("delta", "absolute"), default="delta"
     )
     parser.add_argument(
+        "--arc-speed-encoding", choices=("interval", "point"), default="point"
+    )
+    parser.add_argument(
         "--arc-first-stream",
         type=int,
         choices=(0, 1),
@@ -874,6 +881,7 @@ def main():
         execute_percent=args.arc_execute_percent,
         first_stream=args.arc_first_stream,
         duration_timing=args.arc_duration_timing,
+        speed_encoding=args.arc_speed_encoding,
     )
     decoder.set_speed(args.arc_speed, args.arc_hold_speed)
     result = decoder(np.load(args.tokens, allow_pickle=False))

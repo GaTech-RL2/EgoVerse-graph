@@ -2,12 +2,12 @@
  "source": "8e80f090c2463cdcc8007ad6be6856a178870187",
  "main": "7043c0251a350578c6da5a316a79c5ed7d21033d",
  "configs": {
-  "bc_rl2_stattempo_slowpace366_arcdur_m200_d033": "107c02218df716f7af206adb73d4f2c0ed3ead6dfd45e0496a482a0c65abd4b3",
-  "bc_rl2_stattempo_slowpace366_arcvel_m200_d033": "7e15ac6f1becfc3d880fac86c4006a062d2995d6513e7fc4c3cc89a9b4255290",
-  "bc_rl2_stattempo_slowpace366_arcdur_abstime_m200_d033": "2b32ba61b1e31c800aa3d819c4e415252c40744de5e8e45ad148e2e8f984e12e",
-  "bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033": "b0b4b0470c404de397111e48cff899533f7ffdd0453000be65d01378df8ed500",
-  "bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033": "10ae3bdd39a86dad18718d0c5ed8292cc956e4ff39b6e8fb953b2c8c1a90d447",
-  "bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033": "97615943e0d628693427e6de91640a02516eee347d7cec536f6f641990591f74"
+  "bc_rl2_stattempo_slowpace366_arcdur_m200_d033": "a1eb967a2452aaa6d14ab601013ce42195a4eeb92f38211902c99a0b48f81095",
+  "bc_rl2_stattempo_slowpace366_arcvel_m200_d033": "6b406ba86dfbdc90bed17aa4547773f3478abedfaba3aafb0cd523143c14854a",
+  "bc_rl2_stattempo_slowpace366_arcdur_abstime_m200_d033": "b64f61df2c800bb109ac20ed2d969bb116aacb21d77c406d6e0020b4c26a1539",
+  "bc_rl2_stattempo_slowpace366_arcvel_nosmooth_m200_d033": "50169b927f70cda897bc81f1750bf7b5bde73c3786d07eaecd940ba71fe196d2",
+  "bc_rl2_stattempo_slowpace366_arc_projection_dur_m200_d033": "661d6e7dc6963230fe5b456780f00c57efa57686933ccd722109cf1eb3ed8b6d",
+  "bc_rl2_stattempo_slowpace366_arc_projection_vel_m200_d033": "0818eb25be83e33676cafb27ecff629bdb8526fdce282a3e8c2c06aa5211cddb"
  },
  "codecs": {
   "motion/mean": "294796c37e92e78aa5bc3f5adc01e19bfd2fec768d4d4cb1e2a35f39019ebb67",

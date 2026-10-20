@@ -23,10 +23,15 @@ changes. Three things over the parent:
   carries the per-arm speed at that arc-length position as two extra columns:
   ``(M, 16) = [14 canonical | v_L(u_m), v_R(u_m)]``. ``detokenize`` integrates
   the clock, t(u) = ∫ du / v(u) with v piecewise linear between waypoints.
-  The waypoint speeds are the raw 30 Hz chunk's path speed, unsmoothed by
-  default (``speed_smooth_frames=1``, Aidan 2026-10-19; the fold-era 7-frame
-  moving average is still available — see ``chunk_speed`` for why not a
-  Butterworth).
+  ``speed_encoding="interval"`` (the default since 2026-10-20) stores each
+  waypoint segment's MEAN speed: its length on the waypoint path over the true
+  seconds it took, so ``seconds = length / speed`` returns arcdur's clock exactly,
+  pauses included. ``"point"`` is the original encoding, kept to decode older
+  checkpoints: the raw 30 Hz chunk's path speed (``chunk_speed``, unsmoothed by
+  default since 2026-10-19) read off at each waypoint, decoded as t(u) = ∫ du / v(u).
+  It loses pauses: arc-uniform waypoints sample slow stretches sparsely (32 % of
+  slow-pace time gets 9 % of the samples) and the raw path is longer than the
+  waypoint path through jitter, so its GT round trip is 15.7 mm vs arcdur's 0.8.
 
 * ``velocity_mode="logdur"`` — the tempo-invariance ablation's channel
   (Ideas note *Arc Tokenizer Tempo Invariance Changes*, #1 + #2). Same
@@ -685,6 +690,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         velocity_norm: str = "chord",
         velocity_mode: str = "mean",
         speed_smooth_frames: int = 1,
+        speed_encoding: str = "interval",
         duration_timing: str = "delta",
         min_speed: float = 0.01,
         progress_smooth_hz: float | None = None,
@@ -746,6 +752,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
+        if speed_encoding not in ("interval", "point"):
+            raise ValueError("speed_encoding must be 'interval' or 'point'")
+        self.speed_encoding = speed_encoding  # read by velocity_mode='profile' only
         self.min_speed = float(min_speed)
         self.progress_smooth_hz = (
             None if progress_smooth_hz in (None, 0, 0.0) else float(progress_smooth_hz)
@@ -1258,7 +1267,25 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 else:
                     u = np.linspace(0.0, span, M)
                 fidx = np.interp(u, cum, np.arange(len(cum)))
-                if self.velocity_mode == "profile":
+                if (
+                    self.velocity_mode == "profile"
+                    and self.speed_encoding == "interval"
+                ):
+                    # Mean speed per segment, measured on the path the decoder walks.
+                    seconds = np.maximum(np.diff(fidx) * dt, LOGDUR_MIN_DT) * (
+                        np.diff(u) > 1e-9
+                    )
+                    wp = wps[k]
+                    seg = np.diff(
+                        cumulative_arc_length(
+                            self.progress_coordinates(wp[:, 0:3], wp[:, 3:6])
+                        )
+                    )
+                    prof[:, k] = _dur_col_to_speed(
+                        np.r_[seconds, seconds[-1]], seg, 0.0
+                    )
+                    prof[M - 1, k] = prof[M - 2, k]
+                elif self.velocity_mode == "profile":
                     v = chunk_speed(pos, dt, self.speed_smooth_frames)
                     prof[:, k] = np.maximum(np.interp(fidx, np.arange(len(v)), v), 0.0)
                 elif self.velocity_mode == "dur":
@@ -1418,6 +1445,14 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             "durtri",
         ):  # durhyb / durtri: the translation clock
             return durations_to_clock_abs(col, cum, min_speed=self.min_speed)
+        if self.velocity_mode == "profile" and self.speed_encoding == "interval":
+            # seconds = segment length / its mean speed. The floor only guards a zero or
+            # negative prediction: a trailing hold is a few nm covered at ~1e-9 m/s, and
+            # the whole-clock speed bound below catches an implausible total.
+            seconds = np.diff(cum) / np.maximum(col[:-1], 1e-12)
+            return durations_to_clock_abs(
+                np.r_[seconds, 0.0], cum, min_speed=self.min_speed
+            )
         if self.velocity_mode in SPEED_MODES:  # the translation clock, from speeds
             cfg = self.tokenizer.config
             dur = _speed_col_to_dur(

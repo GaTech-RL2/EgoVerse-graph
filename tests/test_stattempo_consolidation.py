@@ -96,8 +96,9 @@ def test_resolved_recipes_preserve_original_scientific_contract(name):
 @pytest.mark.parametrize("case", FIXTURE["codecs"])
 def test_tokens_and_decoded_clocks_match_original_source(case):
     kind, mode = case.split("/")
-    # The original source smoothed speeds over 7 frames; recipes now default to 1.
-    c = codec(mode, speed_smooth_frames=7)
+    # The original source smoothed speeds over 7 frames and sampled them at the
+    # waypoints; recipes now default to no smoothing and interval mean speeds.
+    c = codec(mode, speed_smooth_frames=7, speed_encoding="point")
     tokens = c.transform({"actions_cartesian": chunk(kind)})["actions_cartesian"]
     decoded = c.detokenize(tokens, action_horizon=100)
     payload = json.dumps(

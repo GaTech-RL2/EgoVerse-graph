@@ -136,6 +136,7 @@ inference_contracts:
           decoder:
             _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
             token_layout: e1_profile
+            speed_encoding: interval
             min_distance_unit: ${e1.D}
             resampled_vector_length: ${e1.M}
             dt: 0.03333333333333333

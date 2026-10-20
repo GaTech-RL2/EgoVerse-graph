@@ -52,6 +52,7 @@ inference:
         decoder:
           _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
           token_layout: ${model.projection_layout}
+          speed_encoding: interval
           projection_offset_m: ${model.projection_offset_m}
           projection_min_speed: ${model.projection_min_speed}
           min_distance_unit: ${e1.D}

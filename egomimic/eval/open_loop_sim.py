@@ -1187,6 +1187,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         projection_offset_m: Sequence[float] | None = None,
         projection_min_speed: float = 1e-6,
         duration_timing: str = "delta",
+        speed_encoding: str = "interval",
         **kwargs,
     ):
         mode = str(action_mode)
@@ -1282,6 +1283,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
         if duration_timing != "delta" and self.token_layout != "e1_dur":
             raise ValueError("Absolute waypoint timing requires token_layout='e1_dur'")
         self.duration_timing = str(duration_timing)
+        self.speed_encoding = str(speed_encoding)
         self.tick_prefix = (
             bool(tick_prefix) or self.token_layout in E1_WHOLE_TOKEN_LAYOUTS
         )
@@ -2121,6 +2123,7 @@ class OpenLoopSimEval(BimanualCartesianEval):
             speed_floors=speed_floors,
             **projection_kwargs,
             duration_timing=getattr(self, "duration_timing", "delta"),
+            speed_encoding=getattr(self, "speed_encoding", "interval"),
         )
 
     def _decode_tick_prefix(self, prediction: np.ndarray, steps: int) -> np.ndarray:

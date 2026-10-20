@@ -19,52 +19,47 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
-    "experiment/_shared/clock_settings": "multitask/arc_vel",
-    "experiment/_shared/frozen_yam_arc": "wireless_earbuds/arc_vel",
-    "data/ravens/continuous": "ravens/action_flow",
-    "evaluator/ravens": "ravens/action_flow",
-    "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
-    "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
-    "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "data/pusht/parents/standard_dp_uc_h16": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
-    "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
-    "model/e1/hpt_flow_wrists": "e1/abcs_time",
+    "experiment/_shared/clock_settings": "real/multitask/arc_vel",
+    "experiment/_shared/frozen_yam_arc": "real/wireless_earbuds/arc_vel",
+    "experiment/_shared/frozen_yam/base": "real/wireless_earbuds/baseline",
+    "evaluator/frozen_yam_time": "real/wireless_earbuds/baseline",
+    "model/abc_arc/frozen_yam_hpt_flow": "real/wireless_earbuds/baseline",
+    "model/abc_arc/frozen_yam_hpt300_time": "real/wireless_earbuds/baseline",
+    "model_contract/frozen_yam_wrists": "real/wireless_earbuds/baseline",
+    "data/pusht/planar_chain_manual4919_standard_retimed": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/parents/standard_dp_uc_h16": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "model/libero/oat_dp_matched": "sim/libero_historical/dp_libero10_oat_dp_matched_s42",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model_contract/abc_visual": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_yam_visual": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_bimanual_visual": "organize_stationary/baseline",
-    "model/abc_arc/abc_dit_yam_visual": "multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
-    "data/abc_arc/abc_visual": "fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
-    "data/abc_arc/stationery_rl2_hpt_baseline": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "organize_stationary/variants/stationery_rl2_hpt300_visual_hybrid_openloop",
+    "model_contract/abc_visual": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_yam_visual": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_bimanual_visual": "real/organize_stationary/baseline",
+    "model/abc_arc/abc_dit_yam_visual": "real/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
+    "data/abc_arc/abc_visual": "real/fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
+    "data/abc_arc/stationery_rl2_hpt_baseline": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_hybrid_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
-    "data/abc_arc/organize_rl2_elmo_cotrain": "organize_stationary/baseline",
-    "experiment/_shared/visual_hpt300": "fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
-    "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
-    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
-    "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
-    "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
-    "evaluator/e1/yam_action_flow": "e1/yam_stationary_action_flow_h816_s42",
-    "evaluator/e1/yam_human_keypoints_action_flow": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
-    "data/libero/action_flow_libero10_val01_h16": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "data/libero/oat": "oat/libero_oattok",
-    "model/oat/tokenizer": "oat/libero_oattok",
-    "model/oat/policy": "oat/libero_oatpolicy",
-    "model/oat/arc_tokenizer": "oat/libero_arc_oattok",
-    "model/oat/arc_policy": "oat/libero_arc_policy",
-    "model/oat/arc_oat_policy": "oat/libero_arc_oatpolicy",
-    "model/oat/arc_oat_dp_policy": "oat/libero_arc_oat_dp_policy",
+    "data/abc_arc/organize_rl2_elmo_cotrain": "real/organize_stationary/baseline",
+    "experiment/_shared/visual_hpt300": "real/fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
+    "model/bf/bf_planar_v2_arc_graph_tok": "sim/pusht/planar_v2_usocket_arc_graph_tok",
+    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "sim/pusht/parents/action_flow_usocket_h384",
+    "data/libero/action_flow_libero10_val01_h16": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "data/libero/oat": "sim/oat/libero_oattok",
+    "model/oat/tokenizer": "sim/oat/libero_oattok",
+    "model/oat/policy": "sim/oat/libero_oatpolicy",
+    "model/oat/arc_tokenizer": "sim/oat/libero_arc_oattok",
+    "model/oat/arc_policy": "sim/oat/libero_arc_policy",
+    "model/oat/arc_oat_policy": "sim/oat/libero_arc_oatpolicy",
+    "model/oat/arc_oat_dp_policy": "sim/oat/libero_arc_oat_dp_policy",
 }
 MODEL_CONTEXTS = {
-    "experiment/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
-    "experiment/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
-    "experiment/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
-    "experiment/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
-    "experiment/oat/libero_base": "oat/tokenizer",
+    "experiment/sim/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
+    "experiment/sim/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
+    "experiment/sim/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
+    "experiment/sim/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
+    "experiment/sim/oat/libero_base": "oat/tokenizer",
 }
 
 # Explicit non-production composition inputs, scoped and restored even on error.
@@ -135,7 +130,7 @@ def audit_context(path):
         # This is a dataset fragment, not a selectable DataModule. Audit it
         # in the same nested package used by its real data parents.
         return "train_zarr_cartesian", [
-            "+experiment=pusht/planar_v2_usocket_dp_standard",
+            "+experiment=sim/pusht/planar_v2_usocket_dp_standard",
             "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
         ]
     group, _, entry = name.partition("/")
@@ -146,30 +141,19 @@ def audit_context(path):
     experiment = None
     if group == "experiment":
         experiment = entry
-    elif "/e1/" in f"/{name}/":
-        experiment = "e1/fold_time"
     elif group in {"model", "data"} and entry.startswith(("bf/", "pusht/")):
-        experiment = "pusht/planar_v2_usocket_dp_standard"
+        experiment = "sim/pusht/planar_v2_usocket_dp_standard"
     elif group in {"model", "data"} and entry.startswith(("abc/", "abc_arc/")):
         # The retired language-conditioned ABC ablations are gone; the kept
         # 20-episode fstshirt baseline is the remaining shared ABC context.
         experiment = "abc/yam_fstshirt_dp"
     # Stationery fragments require the same FT sizes, source frames and fixed
     # ranges supplied by their real inheriting recipes, never invented values.
-    if (
-        name.startswith("model/e1/hpt_flow_wrists_ft")
-        or name
-        in {
-            "model/e1/hpt300_flow_wrists_time",
-            "model/e1/hpt300_flow_wrists_arcdur",
-            "model_contract/e1_wrists",
-        }
-        or name.startswith("data/abc_arc/stationery_")
-    ):
-        experiment = "wireless_earbuds/baseline"
+    if name.startswith("data/abc_arc/stationery_"):
+        experiment = "real/wireless_earbuds/baseline"
     if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
-        # Frozen YAM pools select their codec through the HPT300 recipe's e1.*.
-        experiment = "fold_and_stack_towels/baseline"
+        # Frozen YAM pools select their codec through the HPT300 recipe.
+        experiment = "real/fold_and_stack_towels/baseline"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"
@@ -229,7 +213,7 @@ def _compose_for_audit(path):
         cfg.hydra.job.id = "config-audit"
         if "pi05" in cfg and OmegaConf.is_missing(cfg.pi05, "pretrained_weights"):
             cfg.pi05.pretrained_weights = "/tmp/egoverse-config-audit/pi-weights"
-        if "e1" in cfg:
+        if "frozen_yam" in cfg:
             for key, value in {
                 "variant": "time",
                 "spread": "smoke",
@@ -237,8 +221,8 @@ def _compose_for_audit(path):
                 "valid_root": "/tmp/audit/valid",
                 "data_root": "/tmp/audit/yam",
             }.items():
-                if OmegaConf.is_missing(cfg.e1, key):
-                    cfg.e1[key] = value
+                if OmegaConf.is_missing(cfg.frozen_yam, key):
+                    cfg.frozen_yam[key] = value
         for section, values in {
             "benchmark": {"dataset": "/tmp/audit/libero", "arc_basis": "chebyshev"},
             "speed_diagnostic": {"speed_reference": 0.1},
@@ -248,18 +232,9 @@ def _compose_for_audit(path):
                 for key, value in values.items():
                     if OmegaConf.is_missing(cfg[section], key):
                         cfg[section][key] = value
-        if OmegaConf.select(cfg, "benchmark.suite") == "ravens-continuous-v1":
-            # Explicit constructor-only identities, never launch certificates.
-            # Production Ravens configs retain their mandatory missing fields.
-            for key, value in {
-                "source_commit": "0" * 40,
-                "config_sha256": "0" * 64,
-            }.items():
-                if OmegaConf.is_missing(cfg.evaluator, key):
-                    cfg.evaluator[key] = value
         if (
             path.relative_to(CONFIGS).as_posix()
-            == "experiment/oat/libero_arc_shared_r384_d1p6_m36.yaml"
+            == "experiment/sim/oat/libero_arc_shared_r384_d1p6_m36.yaml"
         ):
             # This reusable shortlist explicitly requires stk/dur selection.
             # Supplying an audit context does not make null a runtime default.

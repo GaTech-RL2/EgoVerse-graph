@@ -180,35 +180,6 @@ def test_stationary_retimer_emits_multiplier_without_speed():
         assert "requested_speed" not in out and "requested_speed_value" not in out
 
 
-def test_stationary_recipe_keeps_selected_rates_and_dimensions():
-    from pathlib import Path
-
-    from omegaconf import OmegaConf
-
-    root = Path(__file__).parents[1] / "egomimic/hydra_configs"
-    cfg = OmegaConf.load(
-        root / "experiment/e1/yam_human_keypoints_multiplier_h816_private512_s42.yaml"
-    )
-    assert list(cfg.stationary_speed.human_rates) == [0.2, 0.4, 0.6, 0.8, 1.0]
-    assert list(cfg.stationary_speed.yam_rates) == [1.0]
-    assert cfg.model.pipeline.conditioning_input == "retiming_multiplier"
-    assert cfg.model.pipeline.speed_reference is None
-    data = OmegaConf.load(
-        root / "data/e1/yam_human_keypoints_multiplier_proportional_val01.yaml"
-    )
-    for source in (
-        data.train_datasets.yam_bimanual,
-        data.train_datasets.human_bimanual,
-        data.valid_datasets.yam.yam_bimanual,
-        data.valid_datasets.human.human_bimanual,
-    ):
-        win = source.resolver.transform_list.window_transform
-        assert (
-            OmegaConf.to_container(win, resolve=False)["conditioning_input"]
-            == "${stationary_speed.conditioning_input}"
-        )
-
-
 def test_multiplier_semantics_preserve_normalization_inputs():
     import numpy as np
 

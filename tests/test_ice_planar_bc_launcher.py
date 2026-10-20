@@ -58,10 +58,10 @@ def test_parent_runner_inherits_exact_repo_pythonpath_for_checkpoint_validation(
 def test_launcher_exposes_supported_bc_configs_and_explicit_training_limits():
     text = LAUNCHER.read_text()
 
-    assert "pusht/planar_v2_usocket_direct_bc" in text
-    assert "pusht/planar_v2_usocket_arc_bc" in text
-    assert "pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc" in text
-    assert "pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg" in text
+    assert "sim/pusht/planar_v2_usocket_direct_bc" in text
+    assert "sim/pusht/planar_v2_usocket_arc_bc" in text
+    assert "sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc" in text
+    assert "sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg" in text
     assert "ICE_VALIDATION_DEFERRED" in text
     assert "ICE_LIMIT_VAL_BATCHES must be zero when validation is deferred" in text
     assert '"++run_provenance.validation_deferred=$ICE_VALIDATION_DEFERRED"' in text

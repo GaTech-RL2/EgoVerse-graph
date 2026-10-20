@@ -24,7 +24,7 @@ def test_manual4919_recipe_uses_effective_split_and_cadence(monkeypatch, row):
     ):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=pusht/{row}"],
+            overrides=[f"+experiment=sim/pusht/{row}"],
         )
     chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper
     valid = cfg.data.valid_datasets.pushshapes_sim_chain_gripper
@@ -62,7 +62,7 @@ def test_manual4919_native_evaluator_decoder_instantiates(monkeypatch, row):
     ):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=pusht/{row}"],
+            overrides=[f"+experiment=sim/pusht/{row}"],
         )
     decoder_cfg = (
         cfg.evaluator.native_decoder
@@ -89,7 +89,9 @@ def test_manual4919_cotrain_resolves_per_domain_energy_distance(monkeypatch):
     ):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=["+experiment=pusht/parents/action_flow_cotrain_uc_manual4919"],
+            overrides=[
+                "+experiment=sim/pusht/parents/action_flow_cotrain_uc_manual4919"
+            ],
         )
     assert cfg.evaluator.energy_score_distance is None
     distances = OmegaConf.to_container(

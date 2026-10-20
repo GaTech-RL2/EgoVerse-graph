@@ -182,7 +182,7 @@ def test_typed_suite_and_receipt_isolation(suite):
 def test_recipe_only_changes_suite_identity(suite):
     text = (
         ROOT
-        / "egomimic/hydra_configs/experiment/libero_historical"
+        / "egomimic/hydra_configs/experiment/sim/libero_historical"
         / (PROFILES[suite].name + ".yaml")
     ).read_text()
     assert "action_flow_libero10_h240_euler50_dithalf_80k_s42" in text
@@ -222,7 +222,7 @@ def scheduler():
     "profile",
     [
         PROFILES["libero_spatial"].experiment,
-        "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
     ],
 )
 def test_ice_native_preserves_real_resource_bindings(constraint, gpu, profile):
@@ -394,7 +394,7 @@ def test_explicit_joint_profile_and_contract_reject_single_source_or_semantic_dr
             return_hydra_config=True,
             overrides=[
                 "hydra/launcher=basic",
-                "+experiment=libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                "+experiment=sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
                 "paths.output_dir=" + str(tmp_path),
                 "paths.work_dir=" + str(ROOT),
             ],
@@ -574,7 +574,7 @@ def test_joint_phase_factory_composes_actual_paths_and_private_shared_contract(
         preflight = dict(
             schema="libero-joint-launch-preflight/v1",
             status="PASS",
-            profile="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+            profile="sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
             model_contract_sha256=contract_sha(resolved),
             runtime_lock=reference(runtime_path),
             **identity,

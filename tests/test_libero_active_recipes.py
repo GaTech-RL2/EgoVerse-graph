@@ -27,7 +27,9 @@ def test_active_directory_contains_selected_eight_and_explicit_joint_recipe():
     # The joint experiment is separate from the original four AF/DP pairs.
     expected.add("action_flow_libero_spatial_sharpa_gripper_keypoints_s42.yaml")
     expected.add("action_flow_libero_spatial_sharpa_mot_s42.yaml")
-    assert {p.name for p in (CONFIG / "experiment/libero").glob("*.yaml")} == expected
+    assert {
+        p.name for p in (CONFIG / "experiment/sim/libero").glob("*.yaml")
+    } == expected
 
 
 @pytest.mark.parametrize("suite,steps", TARGETS.items())
@@ -35,11 +37,13 @@ def test_active_pair_preserves_selected_scientific_contract(suite, steps):
     with initialize_config_dir(config_dir=str(CONFIG), version_base="1.3"):
         af = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/action_flow_{suite}_oat_dp_matched_s42"],
+            overrides=[
+                f"+experiment=sim/libero/action_flow_{suite}_oat_dp_matched_s42"
+            ],
         )
         dp = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/dp_{suite}_oat_batch16_keep_steps_s42"],
+            overrides=[f"+experiment=sim/libero/dp_{suite}_oat_batch16_keep_steps_s42"],
         )
     assert (af.model.num_latent_tokens, af.model.latent_dim) == (16, 16)
     assert af.model.pipeline.stages[-1].action_velocity_weight == 1
@@ -64,11 +68,11 @@ def test_active_pair_preserves_selected_scientific_contract(suite, steps):
 
 
 @pytest.mark.parametrize(
-    "recipe", sorted((CONFIG / "experiment/libero_historical").glob("*.yaml"))
+    "recipe", sorted((CONFIG / "experiment/sim/libero_historical").glob("*.yaml"))
 )
 def test_historical_profiles_remain_composable(recipe):
     with initialize_config_dir(config_dir=str(CONFIG), version_base="1.3"):
         compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero_historical/{recipe.stem}"],
+            overrides=[f"+experiment=sim/libero_historical/{recipe.stem}"],
         )

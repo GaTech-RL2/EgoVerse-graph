@@ -16,7 +16,7 @@ class NativeLaunchProfile:
 
     @property
     def experiment(self):
-        return "libero_historical/" + self.name
+        return "sim/libero_historical/" + self.name
 
 
 HISTORICAL_NATIVE_PROFILES = {
@@ -73,7 +73,7 @@ def profile_for_experiment(experiment):
 
 
 def profile_for_config(config):
-    profile = profile_for_experiment("libero_historical/" + str(config.get("name")))
+    profile = profile_for_experiment("sim/libero_historical/" + str(config.get("name")))
     if config["benchmark"]["suite"] != profile.suite:
         raise ValueError("native suite/recipe identity mismatch")
     expected_ablation = (
@@ -128,7 +128,7 @@ class JointNativeLaunchProfile:
 
     @property
     def experiment(self):
-        return "libero/" + self.name
+        return "sim/libero/" + self.name
 
 
 SPATIAL_HAND_JOINT_PROFILE = JointNativeLaunchProfile(

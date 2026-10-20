@@ -107,7 +107,7 @@ def test_history_invalid_length_rejected_before_episode_read(monkeypatch):
 
 
 def test_history_resolver_forwards_option_to_native_leaf():
-    from egomimic.rldb.zarr.e1_resolvers import (
+    from egomimic.rldb.zarr.embodiment_resolvers import (
         LocalFolderEpisodeResolverWithEmbodimentOverride,
     )
 

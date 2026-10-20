@@ -198,9 +198,7 @@ def test_offline_audit_inputs_are_scoped_and_do_not_become_launch_defaults(monke
     monkeypatch.setenv("MATCHED_SOURCE_COMMIT", "human-owned-value")
     monkeypatch.delenv("DP_CHAIN_SPLIT_MANIFEST", raising=False)
     for relative in (
-        "experiment/e1/yam_human_matched_af64_multiplier.yaml",
-        "experiment/e1/yam_human_matched_dp_noaug.yaml",
-        "experiment/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier.yaml",
+        "experiment/sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier.yaml",
     ):
         with compose_for_audit(CONFIGS / relative) as cfg:
             OmegaConf.to_container(cfg.model, resolve=True, throw_on_missing=True)

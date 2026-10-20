@@ -395,16 +395,16 @@ def test_6d_rotation_and_invalid_output():
     ("variant", "action_dim", "expected_layout"),
     [
         ("time", 14, None),
-        ("arcvel", 16, "e1_profile"),
-        ("arcdur", 16, "e1_dur"),
+        ("velocity", 20, "velocity"),
+        ("duration", 20, "duration"),
     ],
 )
-def test_selected_e1_model_derives_its_rollout_decoder(
+def test_selected_arc_model_derives_its_rollout_decoder(
     variant, action_dim, expected_layout
 ):
     training = OmegaConf.create(
         {
-            "e1": {
+            "arc": {
                 "variant": variant,
                 "D": 0.4,
                 "M": 100,
@@ -441,7 +441,8 @@ def test_selected_e1_model_derives_its_rollout_decoder(
                 if expected_layout is None
                 else {
                     "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
-                    "token_layout": expected_layout,
+                    "clock_mode": expected_layout,
+                    "streams": "full_separation",
                 }
             },
         }
@@ -453,14 +454,15 @@ def test_selected_e1_model_derives_its_rollout_decoder(
     else:
         assert selected["decoder"] == {
             "_target_": "egomimic.robot.arc_decoder.FirstStreamArcDecoder",
-            "token_layout": expected_layout,
+            "clock_mode": expected_layout,
+            "streams": "full_separation",
         }
 
 
-def test_selected_e1_model_rejects_an_incompatible_token_width():
+def test_selected_arc_model_rejects_an_incompatible_token_width():
     training = OmegaConf.create(
         {
-            "e1": {"variant": "arcvel"},
+            "arc": {"variant": "velocity"},
             "hpt": {"action_dim": 14, "action_horizon": 100},
             "model": {
                 "pipeline": {
@@ -485,7 +487,7 @@ def test_selected_e1_model_rejects_an_incompatible_token_width():
             {
                 "flow_arcvel": {
                     "stage_id": "sampler",
-                    "native_shape": [100, 16],
+                    "native_shape": [100, 20],
                     "adapter": {},
                 }
             },

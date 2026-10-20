@@ -12,13 +12,13 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
   conventions. `action_mode`, `coord_frame`, `rotation_mode`, camera mappings,
   local-frame corrections and calibration inputs come from YAML.
 - `embodiment/bimanual_arc.py`: raw-window horizons and time/ARC target choices
-  used by the E1 recipes. `e1_fold.py` is an old import name only.
+  used by the current Cartesian task recipes.
 - `zarr/action_chunk_transforms.py`: shared pose, rotation, gripper, interpolation
   and key-routing transforms. Add general transform behavior here.
 - `zarr/arc_length_tokenizer.py`: Cartesian ARC with `clock_mode` velocity or
   duration and `streams` full_separation (M×20) or translation_rotation (M×18).
   See `docs/ARC_CLOCK_CONTRACT.md`; row zero is a start delay.
-- `zarr/e1_resolvers.py`, `zarr/e1_anchor_sampler.py`: metadata overrides and
+- `zarr/embodiment_resolvers.py`, `zarr/progress_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.
 - `filters.py`: dataset query builder. Filter values belong in the selected YAML.
 - `zarr/selection.py`: pinned random/paired/custom diagnostic selections and

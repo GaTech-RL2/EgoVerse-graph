@@ -4,16 +4,38 @@ The Cartesian YAM/ABC experiment menu is:
 
 ```text
 experiment/
-  organize_stationary/   {baseline,arc_vel,arc_dur}.yaml
-  fold_and_stack_towels/  {baseline,arc_vel,arc_dur}.yaml
-  wireless_earbuds/       {baseline,arc_vel,arc_dur}.yaml
-  multitask/             {baseline,arc_vel,arc_dur}.yaml
+  real/
+    organize_stationary/   {baseline,arc_vel,arc_dur}.yaml
+    fold_and_stack_towels/  {baseline,arc_vel,arc_dur}.yaml
+    wireless_earbuds/       {baseline,arc_vel,arc_dur}.yaml
+    multitask/             {baseline,arc_vel,arc_dur}.yaml
+  sim/
+    libero/
+    libero_historical/
+    oat/
+    pusht/
+    synthetic/
   _shared/               shared defaults, not standalone runs
 ```
 
-Select one with `+experiment=organize_stationary/arc_vel` (or `arc_dur`
+Select one with `+experiment=real/organize_stationary/arc_vel` (or `arc_dur`
 or `baseline`). Cluster resources still come from the explicit
 `hydra/launcher=...` selection and require a separate launch preflight.
+
+Each public task YAML is a **complete experiment entry point**: its defaults
+select the model graph, data filters/splits/transforms, evaluator, optimizer,
+trainer, callbacks and logging. No additional `model=` or `data=` selection
+is needed. Shared parents avoid copying those definitions into every leaf.
+Supply machine-specific data/weight paths, credentials, a fresh W&B identity
+and the reviewed cluster allocation at launch.
+
+Example (submits a run; execute only after launch preflight):
+
+```bash
+python egomimic/trainHydra.py -m \
+  +experiment=real/organize_stationary/arc_vel \
+  hydra/launcher=submitit_lambda_h100_shared
+```
 
 | Folder | Default model / data | ARC M / D / R |
 | --- | --- | --- |
@@ -47,11 +69,17 @@ The baselines retain their original evaluator/training schedule.
 Distinct existing HPT180, robot-only, ABC-DiT, ABC-only/ABC+RL2 towel,
 and `new290plus74` pool choices live under each task's `variants/`.
 They retain their model/data settings and are not interchangeable aliases for
-the primary menu. Other task/model families (PushT, Libero, human-only,
-Ravens, etc.) are untouched.
+the primary menu. PushT, LIBERO, OAT/LIBERO and synthetic experiments now live
+under `sim/`; retained ABC and human-only menus are not simulation.
+
+The `e1`, `ravens` and `stationary_recipe` configuration menus are removed.
+E1 scripts and runtime compatibility entry points are also removed. Shared
+components required by current real recipes have neutral names:
+`model/abc_arc/frozen_yam_*`, `model_contract/frozen_yam_wrists`,
+`embodiment_resolvers`, and `progress_sampler`. Their behavior is unchanged.
 
 Duplicate organize clock-layout leaves were consolidated: choose
-`organize_stationary/arc_vel` or `arc_dur` and set `abc.arc_streams` instead
+`real/organize_stationary/arc_vel` or `arc_dur` and set `abc.arc_streams` instead
 of choosing a second file. Distinct old experiment paths are mapped in
 `docs/experiment_config_migration.json`; the two retired
 `*_translation_rotation` aliases additionally require
@@ -60,5 +88,4 @@ of choosing a second file. Distinct old experiment paths are mapped in
 Old CLI paths under `abc_arc/{robot_bc,cotrain}` and `yam_arc_grid` are removed,
 not silently redirected. Original jobs/checkpoints must keep their recorded
 source/config/normalization. No cluster jobs are migrated by changing these
-files. Historical E1 recipe-generation scripts are not a supported way to
-regenerate this task menu.
+files. Deleted configurations and scripts remain recoverable from Git history.

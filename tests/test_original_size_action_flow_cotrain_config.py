@@ -16,7 +16,7 @@ def test_original_size_cotrain_contract(monkeypatch):
             # Component compatibility fixture, not a selectable training recipe.
             # Keep the historical schedule assertions explicit after leaf retirement.
             overrides=[
-                f"+experiment=pusht/{ROW}",
+                f"+experiment=sim/pusht/{ROW}",
                 "++paths.root_dir=.",
                 "trainer.max_steps=150000",
                 "trainer.val_check_interval=10000",

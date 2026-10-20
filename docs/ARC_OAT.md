@@ -450,18 +450,18 @@ examples use the measured LIBERO-10 selections in the
 [dated replay report](results/libero_arc_timed_replay_20260921.md):
 
 ```sh
-python -m egomimic.trainHydra +experiment=oat/libero_oattok \
+python -m egomimic.trainHydra +experiment=sim/oat/libero_oattok \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
   hydra.run.dir=/runs/tokenizer
-python -m egomimic.trainHydra +experiment=oat/libero_oatpolicy \
+python -m egomimic.trainHydra +experiment=sim/oat/libero_oatpolicy \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
   benchmark.tokenizer_checkpoint=/runs/tokenizer/checkpoints/last.ckpt \
   hydra.run.dir=/runs/oat
-python -m egomimic.trainHydra +experiment=oat/libero_arc_dur_policy \
+python -m egomimic.trainHydra +experiment=sim/oat/libero_arc_dur_policy \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
   benchmark.arc_waypoints=32 benchmark.arc_max_translation=0.8 \
   benchmark.arc_max_rotation_degrees=192 hydra.run.dir=/runs/arc_dur
-python -m egomimic.trainHydra +experiment=oat/libero_arc_stk_policy \
+python -m egomimic.trainHydra +experiment=sim/oat/libero_arc_stk_policy \
   benchmark.suite=libero_10 benchmark.dataset=/datasets/arc_oat/libero_10.zarr \
   benchmark.arc_waypoints=32 benchmark.arc_max_translation=1.6 \
   benchmark.arc_max_rotation_degrees=128 hydra.run.dir=/runs/arc_stk

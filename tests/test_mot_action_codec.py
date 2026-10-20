@@ -413,7 +413,7 @@ def test_phase_cli_rejects_wrong_experiment_before_model_or_composition(
     monkeypatch.setenv("SLURM_STEP_ID", "0")
     monkeypatch.setenv(
         "AF_EXPERIMENT",
-        "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
     )
     monkeypatch.setattr(
         sys,

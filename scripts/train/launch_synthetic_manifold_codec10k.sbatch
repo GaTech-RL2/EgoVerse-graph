@@ -18,10 +18,10 @@ PYTHON=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
 test "$(git -C "$SOURCE" rev-parse HEAD)" = "$EXPECTED_SOURCE_COMMIT"
 test -z "$(git -C "$SOURCE" status --porcelain)"
 case "$SLURM_ARRAY_TASK_ID" in
-  0) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/synthetic/unite_gaussian_torus_latent2_codec10k.json ;;
-  1) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/synthetic/vfm_gaussian_torus_latent2_codec10k.json ;;
-  2) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/synthetic/unite_gaussian_torus_latent4_codec10k.json ;;
-  3) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/synthetic/vfm_gaussian_torus_latent4_codec10k.json ;;
+  0) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/sim/synthetic/unite_gaussian_torus_latent2_codec10k.json ;;
+  1) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/sim/synthetic/vfm_gaussian_torus_latent2_codec10k.json ;;
+  2) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/sim/synthetic/unite_gaussian_torus_latent4_codec10k.json ;;
+  3) CONFIG=$SOURCE/egomimic/hydra_configs/experiment/sim/synthetic/vfm_gaussian_torus_latent4_codec10k.json ;;
   *) exit 2 ;;
 esac
 cd "$SOURCE"

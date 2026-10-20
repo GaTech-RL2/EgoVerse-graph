@@ -249,7 +249,7 @@ def test_arc_only_never_trains_oat_and_checks_frozen_profile(
                 if backbone == "oat_dp"
                 else "libero_arc_stk_policy"
             )
-            assert f"+experiment=oat/{expected_recipe}" in argv
+            assert f"+experiment=sim/oat/{expected_recipe}" in argv
             assert "benchmark.arc_waypoints=36" in argv
             checkpoint = tmp_path / "evidence/training/arc_stk/checkpoints/last.ckpt"
             checkpoint.parent.mkdir(parents=True)

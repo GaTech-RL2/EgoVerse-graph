@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+- /experiment/_shared/frozen_yam/towels_hpt300
+- override /data: abc_arc/towels_new290plus74_20261015
+- override /model: abc_arc/frozen_yam_hpt300_time
+- _self_
+towels_pool: new290plus74
+frozen_yam:
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: ${frozen_yam.action_dim}
+logger:
+  wandb:
+    id: ${name}_20261015_s42

@@ -792,7 +792,7 @@ def test_real_action_flow_config_constructs_strict_diagnostics(tmp_path, experim
     ):
         config = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=pusht/{experiment}", "++paths.root_dir=."],
+            overrides=[f"+experiment=sim/pusht/{experiment}", "++paths.root_dir=."],
         )
     diagnostics = config.evaluator.action_flow_diagnostics
     diagnostics.noise_seed_bank_path = str(

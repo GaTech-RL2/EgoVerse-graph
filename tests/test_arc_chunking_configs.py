@@ -141,10 +141,10 @@ RECIPES = sorted(
     path
     for folder in (
         "abc_arc",
-        "organize_stationary",
-        "fold_and_stack_towels",
-        "wireless_earbuds",
-        "multitask",
+        "real/organize_stationary",
+        "real/fold_and_stack_towels",
+        "real/wireless_earbuds",
+        "real/multitask",
     )
     for path in (CONFIGS / "experiment" / folder).rglob("*.yaml")
 )

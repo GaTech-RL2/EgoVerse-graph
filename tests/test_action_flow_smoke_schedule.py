@@ -17,7 +17,7 @@ from tools.validate_action_flow_config import (
 # training steps exited 0; both experiments intentionally train jointly at 0.
 OBSERVED_SCHEDULES = (
     (
-        "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42",
+        "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42",
         STOPGRAD_METHOD,
         {
             "joint_objective_begins_at_global_step": 0,
@@ -29,7 +29,7 @@ OBSERVED_SCHEDULES = (
         },
     ),
     (
-        "pusht/action_flow_bc_usocket_graph_section_s42",
+        "sim/pusht/action_flow_bc_usocket_graph_section_s42",
         GRAPH_METHOD,
         {
             "joint_objective_begins_at_global_step": 0,
@@ -105,7 +105,7 @@ def test_every_schedule_field_remains_checked(key):
 @pytest.mark.parametrize("flow_weight", (1.0, 0.01))
 def test_actual_warmup_smoke_still_requires_configured_step_one(flow_weight):
     config = compose_experiment(
-        "pusht/action_flow_bc_usocket_recon10_warmup10k_s42",
+        "sim/pusht/action_flow_bc_usocket_recon10_warmup10k_s42",
         overrides=["hydra/launcher=basic"],
     )
     # Exercise both verifier weights without reviving the retired flow001 leaf.
@@ -278,7 +278,7 @@ def test_joint_smoke_cli_dispatch_is_explicit_and_requires_all_hashes(
 ):
     from scripts.train import verify_libero_native_action_flow_smoke as native
 
-    experiment = "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42"
+    experiment = "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42"
     args = MODULE._parser().parse_args(
         [str(tmp_path), "--experiment", experiment, "--expected-head", "a" * 40]
     )
@@ -318,7 +318,7 @@ def test_joint_shared_child_rejects_unbound_signal_transport(transport):
         if not key.startswith(("AF_", "ICE_"))
     }
     env["AF_EXPERIMENT"] = (
-        "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42"
+        "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42"
     )
     if transport is not None:
         env["AF_CHECKPOINT_TRANSPORT"] = transport

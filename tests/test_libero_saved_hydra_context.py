@@ -294,7 +294,7 @@ def test_separate_verifier_finalizes_through_same_loaded_helpers(tmp_path, monke
             [
                 str(run),
                 "--experiment",
-                "libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
                 "--expected-head",
                 "b" * 40,
                 "--training-repo",

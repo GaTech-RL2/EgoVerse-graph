@@ -980,7 +980,7 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
             return_hydra_config=True,
             overrides=[
                 "hydra/launcher=basic",
-                "+experiment=libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                "+experiment=sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
             ],
         )
         cfg.hydra.runtime.output_dir = str(tmp_path)
@@ -1136,7 +1136,7 @@ def test_joint_energy_verifier_consumes_real_generic_saved_artifact(
     synthetic_preflight = dict(
         schema="libero-joint-launch-preflight/v1",
         status="PASS",
-        profile="libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        profile="sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
         model_contract_sha256=contract_sha(resolved),
         runtime_lock=reference(runtime_path),
         **{

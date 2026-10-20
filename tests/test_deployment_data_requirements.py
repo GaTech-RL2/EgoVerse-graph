@@ -26,17 +26,14 @@ PI_CASES = [
 EXPERIMENTS = [
     "abc/yam_fstshirt_dp",
     "abc/yam_fstshirt_hpt",
-    "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
-    "organize_stationary/baseline",
-    "e1/fold_time",
-    "organize_stationary/arc_vel",
-    "organize_stationary/arc_dur",
-    "fold_and_stack_towels/arc_dur",
-    "e1/abc_time",
-    "wireless_earbuds/arc_dur",
-    "e1/abcs_time",
-    "multitask/arc_dur",
+    "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "real/fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
+    "real/organize_stationary/baseline",
+    "real/organize_stationary/arc_vel",
+    "real/organize_stationary/arc_dur",
+    "real/fold_and_stack_towels/arc_dur",
+    "real/wireless_earbuds/arc_dur",
+    "real/multitask/arc_dur",
 ]
 SOURCE_IDENTITIES = {"human_bimanual": "3", "eva_bimanual": "6", "yam_bimanual": "7"}
 

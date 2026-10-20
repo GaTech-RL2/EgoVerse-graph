@@ -39,7 +39,7 @@ def _resolved_smoke_config(
 ):
     if experiment is None:
         suffix = {1.0: "1", 10.0: "10", 100.0: "100"}[reconstruction_weight]
-        experiment = f"pusht/action_flow_bc_usocket_recon{suffix}_s42"
+        experiment = f"sim/pusht/action_flow_bc_usocket_recon{suffix}_s42"
     cfg = compose_experiment(experiment)
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -101,7 +101,7 @@ def test_config_gate_accepts_option_a_200m_muon_contract(tmp_path, monkeypatch):
     experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
         tmp_path,
         experiment=(
-            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+            "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
         ),
     )
     monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
@@ -125,7 +125,7 @@ def test_config_gate_accepts_option_a_200m_adamw_contract(tmp_path, monkeypatch)
     experiment, run_dir, config_path, normalization_hash = _resolved_smoke_config(
         tmp_path,
         experiment=(
-            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+            "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
         ),
     )
     monkeypatch.setattr(MODULE, "_git_head", lambda: HEAD)
@@ -166,7 +166,7 @@ def test_unite_h384_parent_preserves_component_contract():
         config = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/parents/action_flow_usocket_h384",
+                "+experiment=sim/pusht/parents/action_flow_usocket_h384",
                 "++paths.root_dir=.",
                 "model.cfg_scale=4.0",
                 "model.flow_loss_aggregation=sum_samples",
@@ -611,7 +611,7 @@ def test_artifact_gate_accepts_unique_origin_from_separate_validation_job(
 
 
 def test_preflight_gate_binds_source_experiment_split_and_normalization(tmp_path):
-    experiment = "pusht/action_flow_bc_usocket_recon1_s42"
+    experiment = "sim/pusht/action_flow_bc_usocket_recon1_s42"
     split_hash = "b" * 64
     normalization_hash = "c" * 64
     content_hash = "d" * 64
@@ -655,7 +655,7 @@ def test_cli_accepts_launcher_compatibility_names():
             "--expected-head",
             HEAD,
             "--expected-experiment",
-            "pusht/action_flow_bc_usocket_recon10_s42",
+            "sim/pusht/action_flow_bc_usocket_recon10_s42",
             "--expected-reconstruction-weight",
             "10",
             "--expected-preflight-sha256",
@@ -690,7 +690,7 @@ def test_cli_accepts_option_a_200m_muon_experiment():
             "--expected-head",
             HEAD,
             "--expected-experiment",
-            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
+            "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42",
             "--expected-preflight-sha256",
             "d" * 64,
         ]
@@ -706,7 +706,7 @@ def test_cli_accepts_option_a_200m_adamw_experiment():
             "--expected-head",
             HEAD,
             "--expected-experiment",
-            "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
+            "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42",
             "--expected-preflight-sha256",
             "d" * 64,
         ]
@@ -982,7 +982,9 @@ def test_raw_multiplier_native_ema_verification(damage):
     from egomimic.utils.ema_callback import EMACallback
 
     verifier = _raw_multiplier_verifier()
-    row = verifier.EXPERIMENTS["pusht/action_flow_cotrain_uc_multiplier_interpolation"]
+    row = verifier.EXPERIMENTS[
+        "sim/pusht/action_flow_cotrain_uc_multiplier_interpolation"
+    ]
     assert row["parameter_count"] == 471549402 and row["hidden_dim"] == 696
     model = torch.nn.Linear(2, 2)
     callback = EMACallback(decay=0.9978)

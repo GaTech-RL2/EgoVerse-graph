@@ -18,7 +18,7 @@ def current_experiment(family, suite):
     if suite not in SUITES or family not in ("dp", "action_flow"):
         raise ValueError("unsupported current LIBERO family/suite")
     suffix = "oat_batch16_keep_steps_s42" if family == "dp" else "oat_dp_matched_s42"
-    return f"libero/{family}_{suite}_{suffix}"
+    return f"sim/libero/{family}_{suite}_{suffix}"
 
 
 def validate(cfg, family, suite, *, recipe_contract="current"):

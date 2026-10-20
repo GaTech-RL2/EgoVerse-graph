@@ -14,8 +14,8 @@ import unittest
 from pathlib import Path
 
 R = Path(__file__).parents[1]
-PROFILE = "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
-PLANAR = "pusht/action_flow_bc_usocket_recon1_s42"
+PROFILE = "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
+PLANAR = "sim/pusht/action_flow_bc_usocket_recon1_s42"
 
 
 def sha(p):
@@ -45,9 +45,9 @@ class WholeLauncher(unittest.TestCase):
             "scripts/ice/validate_planar_dataset.py",
             "egomimic/hydra_configs/experiment/" + PROFILE + ".yaml",
             "egomimic/hydra_configs/experiment/" + PLANAR + ".yaml",
-            "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42.yaml",
-            "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42.yaml",
-            "egomimic/hydra_configs/experiment/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42.yaml",
+            "egomimic/hydra_configs/experiment/sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42.yaml",
+            "egomimic/hydra_configs/experiment/sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42.yaml",
+            "egomimic/hydra_configs/experiment/sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42.yaml",
         ]
         from egomimic.benchmarks.libero.native_launch_profiles import AV0_PROFILES
 
@@ -224,7 +224,7 @@ esac
             (R / "tests/fixtures/libero_native_suite_corpus_authority.json").read_text()
         )["suites"][suite]
         return dict(
-            AF_EXPERIMENT="libero_historical/action_flow_"
+            AF_EXPERIMENT="sim/libero_historical/action_flow_"
             + suite
             + "_h240_euler50_dithalf_80k_s42",
             AF_SEED=str(seed),
@@ -298,7 +298,7 @@ esac
             self.root / "output-parent/run/provenance/restart-0/exact-phase.argv0"
         ).read_bytes()
         self.assertIn(
-            b"+experiment=libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42\0",
+            b"+experiment=sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42\0",
             argv,
         )
         self.assertEqual(

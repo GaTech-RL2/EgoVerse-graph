@@ -16,7 +16,7 @@ def config_for(experiment, path, output):
         return compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                f"+experiment=oat/{experiment}",
+                f"+experiment=sim/oat/{experiment}",
                 f"benchmark.dataset={path}",
                 "benchmark.batch_size=2",
                 "benchmark.horizon=8",

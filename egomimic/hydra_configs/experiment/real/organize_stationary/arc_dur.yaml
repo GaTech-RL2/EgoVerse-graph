@@ -1,0 +1,8 @@
+# @package _global_
+defaults:
+  - /experiment/real/organize_stationary/arc_vel
+  - _self_
+name: organize_stationary_arc_dur
+description: HPT300 robot + human organize stationery, first-delay log-duration
+abc:
+  arc_clock_mode: duration

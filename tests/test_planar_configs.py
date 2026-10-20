@@ -61,7 +61,7 @@ def test_planar_row_composes_without_pipeline_routing_metadata(row, expected):
     with initialize_config_dir(version_base=None, config_dir=str(config_dir.resolve())):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=pusht/planar_v2_{row}", "++paths.root_dir=."],
+            overrides=[f"+experiment=sim/pusht/planar_v2_{row}", "++paths.root_dir=."],
         )
     for section in (cfg.planar, cfg.model, cfg.data):
         OmegaConf.resolve(section)
@@ -166,16 +166,17 @@ def test_dp_rows_inherit_model_neutral_domain_base(row, domain_base):
         / "egomimic"
         / "hydra_configs"
         / "experiment"
+        / "sim"
         / "pusht"
     )
     experiment = OmegaConf.load(experiment_dir / f"planar_v2_{row}.yaml")
     defaults = OmegaConf.to_container(experiment.defaults)
-    assert defaults[0] == f"/experiment/pusht/planar_v2_{domain_base}"
+    assert defaults[0] == f"/experiment/sim/pusht/planar_v2_{domain_base}"
     assert all("direct_bc" not in str(item) for item in defaults)
 
     base = OmegaConf.load(experiment_dir / f"planar_v2_{domain_base}.yaml")
     base_defaults = OmegaConf.to_container(base.defaults)
-    assert base_defaults[0] == "/experiment/pusht/planar_v2_base"
+    assert base_defaults[0] == "/experiment/sim/pusht/planar_v2_base"
     assert base_defaults[1] == {
         "override /data": f"pusht/planar_v2_{DOMAIN_BASE_DATA[domain_base]}"
     }
@@ -188,7 +189,7 @@ def test_standard_dp_clean_cotrain_composes_both_domains_without_obstacles():
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/planar_v2_cotrain_clean_dp_standard",
+                "+experiment=sim/pusht/planar_v2_cotrain_clean_dp_standard",
                 "++paths.root_dir=.",
             ],
         )
@@ -236,7 +237,7 @@ def test_duration_arc_explicitly_separates_raw_and_token_horizons():
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
+                "+experiment=sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
                 "++paths.root_dir=.",
             ],
         )
@@ -255,7 +256,7 @@ def test_ddp_device_count_is_per_node_without_eval_resolver():
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=pusht/planar_v2_cotrain_clean_dp_standard",
+                "+experiment=sim/pusht/planar_v2_cotrain_clean_dp_standard",
                 "launch_params.gpus_per_node=2",
                 "launch_params.nodes=3",
                 "++paths.root_dir=.",

@@ -10,14 +10,12 @@ from hydra import compose, initialize_config_dir
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 
 _CONFIGS = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
-_BASELINE = "multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop"
-_HYBRID = "multitask/variants/abc_multitask4_abcdit_hybrid_visual_openloop"
+_BASELINE = "real/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop"
+_HYBRID = "real/multitask/variants/abc_multitask4_abcdit_hybrid_visual_openloop"
 _TOWEL_BASELINE = (
-    "fold_and_stack_towels/variants/abc_rl2_towels_abcdit_baseline_visual_openloop"
+    "real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_baseline_visual_openloop"
 )
-_TOWEL_ARC = (
-    "fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop"
-)
+_TOWEL_ARC = "real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop"
 # Keeps the DiT tiny; the ViT-B/16 backbone shape is fixed by the checkpoint.
 _TINY = [
     "abc_dit.hidden_size=64",

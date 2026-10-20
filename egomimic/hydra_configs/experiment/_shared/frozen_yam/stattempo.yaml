@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
-- /experiment/e1/fold_base
-- override /model: e1/hpt_flow_wrists_ft
+- /experiment/_shared/frozen_yam/base
+- override /model: abc_arc/frozen_yam_hpt_flow
 - override /data: abc_arc/stationery_slowpace366_bc_time
 - override /trainer: ddp
 - override /logger: wandb
 - override /callbacks: checkpoints
 - _self_
-name: bc_rl2_stattempo_slowpace366_${e1.variant}
+name: bc_rl2_stattempo_slowpace366_${frozen_yam.variant}
 description: h640t8_d384x10_cos10k_240k_s42_${name}
 ft:
   max_steps: 240000
@@ -43,12 +43,12 @@ logger:
     - stattempo
     - slowpace366
     - bc
-    - ${e1.variant}
+    - ${frozen_yam.variant}
     resume: never
 norm_stats:
   sample_frac: 0.2
   save_cache_dir: null
-e1:
+frozen_yam:
   policy_domain: yam
   variant: time
   spread: stationery

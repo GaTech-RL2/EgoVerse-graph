@@ -23,15 +23,19 @@ def test_libero_current_and_historical_profiles_remain_distinct(suite, steps):
     ):
         af = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/action_flow_{suite}_oat_dp_matched_s42"],
+            overrides=[
+                f"+experiment=sim/libero/action_flow_{suite}_oat_dp_matched_s42"
+            ],
         )
         dp = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero/dp_{suite}_oat_batch16_keep_steps_s42"],
+            overrides=[f"+experiment=sim/libero/dp_{suite}_oat_batch16_keep_steps_s42"],
         )
         old = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=libero_historical/dp_{suite}_oat_dp_matched_s42"],
+            overrides=[
+                f"+experiment=sim/libero_historical/dp_{suite}_oat_dp_matched_s42"
+            ],
         )
     assert (
         af.model.action_horizon,
@@ -176,10 +180,10 @@ def test_historical_native_names_preserve_aliases_and_reject_current_recipe():
     assert profile_for_suite is historical_profile_for_suite
     for suite, _ in SUITES:
         assert historical_profile_for_suite(suite).experiment.startswith(
-            "libero_historical/"
+            "sim/libero_historical/"
         )
         with pytest.raises(ValueError):
-            profile_for_experiment(f"libero/action_flow_{suite}_oat_dp_matched_s42")
+            profile_for_experiment(f"sim/libero/action_flow_{suite}_oat_dp_matched_s42")
 
 
 @pytest.mark.parametrize("receipt", [None, {"recipe_contract": "historical-v7"}])

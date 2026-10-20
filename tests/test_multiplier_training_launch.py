@@ -19,7 +19,7 @@ def test_multiplier_training_contract():
             config_name="train_zarr_cartesian",
             overrides=[
                 "hydra/launcher=basic",
-                "+experiment=pusht/action_flow_cotrain_uc_multiplier_interpolation",
+                "+experiment=sim/pusht/action_flow_cotrain_uc_multiplier_interpolation",
                 "trainer.precision=bf16",
                 "trainer.devices=1",
                 "trainer.num_nodes=1",

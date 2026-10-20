@@ -1,5 +1,5 @@
 # The explicit joint route may never inherit the historical step-wide save transport.
-if [[ "${AF_EXPERIMENT:-}" = libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42 || "${AF_EXPERIMENT:-}" = libero/action_flow_libero_spatial_sharpa_mot_s42 ]]; then
+if [[ "${AF_EXPERIMENT:-}" = sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42 || "${AF_EXPERIMENT:-}" = sim/libero/action_flow_libero_spatial_sharpa_mot_s42 ]]; then
   test "${AF_CHECKPOINT_TRANSPORT:-}" = trainer-pidfd || {
     printf '%s\n' 'joint child requires audited trainer-pidfd checkpoint transport' >&2; exit 2;
   }

@@ -40,10 +40,15 @@ and grip linearly and rotation with SLERP.
   `0..M-2`; the last row repeats the last interval and is ignored by the clock.
   Decode clamps intervals nonnegative and cumulatively sums them. The existing
   whole-clock mean-speed bounds apply using projected distance.
-- **`arc_projection_vel` / `e1_projection_vel`:** projected path speed in m/s
-  at each support. Targets use the existing centred seven-frame moving average
-  by default. Decode integrates slowness with the existing trapezoidal rule:
-  `dt_i = ds_i * (1/v_i + 1/v_(i+1)) / 2`.
+- **`arc_projection_vel` / `e1_projection_vel`:** each waypoint segment's mean
+  projected speed in m/s: its projected length over the true seconds it took
+  (`speed_encoding: interval`, the default since 2026-10-20). Decode is
+  `dt_i = ds_i / v_i`, so on ground truth the clock equals
+  `arc_projection_dur`'s exactly and pauses are kept. The original encoding,
+  the raw path speed sampled at each support and integrated with the
+  trapezoidal rule, is `speed_encoding: point`; it is kept only to decode
+  checkpoints trained before 2026-10-20, and it is the only one that reads
+  `model.projection_speed_smooth_frames`.
 
 The projected speed floor is explicitly `1e-6 m/s`, shared by training-side
 decode, validation and rollout. The original translation floor of `0.01 m/s`
@@ -51,13 +56,14 @@ would artificially speed up slow rotations of a 2 cm lever. This lower floor
 preserves those motions; near-zero predicted velocity can still create long
 intervals, as with any inverse-speed clock.
 
-`D=0.4 m`, `M=100` and 30 Hz are the supplied recipe defaults. D measures
+The maintained leaves use `D=0.33 m`, `M=200` and 30 Hz. D measures
 projected-point travel, so it couples translation and rotation in one budget.
-There is no independent rotation cutoff. Both new recipes decode the whole
-token and score a fixed control-time prefix (25 ticks in the inherited
-validation recipe); rollout exposes the inherited fixed replan control
-(30 ticks by default). This branch does not add fastest-stream or replay-speed
-controls to the consolidated runtime.
+There is no independent rotation cutoff. Validation decodes the whole token and
+scores a fixed control-time prefix (25 ticks, tick-prefix regime). The rollout
+decoder executes the first 50 % of the waypoints and replans when the first arm
+reaches its last kept waypoint (`first_stream: 1`, `execute_percent: 50`), with
+the dashboard's replay-speed controls. Absolute waypoint timing is not
+supported for projection layouts; `arc_projection_dur` is delta timing only.
 
 ## Configuration
 

@@ -1,0 +1,56 @@
+# @package _global_
+defaults:
+- /experiment/organize_stationary/baseline
+- _self_
+name: organize_rl2_elmo_hpt300_cotrain_multistream
+description: HPT300 ResNet-MLP cotraining, multistream ARC D0.42 R24deg M100 duration clocks
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  human_keymap_mode: hybrid_arc_tokenizer_cartesian
+  human_action_mode: hybrid_arc_tokenizer_cartesian
+  arc_source_buffer_frames: 400
+  arc_gripper_distance: null
+  arc_gripper_stream_mode: events
+  arc_streams: full_separation
+trainer:
+  limit_val_batches: 1.0
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  clock_mode: ${abc.arc_clock_mode}
+  gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+        transform_list:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+    human_bimanual:
+      resolver:
+        key_map:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+        transform_list:
+          gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+logger:
+  wandb:
+    tags:
+    - hpt300m
+    - resnet_mlp
+    - rl2
+    - organize_stationary
+    - elmo
+    - cotrain
+    - human_bimanual
+    - multistream
+    - D042
+    - R24deg
+    - M100
+    - ${abc.arc_clock_mode}
+    - ${abc.arc_streams}
+    - open_loop
+    - video

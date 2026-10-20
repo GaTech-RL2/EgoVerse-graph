@@ -1,20 +1,14 @@
-# Supported visual ABC / human BC experiments
+# Human-only BC and migrated task recipes
 
-Launch from this experiment group, not from retired model/data templates:
+Robot and cotrain presets now live in the four task folders documented in
+[the experiment menu](../README.md). Distinct HPT180, ABC-DiT and data-pool
+variants are preserved under those folders; duplicate clock-layout recipes
+are replaced by the `abc.arc_streams` override.
 
-| Group | Dataset | Paired recipes |
-| --- | --- | --- |
-| `robot_bc` | ABC stationery slice + RL2 updated organize-stationery; RL2-only validation | `stationery_rl2_hpt300_visual_{baseline,hybrid}_openloop` |
-| `robot_bc` | ABC fold and stack the towels | `abc_towels_hpt180_{baseline,hybrid}_visual_openloop` |
-| `robot_bc` | ABC four-task multitask | `abc_multitask4_hpt300_{baseline,hybrid}_visual_openloop` |
-| `human_bc` | MECKA folding clothes, 40-hour subset | `mecka_fold_clothes_40h_human_visual_{baseline,hybrid}_openloop` |
-
-Brace notation denotes separate YAML files, not Hydra syntax.
-
-`robot_bc/abc_visual_hpt300_base` is a shared template requiring a task
-predicate. Cotraining has four explicit
-`organize_clock_{velocity,duration}_{full_separation,translation_rotation}`
-leaves. See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
+This folder retains the independent MECKA human-only folding experiments:
+`human_bc/mecka_fold_clothes_40h_human_visual_{baseline,hybrid}_openloop`.
+Brace notation denotes two YAML files, not Hydra syntax.
+See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
 
 Select `abc.arc_clock_mode=velocity|duration` and
 `abc.arc_streams=full_separation|translation_rotation`, with token dimension

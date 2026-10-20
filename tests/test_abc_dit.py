@@ -10,10 +10,14 @@ from hydra import compose, initialize_config_dir
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 
 _CONFIGS = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
-_BASELINE = "abc_arc/robot_bc/abc_multitask4_abcdit_baseline_visual_openloop"
-_HYBRID = "abc_arc/robot_bc/abc_multitask4_abcdit_hybrid_visual_openloop"
-_TOWEL_BASELINE = "abc_arc/robot_bc/abc_rl2_towels_abcdit_baseline_visual_openloop"
-_TOWEL_ARC = "abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_visual_openloop"
+_BASELINE = "multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop"
+_HYBRID = "multitask/variants/abc_multitask4_abcdit_hybrid_visual_openloop"
+_TOWEL_BASELINE = (
+    "fold_and_stack_towels/variants/abc_rl2_towels_abcdit_baseline_visual_openloop"
+)
+_TOWEL_ARC = (
+    "fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop"
+)
 # Keeps the DiT tiny; the ViT-B/16 backbone shape is fixed by the checkpoint.
 _TINY = [
     "abc_dit.hidden_size=64",
@@ -36,15 +40,19 @@ def _cfg(experiment, extra=()):
     "experiment, horizon, dim, representation",
     [
         (_BASELINE, 100, 14, "cartesian"),
-        # M28: 100 waypoint rows, each with 14 pose + 14 velocity columns.
-        (_HYBRID, 100, 28, "hybrid_arc_tokenizer_cartesian"),
+        # Canonical six-stream ARC: 14 geometry columns + six clocks.
+        (_HYBRID, 100, 20, "hybrid_arc_tokenizer_cartesian"),
         (_TOWEL_BASELINE, 100, 14, "cartesian"),
-        (_TOWEL_ARC, 100, 28, "hybrid_arc_tokenizer_cartesian"),
+        (_TOWEL_ARC, 100, 20, "hybrid_arc_tokenizer_cartesian"),
     ],
 )
 def test_recipes_compose_with_the_right_action_contract(
-    experiment, horizon, dim, representation
+    experiment, horizon, dim, representation, monkeypatch
 ):
+    monkeypatch.setenv(
+        "EGOVERSE_DINOV3_CHECKPOINT", "/tmp/dinov3_vitb16_pretrain_lvd1689m.pth"
+    )
+    monkeypatch.setenv("EGOVERSE_CLIP_CHECKPOINT", "/tmp/clip-vit-base-patch32")
     cfg = _cfg(experiment)
     stages = cfg.model.pipeline.stages
     assert [s._target_.rsplit(".", 1)[1] for s in stages] == [

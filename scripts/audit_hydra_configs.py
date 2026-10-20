@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
+    "experiment/_shared/clock_settings": "multitask/arc_vel",
+    "experiment/_shared/frozen_yam_arc": "wireless_earbuds/arc_vel",
     "data/ravens/continuous": "ravens/action_flow",
     "evaluator/ravens": "ravens/action_flow",
     "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
@@ -31,17 +33,17 @@ EXPERIMENT_CONTEXTS = {
     "model/e1/hpt_flow_wrists": "e1/abcs_time",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model_contract/abc_visual": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_bimanual_visual": "abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline",
-    "model/abc_arc/abc_dit_yam_visual": "abc_arc/robot_bc/abc_multitask4_abcdit_baseline_visual_openloop",
-    "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
-    "data/abc_arc/stationery_rl2_hpt_baseline": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
-    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "abc_arc/robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop",
+    "model_contract/abc_visual": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_yam_visual": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "model/abc_arc/hpt_bimanual_visual": "organize_stationary/baseline",
+    "model/abc_arc/abc_dit_yam_visual": "multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
+    "data/abc_arc/abc_visual": "fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
+    "data/abc_arc/stationery_rl2_hpt_baseline": "organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
+    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "organize_stationary/variants/stationery_rl2_hpt300_visual_hybrid_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
-    "data/abc_arc/organize_rl2_elmo_cotrain": "abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline",
-    "experiment/abc_arc/robot_bc/abc_visual_hpt300_base": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "data/abc_arc/organize_rl2_elmo_cotrain": "organize_stationary/baseline",
+    "experiment/_shared/visual_hpt300": "fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
     "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
     "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
     "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
@@ -164,13 +166,10 @@ def audit_context(path):
         }
         or name.startswith("data/abc_arc/stationery_")
     ):
-        experiment = "yam_arc_grid/earbuds_updated_time_hpt300"
+        experiment = "wireless_earbuds/baseline"
     if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
         # Frozen YAM pools select their codec through the HPT300 recipe's e1.*.
-        experiment = "yam_arc_grid/towels_since0924plus74_time_hpt300"
-    if "arc_projection" in name and group in {"model", "data"}:
-        variant = "vel" if name.endswith("_vel") else "dur"
-        experiment = f"yam_arc_grid/bc_rl2_stattempo_slowpace366_arc_projection_{variant}_m200_d033"
+        experiment = "fold_and_stack_towels/baseline"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

@@ -1,3 +1,4 @@
+import json
 import math
 from pathlib import Path
 
@@ -36,7 +37,9 @@ EXPERIMENTS = [
 
 
 def config(name):
-    overrides = [f"+experiment=abc_arc/{name}", "hydra/launcher=submitit_pace_h100"]
+    migration = json.loads((ROOT / "docs/experiment_config_migration.json").read_text())
+    name = migration.get(f"abc_arc/{name}", f"abc_arc/{name}")
+    overrides = [f"+experiment={name}", "hydra/launcher=submitit_pace_h100"]
     with initialize_config_dir(
         version_base=None, config_dir=str(ROOT / "egomimic/hydra_configs")
     ):

@@ -1,8 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/abc_arc/cotrain/organize_clock_velocity_full_separation
-  - _self_
-name: organize_clock_duration_full_separation
-description: First-delay ARC log-duration, six independent clocks
-abc:
-  arc_clock_mode: duration

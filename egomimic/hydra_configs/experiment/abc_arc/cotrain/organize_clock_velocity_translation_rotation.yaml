@@ -1,9 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/abc_arc/cotrain/organize_clock_velocity_full_separation
-  - _self_
-name: organize_clock_velocity_translation_rotation
-description: First-delay ARC velocity, four clocks with grippers on translation
-abc:
-  arc_streams: translation_rotation
-  arc_token_dim: 18

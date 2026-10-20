@@ -30,6 +30,8 @@ DENIED = {
     "wandb-cache",
     "__pycache__",
 }
+PUBLIC_PACKAGE_NAMES = {"wandb", "logs", "credentials"}
+
 INTERPRETERS = {"/usr/bin/python", "/usr/bin/python3", "/usr/bin/python3.12"}
 
 
@@ -46,37 +48,64 @@ def sha(path):
     return h.hexdigest()
 
 
-def omitted(path):
+def omitted(path, public_packages=False):
     name = path.name
     need(
         not name.startswith((".env.", "id_rsa", "id_ed25519")),
         "Credential-like runtime input",
     )
-    return (
-        name in DENIED
-        or name.endswith((".log", ".out", ".err"))
-        or (
-            name.endswith((".pem", ".key"))
-            and not (name == "cacert.pem" and path.parent.name == "certifi")
+    public_ca = name == "cacert.pem" and path.parent.name in (
+        {"certifi", "botocore"} if public_packages else {"certifi"}
+    )
+    if public_ca:
+        content = path.read_bytes()
+        need(
+            b"-----BEGIN CERTIFICATE-----" in content and b"PRIVATE KEY" not in content,
+            "CA bundle is not public certificates",
         )
+    excluded = DENIED - PUBLIC_PACKAGE_NAMES if public_packages else DENIED
+    return (
+        name in excluded
+        or name.endswith((".log", ".out", ".err"))
+        or (name.endswith((".pem", ".key")) and not public_ca)
     )
 
 
-def inventory(mappings):
+def validate_logical_path(target, public_packages):
+    excluded = DENIED - PUBLIC_PACKAGE_NAMES if public_packages else DENIED
+    need(
+        target.startswith("/workspace/")
+        and ".." not in Path(target).parts
+        and not set(Path(target).parts) & excluded,
+        "Unsafe logical runtime path",
+    )
+    need(not target.endswith(".ckpt"), "Runtime contains a training checkpoint")
+
+
+def inventory(mappings, public_packages=False):
     entries, omitted_names, directory_names = {}, [], set()
     for cached, logical in mappings:
         cached, logical = Path(cached), Path(logical)
         need(
-            cached.is_dir() and not cached.is_symlink(),
-            "Runtime root is not a directory",
+            (cached.is_dir() or cached.is_file()) and not cached.is_symlink(),
+            "Runtime root is not a regular directory/file",
         )
+        if cached.is_file():
+            need(
+                not omitted(cached, public_packages),
+                "Explicit runtime file is excluded",
+            )
+            validate_logical_path(str(logical), public_packages)
+            need(str(logical) not in entries, "Overlapping runtime mounts")
+            entries[str(logical)] = cached
+            continue
         for directory, dirs, files in os.walk(cached, followlinks=False):
             d = Path(directory)
             logical_dir = logical / d.relative_to(cached)
             directory_names.add(str(logical_dir))
             for name in list(dirs):
                 path = d / name
-                if omitted(path):
+                if omitted(path, public_packages):
                     omitted_names.append(str(logical_dir / name))
                     dirs.remove(name)
                 elif path.is_symlink():
@@ -84,18 +113,10 @@ def inventory(mappings):
                     dirs.remove(name)
             for name in files:
                 path, target = d / name, str(logical_dir / name)
-                if omitted(path):
+                if omitted(path, public_packages):
                     omitted_names.append(target)
                     continue
-                need(
-                    target.startswith("/workspace/")
-                    and not set(Path(target).parts) & DENIED,
-                    "Unsafe logical runtime path",
-                )
-                need(
-                    not target.endswith(".ckpt"),
-                    "Runtime contains a training checkpoint",
-                )
+                validate_logical_path(target, public_packages)
                 mode = path.lstat().st_mode
                 need(stat.S_ISREG(mode) or stat.S_ISLNK(mode), "Special runtime file")
                 need(target not in entries, "Overlapping runtime mounts")
@@ -119,12 +140,45 @@ def inventory(mappings):
     return entries, links, omitted_names
 
 
+def select_mappings(mappings, selected):
+    if not selected:
+        return mappings
+    need(len(selected) == len(set(selected)), "Duplicate selected runtime input")
+    result = []
+    for name in selected:
+        logical = Path(name)
+        need(
+            str(PurePosixPath(name)) == name and ".." not in logical.parts,
+            "Noncanonical selected runtime input",
+        )
+        parents = [
+            (Path(cached), Path(root))
+            for cached, root in mappings
+            if logical == Path(root) or Path(root) in logical.parents
+        ]
+        need(len(parents) == 1, "Selected input is outside the exact mount binding")
+        cached, root = parents[0]
+        path = cached / logical.relative_to(root)
+        need(
+            not any(
+                parent.is_symlink()
+                for parent in path.parents
+                if parent == cached or cached in parent.parents
+            ),
+            "Selected input traverses a symlink",
+        )
+        result.append((str(path), str(logical)))
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mounts", type=Path, required=True)
     parser.add_argument("--mounts-sha256", required=True)
     parser.add_argument("--cache-prefix", required=True)
     parser.add_argument("--exclude-logical", action="append", default=[])
+    parser.add_argument("--only-logical", action="append", default=[])
+    parser.add_argument("--public-package-inputs", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     need(
@@ -153,6 +207,11 @@ def main():
         if logical not in args.exclude_logical:
             mappings.append((cached, logical))
     need(mappings, "No runtime mounts")
+    need(
+        not args.public_package_inputs or args.only_logical,
+        "Public package exceptions require exact selected inputs",
+    )
+    mappings = select_mappings(mappings, args.only_logical)
     args.output.mkdir()
     started = time.time()
     (args.output / "started.json").write_text(
@@ -166,7 +225,7 @@ def main():
         )
         + "\n"
     )
-    entries, links, omissions = inventory(mappings)
+    entries, links, omissions = inventory(mappings, args.public_package_inputs)
     archive, manifest = (
         args.output / "runtime.tar.gz",
         args.output / "runtime.files.sha256",
@@ -193,6 +252,8 @@ def main():
             )
     receipt = dict(
         schema="readonly-runtime-export-v1",
+        public_package_inputs=args.public_package_inputs,
+        selected_logical_inputs=args.only_logical,
         status="PASS",
         mappings=mappings,
         job_id=os.environ["SLURM_JOB_ID"],

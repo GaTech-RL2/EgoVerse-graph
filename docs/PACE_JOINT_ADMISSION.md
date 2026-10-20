@@ -41,6 +41,11 @@ inside a two-CPU, zero-GPU Slurm step. It preserves logical paths and literal
 symlinks, rejects links outside the selected closure and excludes credentials,
 logs and checkpoints. It never prepares data, installs dependencies or transfers
 artifacts. Runtime export and container preparation do not alter model science.
+An exact --only-logical selection with --public-package-inputs can restore public
+library namespaces named wandb,logs or credentials and certificate-only cacert.pem
+bundles. The exceptions require a bounded selected input list; secret/credential
+file guards, checkpoint rejection, link-closure and mount-binding checks remain.
+This supports supplementing an older immutable archive without rewriting it.
 
 Fresh run.py remains fresh-only. Do not enable automatic Slurm requeue against
 it or claim recovery is implemented by this change. Before full ICE admission,

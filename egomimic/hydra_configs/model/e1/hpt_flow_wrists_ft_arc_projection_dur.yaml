@@ -1,0 +1,13 @@
+defaults:
+- /model/e1/hpt_flow_wrists_ft_arc_projection@_here_
+- _self_
+projection_variant: arc_projection_dur
+projection_layout: e1_projection_dur
+# Absolute waypoint times from the chunk anchor, decoded by isotonic regression (2026-10-20).
+# projection_duration_timing=delta restores the interval-seconds column.
+projection_duration_timing: absolute
+inference_contracts:
+  arcdur:
+    native_output:
+      timing:
+        kind: per_waypoint_absolute_time

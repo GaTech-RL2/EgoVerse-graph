@@ -1,0 +1,33 @@
+# @package _global_
+# Slow-pace 366 robot-only BC, codec arcvel (7-frame speed smoothing), M 200 / D 0.33 (Aidan 2026-10-17).
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo_openloop
+- /experiment/yam_arc_grid/_base/m200_d033
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/stationery_slowpace366_bc_time
+- _self_
+name: bc_rl2_stattempo_slowpace366_arcvel_m200_d033
+description: h640t8_d384x10_cos10k_240k_s42_${name}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          variant: arcvel
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          variant: arcvel
+e1:
+  variant: arcvel
+  action_dim: 16
+hpt:
+  action_dim: 16
+evaluator:
+  action_mode: arc
+  token_layout: e1_profile
+logger:
+  wandb:
+    id: ${name}_20261017_s42
+    tags: [rl2, stationery, stattempo, slowpace366, bc, arcvel, openloop_val]

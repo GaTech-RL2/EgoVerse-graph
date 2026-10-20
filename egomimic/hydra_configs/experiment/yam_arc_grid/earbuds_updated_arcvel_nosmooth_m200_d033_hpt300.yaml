@@ -1,0 +1,32 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/_base/earbuds_updated_hpt300
+- /experiment/yam_arc_grid/_base/m200_d033_hpt300
+- _self_
+name: earbuds_updated_arcvel_nosmooth_m200_d033_hpt300
+e1:
+  variant: arcvel
+  action_dim: 16
+hpt:
+  action_dim: ${e1.action_dim}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          speed_smooth_frames: 1
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          speed_smooth_frames: 1
+model:
+  inference_contracts:
+    arcvel:
+      compatibility:
+        tokenizer:
+          speed_smooth_frames: 1
+logger:
+  wandb:
+    id: ${name}_20261018_s42
+    tags: [rl2, wireless_earbuds_updated, hpt300, arcvel, no_speed_smoothing, m200_d033]

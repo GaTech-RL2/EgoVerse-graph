@@ -1,0 +1,15 @@
+# @package _global_
+# The HPT300 multistream cotrain recipe with per-waypoint velocity timing in
+# place of six per-interval velocity clocks in the same (M, 20) token.
+defaults:
+  - /experiment/abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_multistream
+  - _self_
+name: organize_rl2_elmo_hpt300_cotrain_multistream_perwaypoint
+description: HPT300 ResNet-MLP cotraining, multistream ARC D0.42 R24deg M100 per-waypoint velocity
+abc:
+  arc_velocity_mode: per_waypoint
+  arc_velocity_layout: rate_clock
+  arc_token_dim: 20
+logger:
+  wandb:
+    tags: [hpt300m, resnet_mlp, rl2, organize_stationary, elmo, cotrain, human_bimanual, multistream, D042, R24deg, M100, per_waypoint, open_loop, video]

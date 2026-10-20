@@ -26,9 +26,9 @@ PI_CASES = [
 EXPERIMENTS = [
     "abc/yam_fstshirt_dp",
     "abc/yam_fstshirt_hpt",
-    "abc_arc/abc_fstshirt_arc_bc",
-    "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline",
-    "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100",
+    "abc_arc/robot_bc/stationery_rl2_hpt300_visual_baseline_openloop",
+    "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "abc_arc/cotrain/organize_rl2_elmo_hpt300_cotrain_baseline",
     "e1/fold_time",
     "e1/fold_arcvel",
     "e1/fold_arcdur",

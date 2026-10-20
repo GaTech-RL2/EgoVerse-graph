@@ -47,3 +47,6 @@ sample_data/
 external_ckpts/
 external/MANO/
 .claude/
+
+# Frozen episode manifests: local inputs to the scripts/e1 builders; the generated data configs carry the memberships
+scripts/e1/*_manifest.json

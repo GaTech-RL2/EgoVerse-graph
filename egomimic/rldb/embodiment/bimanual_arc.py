@@ -10,14 +10,43 @@ from egomimic.rldb.embodiment.human import (
     _build_human_cartesian_eef_frame_transform_list,
     _pad_human_cartesian_gripper,
 )
+from egomimic.rldb.zarr.arc_projection_tokenizer import (
+    PROJECTION_OFFSET_M,
+    PROJECTION_VARIANTS,
+    TokenizeBimanualArcProjection,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
-VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur")
+VARIANTS = (
+    "time",
+    "arcmean",
+    "arcvel",
+    "arclogdur",
+    "arcdur",
+    "arcdurhyb",
+    "arcvelhyb",
+    "arcdurtri",
+    "arcveltri",
+    "arcdurevt",
+    "arcvelevt",
+    "arcdurref",
+    "arcvelref",
+    *PROJECTION_VARIANTS,
+)
 VELOCITY_MODES = {
     "arcmean": "mean",
     "arcvel": "profile",
     "arclogdur": "logdur",
     "arcdur": "dur",
+    "arcdurhyb": "durhyb",
+    "arcvelhyb": "profhyb",
+    "arcdurtri": "durtri",
+    "arcveltri": "proftri",
+    "arcdurevt": "durevt",
+    "arcvelevt": "stkevt",
+    "arcdurref": "durref",
+    "arcvelref": "stkref",
+    **PROJECTION_VARIANTS,
 }
 
 
@@ -26,9 +55,19 @@ def get_keymap(
     keymap_mode: str = "cartesian",
     embodiment: str = "human",
     drop_wrist_images: bool = True,
+    yam_source_frames: int | None = None,
     **kwargs,
 ):
-    """Plain cartesian keymap with every action key's raw window set to ``horizon``."""
+    """Build a Cartesian keymap, preserving declarative distance horizons.
+
+    ``yam_source_frames`` explicitly pins a YAM Cartesian source window for
+    stationery recipes. Otherwise the caller's horizon remains unchanged.
+    """
+    if yam_source_frames is not None:
+        if type(yam_source_frames) is not int or yam_source_frames < 1:
+            raise ValueError("yam_source_frames must be a positive integer")
+        if embodiment != "yam" or keymap_mode != "cartesian":
+            raise ValueError("yam_source_frames applies only to YAM cartesian windows")
     if embodiment == "human":
         key_map = Human.get_keymap(keymap_mode, **kwargs)
     elif embodiment == "yam":
@@ -44,8 +83,14 @@ def get_keymap(
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     for spec in key_map.values():
-        if "horizon" in spec:
-            spec["horizon"] = int(horizon)
+        if "horizon" not in spec:
+            continue
+        # A distance horizon is a resolver contract, not an integer frame count.
+        if isinstance(spec["horizon"], dict):
+            continue
+        spec["horizon"] = int(
+            horizon if yam_source_frames is None else yam_source_frames
+        )
     return key_map
 
 
@@ -57,17 +102,26 @@ def get_transform_list(
     resampled_vector_length: int = 100,
     stride: int = 1,
     rotation_mode: str = "euler",
-    speed_smooth_frames: int = 7,
+    speed_smooth_frames: int = 1,
+    speed_encoding: str = "interval",
+    duration_timing: str = "delta",
     velocity_norm: str = "path",
     progress_smooth_hz: float | None = None,
     embodiment: str = "human",
     fixed_spacing: bool = False,
     source_fps: float = 30.0,
+    yam_source_frames: int | None = None,
+    rotation_distance_unit: float = 6.283185307179586,  # hybrid / tri / evt / ref variants only; see e1_arc_tokenizer
+    projection_offset_m=None,
+    projection_min_speed: float = 1e-6,
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+    projection = variant in PROJECTION_VARIANTS
+    if projection_offset_m is not None and not projection:
+        raise ValueError("projection_offset_m requires an ARC Projection variant")
     if embodiment == "human":
         tl = _build_human_cartesian_eef_frame_transform_list(
             stride=int(stride),
@@ -80,27 +134,58 @@ def get_transform_list(
             _build_yam_bimanual_eef_frame_transform_list,
         )
 
+        # Stationery pins native source frames; older main recipes retain their
+        # configured interpolation horizon and stride.
+        if yam_source_frames is not None and (
+            type(yam_source_frames) is not int or yam_source_frames < 1
+        ):
+            raise ValueError("yam_source_frames must be a positive integer")
+        # Native windows are already padded by the loader. TIME must also
+        # preserve these rows exactly, as in the original stationery source.
+        yam_chunk_length = None if yam_source_frames is not None else int(chunk_length)
+        yam_stride = 1 if yam_source_frames is not None else int(stride)
         tl = _build_yam_bimanual_eef_frame_transform_list(
-            stride=int(stride),
+            stride=yam_stride,
             rotation_mode=rotation_mode,
-            chunk_length=int(chunk_length),
+            chunk_length=yam_chunk_length,
         )
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
     if variant != "time":
+        codec_class = (
+            TokenizeBimanualArcProjection if projection else TokenizeBimanualArcLengthE1
+        )
+        projection_kwargs = (
+            dict(
+                projection_offset_m=PROJECTION_OFFSET_M
+                if projection_offset_m is None
+                else projection_offset_m,
+                min_speed=projection_min_speed,
+            )
+            if projection
+            else {}
+        )
         tl.append(
-            TokenizeBimanualArcLengthE1(
+            codec_class(
                 action_key="actions_cartesian",
                 output_action_key="actions_cartesian",
                 min_distance_unit=float(min_distance_unit),
                 resampled_vector_length=int(resampled_vector_length),
-                dt=float(stride) / source_fps,
+                dt=(
+                    1.0 / source_fps
+                    if embodiment == "yam" and yam_source_frames is not None
+                    else float(stride) / source_fps
+                ),
                 velocity_norm=velocity_norm,
                 velocity_mode=VELOCITY_MODES[variant],
                 speed_smooth_frames=int(speed_smooth_frames),
+                speed_encoding=speed_encoding,
+                duration_timing=duration_timing,
                 progress_smooth_hz=progress_smooth_hz,
                 fixed_spacing=bool(fixed_spacing),
+                rotation_distance_unit=float(rotation_distance_unit),
+                **projection_kwargs,
             )
         )
     return tl

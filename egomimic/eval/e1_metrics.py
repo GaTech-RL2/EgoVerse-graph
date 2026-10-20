@@ -161,6 +161,8 @@ class E1TempoAccumulator:
         prog_horizon_m: float = 0.19,
         progress_smooth_hz: float | None = None,
         velocity_norm: str = "path",
+        duration_timing: str = "delta",
+        speed_encoding: str = "interval",
         arc_match_points: int = 100,
         span_floor_m: float = 0.01,
         arcmatch_gt_span_m: float | None = None,
@@ -171,9 +173,21 @@ class E1TempoAccumulator:
         self._gt_span_arg = arcmatch_gt_span_m
         if kwargs:
             raise TypeError(f"Unexpected E1 metric options: {sorted(kwargs)}")
-        if variant not in ("time", "arcmean", "arcvel", "arclogdur", "arcdur"):
+        if variant not in (
+            "time",
+            "arcmean",
+            "arcvel",
+            "arclogdur",
+            "arcdur",
+            "arcdurhyb",
+            "arcvelhyb",
+            "arcdurtri",
+            "arcveltri",
+            "arcdurevt",
+            "arcvelevt",
+        ):
             raise ValueError(
-                "variant must be time | arcmean | arcvel | arclogdur | arcdur"
+                "variant must be time | arcmean | arcvel | arclogdur | arcdur | arcdurhyb | arcvelhyb | arcdurtri | arcveltri | arcdurevt | arcvelevt"
             )
         self.prog_horizon_m = float(prog_horizon_m)
         self.progress_smooth_hz = (
@@ -200,8 +214,16 @@ class E1TempoAccumulator:
                     "arcvel": "profile",
                     "arclogdur": "logdur",
                     "arcdur": "dur",
+                    "arcdurhyb": "durhyb",
+                    "arcvelhyb": "profhyb",
+                    "arcdurtri": "durtri",
+                    "arcveltri": "proftri",
+                    "arcdurevt": "durevt",
+                    "arcvelevt": "stkevt",
                 }[variant],
                 progress_smooth_hz=progress_smooth_hz,
+                duration_timing=duration_timing,
+                speed_encoding=speed_encoding,
             )
         self._reset()
 

@@ -179,21 +179,26 @@ def _compose(experiment: str):
 
 
 def test_arc_experiment_evaluator_matches_its_data_tokenizer():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
     assert cfg.evaluator.min_distance_unit == tok.min_distance_unit
     assert cfg.evaluator.resampled_vector_length == tok.resampled_vector_length
 
 
 def test_arc_experiment_model_horizon_matches_the_token_row_count():
-    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
-
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
-    tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
-    # Row count follows the velocity mode, so derive it rather than assume M+1.
-    expected_rows = bimanual_arc_token_rows(
-        int(tok.resampled_vector_length), cfg.abc.arc_velocity_mode
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        bimanual_arc_token_shape,
+        default_bimanual_velocity_layout,
     )
+
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
+    tok = cfg.data.train_datasets.yam_bimanual.resolver.transform_list
+    # Row count follows both the velocity mode and the configured layout.
+    expected_rows = bimanual_arc_token_shape(
+        int(tok.resampled_vector_length),
+        cfg.abc.arc_velocity_mode,
+        default_bimanual_velocity_layout(cfg.abc.arc_velocity_mode),
+    )[0]
     assert cfg.abc.arc_token_rows == expected_rows
     # All three diffusion stages must agree, or training aborts on batch one.
     for stage in cfg.model.pipeline.stages:
@@ -202,8 +207,8 @@ def test_arc_experiment_model_horizon_matches_the_token_row_count():
 
 
 def test_arc_experiment_uses_the_arc_evaluator_not_the_baseline_one():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
-    assert cfg.evaluator._target_.endswith("ArcBimanualCartesianEval")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
+    assert cfg.evaluator._target_.endswith("OpenLoopSimEval")
 
 
 def test_baseline_shares_the_arc_evaluator_so_the_arms_are_comparable():
@@ -214,18 +219,22 @@ def test_baseline_shares_the_arc_evaluator_so_the_arms_are_comparable():
     through de-interpolation instead -- but the arcmatch settings must be
     identical or the two arms are not measured in the same space.
     """
-    arc = _compose("abc_arc/abc_fstshirt_arc_bc")
-    baseline = _compose("abc_arc/abc_fstshirt_bc")
+    arc = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
+    baseline = _compose(
+        "abc_arc/robot_bc/abc_multitask4_hpt300_baseline_visual_openloop"
+    )
     assert baseline.evaluator._target_ == arc.evaluator._target_
     for field in (
         "min_distance_unit",
+        "rotation_distance_unit",
         "resampled_vector_length",
-        "arcmatch_points",
-        "arc_chunk_rows",
         "velocity_mode",
+        "execute_fraction",
+        "arc_execution_cap_mode",
     ):
         assert baseline.evaluator[field] == arc.evaluator[field], field
-    assert baseline.evaluator.arc_metrics is True
+    assert baseline.evaluator.action_mode == "baseline"
+    assert arc.evaluator.action_mode == "arc"
 
 
 # -- per-waypoint velocity mode ---------------------------------------------
@@ -249,6 +258,7 @@ def _granular_evaluator():
         resampled_vector_length=_M,
         preserve_action_key=None,
         velocity_mode="per_waypoint",
+        velocity_layout="stacked",
     )
     return ev
 
@@ -269,11 +279,13 @@ def _granular_token(steps: int = 200) -> np.ndarray:
     return np.asarray(tok.transform({"a": _raw_chunk(steps)})["a"])
 
 
-def test_granular_token_has_two_m_rows():
-    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_rows
+def test_granular_token_uses_m_wide_waypoints():
+    from egomimic.rldb.zarr.arc_length_tokenizer import bimanual_arc_token_shape
 
-    assert _granular_token().shape == (bimanual_arc_token_rows(_M, "per_waypoint"), 14)
-    assert _granular_token().shape[0] == 2 * _M
+    assert _granular_token().shape == bimanual_arc_token_shape(
+        _M, "per_waypoint", "wide"
+    )
+    assert _granular_token().shape == (_M, 28)
 
 
 def test_granular_viz_source_converts_to_pose_rows():
@@ -357,10 +369,9 @@ def test_duration_beats_mean_on_a_decelerating_chunk():
     assert err("duration") < err("mean")
 
 
-def test_duration_token_has_two_m_rows_and_positive_dts():
+def test_duration_token_has_wide_waypoints_and_positive_dts():
     from egomimic.rldb.zarr.arc_length_tokenizer import (
         TokenizeBimanualArcLengthCartesian,
-        bimanual_arc_token_rows,
     )
 
     tok = TokenizeBimanualArcLengthCartesian(
@@ -372,11 +383,11 @@ def test_duration_token_has_two_m_rows_and_positive_dts():
         velocity_mode="duration",
     )
     token = np.asarray(tok.transform({"a": _raw_chunk()})["a"])
-    assert token.shape == (bimanual_arc_token_rows(_M, "duration"), 14)
-    # Per-arm Δt in first column of each arm block.
-    assert (token[_M:, 0] >= 0).all()
-    assert (token[_M:, 7] >= 0).all()
-    assert (token[_M:-1, 0] > 0).any()
+    assert token.shape == (_M, 28)
+    # Per-arm Δt is carried in the velocity payload's first column.
+    assert (token[:, 14] >= 0).all()
+    assert (token[:, 21] >= 0).all()
+    assert (token[:-1, 14] > 0).any()
 
 
 def test_duration_viz_source_converts_to_pose_rows():
@@ -397,6 +408,7 @@ def test_duration_viz_source_converts_to_pose_rows():
         resampled_vector_length=_M,
         preserve_action_key=None,
         velocity_mode="duration",
+        velocity_layout="stacked",
     )
     tok = TokenizeBimanualArcLengthCartesian(
         action_key="a",
@@ -412,7 +424,7 @@ def test_duration_viz_source_converts_to_pose_rows():
 
 
 def test_experiment_wires_one_velocity_mode_across_data_and_evaluator():
-    cfg = _compose("abc_arc/abc_fstshirt_arc_bc")
+    cfg = _compose("abc_arc/robot_bc/abc_multitask4_hpt300_hybrid_visual_openloop")
     mode = cfg.abc.arc_velocity_mode
     assert cfg.evaluator.velocity_mode == mode
     for split in ("train_datasets", "valid_datasets"):

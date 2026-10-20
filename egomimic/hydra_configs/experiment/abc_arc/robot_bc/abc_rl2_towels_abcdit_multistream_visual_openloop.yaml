@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_rl2_towels_abcdit_baseline_visual_openloop
+  - _self_
+name: abc_rl2_towels_abcdit_multistream_visual_openloop
+description: ABC-DiT XL ABC + RL2 towels multistream ARC D0.714 R2.10 M100
+# Four independent clocks: each arm's translation to D, each arm's rotation to R.
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+abc_dit:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+logger:
+  wandb:
+    tags: [abc_dit, abc, rl2, towels, clip_task, multistream, M100, per_waypoint, open_loop, video]

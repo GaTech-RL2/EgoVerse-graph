@@ -1,0 +1,36 @@
+# @package _global_
+# M 200 waypoints and D 0.33 m on the HPT300 towels / earbuds recipes. As in _base/m200_d033, e1.M / e1.D
+# alone do not reach the training tokens: the data transforms, arc_tokenizer and the token-row horizons hold
+# literals, so every read follows e1 here. The decoded chunk stays e1.time_rows (100 frames); the tempo
+# evaluator already reads e1.M / e1.D.
+e1:
+  M: 200
+  D: 0.33
+  action_horizon: ${e1.M}
+hpt:
+  action_horizon: ${e1.M}
+arc_tokenizer:
+  resampled_vector_length: ${e1.M}
+  min_distance_unit: ${e1.D}
+model:
+  action_horizon: ${e1.M}
+  graph:
+    noising:
+      action_horizon: ${e1.M}
+    sampler:
+      action_horizon: ${e1.M}
+      model:
+        act_seq: ${e1.M}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          resampled_vector_length: ${e1.M}
+          min_distance_unit: ${e1.D}
+  valid_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          resampled_vector_length: ${e1.M}
+          min_distance_unit: ${e1.D}

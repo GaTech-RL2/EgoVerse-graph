@@ -1,0 +1,5 @@
+# Frozen fine-tune architecture with two appended per-arm timing channels.
+defaults:
+  - /model/e1/hpt_flow_wrists_ft@_here_
+  - _self_
+action_token_dim: 16

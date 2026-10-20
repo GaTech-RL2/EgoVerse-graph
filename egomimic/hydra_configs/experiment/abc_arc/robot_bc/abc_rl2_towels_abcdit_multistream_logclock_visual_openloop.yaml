@@ -1,0 +1,26 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_rl2_towels_abcdit_multistream_visual_openloop
+  - _self_
+name: abc_rl2_towels_abcdit_multistream_logclock_visual_openloop
+description: ABC-DiT XL ABC + RL2 towels multistream ARC D0.714 R2.10 M100, log-seconds duration clocks
+# The per_waypoint run predicted translation rates too low; dividing distance
+# by them made streams 10-50x too slow. Store four per-interval durations as
+# log(seconds + 1e-3) in the (M, 18) clock token instead.
+abc:
+  arc_velocity_mode: duration
+  arc_velocity_layout: log_clock
+  arc_token_dim: 18
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        transform_list:
+          velocity_mode: ${abc.arc_velocity_mode}
+          velocity_layout: ${abc.arc_velocity_layout}
+# abc_visual_hpt300_base pins the evaluator to per_waypoint.
+evaluator:
+  velocity_mode: ${abc.arc_velocity_mode}
+logger:
+  wandb:
+    tags: [abc_dit, abc, rl2, towels, clip_task, multistream, M100, duration_log_clock, open_loop, video]

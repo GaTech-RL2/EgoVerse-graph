@@ -1,0 +1,38 @@
+# @package _global_
+# RL2 fold_towels HPT-300M recipe (embed 840, trunk 19 blocks x 10 heads, flow CrossTransformer 6 x 320),
+# the same training recipe and tempo evaluator as the stationery base; leaves pick the frozen pool
+# (towels_pool + data override), the codec (e1.variant) and the run identity.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo
+- override /model: e1/hpt300_flow_wrists_arcdur
+- override /data: abc_arc/towels_since0924plus74_20261015
+- _self_
+towels_pool: since0924plus74
+e1:
+  policy_domain: yam
+  spread: towels
+  variant: arcdur
+  action_dim: 16
+hpt:
+  action_dim: ${e1.action_dim}
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  stem_specs:
+    cross_attn:
+      crossattn_heads: 10
+      crossattn_dim_head: 84
+      modality_embed_dim: 840
+name: towels_${towels_pool}_${e1.variant}_hpt300
+description: h840t19_d320x6_cos10k_240k_s42_${name}
+logger:
+  wandb:
+    entity: rl2-group
+    offline: false
+    id: ${name}_20261015_s42
+    tags:
+    - rl2
+    - fold_towels
+    - hpt300
+    - ${e1.variant}
+    - ${towels_pool}

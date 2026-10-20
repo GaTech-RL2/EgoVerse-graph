@@ -1,0 +1,22 @@
+# Reuse the frozen 366/24 pool; the model selects duration or velocity timing.
+defaults:
+- /data/abc_arc/stationery_slowpace366_bc_time@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: ${model.projection_variant}
+        projection_offset_m: ${model.projection_offset_m}
+        projection_min_speed: ${model.projection_min_speed}
+        speed_smooth_frames: ${model.projection_speed_smooth_frames}
+        duration_timing: ${model.projection_duration_timing}
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: ${model.projection_variant}
+        projection_offset_m: ${model.projection_offset_m}
+        projection_min_speed: ${model.projection_min_speed}
+        speed_smooth_frames: ${model.projection_speed_smooth_frames}
+        duration_timing: ${model.projection_duration_timing}

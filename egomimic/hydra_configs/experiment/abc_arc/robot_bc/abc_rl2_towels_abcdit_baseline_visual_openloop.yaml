@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - /experiment/abc_arc/robot_bc/abc_multitask4_abcdit_baseline_visual_openloop
+  - _self_
+name: abc_rl2_towels_abcdit_baseline_visual_openloop
+description: ABC-DiT XL ABC + RL2 towel folding baseline 100-frame chunks
+# ABC "fold and stack the towels" (389 episodes) + RL2 "fold_towels" (394).
+# Calibration: 15 sampled episodes per lab, mean over 100-frame windows of the
+# faster arm's clock: D 0.7143 m, R 2.0997 rad (ABC 0.7047/1.9501, RL2 0.7440/2.5612).
+abc:
+  task_predicate: "(row['lab'] == 'abc' and row['task'] == 'fold and stack the towels') or (row['lab'] == 'rl2' and row['task'] == 'fold_towels')"
+  arc_chunking_mode: multistream
+  arc_distance: 0.7143
+  arc_rotation_distance: 2.0997
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          # About half of RL2 fold_towels episodes carry task_description
+          # "sorting markers and pens"; task_name is correct for both labs.
+          task_zarr_key: task_name
+      filters:
+        filter_lambdas:
+          - "lambda row: row['embodiment'] == 'yam_bimanual' and (${abc.task_predicate}) and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+logger:
+  wandb:
+    tags: [abc_dit, abc, rl2, towels, clip_task, open_loop, video]

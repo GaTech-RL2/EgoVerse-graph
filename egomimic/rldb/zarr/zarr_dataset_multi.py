@@ -38,6 +38,7 @@ import pandas as pd
 import simplejpeg
 import torch
 import zarr
+from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
@@ -1078,6 +1079,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys: dict[int, dict[str, str]] = {}
         self.shapes: dict[int, dict[str, tuple]] = {}
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
+        self.action_contracts: dict[int, dict] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
 
         # ---- Dataset graph fields ----
@@ -1199,6 +1201,7 @@ class MultiDataset(torch.utils.data.Dataset):
         accumulate duplicate passes when leaves share a transform list reference.
         """
         self.norm_stats = source.norm_stats
+        self.action_contracts = copy.deepcopy(getattr(source, "action_contracts", {}))
         self.key_types = source.key_types
         self.zarr_keys = source.zarr_keys
         self.shapes = source.shapes
@@ -1585,11 +1588,16 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        action_contract: dict | None = None,
         resume_partial_norm_path: str | None = None,
+        widen_degenerate_quantiles: bool = False,
+        fixed_ranges: dict | None = None,
     ):
         embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
+        if action_contract is not None:
+            self.action_contracts[embodiment] = copy.deepcopy(action_contract)
 
         norm_keys = list(self.keys_of_type("proprio_keys", embodiment))
         norm_keys.extend(self.keys_of_type("action_keys", embodiment))
@@ -1600,6 +1608,34 @@ class MultiDataset(torch.utils.data.Dataset):
             return
 
         self.norm_stats.setdefault(embodiment, {})
+
+        if fixed_ranges:
+            if self.norm_mode != "quantile":
+                raise ValueError(
+                    f"norm_stats.fixed_ranges needs norm_mode='quantile', got {self.norm_mode!r}"
+                )
+            if (
+                precomputed_norm_path is not None
+                or resume_partial_norm_path is not None
+            ):
+                raise ValueError(
+                    "norm_stats.fixed_ranges replaces statistics fitted in this run and cannot be combined with "
+                    "a statistics-only precomputed_norm_path"
+                )
+            # Before the sampling pass (sample_frac of the training windows): a mistyped key or a malformed range fails
+            # here, with the width where the key's shape is already inferred. The checks after the pass stay for a
+            # named key that yields no samples and for a caller that has not inferred shapes.
+            if unknown := sorted(set(fixed_ranges) - set(norm_keys)):
+                raise ValueError(
+                    f"norm_stats.fixed_ranges names keys that are not normalized here: {unknown} (have {norm_keys})"
+                )
+            for k, ranges in fixed_ranges.items():
+                shape = self.shapes.get(embodiment, {}).get(k, np.shape(ranges["low"]))
+                self._fixed_range_quantiles(
+                    dict.fromkeys(("quantile_1", "min", "max"), np.zeros(shape)),
+                    ranges["low"],
+                    ranges["high"],
+                )
 
         if resume_partial_norm_path is not None:
             if precomputed_norm_path is not None:
@@ -1664,12 +1700,34 @@ class MultiDataset(torch.utils.data.Dataset):
         for k in [k for k, v in collected.items() if not v]:
             del collected[k]
             norm_keys.remove(k)
+        if unknown := sorted(set(fixed_ranges or {}) - set(norm_keys)):
+            raise ValueError(
+                f"norm_stats.fixed_ranges names keys that are not normalized here: {unknown} (have {norm_keys})"
+            )
         loading_time = time.time() - loading_start
 
         computing_start = time.time()
         for k in norm_keys:
             collected[k] = np.concatenate(collected[k], axis=0)
             stats_np = self._compute_stats_for_array(collected[k])
+            if widen_degenerate_quantiles:
+                stats_np, n_wide = self._widen_degenerate_quantiles(stats_np)
+                # Logged also for 0: the option covers every norm key, so the log shows what it touched.
+                logger.info(
+                    f"[MultiDataset] key={k}: widened {n_wide} degenerate quantile element(s) to min/max"
+                )
+            if fixed_ranges and k in fixed_ranges:
+                stats_np, fill = self._fixed_range_quantiles(
+                    stats_np, fixed_ranges[k]["low"], fixed_ranges[k]["high"]
+                )
+                # Always logged: the launch check reads how much of each fixed range the fitted sample uses.
+                logger.info(
+                    f"[MultiDataset] key={k}: fixed ranges replace quantile_1 / quantile_99; fitted min / max reach {fill.max():.3f} of the range, per column {np.round(fill, 3).tolist()}"
+                )
+                if (over := np.flatnonzero(fill > 1 + 1e-6)).size:
+                    logger.warning(
+                        f"[MultiDataset] key={k}: fitted values exceed the fixed range in columns {over.tolist()}; such targets train as they are and cannot be sampled under a [-1, 1] clip"
+                    )
             self.norm_stats[embodiment][k] = {
                 name: np.asarray(arr, dtype=np.float32)
                 for name, arr in stats_np.items()
@@ -1731,6 +1789,70 @@ class MultiDataset(torch.utils.data.Dataset):
         return collected
 
     @staticmethod
+    def _widen_degenerate_quantiles(stats, eps: float = 1e-6):
+        """Opt-in (norm_stats.widen_degenerate_quantiles): where an element's 1st and 99th percentiles coincide
+        (it takes one value in >= 98 % of samples) but its sampled min / max differ, use min / max as its quantile
+        range. Quantile normalization 2 (x - q1) / (q99 - q1 + 1e-6) - 1 otherwise maps the rare other values to
+        ~1e6: e.g. an E1 hybrid / tri token's start-delay row, 0 on almost every towel window (arcdurtri towels runs
+        diverged 2026-10-08, |z| 1.7e6). Written into the saved stats, so every normalizer that reads them (training,
+        open-loop eval, the robot) agrees. Returns (stats, number of widened elements)."""
+        q1, q99 = (
+            np.asarray(stats["quantile_1"], dtype=np.float64),
+            np.asarray(stats["quantile_99"], dtype=np.float64),
+        )
+        lo, hi = (
+            np.asarray(stats["min"], dtype=np.float64),
+            np.asarray(stats["max"], dtype=np.float64),
+        )
+        mask = ((q99 - q1) < eps) & ((hi - lo) > eps)
+        if not mask.any():
+            return stats, 0
+        out = dict(stats)
+        for name, src in (
+            ("quantile_1", lo),
+            ("quantile_99", hi),
+            ("quantile_0_01", lo),
+            ("quantile_99_99", hi),
+        ):
+            if name in out:
+                arr = np.array(out[name], dtype=np.float64)
+                arr[mask] = src[mask]
+                out[name] = arr
+        return out, int(mask.sum())
+
+    @staticmethod
+    def _fixed_range_quantiles(stats, low, high):
+        """Opt-in (norm_stats.fixed_ranges.<key>.{low, high}): one fixed [low, high] per column of the key's last
+        axis, the same for every row, in place of the fitted 1st / 99th percentiles. With quantile_1 = low and
+        quantile_99 = high - 1e-6 the existing quantile formula 2 (x - q1) / (q99 - q1 + 1e-6) - 1 computes
+        2 (x - low) / (high - low) - 1 (x / s for low = -s, high = s; 2 g - 1 for [0, 1]) to float32 rounding, and
+        un-normalize returns z x s. So the saved stats carry the fixed scale to evaluation and the robot with no
+        model change. Every other statistic stays as fitted. Returns (stats, fill): per column, the largest
+        |normalized value| the fitted min / max reach."""
+        low, high = (np.asarray(v, dtype=np.float64) for v in (low, high))
+        shape = np.shape(stats["quantile_1"])
+        if not (
+            low.ndim == high.ndim == 1
+            and shape[-1:] == low.shape == high.shape
+            and np.isfinite(low).all()
+            and np.isfinite(high).all()
+            and (high > low).all()
+        ):
+            raise ValueError(
+                f"fixed ranges need finite low < high with one value per column of the last axis of {shape}, got low={low.tolist()} high={high.tolist()}"
+            )
+        out = dict(stats)
+        out["quantile_1"] = np.broadcast_to(low, shape).copy()
+        out["quantile_99"] = np.broadcast_to(high - 1e-6, shape).copy()
+        z = [
+            np.abs(
+                2 * (np.asarray(stats[name], dtype=np.float64) - low) / (high - low) - 1
+            )
+            for name in ("min", "max")
+        ]
+        return out, np.maximum(*z).reshape(-1, len(low)).max(axis=0)
+
+    @staticmethod
     def _compute_stats_for_array(X):
         X = np.asarray(X)
         if X.ndim < 1 or X.shape[0] == 0:
@@ -1777,6 +1899,10 @@ class MultiDataset(torch.utils.data.Dataset):
             # (same dims, different meaning) is refused instead of applied.
             "provenance": {
                 "norm_mode": self.norm_mode,
+                "action_contracts": {
+                    str(emb): copy.deepcopy(contract)
+                    for emb, contract in getattr(self, "action_contracts", {}).items()
+                },
                 "stat_shapes": {
                     str(emb): {
                         k: list(np.asarray(next(iter(sd.values()))).shape)
@@ -1957,7 +2083,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def to_state(self) -> dict:
         """Serialize stats only (not the dataset graph). Suitable for checkpoint."""
-        return {
+        state = {
             "norm_mode": self.norm_mode,
             "embodiments": sorted(self.embodiments),
             "key_types": copy.deepcopy(self.key_types),
@@ -1965,6 +2091,11 @@ class MultiDataset(torch.utils.data.Dataset):
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
         }
+        # Only ARC recipes bind a contract; omitting the empty mapping keeps
+        # the data-context digest of contract-free checkpoints unchanged.
+        if getattr(self, "action_contracts", None):
+            state["action_contracts"] = copy.deepcopy(self.action_contracts)
+        return state
 
     @classmethod
     def from_state(cls, state: dict) -> "MultiDataset":
@@ -1981,6 +2112,10 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         self.shapes = copy.deepcopy(state.get("shapes", {}))
         self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        self.action_contracts = {
+            int(emb): copy.deepcopy(contract)
+            for emb, contract in state.get("action_contracts", {}).items()
+        }
         for emb in self.embodiments:
             self.key_types.setdefault(emb, {})
             self.zarr_keys.setdefault(emb, {})
@@ -1993,10 +2128,11 @@ class MultiDataset(torch.utils.data.Dataset):
         """Load ``norm_stats.json`` for one embodiment, refusing a file whose
         provenance does not match this dataset.
 
-        The stats are only meaningful for the exact (norm_mode, key set)
-        they were computed under; the payload's ``provenance`` block (written
-        by :meth:`cache_stats`) carries both. Files written before provenance
-        existed load as before, with a warning.
+        The provenance checks normalization mode, key set, and any requested
+        ARC action contract. Untagged legacy caches remain eligible for the
+        original joint_distance representation; new nonjoint modes require
+        matching contract metadata. Callers without a contract retain the
+        legacy loading behavior.
         """
         with open(precomputed_file, "r") as f:
             payload = json.load(f)
@@ -2010,6 +2146,35 @@ class MultiDataset(torch.utils.data.Dataset):
                 "reusing a pre-collapse norm_stats.json."
             )
         provenance = payload.get("provenance")
+        file_contract = (
+            (provenance or {}).get("action_contracts", {}).get(str(embodiment))
+        )
+        wanted_contract = getattr(self, "action_contracts", {}).get(embodiment)
+        if wanted_contract is not None:
+            if file_contract is None:
+                if (
+                    wanted_contract.get("arc_chunking_mode") != "joint_distance"
+                    or wanted_contract.get("source_sampling") is not None
+                ):
+                    raise ValueError(
+                        f"norm_stats file {precomputed_file} has no action contract for "
+                        f"embodiment {embodiment}; arc_chunking_mode="
+                        f"{wanted_contract.get('arc_chunking_mode')!r}, "
+                        f"source_sampling={wanted_contract.get('source_sampling')!r} requires matching "
+                        "cache provenance. Recompute stats for this representation."
+                    )
+                logger.warning(
+                    "[MultiDataset] Accepting legacy joint_distance norm cache %s "
+                    "without an action contract; existing data/cap compatibility "
+                    "must have been checked by the caller.",
+                    precomputed_file,
+                )
+            elif file_contract != wanted_contract:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} action contract for embodiment "
+                    f"{embodiment} differs: cached={file_contract!r}, "
+                    f"requested={wanted_contract!r}; recompute stats."
+                )
         if provenance is None:
             logger.warning(
                 f"[MultiDataset] {precomputed_file} carries no provenance block "
@@ -2033,6 +2198,8 @@ class MultiDataset(torch.utils.data.Dataset):
                 f"normalizes {sorted(want_keys)}; the file was computed for a "
                 "different keymap/transform mode — recompute the stats."
             )
+        if file_contract is not None:
+            self.action_contracts[embodiment] = copy.deepcopy(file_contract)
         self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
         self._norm_run_metadata = payload.get("norm_run_metadata", None)
 
@@ -2324,6 +2491,237 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         return min(start_idx + horizon, self.total_frames)
 
+    @staticmethod
+    def _canonical_dynamic_horizon_spec(value: Any) -> Any:
+        """Return a hashable, value-based form of a horizon specification."""
+        if isinstance(value, Mapping):
+            return tuple(
+                sorted(
+                    (
+                        str(key),
+                        ZarrDataset._canonical_dynamic_horizon_spec(item),
+                    )
+                    for key, item in value.items()
+                )
+            )
+        if isinstance(value, (list, tuple)):
+            return tuple(
+                ZarrDataset._canonical_dynamic_horizon_spec(item) for item in value
+            )
+        if isinstance(value, np.generic):
+            return value.item()
+        return value
+
+    def _resolve_dynamic_horizons_for_sample(self, start_idx: int) -> dict[Any, int]:
+        """Resolve each distinct dynamic horizon once for one sample index."""
+        resolved_by_spec: dict[Any, int] = {}
+        shared_horizon: int | None = None
+        for key_spec in self.key_map.values():
+            if not isinstance(key_spec, dict):
+                continue
+            horizon_spec = key_spec.get("horizon")
+            if not isinstance(horizon_spec, dict):
+                continue
+            canonical = self._canonical_dynamic_horizon_spec(horizon_spec)
+            if canonical not in resolved_by_spec:
+                resolved = self._resolve_dynamic_horizon(start_idx, horizon_spec)
+                if shared_horizon is None:
+                    shared_horizon = resolved
+                elif shared_horizon != resolved:
+                    raise ValueError(
+                        "multiple dynamic horizon specs resolved to different "
+                        f"lengths ({shared_horizon} vs {resolved})"
+                    )
+                resolved_by_spec[canonical] = resolved
+        return resolved_by_spec
+
+    def _resolve_dynamic_horizon(self, start_idx: int, spec: dict) -> int:
+        """Resolve a declarative distance-based source window.
+
+        ARC YAM cannot use a fixed action horizon: the number of native source
+        frames needed to travel ``distance`` metres depends on the episode's
+        speed.  This helper reads a bounded prefix of the command poses,
+        accumulates translational distance independently for each arm, and
+        returns the smallest prefix that satisfies the requested arm policy.
+        The returned value is a *count* (including ``start_idx``), suitable for
+        the normal half-open ``(start, start + horizon)`` reads below.
+
+        ``source_buffer_frames`` is deliberately a read bound rather than a
+        target horizon. If an arm is stationary or the episode ends before
+        reaching the distance, the available prefix is returned and the
+        regular repeat-last padding rule handles short tails. ``max_frames``
+        is accepted as a legacy spelling.
+
+        Translation follows ``arc_chunking_mode``: the first arm to D (race),
+        both arms to their own D (multistream), or summed arm travel to D
+        (joint_distance). When R is supplied, both per-arm rotation clocks
+        must also reach R; a translation cutoff never clips either stream.
+        """
+        horizon_type = spec.get("type") if isinstance(spec, dict) else None
+        if horizon_type not in ("arc_distance", "arc_hybrid"):
+            raise TypeError(
+                "dynamic horizon must be an 'arc_distance' or 'arc_hybrid' spec, got "
+                f"{spec!r}"
+            )
+        distance = float(spec.get("distance", 0.0))
+        if not np.isfinite(distance) or distance <= 0.0:
+            raise ValueError(
+                f"arc_distance horizon requires a positive finite distance, got {distance!r}"
+            )
+        rotation_distance = None
+        if horizon_type == "arc_hybrid" or spec.get("rotation_distance") is not None:
+            rotation_distance = float(spec.get("rotation_distance", 0.0))
+            if not np.isfinite(rotation_distance) or rotation_distance <= 0.0:
+                raise ValueError(
+                    "arc_hybrid horizon requires positive finite rotation_distance, "
+                    f"got {rotation_distance!r}"
+                )
+        from egomimic.rldb.zarr.arc_length_tokenizer import resolve_arc_chunking_mode
+
+        chunking_mode = resolve_arc_chunking_mode(
+            spec.get("arc_chunking_mode"), rotation_distance
+        )
+        if (
+            spec.get("arc_chunking_mode") is None
+            and rotation_distance is None
+            and not spec.get("require_all_arms", True)
+        ):
+            # Old source specs expressed race selection with this flag.
+            chunking_mode = "race"
+        max_frames_value = spec.get(
+            "source_buffer_frames", spec.get("max_frames", self.total_frames)
+        )
+        if max_frames_value in (None, 0):
+            max_frames_value = self.total_frames
+        if int(max_frames_value) < 2:
+            raise ValueError(
+                f"arc_distance horizon max_frames must be >= 2, got {max_frames_value}"
+            )
+        max_frames = int(max_frames_value)
+        pose_keys = tuple(spec.get("pose_zarr_keys", ()))
+        if not pose_keys:
+            raise ValueError("arc_distance horizon requires pose_zarr_keys")
+
+        available = max(0, min(max_frames, self.total_frames - int(start_idx)))
+        if available <= 1:
+            # Return two so the normal read + repeat-last padding path gives
+            # the tokenizer its minimum two source rows at an episode tail.
+            return 2 if available == 1 else 0
+        # Read the bounded source buffer once. ARC's normal operating regime
+        # reaches D well before 600 frames, while this fixed read keeps the
+        # resolver simple and gives slow episodes a deterministic fallback.
+        end_idx = int(start_idx) + available
+        poses = self.episode_reader.read(
+            {str(key): (int(start_idx), end_idx) for key in pose_keys}
+        )
+        if rotation_distance is not None or chunking_mode == "joint_distance":
+            # Translation and rotation select their own endpoints from the
+            # complete bounded buffer. The later endpoint governs source I/O.
+            pose_arrays = []
+            common_usable = available
+            pose_width = 7 if rotation_distance is not None else 3
+            for key in pose_keys:
+                pose = np.asarray(poses[str(key)], dtype=np.float64)
+                if pose.ndim != 2 or pose.shape[1] < pose_width:
+                    raise ValueError(
+                        f"{horizon_type} pose key {key!r} must be (T, >={pose_width}), "
+                        f"got {pose.shape}"
+                    )
+                finite = np.isfinite(pose[:, :pose_width]).all(axis=1)
+                first_bad = np.flatnonzero(~finite)
+                usable = int(first_bad[0]) if len(first_bad) else len(pose)
+                common_usable = min(common_usable, usable)
+                pose_arrays.append(pose)
+
+            if len(pose_arrays) != 2:
+                raise ValueError(
+                    "joint ARC horizon requires exactly two pose_zarr_keys "
+                    f"for the bimanual joint clocks, got {len(pose_arrays)}"
+                )
+            if common_usable < 2:
+                return max(2, available)
+
+            left, right = (pose[:common_usable] for pose in pose_arrays)
+            arm_distances = []
+            for pose in (left, right):
+                steps = np.linalg.norm(np.diff(pose[:, :3], axis=0), axis=1)
+                arm_distances.append(np.concatenate(([0.0], np.cumsum(steps))))
+            arm_distances = np.stack(arm_distances)
+
+            def reached_indices(cumulative: np.ndarray, budget: float) -> np.ndarray:
+                # Quaternion reconstruction can leave an exactly reachable cap a
+                # few ulps low. Avoid loading one unnecessary source frame there.
+                tolerance = 16 * np.finfo(np.float64).eps * max(1.0, abs(budget))
+                return np.flatnonzero(cumulative >= budget - tolerance)
+
+            if chunking_mode == "joint_distance":
+                translation_cumulative = arm_distances.sum(axis=0)
+            elif chunking_mode == "race":
+                translation_cumulative = arm_distances.max(axis=0)
+            else:
+                translation_cumulative = arm_distances.min(axis=0)
+
+            translation_reached = reached_indices(translation_cumulative, distance)
+            if not len(translation_reached):
+                return max(2, available)
+            translation_end = int(translation_reached[0])
+            if rotation_distance is None:
+                return max(2, min(available, translation_end + 1))
+
+            rotation_ends = []
+            for pose in (left, right):
+                quaternion_xyzw = pose[:, 3:7][:, [1, 2, 3, 0]]
+                rotations = R.from_quat(quaternion_xyzw)
+                relative = rotations[:-1].inv() * rotations[1:]
+                rotation_cumulative = np.concatenate(
+                    ([0.0], np.cumsum(np.linalg.norm(relative.as_rotvec(), axis=-1)))
+                )
+                rotation_reached = reached_indices(
+                    rotation_cumulative, rotation_distance
+                )
+                # R is a per-arm budget. The source window must retain enough
+                # frames for both independent clocks, not a shared summed clock.
+                if not len(rotation_reached):
+                    return max(2, available)
+                rotation_ends.append(int(rotation_reached[0]))
+            required = max(translation_end, *rotation_ends)
+            return max(2, min(available, required + 1))
+
+        crossing_indices: list[int | None] = []
+        for key in pose_keys:
+            pose = np.asarray(poses[str(key)], dtype=np.float64)
+            if pose.ndim != 2 or pose.shape[1] < 3:
+                raise ValueError(
+                    f"arc_distance pose key {key!r} must be (T, >=3), got {pose.shape}"
+                )
+            xyz = pose[:, :3]
+            # Invalid pose rows should not manufacture distance. Truncate at
+            # the first non-finite sample; a later row cannot make that arm
+            # valid again.
+            finite = np.isfinite(xyz).all(axis=1)
+            first_bad = np.flatnonzero(~finite)
+            usable = int(first_bad[0]) if len(first_bad) else len(xyz)
+            xyz = xyz[:usable]
+            if len(xyz) < 2:
+                crossing_indices.append(None)
+                continue
+            cumulative = np.concatenate(
+                ([0.0], np.cumsum(np.linalg.norm(np.diff(xyz, axis=0), axis=1)))
+            )
+            reached = np.flatnonzero(cumulative >= distance)
+            crossing_indices.append(int(reached[0]) if len(reached) else None)
+
+        reached = [i for i in crossing_indices if i is not None]
+        require_all = chunking_mode == "multistream"
+        if (require_all and len(reached) == len(crossing_indices)) or (
+            not require_all and reached
+        ):
+            required = max(reached) if require_all else min(reached)
+            return max(2, min(available, required + 1))
+        # One or more arms did not reach D before the episode/bound; expose all
+        # available source rows and let repeat-last padding handle a true tail.
+        return max(2, available)
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -2388,13 +2786,40 @@ class ZarrDataset(torch.utils.data.Dataset):
         while True:
             data = {}
             retry = False
+            # Resolve a shared action window once per sample.  All YAM action
+            # keys (both poses and grippers) must have identical lengths so
+            # the downstream transforms and collate function stay aligned.
+            dynamic_horizons = self._resolve_dynamic_horizons_for_sample(idx)
+            dynamic_horizon: int | None = None
+            for horizon_spec in (
+                spec.get("horizon")
+                for spec in self.key_map.values()
+                if isinstance(spec, dict)
+            ):
+                if isinstance(horizon_spec, dict):
+                    resolved = dynamic_horizons[
+                        self._canonical_dynamic_horizon_spec(horizon_spec)
+                    ]
+                    if dynamic_horizon is None:
+                        dynamic_horizon = resolved
+                    elif dynamic_horizon != resolved:
+                        raise ValueError(
+                            "multiple dynamic horizon specs resolved to different "
+                            f"lengths ({dynamic_horizon} vs {resolved})"
+                        )
             for k in self.key_map:
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
-                horizon = self.key_map[k].get("horizon", None)
+                horizon_spec = self.key_map[k].get("horizon", None)
+                horizon = (
+                    dynamic_horizon if isinstance(horizon_spec, dict) else horizon_spec
+                )
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
+                    continue
+                if key_type == "episode_metadata":
+                    data[k] = str(self.metadata[zarr_key])
                     continue
 
                 if horizon is not None:

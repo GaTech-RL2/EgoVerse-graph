@@ -1,5 +1,22 @@
 # Repo Agent Rules
 
+## Benchmark ARC clock alignment
+
+The parent is PR #273 at `c1236f431691ea827740748fc15997f97a32a29f`.
+`arc_clock_bridge.py`, `libero_arc_clock.py`, and `planar_arc_clock.py` adapt
+geometry around its live Cartesian codec; do not reimplement its clock rules.
+New LIBERO runs select `experiment=sim/oat/libero_arc_clock` and choose
+`arc_clock.clock_mode=velocity|duration` and one of the four canonical streams.
+The native LIBERO window stays 32 actions and fixed replanning stays 16 actions.
+Planar decoders return the full 80-step window; the pusher rollout keeps fixed8.
+Planar geometry requires an explicit `meters_per_unit`: no pixel/meter mapping
+has been established for this campaign. The shared planar config leaves it
+mandatory, to preserve the physical speed bound and projection offset.
+Historical modes/configs remain historical. New clock targets require fresh
+training; representation metadata rejects reinterpreting older checkpoints.
+New tests and validation evidence are outside this runtime branch in
+`../arc-clock-contract-benchmarks-20261021-artifacts/`.
+
 ## Shell / Command Execution
 To run commands in the interactive shell, source `emimic/bin/activate` when it
 exists. In worktrees where `emimic` is absent and the checked project

@@ -145,6 +145,8 @@ class LiberoArcStage(Stage):
                 context["geometry_fit_grid"] = self.codec.geometry_fit_grid
         if self.token_affine_context is not None:
             context["token_affine"] = self.token_affine_context
+        if hasattr(self.codec, "representation_context"):
+            context["codec_contract"] = self.codec.representation_context()
         return context
 
     def bind_data_context(self, *, normalizer):
@@ -225,6 +227,10 @@ class LiberoArcStage(Stage):
                 "max_rotation_degrees",
             )
         )
+        if hasattr(self.codec, "representation_context"):
+            signature += (
+                json.dumps(self.codec.representation_context(), sort_keys=True),
+            )
         if signature != self._encode_cache_signature:
             self._encode_cache.clear()
             self._encode_cache_signature = signature

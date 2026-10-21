@@ -17,7 +17,26 @@ def validate_input_representation(stages, payload=None):
 
     stages = list(stages)
     learned = [s for s in stages if isinstance(s, (OATPolicyStage, OATTokenizerStage))]
+    codecs = [s for s in stages if isinstance(s, LiberoArcStage)]
     if not learned:
+        # Continuous clock-ARC also needs a representation guard: velocity and
+        # absolute duration can have identical tensor shapes but different units.
+        if any(s.arc_mode == "cartesian_clock" for s in codecs):
+            if (
+                len(codecs) != 2
+                or [s.operation for s in codecs] != ["encode", "decode"]
+                or any(s.reconstruction for s in codecs)
+                or codecs[0].representation_context()
+                != codecs[1].representation_context()
+            ):
+                raise ValueError("Continuous ARC encoder and decoder contracts differ")
+            representation = codecs[0].representation_context()
+            if (
+                payload is not None
+                and payload.get("oat_input_representation") != representation
+            ):
+                raise ValueError("Checkpoint and graph ARC clock contracts differ")
+            return representation
         return None
     if len(learned) != 1:
         raise ValueError("Expected one OAT tokenizer or policy stage")
@@ -27,7 +46,6 @@ def validate_input_representation(stages, payload=None):
         if isinstance(stage, OATPolicyStage)
         else stage.tokenizer
     )
-    codecs = [s for s in stages if isinstance(s, LiberoArcStage)]
     representation = None
     if codecs:
         if (
@@ -44,9 +62,13 @@ def validate_input_representation(stages, payload=None):
         representation = codecs[0].representation_context()
         if codecs[1].representation_context() != representation:
             raise ValueError("ARC+OAT encoder and decoder representations differ")
-        if tokenizer.decoder.sample_horizon != representation[
-            "num_waypoints"
-        ] or tokenizer.decoder.sample_dim != len(representation["token_scale"]):
+        token_dim = representation.get("codec_contract", {}).get(
+            "action_dim", len(representation["token_scale"])
+        )
+        if (
+            tokenizer.decoder.sample_horizon != representation["num_waypoints"]
+            or tokenizer.decoder.sample_dim != token_dim
+        ):
             raise ValueError("OAT tokenizer shape differs from ARC supports")
     elif (stage.action_key, stage.prediction_key) != ("actions", "pred_action"):
         raise ValueError("OAT representation ports lack their ARC codec")

@@ -1,0 +1,40 @@
+# @package _global_
+# Fresh-run representation; never resume interval-DUR or historical STK weights.
+defaults:
+  - /experiment/sim/oat/libero_arc_shared_r384_d1p6_m36
+  - _self_
+name: libero_arc_clock_${arc_clock.streams}_${arc_clock.clock_mode}
+arc_clock:
+  clock_mode: duration
+  streams: full_separation
+  gripper_stream_mode: events
+  gripper_distance_unit: null
+  projection_offset_m: [0.02, 0.02, 0.02]
+  dimensions:
+    full_separation: 13
+    translation_rotation: 12
+    translation: 11
+    projection: 11
+benchmark:
+  arc_mode: cartesian_clock
+  arc_action_dim: ${arc_clock.dimensions.${arc_clock.streams}}
+  n_action_steps: 16
+  arc_codec:
+    _target_: egomimic.rldb.zarr.libero_arc_clock.LiberoArcClockCodec
+    clock_mode: ${arc_clock.clock_mode}
+    streams: ${arc_clock.streams}
+    num_waypoints: ${benchmark.arc_waypoints}
+    horizon: ${benchmark.horizon}
+    dt: 0.05
+    max_translation: ${benchmark.arc_max_translation}
+    max_rotation_degrees: ${benchmark.arc_max_rotation_degrees}
+    hold_window_frames: ${benchmark.horizon}
+    gripper_stream_mode: ${arc_clock.gripper_stream_mode}
+    gripper_distance_unit: ${arc_clock.gripper_distance_unit}
+    projection_offset_m: ${arc_clock.projection_offset_m}
+run_provenance:
+  arc_contract: cartesian_arc_pr273_v1
+  clock_mode: ${arc_clock.clock_mode}
+  streams: ${arc_clock.streams}
+  fixed_replan_actions: 16
+  geometry: libero_osc_xyz_rotation6d_gripper

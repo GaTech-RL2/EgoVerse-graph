@@ -247,6 +247,10 @@ class LiberoArcTimedCodec(LiberoArcCodec):
 
 
 def make_libero_arc_codec(mode="joint_dur", **kwargs):
+    if mode == "cartesian_clock":
+        from egomimic.rldb.zarr.libero_arc_clock import LiberoArcClockCodec
+
+        return LiberoArcClockCodec(**kwargs)
     if mode == "global_basis":
         from egomimic.rldb.zarr.libero_arc_global import LiberoArcGlobalCodec
 
@@ -261,6 +265,15 @@ def codec_source_files(mode):
     paths = ["egomimic/rldb/zarr/libero_arc.py", "egomimic/rldb/zarr/planar_arc.py"]
     if mode in {"stk", "dur"}:
         paths.append("egomimic/rldb/zarr/libero_arc_timed.py")
+    elif mode == "cartesian_clock":
+        paths.extend(
+            [
+                "egomimic/rldb/zarr/libero_arc_timed.py",
+                "egomimic/rldb/zarr/libero_arc_clock.py",
+                "egomimic/rldb/zarr/arc_clock_bridge.py",
+                "egomimic/rldb/zarr/arc_length_tokenizer.py",
+            ]
+        )
     elif mode == "global_basis":
         paths.extend(
             [

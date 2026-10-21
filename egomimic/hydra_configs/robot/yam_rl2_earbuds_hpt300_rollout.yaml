@@ -10,7 +10,8 @@ robot:
   gripper_type: linear_4310
   gripper_kp: 20.0
   gripper_kd: 0.5
-  gripper_force_limit: 50.0
+  # Rollouts cap gripper force at 20 N (Aidan 2026-10-21); live per-arm control on the dashboard.
+  gripper_force_limit: 20.0
   zero_gravity_mode: true
   enable_auto_recovery: true
   frequency: 60

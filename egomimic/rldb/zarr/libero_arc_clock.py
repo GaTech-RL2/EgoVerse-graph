@@ -90,7 +90,7 @@ class LiberoArcClockCodec(SingleArmArcClockBridge, LiberoArcCodec):
         return canonical
 
     def decode(self, token):
-        poses = self.cartesian.detokenize(self._unpack(token), self.decode_pose_horizon)
+        poses = self._decode_cartesian(token)
         rotation = Rotation.from_euler("ZYX", poses[:, 3:6])
         return np.column_stack(
             (
@@ -112,10 +112,6 @@ class LiberoArcClockCodec(SingleArmArcClockBridge, LiberoArcCodec):
                 np.sqrt(3) * self.rotation_scale / self.dt,
                 2.0 / self.dt,
             ]
-            if self.streams == "projection":
-                bounds[0] += (
-                    np.linalg.norm(self.cartesian.projection_offset_m) * bounds[1]
-                )
             scale[1:, self.shape_dim :] = bounds[: self.action_dim - self.shape_dim]
         return scale
 
@@ -123,5 +119,6 @@ class LiberoArcClockCodec(SingleArmArcClockBridge, LiberoArcCodec):
         return {
             **super().representation_context(),
             "geometry": "libero_osc_xyz_rotation6d_gripper",
+            "translation_units": "integrated_osc",
             "token_scaling": "physical_per_row_first_delay_v1",
         }

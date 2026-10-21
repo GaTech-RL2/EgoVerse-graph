@@ -4,14 +4,18 @@
 
 The parent is PR #273 at `c1236f431691ea827740748fc15997f97a32a29f`.
 `arc_clock_bridge.py`, `libero_arc_clock.py`, and `planar_arc_clock.py` adapt
-geometry around its live Cartesian codec; do not reimplement its clock rules.
+geometry around its live Cartesian codec; reuse its clock helpers.
 New LIBERO runs select `experiment=sim/oat/libero_arc_clock` and choose
-`arc_clock.clock_mode=velocity|duration` and one of the four canonical streams.
+`arc_clock.clock_mode=velocity|duration` with `full_separation`,
+`translation_rotation`, or `translation` streams.
 The native LIBERO window stays 32 actions and fixed replanning stays 16 actions.
 Planar decoders return the full 80-step window; the pusher rollout keeps fixed8.
-Planar geometry requires an explicit `meters_per_unit`: no pixel/meter mapping
-has been established for this campaign. The shared planar config leaves it
-mandatory, to preserve the physical speed bound and projection offset.
+The user's 2026-10-21 correction removes physical speed bounds and projection
+offsets from both LIBERO and planar adapters. Duration clocks use the canonical
+nonnegative isotonic helper without a speed bound, then decode intervals once.
+Planar positions, distances, and rates use native units without pixel/meter
+calibration. LIBERO keeps its existing OSC geometry conversion. Projection is
+not a benchmark stream choice; the upstream Cartesian codec stays unchanged.
 Historical modes/configs remain historical. New clock targets require fresh
 training; representation metadata rejects reinterpreting older checkpoints.
 New tests and validation evidence are outside this runtime branch in

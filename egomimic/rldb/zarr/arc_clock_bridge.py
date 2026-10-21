@@ -1,8 +1,8 @@
 """Single-arm geometry adapters for the canonical Cartesian ARC clock contract.
 
-Timing, supports, grippers, holds and clock correction belong to the Cartesian
-codec. Adapters change geometry only. They expose no execution_steps override:
-benchmark rollout loops retain their fixed native-action replanning cadence.
+Supports, grippers, holds and incoming timing use the Cartesian codec. Benchmark
+duration clocks use its unbounded isotonic correction; projection streams are
+excluded. No execution_steps override changes fixed native-action replanning.
 """
 
 from __future__ import annotations
@@ -10,10 +10,9 @@ from __future__ import annotations
 import numpy as np
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
-    MAX_SPEED,
-    PROJECTION_OFFSET_M,
     STREAM_NAMES,
     TokenizeBimanualArcLengthCartesian,
+    absolute_times_to_seconds,
 )
 
 
@@ -34,9 +33,13 @@ class SingleArmArcClockBridge:
         hold_window_frames=None,
         gripper_stream_mode="events",
         gripper_distance_unit=None,
-        projection_offset_m=PROJECTION_OFFSET_M,
         zero_dist_epsilon=1e-6,
     ):
+        if streams not in ("full_separation", "translation_rotation", "translation"):
+            raise ValueError(
+                "Benchmark streams must be full_separation, translation_rotation, "
+                "or translation; projection offsets are not used"
+            )
         self.horizon = int(horizon)
         if self.horizon < 1:
             raise ValueError("horizon must be positive")
@@ -55,7 +58,6 @@ class SingleArmArcClockBridge:
             ),
             gripper_stream_mode=gripper_stream_mode,
             gripper_distance_unit=gripper_distance_unit,
-            projection_offset_m=projection_offset_m,
             zero_dist_epsilon=zero_dist_epsilon,
         )
         self.num_waypoints = self.cartesian.M
@@ -85,9 +87,30 @@ class SingleArmArcClockBridge:
         canonical[:, self.timing_columns] = value[:, self.shape_dim :]
         return canonical
 
+    def _native_cartesian(self, token):
+        """Prepare duration intervals once, without a physical speed constraint."""
+        value = self._unpack(token)
+        if self.clock_mode == "duration":
+            for index, name in enumerate(STREAM_NAMES[self.streams]):
+                for arm, off in enumerate((0, 7)):
+                    column = 14 + 2 * index + arm
+                    value[:, column] = absolute_times_to_seconds(
+                        value[:, column],
+                        self.cartesian._distances(value, off, name),
+                        max_speed=None,
+                    )
+        return value
+
+    def _decode_cartesian(self, token):
+        return self.cartesian.detokenize(
+            self._native_cartesian(token),
+            self.decode_pose_horizon,
+            clocks_in_seconds=self.clock_mode == "duration",
+        )
+
     def waypoint_clocks(self, token):
         """Exact decoded clocks for diagnostics; this does not choose replanning."""
-        value = self.cartesian._native(self._unpack(token))
+        value = self._native_cartesian(token)
         clocks = {}
         for index, name in enumerate(STREAM_NAMES[self.streams]):
             distances = self.cartesian._distances(value, 0, name)
@@ -111,7 +134,7 @@ class SingleArmArcClockBridge:
 
     def representation_context(self):
         return {
-            "contract": "cartesian_arc_pr273_v1",
+            "contract": "cartesian_arc_pr273_unbounded_v1",
             "clock_mode": self.clock_mode,
             "timing_layout": (
                 "first_delay_absolute_v1"
@@ -122,13 +145,13 @@ class SingleArmArcClockBridge:
             "layout": "shape_then_timing",
             "shape_dim": self.shape_dim,
             "action_dim": self.action_dim,
-            "translation_distance_m": self.cartesian.tokenizer.config.min_distance_unit,
+            "translation_distance": self.cartesian.tokenizer.config.min_distance_unit,
             "rotation_distance_radians": self.cartesian.rotation_distance_unit,
             "hold_window_frames": self.cartesian.hold_window_frames,
             "gripper_stream_mode": self.cartesian.gripper_stream_mode,
             "gripper_distance_unit": self.cartesian.gripper_distance_unit,
-            "projection_offset_m": self.cartesian.projection_offset_m.tolist(),
             "zero_dist_epsilon": self.cartesian.zero_dist_epsilon,
-            "max_translation_speed_m_s": MAX_SPEED,
+            "duration_clock_correction": "nonnegative_isotonic",
+            "translation_speed_limit": None,
             "replanning": "caller_fixed_native_steps",
         }

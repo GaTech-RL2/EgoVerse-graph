@@ -1,5 +1,6 @@
 # @package _global_
 # Fresh-run representation; never resume interval-DUR or historical STK weights.
+# Duration clocks use unbounded isotonic correction; no projection stream.
 defaults:
   - /experiment/sim/oat/libero_arc_shared_r384_d1p6_m36
   - _self_
@@ -9,12 +10,10 @@ arc_clock:
   streams: full_separation
   gripper_stream_mode: events
   gripper_distance_unit: null
-  projection_offset_m: [0.02, 0.02, 0.02]
   dimensions:
     full_separation: 13
     translation_rotation: 12
     translation: 11
-    projection: 11
 benchmark:
   arc_mode: cartesian_clock
   arc_action_dim: ${arc_clock.dimensions.${arc_clock.streams}}
@@ -31,9 +30,10 @@ benchmark:
     hold_window_frames: ${benchmark.horizon}
     gripper_stream_mode: ${arc_clock.gripper_stream_mode}
     gripper_distance_unit: ${arc_clock.gripper_distance_unit}
-    projection_offset_m: ${arc_clock.projection_offset_m}
 run_provenance:
-  arc_contract: cartesian_arc_pr273_v1
+  arc_contract: cartesian_arc_pr273_unbounded_v1
+  duration_clock_correction: nonnegative_isotonic
+  translation_speed_limit: null
   clock_mode: ${arc_clock.clock_mode}
   streams: ${arc_clock.streams}
   fixed_replan_actions: 16

@@ -1,8 +1,8 @@
 # Geometry adapter shared by data transforms and fixed-window native decoding.
-# meters_per_unit must be calibrated for the selected simulator/data source.
+# Native position/rate units; unbounded isotonic duration correction.
+# Streams: full_separation, translation_rotation, or translation.
 clock_mode: duration
 streams: full_separation
-meters_per_unit: ???
 native_action_dim: 3
 num_waypoints: 56
 min_distance_unit: 80.0
@@ -11,4 +11,3 @@ dt: 0.0333333333333333
 hold_window_frames: 80
 gripper_stream_mode: events
 gripper_distance_unit: null
-projection_offset_m: [0.02, 0.02, 0.02]

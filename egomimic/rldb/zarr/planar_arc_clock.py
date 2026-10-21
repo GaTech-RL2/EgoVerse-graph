@@ -10,14 +10,13 @@ from egomimic.rldb.zarr.arc_clock_bridge import SingleArmArcClockBridge
 class PlanarArcClockCodec(SingleArmArcClockBridge):
     """[x,y,cos(theta),sin(theta),gripper | canonical clocks].
 
-    Positions stay in native units; translation rates are m/s. An explicit physical
-    unit conversion keeps the PR's 5 m/s bound and 2 cm projection offset meaningful.
+    Positions and distances stay in native units, rates in native units/second.
+    Duration correction enforces monotonicity without a physical speed bound.
     """
 
     def __init__(
         self,
         *,
-        meters_per_unit,
         native_action_dim=4,
         num_waypoints=56,
         horizon=80,
@@ -28,11 +27,8 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
         rotation_distance_unit=np.deg2rad(26),
         **clock_kwargs,
     ):
-        if not np.isfinite(meters_per_unit) or meters_per_unit <= 0:
-            raise ValueError("meters_per_unit must be explicit, finite and positive")
         if native_action_dim not in (2, 3, 4):
             raise ValueError("native_action_dim must be 2, 3, or 4")
-        self.meters_per_unit = float(meters_per_unit)
         self.native_action_dim = int(native_action_dim)
         super().__init__(
             shape_dim=5,
@@ -41,7 +37,7 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
             dt=dt,
             clock_mode=clock_mode,
             streams=streams,
-            min_distance_unit=min_distance_unit * self.meters_per_unit,
+            min_distance_unit=min_distance_unit,
             rotation_distance_unit=rotation_distance_unit,
             **clock_kwargs,
         )
@@ -56,7 +52,7 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
         ):
             raise ValueError("Expected finite native or common-five planar actions")
         raw = np.zeros((len(value), 14))
-        raw[:, :2] = value[:, :2] * self.meters_per_unit
+        raw[:, :2] = value[:, :2]
         if self.native_action_dim >= 3:
             raw[:, 3] = (
                 np.arctan2(value[:, 3], value[:, 2])
@@ -68,7 +64,7 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
         canonical = self._encode_cartesian(raw)
         return np.column_stack(
             (
-                canonical[:, :2] / self.meters_per_unit,
+                canonical[:, :2],
                 np.cos(canonical[:, 3]),
                 np.sin(canonical[:, 3]),
                 canonical[:, 6],
@@ -79,7 +75,7 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
     def _unpack(self, token):
         value = self._validate(token)
         canonical = self._empty_cartesian_token(value)
-        canonical[:, :2] = value[:, :2] * self.meters_per_unit
+        canonical[:, :2] = value[:, :2]
         if self.native_action_dim >= 3:
             canonical[:, 3] = np.arctan2(value[:, 3], value[:, 2])
         if self.native_action_dim == 4:
@@ -87,10 +83,10 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
         return canonical
 
     def decode(self, token):
-        poses = self.cartesian.detokenize(self._unpack(token), self.horizon)
-        return np.column_stack(
-            (poses[:, :2] / self.meters_per_unit, np.unwrap(poses[:, 3]), poses[:, 6])
-        )[:, : self.native_action_dim]
+        poses = self._decode_cartesian(token)
+        return np.column_stack((poses[:, :2], np.unwrap(poses[:, 3]), poses[:, 6]))[
+            :, : self.native_action_dim
+        ]
 
     def waypoint_clocks(self, token):
         clocks = super().waypoint_clocks(token)
@@ -104,7 +100,7 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
         return {
             **super().representation_context(),
             "geometry": "planar_xy_cos_sin_gripper",
-            "meters_per_unit": self.meters_per_unit,
+            "translation_units": "native",
             "native_action_dim": self.native_action_dim,
         }
 

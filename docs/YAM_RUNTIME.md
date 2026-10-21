@@ -458,6 +458,15 @@ the builder synchronizes rollout's copy); keep template coordinates out of
 JavaScript. Refresh the browser to load these static-only changes; no
 collection or robot session restart is needed.
 
+### Rollout gripper force limit
+
+Rollouts start with `robot.gripper_force_limit: 20.0` N (the YAM driver's maximum
+is 50 N; GELLO collection stays at 50). When the robot can change it live
+(`YamInterface.set_gripper_force_limit`), the rollout dashboard shows one
+**Gripper force limit** slider per arm (1-50 N). A change is applied by the
+rollout thread on its next control tick and the dashboard shows the limit the
+driver reports; a driver that refuses keeps its limit and says so in the status.
+
 ### Optional rollout IK pose relaxation
 
 `ik_relaxation.enabled` defaults to `false`. On YAM Cartesian rollouts the

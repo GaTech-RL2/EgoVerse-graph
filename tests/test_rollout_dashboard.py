@@ -746,8 +746,8 @@ def test_dashboard_uses_space_and_places_dynamic_inference_controls_below_camera
     assert 'class="rollout-button-grid"' in html
     assert ".rollout-button-grid { display: grid;" in (static / "style.css").read_text()
     assert ".recording[hidden]" in (static / "style.css").read_text()
-    assert "style.css?v=11" in html
-    assert "app.js?v=14" in html
+    assert "style.css?v=12" in html
+    assert "app.js?v=15" in html
     assert 'id="rollout-time"' in html
     assert "inference_override" in javascript
     assert "updateInferenceControls" in javascript
@@ -1564,3 +1564,112 @@ def test_dashboard_offers_episode_recording_next_to_video():
     assert "record_episode: 'start'" in javascript
     assert "save_episode: outcome" in javascript
     assert "/api/episodes" in javascript
+
+
+def test_dashboard_gripper_force_command_reaches_the_rollout_thread(tmp_path):
+    """The browser's per-arm force slider becomes one validated request; limits the
+    rollout thread applied are what the dashboard shows."""
+    dashboard = RolloutDashboard(
+        ("front_img_1",),
+        host="127.0.0.1",
+        port=available_loopback_port(),
+        open_browser=False,
+        wait_for_start=True,
+        action_overlay=overlay_config(calibration_file(tmp_path)),
+    )
+    dashboard.set_gripper_force_limits({"left": 20.0, "right": 20.0})
+
+    async def send_force():
+        from aiohttp import ClientSession
+
+        async with ClientSession() as session:
+            async with session.ws_connect(f"{dashboard.url}/ws") as ws:
+                config = await ws.receive_json()
+                assert config["gripper_force_limits"] == {"left": 20.0, "right": 20.0}
+                await ws.send_json({"gripper_force": {"arm": "left", "value": 6}})
+
+    try:
+        asyncio.run(send_force())
+        deadline = time.monotonic() + 1.0
+        request = None
+        while request is None and time.monotonic() < deadline:
+            request = dashboard.take_gripper_force_request()
+            time.sleep(0.01)
+        assert request == {"arm": "left", "value": 6.0}
+        for bad in (
+            {"arm": "left", "value": 0},
+            {"arm": "left", "value": 51},
+            {"arm": "middle", "value": 6},
+            {"arm": "left", "value": "x"},
+            6,
+        ):
+            assert dashboard.request_gripper_force(bad) is False
+        assert dashboard.take_gripper_force_request() is None
+    finally:
+        dashboard.close()
+
+
+class ForceRobot(FakeRobot):
+    def __init__(self, fail=False):
+        super().__init__()
+        self.gripper_force_limit = 20.0
+        self.fail = fail
+        self.force_calls = []
+
+    def set_gripper_force_limit(self, force_limit, arm=None):
+        self.force_calls.append((force_limit, arm))
+        if self.fail:
+            raise RuntimeError("driver cannot change gripper force")
+        return {arm: float(force_limit)}
+
+
+class ForceView(GatedView):
+    def __init__(self, controls, requests):
+        super().__init__(controls)
+        self.requests = iter(requests)
+        self.limits = []
+
+    def take_gripper_force_request(self):
+        return next(self.requests, None)
+
+    def set_gripper_force_limits(self, limits):
+        self.limits.append(limits)
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_rollout_applies_dashboard_gripper_force_requests(monkeypatch, fail):
+    monkeypatch.setattr("egomimic.robot.rollout.time.sleep", lambda _: None)
+    robot = ForceRobot(fail=fail)
+    view = ForceView([None, None, "q"], [None, {"arm": "right", "value": 6.0}])
+    target = np.zeros((1, 14), dtype=float)
+    target[:, [6, 13]] = 0.5
+    policy = SimpleNamespace(action_type="cartesian", predict=lambda _obs: target)
+    run_rollout(
+        robot,
+        policy,
+        {
+            "frequency": 30,
+            "max_steps": 4,
+            "max_joint_velocity": 1.0,
+            "preview": {"enabled": False},
+        },
+        view=view,
+    )
+    assert robot.force_calls == [(6.0, "right")]
+    assert view.limits[0] == {"left": 20.0, "right": 20.0}
+    expected = {"left": 20.0, "right": 20.0 if fail else 6.0}
+    assert view.limits[-1] == expected
+    assert any("Gripper force unchanged" in s for s in view.statuses) is fail
+
+
+def test_rollout_configs_cap_gripper_force_at_20_newtons():
+    from pathlib import Path
+
+    import yaml
+
+    robot_configs = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs/robot"
+    for name in ("hptflow", "earbuds_hpt300", "towels_hpt300"):
+        config = yaml.safe_load(
+            (robot_configs / f"yam_rl2_{name}_rollout.yaml").read_text()
+        )
+        assert config["robot"]["gripper_force_limit"] == 20.0, name

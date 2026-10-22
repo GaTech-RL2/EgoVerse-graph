@@ -75,7 +75,8 @@ leaves of a task select exactly the same episodes.
 
 Use `abc.arc_streams=full_separation` (M x 20) or `translation_rotation`
 (M x 18) on an ARC leaf for more clocks; the token width follows automatically,
-including the model and decoder. ARC Projection lives on its own branch.
+including the model and decoder. `abc.arc_streams=projection` (M x 16) measures progress
+2 cm off the end effector along each local axis.
 These are fresh-run recipes: checkpoints trained before the first-delay token
 (2026-10-21) keep their recorded source and are not loadable here.
 

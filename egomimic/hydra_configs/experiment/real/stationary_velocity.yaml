@@ -1,0 +1,11 @@
+# @package _global_
+# Interval arcvel: the stationary_duration recipe with velocity clocks (each waypoint segment's mean speed).
+defaults:
+  - /experiment/real/stationary_duration
+  - _self_
+name: stationary_velocity
+abc:
+  arc_clock_mode: velocity
+logger:
+  wandb:
+    tags: [rl2, stationery, sp366e51, hpt300, arcvel, interval_speed, translation, m200_d022, open_loop]

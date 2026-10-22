@@ -1,0 +1,13 @@
+# @package _global_
+# Time baseline: HPT-300M flow on 100-frame time chunks, the frozen wireless_earbuds_updated + Elmo's 69 takes of 2026-10-20/21 (339 train / 15 val),
+# complete-episode open-loop validation on the 25 % prefix.
+defaults:
+  - /experiment/_shared/frozen_yam/hpt300_openloop
+  - override /data: abc_arc/earbuds
+  - _self_
+name: earbuds_time
+frozen_yam:
+  spread: earbuds
+logger:
+  wandb:
+    tags: [rl2, earbuds, plus69, hpt300, time, open_loop]

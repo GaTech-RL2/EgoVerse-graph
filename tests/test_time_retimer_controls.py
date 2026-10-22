@@ -8,9 +8,7 @@ from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
 
 def test_time_recipe_speed_controls_bind_to_the_deployed_retimer_and_act():
-    with compose_for_audit(
-        CONFIGS / "experiment/real/wireless_earbuds/baseline.yaml"
-    ) as cfg:
+    with compose_for_audit(CONFIGS / "experiment/real/earbuds_time.yaml") as cfg:
         profile = build_inference_config(cfg)["inference_graph"]["profiles"]["default"]
         decoder = instantiate(profile["adapter"]["decoder"])
         assert type(decoder).__name__ == "TimeChunkRetimer"

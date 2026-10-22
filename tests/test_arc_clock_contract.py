@@ -11,7 +11,7 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     clock_token_seconds,
 )
 
-ALL_STREAMS = ["full_separation", "translation_rotation", "translation"]
+ALL_STREAMS = ["full_separation", "translation_rotation", "translation", "projection"]
 
 
 def codec(clock="velocity", streams="full_separation", **kwargs):
@@ -77,6 +77,22 @@ def test_one_clock_per_arm_carries_rotation_and_gripper_on_translation(clock):
                 np.interp(result[:, off], token[:, off], token[:, col]),
                 atol=1e-9,
             )
+
+
+@pytest.mark.parametrize("clock", ["velocity", "duration"])
+def test_projection_counts_rotation_as_progress(clock):
+    raw = np.zeros((30, 14))
+    raw[:, 3] = np.clip(np.arange(30) - 4, 0, 9) * 0.1  # left wrist only turns
+    plain, projected = codec(clock, "translation"), codec(clock, "projection")
+    held = plain.transform({"actions": raw.copy()})["actions"]
+    token = projected.transform({"actions": raw.copy()})["actions"]
+    assert token.shape == (10, 16)
+    np.testing.assert_allclose(held[:, 3], 0)  # a still translation arc holds
+    assert np.all(np.diff(token[:, 3]) > 0)  # the 2 cm lever moves
+    seconds = clock_token_seconds(token, clock, "projection")
+    np.testing.assert_allclose(seconds[0, 14], 0.4, atol=1e-10)
+    decoded = projected.detokenize(token, 30)
+    np.testing.assert_allclose(decoded[:, 3], raw[:, 3], atol=0.06)
 
 
 def test_absolute_duration_is_elmos_speed_bounded_isotonic_projection():
@@ -237,6 +253,7 @@ def test_nonfinite_source_and_tokens_rejected(bad):
         ("full_separation", 20),
         ("translation_rotation", 18),
         ("translation", 16),
+        ("projection", 16),
     ],
 )
 def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, streams, dim):
@@ -366,3 +383,15 @@ def test_rows_past_the_executed_prefix_never_change_robot_motion():
     for off in (0, 7):
         step = np.linalg.norm(np.diff(base[:steps, off : off + 3], axis=0), axis=1)
         assert step.max(initial=0) <= MAX_SPEED * dt + 1e-9
+
+
+def test_projection_keeps_a_slow_lever_on_its_demonstrated_clock():
+    """A 2 cm lever turning 0.5 rad over 3.3 s moves ~3 mm/s: no speed floor may
+    shorten its clock."""
+    raw = np.zeros((100, 14))
+    raw[:, 3] = np.linspace(0, 0.5, 100)
+    c = codec("duration", "projection", dt=1 / 30)
+    token = c.transform({"actions": raw.copy()})["actions"]
+    seconds = clock_token_seconds(token, "duration", "projection")
+    np.testing.assert_allclose(seconds[:, 14].sum(), 3.3, atol=0.05)
+    np.testing.assert_allclose(c.detokenize(token, 100)[:, 3], raw[:, 3], atol=0.02)

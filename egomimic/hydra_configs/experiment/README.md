@@ -55,8 +55,9 @@ ARC uses the canonical [clock contract](../../../docs/ARC_CLOCK_CONTRACT.md)
 seconds from the chunk anchor (decoded by speed-bounded isotonic regression),
 first-row start delay, first-moving-stream termination.
 Full separation is the default. Use `abc.arc_streams=translation_rotation` for
-four clocks (M × 18) or `translation` for one clock per arm (M × 16, rotation and
-gripper ride the translation supports); token width follows automatically,
+four clocks (M × 18), `translation` for one clock per arm (M × 16, rotation and
+gripper ride the translation supports) or `projection` (M × 16, progress
+measured 2 cm off the end effector); token width follows automatically,
 including the model and decoder.
 No tokenizer or detokenizer algorithm is changed by this YAML reorganization.
 

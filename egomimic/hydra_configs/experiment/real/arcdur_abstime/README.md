@@ -23,7 +23,7 @@ python egomimic/trainHydra.py -m +experiment=real/arcdur_abstime/organize_statio
   hydra/launcher=... logger.wandb.id=<leaf>_<date>_s42
 ```
 
-Variant by override: interval arcvel is `abc.arc_clock_mode=velocity`. ARC
-Projection lives on its own branch off this stack. Override the W&B id on every launch.
+Variants by override: interval arcvel is `abc.arc_clock_mode=velocity`; ARC
+Projection is `abc.arc_streams=projection`. Override the W&B id on every launch.
 These are fresh-run recipes: checkpoints trained on `aidan/yam-tasks-consolidated-20261018`
 keep their recorded source (their token has no start-delay row).

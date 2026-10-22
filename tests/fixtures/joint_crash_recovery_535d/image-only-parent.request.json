@@ -1,0 +1,55 @@
+{
+  "fixture_only": "Synthetic path/hash bindings; historical image-only constant-LR scientific identity, not launch evidence",
+  "schema": "joint-training-v2",
+  "phase": "full",
+  "source_revision": "535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+  "run_id": "mot-shared-libero-image-discrete-lr1e-4-constant-s42-300k-20261021-v1",
+  "arm": "discrete",
+  "experiment": "image_only",
+  "active_streams": [
+    "image"
+  ],
+  "parameters": 88178688,
+  "expert_parameters": {
+    "image": 88178688
+  },
+  "expert_widths": [
+    768
+  ],
+  "world_size": 4,
+  "global_batch": 32,
+  "per_rank_batch": 8,
+  "target_steps": 300000,
+  "lr_policy": {
+    "schedule": "constant",
+    "peak_lr": 0.0001,
+    "warmup_optimizer_steps": 0
+  },
+  "source": "/synthetic/source",
+  "source_manifest": "/synthetic/source/FILES.sha256",
+  "source_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_archive": "/synthetic/source.tar.gz",
+  "source_archive_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "data_manifest": "/synthetic/data/manifest.json",
+  "data_manifest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "data_cache": {
+    "root": "/synthetic/cache"
+  },
+  "lambda_runtime": {
+    "node": "gpu19"
+  },
+  "runtime_localization": null,
+  "allocation": null,
+  "model_execution": {
+    "precision": "bf16-mixed"
+  },
+  "job_name": "joint-image-lr1e4-full-4gpu",
+  "output": "/synthetic/parent",
+  "local_logs": "/synthetic/parent-logs",
+  "overrides": [
+    "model.optimizer.lr=1e-4",
+    "paths.output_dir=/synthetic/parent",
+    "logger.csv.save_dir=/synthetic/parent-logs"
+  ],
+  "reserved_checkpoint_bytes": 40000000000
+}

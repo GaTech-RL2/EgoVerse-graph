@@ -2,6 +2,7 @@
 
 import csv
 import json
+from scripts.train.joint.lr_policy import validate, update_lr, verify_scheduler
 import math
 import os
 import re
@@ -12,11 +13,15 @@ from scripts.train.joint.contract import need, sha, verify_evidence, write_once
 
 
 def main():
-    request = json.loads(Path(sys.argv[1]).read_text())
+    request_path = Path(sys.argv[1])
+    request = json.loads(request_path.read_text())
     _, preflight = verify_evidence(request)
     output = Path(request["output"])
-    target = request["target_steps"]
-    need(target in (100000, 300000), "Unsupported retained training budget")
+    from scripts.train.joint.continuation import allocation_steps
+
+    start, target = allocation_steps(request)
+    partial = target < request["target_steps"]
+    need(request["target_steps"] in (100000, 300000), "Unsupported retained training budget")
     streams = request["active_streams"]
     count = target // 20000
     import torch
@@ -40,18 +45,41 @@ def main():
         step = int(match[1])
         need(step not in milestones, "Duplicate checkpoint step")
         milestones[step] = path
-    need(
-        sorted(milestones) == list(range(20000, target + 1, 20000)),
-        "Missing or extra production milestones",
-    )
+    expected = set(range(20000, target + 1, 20000))
+    need(set(milestones) <= expected and target in milestones, "Unexpected milestones or missing local recovery")
+    from scripts.train.joint.retention import archived_milestones
+
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_history import collect_milestones
+
+        # Parent checkpoints stay in their original immutable directories.
+        # The local attempt may legitimately begin after a restored milestone.
+        need(request.get("archive_policy") is None,
+             "Crash recovery requires all immutable checkpoints retained locally")
+        milestones = collect_milestones(request, target)
+        archive_proof = dict(kind="retained_crash_attempt_directories",
+                             checkpoints={str(k): str(v) for k, v in milestones.items()})
+    else:
+        archived, archive_proof = archived_milestones(request, expected - set(milestones))
+        milestones.update(archived)
     latest = directory / "last.ckpt"
     need(
         latest.is_symlink() and latest.resolve() == milestones[target].resolve(),
         "Last must link to immutable terminal milestone",
     )
-    checkpoint = torch.load(latest, map_location="cpu", weights_only=False, mmap=True)
+    selected = latest.resolve()
+    if partial:
+        receipt_path = output/"allocation-evidence"/f"allocation-step{target:09d}.json"
+        boundary = json.loads(receipt_path.read_text())
+        need(boundary["status"] == "PASS" and boundary["start_step"] == start
+             and boundary["global_step"] == target
+             and boundary["target_step"] == request["target_steps"]
+             and boundary["checkpoint_saved_after_validation"], "Missing graceful boundary proof")
+        selected = Path(boundary["checkpoint"]["path"])
+        need(sha(selected) == boundary["checkpoint"]["sha256"], "Changed post-validation recovery")
+    checkpoint = torch.load(selected, map_location="cpu", weights_only=False, mmap=True)
     need(checkpoint["global_step"] == target, "Training ended before requested budget")
-    cfg = OmegaConf.load(output / ".hydra/config.yaml")
+    cfg = OmegaConf.load(request_path.with_suffix(".resolved.yaml"))
     model_config = OmegaConf.create(checkpoint["hyper_parameters"]["config_tree"])
     need(
         OmegaConf.to_container(cfg.model, resolve=True)
@@ -74,19 +102,15 @@ def main():
         checkpoint.get("lr_schedulers", []),
     )
     need(
-        len(optimizers) == len(schedulers) == 1 and bool(optimizers[0]["state"]),
+        len(optimizers) == 1 and bool(optimizers[0]["state"]),
         "Missing AdamW/scheduler state",
     )
+    policy = validate(request["lr_policy"])
     need(
-        all(g["lr"] == g["initial_lr"] == 5e-6 for g in optimizers[0]["param_groups"]),
+        all(g["lr"] == update_lr(policy, target) and (not policy["warmup_optimizer_steps"] or g["initial_lr"] == policy["peak_lr"]) for g in optimizers[0]["param_groups"]),
         "Wrong terminal LR",
     )
-    need(
-        schedulers[0]["last_epoch"] == target
-        and schedulers[0]["base_lrs"] == [5e-6]
-        and schedulers[0]["lr_lambdas"] == [{"warmup_steps": 3000}],
-        "Wrong scheduler state",
-    )
+    verify_scheduler(policy, schedulers, target)
     for state in optimizers[0]["state"].values():
         need(
             float(state["step"]) == target
@@ -141,10 +165,11 @@ def main():
         optimizer = optimizer()
     scheduler = instantiate(cfg.model.scheduler, optimizer=optimizer)
     optimizer.load_state_dict(optimizers[0])
-    scheduler.load_state_dict(schedulers[0])
+    if scheduler is not None:
+        scheduler.load_state_dict(schedulers[0])
     need(
-        scheduler.state_dict() == schedulers[0]
-        and all(g["lr"] == 5e-6 for g in optimizer.param_groups),
+        (scheduler.state_dict() == schedulers[0] if policy["warmup_optimizer_steps"] else scheduler is None)
+        and all(g["lr"] == update_lr(policy, target) for g in optimizer.param_groups),
         "Strict AdamW/scheduler reload failed",
     )
     batch = next(iter(data.val_dataloader()))
@@ -173,20 +198,29 @@ def main():
             "Observed values changed",
         )
     validation = {}
-    csv_path = Path(request["local_logs"]) / "csv/version_0/metrics.csv"
-    with csv_path.open() as stream:
-        for row in csv.DictReader(stream):
-            metrics = {
-                k: float(v)
-                for k, v in row.items()
-                if k.startswith("val/libero_gripper/") and v
-            }
-            if metrics:
-                need(
-                    all(math.isfinite(v) for v in metrics.values()),
-                    "Nonfinite validation history",
-                )
-                validation[int(float(row["step"]))] = metrics
+    from scripts.train.joint.continuation import log_segments
+
+    for csv_path in ([] if request.get("crash_recovery") is not None else log_segments(request)):
+        segment = {}
+        with csv_path.open() as stream:
+            for row in csv.DictReader(stream):
+                metrics = {
+                    k: float(v)
+                    for k, v in row.items()
+                    if k.startswith("val/libero_gripper/") and v
+                }
+                if metrics:
+                    step = int(float(row["step"]))
+                    need(all(math.isfinite(v) for v in metrics.values()), "Nonfinite validation history")
+                    segment.setdefault(step, {}).update(metrics)
+        need(not validation.keys() & segment.keys(), "Repeated validation across allocations")
+        validation.update(segment)
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_history import collect_validation
+        from scripts.train.joint.crash_restore import assert_actual_restore
+
+        validation = collect_validation(request, target, streams)
+        assert_actual_restore(request, expected_request_sha256=sha(request_path))
     need(
         len(validation) == count
         and all(len(v) == 2 * len(streams) for v in validation.values())
@@ -197,21 +231,24 @@ def main():
         "Missing scheduled validation events",
     )
     write_once(
-        output / "full-completion.json",
+        (output/"allocation-evidence"/f"completion-step{target:09d}.json"
+         if partial else output / "full-completion.json"),
         dict(
-            schema="joint-mot-full-v1",
+            schema="joint-mot-allocation-v1" if partial else "joint-mot-full-v1",
             status="PASS",
+            request_sha256=sha(request_path),
             job_id=os.environ["SLURM_JOB_ID"],
             run_id=request["run_id"],
             global_step=target,
             world_size=request["world_size"],
-            checkpoint_sha256=sha(latest),
+            checkpoint_sha256=sha(selected),
             strict_full_wrapper_optimizer_scheduler_reload=True,
             sampler_all_rank_rng_verified=True,
             sample_finite=True,
             retained_milestones=count,
             validation_events=count,
-            checkpoint=str(latest.resolve()),
+            checkpoint=str(selected),
+            archive_inventory=archive_proof,
         ),
     )
 

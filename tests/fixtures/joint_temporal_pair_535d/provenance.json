@@ -1,0 +1,20 @@
+{
+  "files": {
+    "continuous-full.composed.json": "5c572989c978e1d2a916a2dcc2c3f9e774395bd58c81f80f80c66640e70cb16f",
+    "continuous-full.template.json": "cbba858f3d832b208eb100b29274a138a88e2214f30fbe29fd213d9971828654",
+    "continuous-smoke.composed.json": "fbfdee559c1343026dd529735e095ae825d58e886679c692f19e13c9bc8a3295",
+    "continuous-smoke.template.json": "154190a6ba03b58a164c34b0a3999144f29744c385eadceeebe7669845657951",
+    "discrete-full.composed.json": "9d23ca57ce397b2cfde455f2ef6397cd396ca1140682021a14e5b98499e23a35",
+    "discrete-full.template.json": "5422386326fc53658ed672406def430e271f4482ed0f2c877ccf987b1bd68578",
+    "discrete-smoke.composed.json": "9d35f3a742d907070f642bfb805e1f9b3db708810359eb2582a76ebc3a9e37d3",
+    "discrete-smoke.template.json": "c97c1b8507c5bd37f78f9624b12bd473d57904e4294db84167f49bb31800c792"
+  },
+  "gpu_certified": false,
+  "hydra": "1.3.2",
+  "kind": "Frozen535d composed config/request fixtures; synthetic smoke evidence generated only at test time",
+  "omegaconf": "2.3.1",
+  "python": "3.12.14",
+  "scientific_archive_sha256": "f23b041bb2e8f250e406cbc24ef7be06b463221e8a004125d175f006661d8325",
+  "scientific_revision": "535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+  "source_manifest_sha256": "f29118056a2f7824b5215e503bed99b77264b1598bfe154ba20c5412be106184"
+}

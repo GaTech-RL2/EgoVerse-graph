@@ -1,0 +1,12 @@
+{
+  "deployment_identifier_kind": "Recorded deployed service directory name; Git commit ancestry unverified",
+  "git_parent": "255fdaf5137f7043b35df7ef48a3c1b8adc70815",
+  "import_description": "Exact 23-file exported closure: 22 files match the earlier 8e service and contract.py differs; all manifest hashes were verified.",
+  "operational_manifest_sha256": "1714c1b459dcef0dbe372651f0087e59391231f39f729896b7d75df5ce08d4ae",
+  "operational_revision": "9a2982a8a611b9d377f7719dbd710161b39e4322",
+  "schema": "joint-operational-source-import-v1",
+  "scientific_archive_sha256": "f23b041bb2e8f250e406cbc24ef7be06b463221e8a004125d175f006661d8325",
+  "scientific_files_modified": false,
+  "scientific_revision": "535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+  "status": "VERIFIED_OPERATIONAL_IMPORT_NOT_DEPLOYED"
+}

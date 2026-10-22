@@ -1,0 +1,598 @@
+{
+  "callbacks": {
+    "learning_rate_monitor": {
+      "_target_": "lightning.pytorch.callbacks.LearningRateMonitor",
+      "logging_interval": "step"
+    },
+    "model_checkpoint": {
+      "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+      "dirpath": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu/checkpoints",
+      "every_n_epochs": 0,
+      "every_n_train_steps": 20000,
+      "filename": "epoch_{epoch:04d}-step_{step:09d}",
+      "save_last": "link",
+      "save_on_train_epoch_end": false,
+      "save_top_k": -1
+    },
+    "wandb_profiler": {
+      "_target_": "egomimic.utils.timing_callback.WandbProfilerLogger",
+      "log_every_n_steps": 100
+    }
+  },
+  "ckpt_path": null,
+  "data": {
+    "_target_": "egomimic.rldb.pixel_proprio_datamodule.PixelProprioDataModule",
+    "balance_training_work": true,
+    "batch_size": 8,
+    "checkpointable_sampling": true,
+    "couple_state_observations": true,
+    "discrete_frames": 16,
+    "distributed_world_size": 4,
+    "forecasting_probability": 0.5,
+    "image_only": false,
+    "manifest_path": "/workspace/users/paphiwetsa3/tasks/pixel-proprio-gripper-20261017-v1/data/manifest.json",
+    "max_frames": 64,
+    "max_future_seconds": null,
+    "max_past_seconds": null,
+    "min_frames": 2,
+    "mode": "continuous",
+    "num_workers": 2,
+    "persistent_workers": true,
+    "pin_memory": true,
+    "prefetch_factor": 2,
+    "sampling_strategy": "full_episode_uniform",
+    "seed": 42,
+    "stride": 4,
+    "task": "visual_diffusion",
+    "validation_anchors_per_episode": 2,
+    "validation_batch_size": 1,
+    "validation_batches_per_embodiment": null,
+    "validation_discrete_frames": 16,
+    "validation_sampling_strategy": "discrete_window",
+    "validation_stride": 4
+  },
+  "data_context_loader": {
+    "_target_": "egomimic.rldb.zarr.data_module.load_data_context"
+  },
+  "description": "Historical image core with minimal joint state extension, historical compilation preserved",
+  "evaluator": {
+    "_target_": "egomimic.eval.image_proprio_eval.ImageProprioEval",
+    "objective": "visual_proprio",
+    "pixel_diagnostics": {
+      "artifact_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu/pixel_diagnostics",
+      "log_wandb": true,
+      "max_samples_per_source_kind": 1,
+      "playback_fps": 20,
+      "write_video": true
+    },
+    "sample_seed": 42
+  },
+  "inference_config": {
+    "enabled": false,
+    "output_path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu/checkpoints/inference-config.yaml"
+  },
+  "joint": {
+    "compile_mode": "default",
+    "max_tokens": 12864,
+    "pose_dims": {
+      "libero_gripper": 9
+    }
+  },
+  "launch_params": {
+    "gpus_per_node": 1,
+    "nodes": 1
+  },
+  "logger": {
+    "csv": {
+      "_target_": "lightning.pytorch.loggers.CSVLogger",
+      "flush_logs_every_n_steps": 1,
+      "name": "csv",
+      "save_dir": "/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020/logs/mot-shared-libero-image-proprio-continuous-lr1e-4-constant-s42-300k-20261021-v1-step000000000",
+      "version": 0
+    },
+    "wandb": {
+      "_target_": "lightning.pytorch.loggers.wandb.WandbLogger",
+      "anonymous": null,
+      "entity": "rl2-group",
+      "group": "native-image-joint-state",
+      "id": "mot-shared-libero-image-proprio-continuous-lr1e-4-constant-s42-300k-20261021-v1",
+      "job_type": "",
+      "log_model": false,
+      "offline": false,
+      "prefix": "",
+      "project": "mot-world-model",
+      "resume": "never",
+      "save_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu",
+      "tags": [
+        "historical-image-core",
+        "native-compiled",
+        "no-action",
+        "paired-initialization"
+      ]
+    }
+  },
+  "modality_ablation": {
+    "active_streams": [
+      "image",
+      "proprio"
+    ],
+    "graph": [
+      {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointNoisingStage",
+        "noising": {
+          "_target_": "egomimic.models.joint_image_proprio.CoupledImageProprioNoising",
+          "active_streams": [
+            "image",
+            "proprio"
+          ],
+          "maximum": 1.0
+        }
+      },
+      {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointDenoiserStage",
+        "model": {
+          "_target_": "egomimic.models.joint_image_proprio.JointImageProprioModel",
+          "active_streams": [
+            "image",
+            "proprio"
+          ],
+          "image_model": {
+            "_target_": "egomimic.models.image_proprio.ImageProprioModel",
+            "action_dims": null,
+            "activation_checkpointing": false,
+            "allow_patch_compression": false,
+            "attention_backend": "flash4",
+            "attention_dtype": "bfloat16",
+            "attention_query_chunk_size": 0,
+            "compile_backend": "inductor",
+            "compile_dynamic": true,
+            "compile_mode": "default",
+            "depth": 8,
+            "heads": 6,
+            "image_dim": 768,
+            "loss_reduction": "mean_per_example",
+            "max_cameras": 2,
+            "max_tokens": 12864,
+            "mlp_ratio": 4,
+            "noise_conditioning": "adaln_zero",
+            "objective": "visual_only",
+            "phase_a_condition_on_proprio": false,
+            "pose_dims": null,
+            "position_encoding": "spatiotemporal_rope",
+            "rope_axis_dims": [
+              64,
+              32,
+              32
+            ],
+            "spatial_grid_size": [
+              10,
+              10
+            ],
+            "strict_fp32": false,
+            "time_mode": "continuous",
+            "token_execution": "packed_valid",
+            "use_camera_embedding": true,
+            "use_embodiment_embedding": false,
+            "use_modality_embedding": false,
+            "use_phase_embedding": false,
+            "width": 768
+          },
+          "mlp_ratio": 4,
+          "pose_dims": {
+            "libero_gripper": 9
+          },
+          "proprio_width": 256
+        }
+      },
+      {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+        "loss": {
+          "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+          "reduction": "mean_per_example"
+        },
+        "stream": "image",
+        "weight": 1.0
+      },
+      {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+        "loss": {
+          "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+          "reduction": "mean_per_example"
+        },
+        "stream": "proprio",
+        "weight": 1.0
+      },
+      {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointSamplerStage",
+        "sampler": {
+          "_target_": "egomimic.models.joint_image_proprio.JointImageProprioSampler",
+          "state_steps": 20
+        }
+      }
+    ],
+    "initialization": "Native image construction first; vector initialization preserves CPU RNG",
+    "nodes": {
+      "image_loss": {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+        "loss": {
+          "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+          "reduction": "mean_per_example"
+        },
+        "stream": "image",
+        "weight": 1.0
+      },
+      "joint_denoiser": {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointDenoiserStage",
+        "model": {
+          "_target_": "egomimic.models.joint_image_proprio.JointImageProprioModel",
+          "active_streams": [
+            "image",
+            "proprio"
+          ],
+          "image_model": {
+            "_target_": "egomimic.models.image_proprio.ImageProprioModel",
+            "action_dims": null,
+            "activation_checkpointing": false,
+            "allow_patch_compression": false,
+            "attention_backend": "flash4",
+            "attention_dtype": "bfloat16",
+            "attention_query_chunk_size": 0,
+            "compile_backend": "inductor",
+            "compile_dynamic": true,
+            "compile_mode": "default",
+            "depth": 8,
+            "heads": 6,
+            "image_dim": 768,
+            "loss_reduction": "mean_per_example",
+            "max_cameras": 2,
+            "max_tokens": 12864,
+            "mlp_ratio": 4,
+            "noise_conditioning": "adaln_zero",
+            "objective": "visual_only",
+            "phase_a_condition_on_proprio": false,
+            "pose_dims": null,
+            "position_encoding": "spatiotemporal_rope",
+            "rope_axis_dims": [
+              64,
+              32,
+              32
+            ],
+            "spatial_grid_size": [
+              10,
+              10
+            ],
+            "strict_fp32": false,
+            "time_mode": "continuous",
+            "token_execution": "packed_valid",
+            "use_camera_embedding": true,
+            "use_embodiment_embedding": false,
+            "use_modality_embedding": false,
+            "use_phase_embedding": false,
+            "width": 768
+          },
+          "mlp_ratio": 4,
+          "pose_dims": {
+            "libero_gripper": 9
+          },
+          "proprio_width": 256
+        }
+      },
+      "joint_noising": {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointNoisingStage",
+        "noising": {
+          "_target_": "egomimic.models.joint_image_proprio.CoupledImageProprioNoising",
+          "active_streams": [
+            "image",
+            "proprio"
+          ],
+          "maximum": 1.0
+        }
+      },
+      "joint_sampler": {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointSamplerStage",
+        "sampler": {
+          "_target_": "egomimic.models.joint_image_proprio.JointImageProprioSampler",
+          "state_steps": 20
+        }
+      },
+      "proprio_loss": {
+        "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+        "loss": {
+          "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+          "reduction": "mean_per_example"
+        },
+        "stream": "proprio",
+        "weight": 1.0
+      }
+    },
+    "screening_budget_updates": 300000,
+    "stage_ids": {
+      "image_loss": 2,
+      "joint_denoiser": 1,
+      "joint_noising": 0,
+      "joint_sampler": 4,
+      "proprio_loss": 3
+    },
+    "training_noise": "Native image draws unchanged; optional tied proprio draws preserve image RNG"
+  },
+  "mode": "train",
+  "model": {
+    "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+    "enable_grad_norm": false,
+    "optimizer": {
+      "_partial_": true,
+      "_target_": "torch.optim.AdamW",
+      "lr": 0.0001,
+      "weight_decay": 0.01
+    },
+    "pipeline": {
+      "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+      "stage_ids": {
+        "image_loss": 2,
+        "joint_denoiser": 1,
+        "joint_noising": 0,
+        "joint_sampler": 4,
+        "proprio_loss": 3
+      },
+      "stages": [
+        {
+          "_target_": "egomimic.pipeline.stages_joint_state_action.JointNoisingStage",
+          "noising": {
+            "_target_": "egomimic.models.joint_image_proprio.CoupledImageProprioNoising",
+            "active_streams": [
+              "image",
+              "proprio"
+            ],
+            "maximum": 1.0
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_joint_state_action.JointDenoiserStage",
+          "model": {
+            "_target_": "egomimic.models.joint_image_proprio.JointImageProprioModel",
+            "active_streams": [
+              "image",
+              "proprio"
+            ],
+            "image_model": {
+              "_target_": "egomimic.models.image_proprio.ImageProprioModel",
+              "action_dims": null,
+              "activation_checkpointing": false,
+              "allow_patch_compression": false,
+              "attention_backend": "flash4",
+              "attention_dtype": "bfloat16",
+              "attention_query_chunk_size": 0,
+              "compile_backend": "inductor",
+              "compile_dynamic": true,
+              "compile_mode": "default",
+              "depth": 8,
+              "heads": 6,
+              "image_dim": 768,
+              "loss_reduction": "mean_per_example",
+              "max_cameras": 2,
+              "max_tokens": 12864,
+              "mlp_ratio": 4,
+              "noise_conditioning": "adaln_zero",
+              "objective": "visual_only",
+              "phase_a_condition_on_proprio": false,
+              "pose_dims": null,
+              "position_encoding": "spatiotemporal_rope",
+              "rope_axis_dims": [
+                64,
+                32,
+                32
+              ],
+              "spatial_grid_size": [
+                10,
+                10
+              ],
+              "strict_fp32": false,
+              "time_mode": "continuous",
+              "token_execution": "packed_valid",
+              "use_camera_embedding": true,
+              "use_embodiment_embedding": false,
+              "use_modality_embedding": false,
+              "use_phase_embedding": false,
+              "width": 768
+            },
+            "mlp_ratio": 4,
+            "pose_dims": {
+              "libero_gripper": 9
+            },
+            "proprio_width": 256
+          }
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+          "loss": {
+            "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+            "reduction": "mean_per_example"
+          },
+          "stream": "image",
+          "weight": 1.0
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_joint_state_action.JointLossStage",
+          "loss": {
+            "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+            "reduction": "mean_per_example"
+          },
+          "stream": "proprio",
+          "weight": 1.0
+        },
+        {
+          "_target_": "egomimic.pipeline.stages_joint_state_action.JointSamplerStage",
+          "sampler": {
+            "_target_": "egomimic.models.joint_image_proprio.JointImageProprioSampler",
+            "state_steps": 20
+          }
+        }
+      ]
+    },
+    "scheduler": null,
+    "scheduler_frequency": 1,
+    "scheduler_interval": "step",
+    "train_log_on_step": true,
+    "training_behavior": {
+      "_target_": "egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior",
+      "distributed_noise_seed": 42
+    }
+  },
+  "name": "native_mot_continuous_image_proprio_s42_300k",
+  "native_joint": {
+    "reference": {
+      "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+      "enable_grad_norm": false,
+      "optimizer": {
+        "_partial_": true,
+        "_target_": "torch.optim.AdamW",
+        "lr": 5e-05,
+        "weight_decay": 0.01
+      },
+      "pipeline": {
+        "_target_": "egomimic.pipeline.algo.PipelineAlgo",
+        "stage_ids": {
+          "image_proprio": 1,
+          "pixel_denoiser": 1,
+          "pixel_loss": 2,
+          "pixel_noising": 0,
+          "pixel_sampler": 3
+        },
+        "stages": [
+          {
+            "_target_": "egomimic.pipeline.stages_pixel_video.PixelVideoNoisingStage",
+            "noising": {
+              "_target_": "egomimic.models.pixel_diffusion.LinearGaussianImageNoising",
+              "maximum": 1.0
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_pixel_video.PixelVideoDenoiserStage",
+            "model": {
+              "_target_": "egomimic.models.image_proprio.ImageProprioModel",
+              "action_dims": null,
+              "activation_checkpointing": false,
+              "allow_patch_compression": false,
+              "attention_backend": "flash4",
+              "attention_dtype": "bfloat16",
+              "attention_query_chunk_size": 0,
+              "compile_backend": "inductor",
+              "compile_dynamic": true,
+              "compile_mode": "default",
+              "depth": 8,
+              "heads": 6,
+              "image_dim": 768,
+              "loss_reduction": "mean_per_example",
+              "max_cameras": 2,
+              "max_tokens": 12864,
+              "mlp_ratio": 4,
+              "noise_conditioning": "adaln_zero",
+              "objective": "visual_only",
+              "phase_a_condition_on_proprio": false,
+              "pose_dims": null,
+              "position_encoding": "spatiotemporal_rope",
+              "rope_axis_dims": [
+                64,
+                32,
+                32
+              ],
+              "spatial_grid_size": [
+                10,
+                10
+              ],
+              "strict_fp32": false,
+              "time_mode": "continuous",
+              "token_execution": "packed_valid",
+              "use_camera_embedding": true,
+              "use_embodiment_embedding": false,
+              "use_modality_embedding": false,
+              "use_phase_embedding": false,
+              "width": 768
+            }
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_pixel_video.PixelVideoLossStage",
+            "loss": {
+              "_target_": "egomimic.models.pixel_diffusion.PlainPixelMSE",
+              "reduction": "mean_per_example"
+            },
+            "weight": 1.0
+          },
+          {
+            "_target_": "egomimic.pipeline.stages_pixel_video.PixelVideoSamplerStage",
+            "sampler": {
+              "_target_": "egomimic.models.pixel_diffusion.LinearDDIMImageSampler",
+              "steps": 20
+            }
+          }
+        ]
+      },
+      "scheduler": null,
+      "train_log_on_step": true,
+      "training_behavior": {
+        "_target_": "egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior"
+      }
+    }
+  },
+  "norm_stats": null,
+  "norm_stats_only": false,
+  "normalizer": null,
+  "paths": {
+    "dataset_dir": "/coc/flash7/scratch/egoverseS3ZarrDataset",
+    "output_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu",
+    "work_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/source-535d4fc26c4c85cf57bbd2a776cc79cfec085c4e"
+  },
+  "pixel_video": {
+    "max_tokens": 12864
+  },
+  "runtime": {
+    "cluster_environment": "torch_elastic",
+    "disable_tf32": true,
+    "slurm_requeue_owner": "none",
+    "slurm_save_signal": "SIGUSR2",
+    "slurm_signal_checkpoint_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu/checkpoints",
+    "slurm_signal_train_batch_only": false,
+    "strict_fp32": false
+  },
+  "seed": 42,
+  "trainer": {
+    "_target_": "lightning.pytorch.trainer.Trainer",
+    "accelerator": "gpu",
+    "accumulate_grad_batches": 1,
+    "check_val_every_n_epoch": null,
+    "default_root_dir": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_continuous_image_proprio_lr1e4constant_4gpu",
+    "deterministic": false,
+    "devices": 4,
+    "enable_model_summary": false,
+    "enable_progress_bar": false,
+    "limit_train_batches": 1.0,
+    "limit_val_batches": 1.0,
+    "log_every_n_steps": 1,
+    "max_epochs": -1,
+    "max_steps": 300000,
+    "min_epochs": 0,
+    "num_nodes": 1,
+    "num_sanity_val_steps": 0,
+    "precision": "bf16-mixed",
+    "strategy": "ddp",
+    "use_distributed_sampler": false,
+    "val_check_interval": 20000
+  },
+  "val_at_end": true,
+  "world_model_attention": {
+    "activation_checkpointing": false,
+    "backend": "flash4",
+    "disable_tf32": true,
+    "dtype": "bfloat16",
+    "query_chunk_size": 0,
+    "strict_fp32": false,
+    "trainer_precision": "bf16-mixed"
+  },
+  "world_model_execution": {
+    "compile_backend": "inductor",
+    "compile_dynamic": true,
+    "compile_mode": "default",
+    "loss_reduction": "mean_per_example",
+    "token_execution": "packed_valid"
+  }
+}

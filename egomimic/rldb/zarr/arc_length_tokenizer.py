@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
+from scipy.optimize import isotonic_regression
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
@@ -143,6 +144,30 @@ def cumulative_arc_length(pos: np.ndarray) -> np.ndarray:
     return np.concatenate([np.array([0.0]), np.cumsum(step)])
 
 
+def cumulative_rotation_length(ypr: np.ndarray) -> np.ndarray:
+    """Return cumulative SO(3) geodesic angle in radians.
+
+    The returned coordinate is an independent rotation clock.  It deliberately
+    does not depend on translational motion, so an in-place wrist rotation can
+    advance even when the EEF position is stationary.
+    """
+    ypr = np.asarray(ypr, dtype=np.float64).reshape(-1, 3)
+    if len(ypr) < 2:
+        return np.zeros(len(ypr), dtype=np.float64)
+    rotations = _ypr_to_rotation(ypr)
+    relative = rotations[:-1].inv() * rotations[1:]
+    step = np.linalg.norm(relative.as_rotvec(), axis=-1)
+    return np.concatenate([np.array([0.0]), np.cumsum(step)])
+
+
+def cumulative_bimanual_translation_length(actions: np.ndarray) -> np.ndarray:
+    """Joint translation clock: left travel plus right travel."""
+    actions = np.asarray(actions, dtype=np.float64)
+    left = np.linalg.norm(np.diff(actions[:, 0:3], axis=0), axis=-1)
+    right = np.linalg.norm(np.diff(actions[:, 7:10], axis=0), axis=-1)
+    return np.concatenate(([0.0], np.cumsum(left + right)))
+
+
 def _bracket_segment(cumdist: np.ndarray, target_s: float) -> tuple[int, float]:
     """Locate the segment containing arc length target_s.
 
@@ -223,6 +248,51 @@ def _bracket_segments(
     i = np.where(lo, 0, np.where(hi, last, i))
     alpha = np.where(lo, 0.0, np.where(hi, 1.0, alpha))
     return i, alpha
+
+
+def _first_crossing_brackets(
+    cumdist: np.ndarray, targets: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized first-crossing bracket, mirroring the per-arm scalar rule.
+
+    Unlike :func:`_bracket_segments` this never clamps a target at or past the
+    end to the last segment's ``alpha = 1``: a trailing hold consumes no
+    translation, so the first frame reaching the distance is the answer.
+    ``TokenizeBimanualArcLengthCartesian._translation_bracket`` is the scalar
+    statement of the same rule, and the two must agree exactly.
+    """
+    cumdist = np.asarray(cumdist, dtype=np.float64)
+    targets = np.asarray(targets, dtype=np.float64)
+    n = len(cumdist)
+    capped = np.minimum(targets, cumdist[-1])
+    upper = np.clip(np.searchsorted(cumdist, capped, side="left"), 1, n - 1)
+    interval = cumdist[upper] - cumdist[upper - 1]
+    ok = interval > 1e-12
+    # The numerator keeps the uncapped target, exactly as the scalar path does;
+    # the clip below is what bounds an overshooting target.
+    alpha = np.where(
+        ok, (targets - cumdist[upper - 1]) / np.where(ok, interval, 1.0), 0.0
+    )
+    alpha = np.clip(alpha, 0.0, 1.0)
+    lo = targets <= cumdist[0]
+    return np.where(lo, 0, upper - 1), np.where(lo, 0.0, alpha)
+
+
+def _source_times_at_targets(
+    cumdist: np.ndarray, targets: np.ndarray, dt: float
+) -> np.ndarray:
+    """Map arc targets to fractional source times with scalar-identical math."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    return (indices + alpha) * dt
+
+
+def _linear_at_targets(
+    values: np.ndarray, cumdist: np.ndarray, targets: np.ndarray
+) -> np.ndarray:
+    """Interpolate all targets while preserving the scalar operation order."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    blend = alpha[:, None]
+    return (1.0 - blend) * values[indices] + blend * values[indices + 1]
 
 
 def _slerp_segments_ypr(
@@ -1033,455 +1103,598 @@ class TokenizeBimanualArcLength:
 # Canonical layout for the (M+1, 14) arc-token variant used by the FM policy
 # head (see hpt_cotrain_mecka_flow_shared_head_arc.yaml). Per-slot dims:
 #   [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)] = 14
-# Rows: 0..M-1 = waypoints, row M = velocity token.
-# Velocity row layout per arm:
-#   [xyz_mean_rate(3), ypr_mean_rate(3), grip_mean_rate(1)]
-# The ypr slots hold mean angular velocity per axis: (ypr[M-1] - ypr[0]) /
-# duration_arm. This is documented, unconditional (no config flag), and
-# survives round-trip through detokenize by way of SLERP over the M
-# waypoints (the velocity row's ypr is used for learning signal / stats,
-# not by the detokenize timing path — timing comes from ||vel_xyz|| as
-# before, matching the pre-rotation behavior).
-ARC_TOK_PER_ARM_DIM = 7  # per-arm dims: xyz(3) + ypr(3) + gripper(1)
-ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
+# Geometric overlay/DTW utilities retain these progress measures; the ARC codec
+# itself uses independently capped streams only.
+ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
 
 
-# How a bimanual arc token carries timing. Mirrors planar_arc.VELOCITY_MODES.
-#
-#   "mean"          M waypoints + ONE velocity row (the historical layout).
-#                   One rate for the whole token, so it only describes motion
-#                   traversed at constant speed.
-#   "per_waypoint"  M waypoints + M velocity rows, one per interval. Recovers
-#                   the elapsed-time parameterization of a non-uniform chunk.
-#   "duration"      M waypoints + M duration rows, one elapsed-time (seconds)
-#                   per interval per arm. Same row count as per_waypoint, but
-#                   stores Δt directly instead of pose_delta / Δt.
-#
-# Note the chord-vs-arc correction the mean path needs does NOT apply here:
-# consecutive waypoints are joined by straight segments, so a single interval's
-# chord IS its arc length. That discrepancy only arises when one rate spans the
-# whole token.
-BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
-
-
-def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
-    if velocity_mode not in BIMANUAL_VELOCITY_MODES:
+def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None):
+    # Source-window and geometric utilities retain their existing defaults.
+    # The Cartesian codec does not use this selector.
+    if mode is None:
+        return "joint_distance" if rotation_distance_unit is not None else "multistream"
+    value = str(mode).strip().lower()
+    if value not in ARC_CHUNKING_MODES:
         raise ValueError(
-            f"velocity_mode must be one of {BIMANUAL_VELOCITY_MODES}, "
-            f"got {velocity_mode!r}"
+            f"Unknown arc_chunking_mode geometric progress measure: {value!r}"
         )
-    return velocity_mode
+    return value
 
 
-def bimanual_arc_token_rows(
-    resampled_vector_length: int, velocity_mode: str = "mean"
-) -> int:
-    """Rows in one bimanual arc token -- the single source of truth."""
-    validate_bimanual_velocity_mode(velocity_mode)
-    num_waypoints = int(resampled_vector_length)
-    if num_waypoints < 2:
+CLOCK_MODES = ("velocity", "duration")
+STREAM_MODES = ("full_separation", "translation_rotation", "translation", "projection")
+# translation / projection: one clock per arm; rotation and gripper ride its supports.
+STREAM_NAMES = {
+    "full_separation": ("translation", "rotation", "gripper"),
+    "translation_rotation": ("translation", "rotation"),
+    "translation": ("translation",),
+    "projection": ("translation",),
+}
+STREAM_DIMS = {
+    "full_separation": 20,
+    "translation_rotation": 18,
+    "translation": 16,
+    "projection": 16,
+}
+# Timing columns always follow geometry; four- and two-stream order is the same prefix.
+SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
+CLOCK_COLUMNS = (0, 7, 3, 10)
+SINGLE_CLOCK_COLUMNS = (0, 7)
+# ARC Projection: progress is measured at p + R @ offset, 2 cm along each local axis.
+PROJECTION_OFFSET_M = (0.02, 0.02, 0.02)
+# Max speed of an absolute translation clock, m/s. There is no min speed: a slow arm
+# also times the rotation and gripper riding its clock, and a floor replays them fast.
+MAX_SPEED = 5.0
+
+
+def validate_clock_mode(mode):
+    if mode not in CLOCK_MODES:
+        raise ValueError(f"clock_mode must be one of {CLOCK_MODES}, got {mode!r}")
+    return mode
+
+
+def validate_streams(streams):
+    if streams not in STREAM_MODES:
+        raise ValueError(f"streams must be one of {STREAM_MODES}, got {streams!r}")
+    return streams
+
+
+def bimanual_arc_token_shape(
+    resampled_vector_length, clock_mode="velocity", streams="full_separation"
+):
+    validate_clock_mode(clock_mode)
+    validate_streams(streams)
+    m = int(resampled_vector_length)
+    if m < 2:
         raise ValueError("resampled_vector_length must be at least two")
-    return num_waypoints + 1 if velocity_mode == "mean" else 2 * num_waypoints
+    return m, STREAM_DIMS[streams]
+
+
+def stream_distances(waypoints, off, stream, streams, offset=PROJECTION_OFFSET_M):
+    """Per-segment distance one arm's stream covers between emitted waypoints."""
+    if stream == "translation":
+        xyz = waypoints[:, off : off + 3]
+        if streams == "projection":
+            ypr = waypoints[:, off + 3 : off + 6]
+            xyz = xyz + R.from_euler("ZYX", ypr).apply(np.asarray(offset, dtype=float))
+        return np.linalg.norm(np.diff(xyz, axis=0), axis=1)
+    if stream == "rotation":
+        return np.diff(cumulative_rotation_length(waypoints[:, off + 3 : off + 6]))
+    return np.abs(np.diff(waypoints[:, off + 6]))
+
+
+def absolute_times_to_seconds(times, distances, max_speed=None):
+    """Absolute waypoint seconds -> start delay and incoming interval seconds.
+
+    Elmo's speed-bounded isotonic decode (PR #266): project the predicted times
+    onto the nearest (least-squares) non-decreasing clock whose moving intervals
+    last at least distance / max_speed, by isotonic regression on the slack above
+    that fastest clock. A backwards pair is averaged instead of drifting later
+    rows late, and no local error sums into later rows. Row zero is the start
+    delay and stays >= 0. Without motion, or without a bound, this is plain
+    isotonic regression.
+    """
+    t = np.asarray(times, dtype=np.float64)
+    cum = np.r_[0.0, np.cumsum(np.asarray(distances, dtype=np.float64))]
+    if t.shape != cum.shape or not np.isfinite(t).all():
+        raise ValueError("Absolute times require one finite time per waypoint")
+    moving = cum[-1] > 0.0
+    fastest = cum / max_speed if moving and max_speed else np.zeros_like(cum)
+    slack = np.maximum(isotonic_regression(t - fastest).x, 0.0)
+    clock = fastest + slack
+    return np.r_[clock[0], np.diff(clock)]
+
+
+def clock_token_seconds(token, clock_mode, streams=None, offset=PROJECTION_OFFSET_M):
+    """Timing rows as seconds: start delay, then incoming intervals.
+
+    Velocity row zero is already seconds. Duration rows are absolute seconds from
+    the chunk anchor, decoded once by :func:`absolute_times_to_seconds` with the
+    translation max speed; rotation and gripper clocks are only made monotone.
+    """
+    validate_clock_mode(clock_mode)
+    value = np.array(token, dtype=np.float64)
+    if value.ndim < 2 or value.shape[-1] not in (16, 18, 20):
+        raise ValueError("Expected an ARC token with 16, 18 or 20 columns")
+    if not np.isfinite(value).all():
+        raise ValueError("ARC tokens must be finite")
+    if clock_mode == "duration":
+        streams = streams or {20: "full_separation", 18: "translation_rotation"}.get(
+            value.shape[-1], "translation"
+        )
+        if STREAM_DIMS[validate_streams(streams)] != value.shape[-1]:
+            raise ValueError(f"{streams} tokens have {STREAM_DIMS[streams]} columns")
+        rows = value.reshape(-1, *value.shape[-2:])
+        for row in rows:
+            for index, name in enumerate(STREAM_NAMES[streams]):
+                for arm, off in enumerate((0, 7)):
+                    col = 14 + 2 * index + arm
+                    row[:, col] = absolute_times_to_seconds(
+                        row[:, col],
+                        stream_distances(row, off, name, streams, offset),
+                        MAX_SPEED if name == "translation" else None,
+                    )
+        value = rows.reshape(value.shape)
+    return value
+
+
+def stack_arc_token(token):
+    """Internal geometry/timing view, not a selectable serialized layout."""
+    value = np.asarray(token, dtype=np.float64)
+    if value.shape[-1] not in (16, 18, 20):
+        raise ValueError("Only the explicit 16D/18D/20D ARC contracts are supported")
+    cols = {20: SIX_CLOCK_COLUMNS, 18: CLOCK_COLUMNS, 16: SINGLE_CLOCK_COLUMNS}[
+        value.shape[-1]
+    ]
+    timing = np.zeros(value.shape[:-1] + (14,))
+    timing[..., cols] = value[..., 14:]
+    return np.concatenate((value[..., :14], timing), axis=-2)
 
 
 class TokenizeBimanualArcLengthCartesian:
-    """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
+    """First-delay ARC: M x (14 geometry + two, four or six clocks).
 
-    Layout per row (same 14-dim as the canonical bimanual cartesian chunk):
-        [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
-    Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
-    the first ``min_distance_unit`` meters of that arm's translational
-    travel. xyz and gripper are linear-interpolated at the M arc-length
-    targets; ypr is SLERPed through the resampled rotation sequence (via
-    ``slerp_through_ypr``) so orientation is unconditionally supervised.
-
-    Row M is the velocity token. Per arm the slots hold:
-        [xyz_vel(3), ypr_vel(3), grip_vel(1)]
-    where xyz_vel is the mean per-axis translational rate (from the
-    underlying tokenizer's MEAN_PER_DIM mode), ypr_vel is
-    ``(ypr[M-1] - ypr[0]) / duration_arm`` — the mean angular velocity per
-    axis over the token span — and grip_vel is ``(grip[M-1] - grip[0]) /
-    duration_arm`` (mean gripper opening rate). duration_arm is derived
-    from ||xyz_vel|| (duration = chord / speed) with a fallback to
-    ``(M-1) * dt`` when the arm is stationary. Rotation is ALWAYS included
-    — there is no config option to drop it.
-
-    Gripper padding/masking for embodiments without a gripper signal
-    (e.g. human_bimanual using PadGripperZeros upstream) is unchanged:
-    gripper still reaches slot 6 (per arm) of the output layout.
-
-    Assumes the input chunk is already in the model's target cam frame
-    (post InterpolatePose + ActionChunkCoordinateFrameTransform + XYZWXYZ_
-    to_XYZYPR + ConcatKeys).
-
-    Args:
-        action_key: input batch key holding the (T, 14) chunk.
-        output_action_key: where to write the (M+1, 14) tokenized chunk.
-        min_distance_unit: per-arm arc length span of the token, in meters
-            (i.e. the D parameter in the sweep script; the tokenizer covers
-            the first ``min_distance_unit`` meters of each arm's translational
-            travel).
-        resampled_vector_length: number of waypoints M (the sequence has
-            M+1 rows once the velocity token is appended).
-        dt: seconds per raw timestep (control period).
-        zero_dist_epsilon: below-this-arc-length chunks are treated as
-            stationary; the vel token comes out as zeros in that case so
-            downstream (loss, detokenize) doesn't NaN.
+    Row zero holds start delay. Rows i>0 describe incoming interval i-1 -> i.
+    Velocity: seconds in row zero, emitted segment distance/second thereafter.
+    Duration: absolute seconds from the chunk anchor in every timing row (row
+    zero is the start delay), decoded by speed-bounded isotonic regression.
+    ``translation`` and ``projection`` give each arm one clock; rotation and the
+    gripper ride its supports. ``projection`` measures that clock at the point
+    ``p + R @ projection_offset_m``.
+    There is no automatic interpretation of historical checkpoint layouts.
     """
 
     def __init__(
         self,
-        action_key: str = "actions_cartesian",
-        output_action_key: str = "actions_cartesian",
-        min_distance_unit: float = 0.60,
-        resampled_vector_length: int = 20,
-        dt: float = 1.0 / 30.0,
-        zero_dist_epsilon: float = 1e-6,
-        preserve_action_key: str | None = None,
-        velocity_mode: str = "mean",
+        action_key="actions_cartesian",
+        output_action_key="actions_cartesian",
+        min_distance_unit=0.60,
+        rotation_distance_unit=1.7453292519943295,
+        gripper_distance_unit=None,
+        gripper_stream_mode="events",
+        resampled_vector_length=100,
+        dt=1 / 30,
+        zero_dist_epsilon=1e-6,
+        hold_window_frames=400,
+        preserve_action_key=None,
+        preserve_action_rows=None,
+        clock_mode="velocity",
+        streams="full_separation",
+        projection_offset_m=PROJECTION_OFFSET_M,
     ):
-        self.action_key = action_key
-        self.output_action_key = output_action_key
-        # Tokenizing overwrites ``output_action_key`` in place, which destroys
-        # the time-indexed chunk it was built from. Validation needs that chunk
-        # back: every cross-run metric is anchored on "the ground truth under
-        # normal action-chunk sampling", and detokenizing the token to recover
-        # it would be circular (the reconstruction spans D by construction, so
-        # its travelled distance carries no information). Set this to keep an
-        # untouched copy alongside the token.
-        self.preserve_action_key = preserve_action_key
-        self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
-        # MEAN_PER_DIM velocity mode: we consume the per-axis xyz velocity
-        # directly. ypr and gripper velocities are computed here (the base
-        # tokenizer doesn't track ypr/gripper velocity).
-        cfg = BimanualArcLengthConfig(
-            min_distance_unit=float(min_distance_unit),
-            resampled_vector_length=int(resampled_vector_length),
-            mode=VelocityMode.MEAN_PER_DIM.value,
-            dt=float(dt),
-            zero_dist_epsilon=float(zero_dist_epsilon),
+        from types import SimpleNamespace
+
+        self.clock_mode = validate_clock_mode(clock_mode)
+        self.streams = validate_streams(streams)
+        self.projection_offset_m = np.asarray(projection_offset_m, dtype=np.float64)
+        if (
+            self.projection_offset_m.shape != (3,)
+            or not np.isfinite(self.projection_offset_m).all()
+            or not self.projection_offset_m.any()
+        ):
+            raise ValueError("projection_offset_m must be a finite nonzero 3-vector")
+        self.action_key, self.output_action_key = action_key, output_action_key
+        self.preserve_action_key, self.preserve_action_rows = (
+            preserve_action_key,
+            preserve_action_rows,
         )
-        self.tokenizer = BimanualArcLengthTokenizer(cfg)
+        self.shape = bimanual_arc_token_shape(
+            resampled_vector_length, clock_mode, streams
+        )
+        for name, value in (
+            ("D", min_distance_unit),
+            ("R", rotation_distance_unit),
+            ("dt", dt),
+            ("zero_dist_epsilon", zero_dist_epsilon),
+        ):
+            if value is None or not np.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be positive and finite")
+        if int(hold_window_frames) < 1:
+            raise ValueError("hold_window_frames must be positive")
+        if preserve_action_rows is not None and int(preserve_action_rows) < 1:
+            raise ValueError("preserve_action_rows must be positive")
+        if gripper_stream_mode not in ("events", "distance"):
+            raise ValueError("gripper_stream_mode must be events or distance")
+        if streams == "full_separation" and gripper_stream_mode == "distance":
+            if (
+                gripper_distance_unit is None
+                or not np.isfinite(gripper_distance_unit)
+                or gripper_distance_unit <= 0
+            ):
+                raise ValueError(
+                    "Separate distance gripper streams require positive gripper_distance_unit"
+                )
+        self.rotation_distance_unit = float(rotation_distance_unit)
+        self.gripper_distance_unit = gripper_distance_unit
+        self.gripper_stream_mode = gripper_stream_mode
+        self.hold_window_frames = int(hold_window_frames)
         self.zero_dist_epsilon = float(zero_dist_epsilon)
+        self.tokenizer = SimpleNamespace(
+            M=self.shape[0],
+            config=SimpleNamespace(
+                dt=float(dt),
+                min_distance_unit=float(min_distance_unit),
+                zero_dist_epsilon=self.zero_dist_epsilon,
+            ),
+        )
 
     @property
-    def M(self) -> int:
-        return self.tokenizer.M
+    def M(self):
+        return self.shape[0]
 
-    def transform(self, batch: dict) -> dict:
+    @property
+    def _stream_names(self):
+        return STREAM_NAMES[self.streams]
+
+    def transform(self, batch):
         raw = np.asarray(batch[self.action_key], dtype=np.float64)
+        if (
+            raw.ndim != 2
+            or raw.shape[1] != 14
+            or len(raw) < 2
+            or not np.isfinite(raw).all()
+        ):
+            raise ValueError("ARC source must be finite (T>=2, 14)")
         if self.preserve_action_key is not None:
-            batch[self.preserve_action_key] = raw.copy()
-        arc = self.tokenizer.tokenize(raw)
-        # Per-arm block emitted by BimanualArcLengthTokenizer (MEAN_PER_DIM):
-        #   [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
-        # Bimanual concat: 20 dims total.
-        M = arc.shape[0]
-        L_xyz = arc[:, 0:3]
-        L_ypr = arc[:, 3:6]
-        L_grip = arc[:, 6:7]
-        L_vel = arc[0, 7:10]
-        R_xyz = arc[:, 10:13]
-        R_ypr = arc[:, 13:16]
-        R_grip = arc[:, 16:17]
-        R_vel = arc[0, 17:20]
-
-        waypoints = np.concatenate(
-            [L_xyz, L_ypr, L_grip, R_xyz, R_ypr, R_grip], axis=-1
-        )  # (M, 14)
-
-        # Per-arm duration from mean_per_dim xyz vel: duration = chord / speed.
-        # Guard for degenerate arms (no motion or below the tokenizer's
-        # zero_dist_epsilon) by falling back to (M-1)*dt so ypr/gripper vel
-        # is well-defined and equals mean rate over the token span.
-        L_chord = float(np.linalg.norm(L_xyz[-1] - L_xyz[0]))
-        R_chord = float(np.linalg.norm(R_xyz[-1] - R_xyz[0]))
-        L_speed = float(np.linalg.norm(L_vel))
-        R_speed = float(np.linalg.norm(R_vel))
-        default_dur = max(M - 1, 1) * self.tokenizer.config.dt
-        L_dur = (L_chord / L_speed) if L_speed > 1e-8 else default_dur
-        R_dur = (R_chord / R_speed) if R_speed > 1e-8 else default_dur
-        # ypr velocity per arm — mean angular rate per axis over the token:
-        #   ypr_vel[d] = (ypr[M-1, d] - ypr[0, d]) / duration_arm
-        # This is a naive per-axis difference (no wrap handling); the SLERP
-        # in resampling has already kept ypr[0:M] in a consistent branch,
-        # so first/last differ by at most the token's angular sweep and
-        # per-axis subtraction is well-defined.
-        L_ypr_vel = (L_ypr[-1] - L_ypr[0]) / max(L_dur, 1e-8)
-        R_ypr_vel = (R_ypr[-1] - R_ypr[0]) / max(R_dur, 1e-8)
-        # Gripper velocity per arm — same "mean rate over the token" formula
-        # as xyz's mean_per_dim, using the arm's derived duration.
-        L_grip_vel = float(L_grip[-1, 0] - L_grip[0, 0]) / max(L_dur, 1e-8)
-        R_grip_vel = float(R_grip[-1, 0] - R_grip[0, 0]) / max(R_dur, 1e-8)
-
-        # Assemble (1, 14) velocity token in the same 14-slot layout as a
-        # waypoint: [L xyz_v(3), L ypr_v(3), L grip_v(1), R xyz_v(3),
-        # R ypr_v(3), R grip_v(1)]. Stationary tokens end up all zeros.
-        vel_token = np.array(
-            [
-                [
-                    L_vel[0],
-                    L_vel[1],
-                    L_vel[2],
-                    L_ypr_vel[0],
-                    L_ypr_vel[1],
-                    L_ypr_vel[2],
-                    L_grip_vel,
-                    R_vel[0],
-                    R_vel[1],
-                    R_vel[2],
-                    R_ypr_vel[0],
-                    R_ypr_vel[1],
-                    R_ypr_vel[2],
-                    R_grip_vel,
-                ]
-            ],
-            dtype=np.float64,
-        )
-        if self.velocity_mode == "per_waypoint":
-            out = np.concatenate(
-                [waypoints, self._per_waypoint_velocity(raw, waypoints)], axis=0
-            )  # (2M, 14)
-        elif self.velocity_mode == "duration":
-            out = np.concatenate(
-                [waypoints, self._per_waypoint_duration(raw, waypoints)], axis=0
-            )  # (2M, 14)
-        else:
-            out = np.concatenate([waypoints, vel_token], axis=0)  # (M+1, 14)
-        expected_rows = bimanual_arc_token_rows(M, self.velocity_mode)
-        if out.shape != (expected_rows, ARC_TOK_BIMANUAL_DIM):
-            raise AssertionError(
-                f"{type(self).__name__} produced {out.shape}, expected "
-                f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
-                f"{self.velocity_mode!r}"
-            )
-        batch[self.output_action_key] = out
+            preserved = raw.copy()
+            if self.preserve_action_rows is not None:
+                n = int(self.preserve_action_rows)
+                preserved = preserved[:n]
+                if len(preserved) < n:
+                    preserved = np.concatenate(
+                        (
+                            preserved,
+                            np.repeat(preserved[-1:], n - len(preserved), axis=0),
+                        )
+                    )
+            batch[self.preserve_action_key] = preserved
+        waypoints = self._hybrid_waypoints(raw)
+        clocks = self._stream_targets(raw, waypoints)
+        if self.clock_mode == "duration":
+            clocks = np.cumsum(clocks, axis=0)  # start delay + intervals -> absolute
+        batch[self.output_action_key] = np.concatenate((waypoints, clocks), axis=1)
         return batch
 
-    def _per_waypoint_velocity(
-        self, raw: np.ndarray, waypoints: np.ndarray
-    ) -> np.ndarray:
-        """One velocity row per waypoint, in the same 14-slot layout.
-
-        Each interval's rate is (waypoint delta) / (elapsed time across that
-        interval). The elapsed time comes from the SOURCE frames: a waypoint's
-        arc position is bracketed in the source arm's cumulative arc length,
-        giving a fractional frame index and hence ``(index + alpha) * dt``.
-        That is what preserves local speed changes and stationary frames, both
-        of which a single token-wide rate erases.
-
-        The final row repeats the last interval so the block is rectangular;
-        M waypoints bound only M-1 intervals, and ``detokenize`` reads
-        ``[:-1]``, so that row is padding and is never consumed.
-        """
-        dt = self.tokenizer.config.dt
-        rows = np.zeros((waypoints.shape[0], ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
-        for xyz_off, ypr_off, grip_off, raw_xyz in (
-            (0, 3, 6, slice(0, 3)),
-            (7, 10, 13, slice(7, 10)),
-        ):
-            xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
-            source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
-            delta_t = np.diff(times)
-            safe = np.where(delta_t > self.zero_dist_epsilon, delta_t, np.inf)
-            for offset, width in ((xyz_off, 3), (ypr_off, 3), (grip_off, 1)):
-                block = waypoints[:, offset : offset + width]
-                rate = np.diff(block, axis=0) / safe[:, None]
-                rows[:-1, offset : offset + width] = rate
-                rows[-1, offset : offset + width] = rate[-1]
-        return rows
-
-    def _per_waypoint_duration(
-        self, raw: np.ndarray, waypoints: np.ndarray
-    ) -> np.ndarray:
-        """One duration row per waypoint, in the same 14-slot layout.
-
-        Each interval stores the elapsed time (seconds) between consecutive
-        waypoints, recovered from the SOURCE frames the same way
-        ``_per_waypoint_velocity`` does. Per-arm Δt goes in the first column
-        of that arm's block (L col 0, R col 7); the rest stay zero.
-
-        The final row repeats the last interval so the block is rectangular;
-        ``detokenize`` reads ``[:-1]``, so that row is padding.
-        """
-        dt = self.tokenizer.config.dt
-        rows = np.zeros((waypoints.shape[0], ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
-        for xyz_off, raw_xyz in (
-            (0, slice(0, 3)),
-            (7, slice(7, 10)),
-        ):
-            xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
-            source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
-            delta_t = np.diff(times)
-            rows[:-1, xyz_off] = delta_t
-            rows[-1, xyz_off] = delta_t[-1]
-        return rows
-
-    def detokenize(
-        self,
-        arc_actions: np.ndarray,
-        action_horizon: int,
-    ) -> np.ndarray:
-        """Inverse of ``transform`` — take a (M+1, 14) arc token back to a
-        time-parameterized (H, 14) chunk at the control period.
-
-        Semantics:
-          - Read the vel token (row M) to derive per-arm duration from the
-            xyz slots: duration_arm = D / ||vel_xyz_arm||  (D = min_distance_unit).
-            The ypr / gripper velocity slots are NOT consumed by timing
-            reconstruction (they are learning targets / diagnostic stats).
-          - Uniformly sample H timesteps over [0, min(H*dt, duration)] and,
-            for each, interpolate the M waypoints against that arm's own
-            cumulative xyz arc length:
-                xyz     -> linear on the (M, 3) waypoint positions.
-                ypr     -> SLERP over the (M, 3) waypoint rotations via
-                           ``slerp_through_ypr`` (interpolation in
-                           rotation space, not per-euler-angle).
-                gripper -> linear on the (M, 1) waypoint grippers.
-          - When ||vel_xyz|| is degenerate for an arm, hold the first
-            waypoint for all H timesteps (mirrors the tokenize side).
-
-        Output layout (H, 14): same as the canonical bimanual cartesian
-        layout, one row per control step. Used by the val-video eval to
-        project a stream of setpoints at 30 Hz through the front camera
-        and by the deploy path in rollout-arc.py.
-        """
-        arc_actions = np.asarray(arc_actions, dtype=np.float64)
-        if arc_actions.ndim != 2 or arc_actions.shape[1] != ARC_TOK_BIMANUAL_DIM:
-            raise ValueError(
-                f"detokenize expects (rows, {ARC_TOK_BIMANUAL_DIM}), got "
-                f"{arc_actions.shape}"
+    def _hybrid_source_coordinates(self, raw):
+        translation, rotation = [], []
+        for off in (0, 7):
+            cum = cumulative_arc_length(self._progress(raw, off))
+            end = min(float(cum[-1]), self.tokenizer.config.min_distance_unit)
+            hold = len(raw) - 1 if cum[-1] < self.zero_dist_epsilon else None
+            translation.append((cum, np.linspace(0, end, self.M), hold))
+            cum = cumulative_rotation_length(raw[:, off + 3 : off + 6])
+            rotation.append(
+                (
+                    cum,
+                    np.linspace(
+                        0, min(float(cum[-1]), self.rotation_distance_unit), self.M
+                    ),
+                )
             )
-        rows = arc_actions.shape[0]
-        granular = self.velocity_mode in ("per_waypoint", "duration")
-        M = rows // 2 if granular else rows - 1
-        if M < 2:
-            raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")
-        if rows != bimanual_arc_token_rows(M, self.velocity_mode):
-            raise ValueError(
-                f"detokenize got {rows} rows, expected "
-                f"{bimanual_arc_token_rows(M, self.velocity_mode)} for "
-                f"velocity_mode={self.velocity_mode!r}"
-            )
+        return translation, rotation
 
-        waypoints = arc_actions[:M]  # (M, 14)
-        vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
-        vel_token = vel_rows[0]
+    def _progress(self, values, off):
+        """Points whose arc length is the translation stream's progress."""
+        xyz = values[:, off : off + 3]
+        if self.streams != "projection":
+            return xyz
+        ypr = values[:, off + 3 : off + 6]
+        return xyz + R.from_euler("ZYX", ypr).apply(self.projection_offset_m)
+
+    def _translation_values_at_targets(self, values, cumulative, targets):
+        i, a = _first_crossing_brackets(cumulative, targets)
+        return values[i] + a[:, None] * (values[i + 1] - values[i])
+
+    def _translation_source_times(self, cumulative, targets, dt):
+        i, a = _first_crossing_brackets(cumulative, targets)
+        return (i + a) * dt
+
+    def _stream_targets(self, raw, waypoints):
+        translation, rotation = self._hybrid_source_coordinates(raw)
+        gripper = (
+            self._hybrid_gripper_coordinates(raw)
+            if self.streams == "full_separation"
+            else None
+        )
+        clocks = {}
         dt = self.tokenizer.config.dt
-        h = int(action_horizon)
-
-        arms_out = []
-        # Per-arm 14-dim layout: L block dims 0..6, R block dims 7..13. Each
-        # arm's block is [xyz(3), ypr(3), grip(1)]. Vel token has the same
-        # layout — we read the xyz slice per arm for timing.
-        for xyz_off, ypr_off, grip_off, vel_xyz_slice in (
-            (0, 3, 6, slice(0, 3)),  # left
-            (7, 10, 13, slice(7, 10)),  # right
-        ):
-            xyz_wp = waypoints[:, xyz_off : xyz_off + 3]  # (M, 3)
-            ypr_wp = waypoints[:, ypr_off : ypr_off + 3]  # (M, 3)
-            grip_wp = waypoints[:, grip_off : grip_off + 1]  # (M, 1)
-            vel_xyz = vel_token[vel_xyz_slice]  # (3,)
-            speed = float(np.linalg.norm(vel_xyz))
-
-            cumdist = cumulative_arc_length(xyz_wp)
-            total = float(cumdist[-1])
-
-            if granular:
-                # per_waypoint: duration = ||delta_xyz|| / ||interval velocity||
-                # duration mode: timing rows already store Δt in the arm's
-                # first column. Consecutive waypoints are joined by straight
-                # segments, so chord IS the interval arc -- no chord-to-arc
-                # correction (that only arises for a rate spanning the token).
-                interval_arc = np.diff(cumdist)
-                moving = interval_arc > 1e-12
-                if self.velocity_mode == "duration":
-                    interval_duration = vel_rows[:-1, xyz_off]
-                    usable = interval_duration > 1e-8
-                    duration = np.zeros_like(interval_arc)
-                    duration[moving & usable] = interval_duration[moving & usable]
+        for arm, off in enumerate((0, 7)):
+            t_cum, t_targets, hold = translation[arm]
+            r_cum, r_targets = rotation[arm]
+            specs = [
+                ("translation", t_cum, t_targets, hold is not None),
+                ("rotation", r_cum, r_targets, r_cum[-1] < self.zero_dist_epsilon),
+            ][: len(self._stream_names)]
+            if gripper is not None:
+                cum, targets, held = gripper[arm]
+                specs.append(("gripper", cum, targets, held))
+            for name, cum, targets, held in specs:
+                if name == "gripper" and self.gripper_stream_mode == "events":
+                    times = self._gripper_event_frames(raw[:, off + 6]) * dt
+                    if not held:
+                        times[0] = self._motion_start_time(cum, dt)
+                elif held:
+                    times = np.linspace(0, self.hold_window_frames * dt, self.M)
                 else:
-                    interval_rate = np.linalg.norm(
-                        vel_rows[:-1, vel_xyz_slice], axis=-1
+                    times = self._translation_source_times(cum, targets, dt)
+                    times[0] = self._motion_start_time(cum, dt)
+                intervals = np.maximum(np.diff(times), 0)
+                if self.clock_mode == "velocity":
+                    distance = self._distances(waypoints, off, name)
+                    if held:
+                        distance[:] = 0
+                    intervals = np.divide(
+                        distance,
+                        intervals,
+                        out=np.zeros_like(distance),
+                        where=intervals > 1e-12,
                     )
-                    usable = interval_rate > 1e-8
-                    duration = np.zeros_like(interval_arc)
-                    np.divide(
-                        interval_arc,
-                        interval_rate,
-                        out=duration,
-                        where=moving & usable,
-                    )
-                # A real interval with zero predicted timing must hold, not
-                # teleport: give it more time than the whole horizon.
-                duration[moving & ~usable] = dt * (h + 1)
-                elapsed = np.concatenate((np.zeros(1), np.cumsum(duration)))
-                if total < 1e-9 or not np.any(moving & usable):
-                    pos_t = np.repeat(xyz_wp[:1], h, axis=0)
-                    ypr_t = np.repeat(ypr_wp[:1], h, axis=0)
-                    grip_t = np.repeat(grip_wp[:1], h, axis=0)
-                    arms_out.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
+                clocks[name, arm] = np.r_[times[0], intervals]
+        return np.stack(
+            [clocks[name, arm] for name in self._stream_names for arm in (0, 1)],
+            axis=1,
+        )
+
+    def _distances(self, waypoints, off, stream):
+        return stream_distances(
+            waypoints, off, stream, self.streams, self.projection_offset_m
+        )
+
+    def _native(self, token, clocks_in_seconds=False):
+        value = np.asarray(token, dtype=np.float64)
+        if value.ndim != 2 or value.shape[1] != self.shape[1] or len(value) < 2:
+            raise ValueError(f"Expected (M>=2, {self.shape[1]}) ARC token")
+        if not np.isfinite(value).all():
+            raise ValueError("ARC tokens must be finite")
+        if clocks_in_seconds and self.clock_mode != "duration":
+            raise ValueError("clocks_in_seconds is only valid for duration clocks")
+        return (
+            value.copy()
+            if clocks_in_seconds
+            else clock_token_seconds(
+                value, self.clock_mode, self.streams, self.projection_offset_m
+            )
+        )
+
+    def _intervals(self, delta, stored, horizon):
+        if self.clock_mode == "duration":
+            return np.maximum(stored, 0)
+        moving, usable = delta > 1e-12, np.abs(stored) > 1e-8
+        if not np.any(moving):
+            return np.full_like(
+                delta, self.hold_window_frames * self.tokenizer.config.dt / len(delta)
+            )
+        out = np.divide(
+            delta, np.abs(stored), out=np.zeros_like(delta), where=moving & usable
+        )
+        out[moving & ~usable] = self.tokenizer.config.dt * (horizon + 1)
+        return out
+
+    def control_steps(self, token, *, max_steps=None, clocks_in_seconds=False):
+        value = self._native(token, clocks_in_seconds)
+        ends = []
+        for index, name in enumerate(self._stream_names):
+            for arm, off in enumerate((0, 7)):
+                delta = self._distances(value, off, name)
+                moving = delta > 1e-12
+                if not moving.any():
                     continue
-                # Invert elapsed time -> arc position, then reuse the same
-                # interpolators the mean path uses.
-                s_targets = np.interp(
-                    dt * np.arange(h, dtype=np.float64), elapsed, cumdist
+                stored = value[1:, 14 + index * 2 + arm]
+                # Decoded absolute clocks are monotone: a zero interval is a move
+                # within one tick, not missing timing.
+                usable = (
+                    np.abs(stored) > 1e-8
+                    if self.clock_mode == "velocity"
+                    else np.ones_like(moving)
                 )
-                pos_t = np.stack(
-                    [_interp_pos_at_s(xyz_wp, cumdist, float(sk)) for sk in s_targets]
+                if np.any(moving & ~usable):
+                    ends.append(float("inf"))
+                else:
+                    ends.append(
+                        max(value[0, 14 + index * 2 + arm], 0)
+                        + self._intervals(delta, stored, max_steps or 1).sum()
+                    )
+        duration = (
+            min(ends) if ends else self.hold_window_frames * self.tokenizer.config.dt
+        )
+        if not np.isfinite(duration):
+            if max_steps is None:
+                raise ValueError(
+                    "ARC prefix timing does not define finite replan boundary"
                 )
-                ypr_t = np.stack(
-                    [_interp_ypr_at_s(ypr_wp, cumdist, float(sk)) for sk in s_targets]
+            return int(max_steps)
+        steps = max(1, int(np.ceil(duration / self.tokenizer.config.dt - 1e-9)))
+        return min(steps, int(max_steps)) if max_steps is not None else steps
+
+    def detokenize(self, arc_actions, action_horizon, *, clocks_in_seconds=False):
+        value = self._native(arc_actions, clocks_in_seconds)
+        h = int(action_horizon)
+        if h < 1:
+            raise ValueError("action_horizon must be positive")
+        query = np.arange(h) * self.tokenizer.config.dt
+        arms = []
+        for arm, off in enumerate((0, 7)):
+            indices, clocks = {}, {}
+            for index, name in enumerate(self._stream_names):
+                col = 14 + index * 2 + arm
+                durations = self._intervals(
+                    self._distances(value, off, name), value[1:, col], h
                 )
-                grip_t = np.stack(
-                    [
-                        _interp_linear_at_s(grip_wp, cumdist, float(sk))
-                        for sk in s_targets
-                    ]
-                )
-                arms_out.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
-                continue
-            # The velocity token is a CHORD rate: make_velocity_payload's
-            # MEAN_PER_DIM is (pos[-1] - pos[0]) / total_time, i.e. net
-            # displacement over time. But `s` below walks ARC LENGTH, and arc
-            # >= chord for anything that is not a straight line, so advancing
-            # arc length at a chord rate replays the motion too slowly --
-            # measured up to 1.98x on real folding data, where the path
-            # doubles back and arc is nearly twice the chord.
-            #
-            # Convert to the arc rate the traversal actually needs. Since
-            # speed == chord / total_time, this is exactly total / total_time,
-            # so the reconstruction now takes the same wall-clock time the arm
-            # originally did. Written as a ratio because chord and total are
-            # both recoverable from the waypoints while total_time is not.
-            chord = float(np.linalg.norm(xyz_wp[-1] - xyz_wp[0]))
-            if chord > 1e-6:
-                speed = speed * (total / chord)
-            # chord ~ 0 means the path returns to where it started, and a
-            # chord-based token carries no timing for that case at all; leave
-            # the rate alone rather than divide by ~0.
-            if total < 1e-9 or speed < 1e-8:
-                # Degenerate: hold first waypoint for the whole horizon.
-                pos_t = np.repeat(xyz_wp[:1], h, axis=0)
-                ypr_t = np.repeat(ypr_wp[:1], h, axis=0)
-                grip_t = np.repeat(grip_wp[:1], h, axis=0)
+                delay = max(value[0, col], 0)
+                indices[name] = self._hybrid_clock_indices(durations, h, delay)
+                clocks[name] = delay + np.r_[0, np.cumsum(durations)]
+            lo, hi, a = indices["translation"]
+            xyz = value[:, off : off + 3]
+            xyz = xyz[lo] + a[:, None] * (xyz[hi] - xyz[lo])
+            rlo, _, ra = indices.get("rotation", indices["translation"])
+            ypr = _slerp_segments_ypr(value[:, off + 3 : off + 6], rlo, ra)
+            grip = value[:, off + 6 : off + 7]
+            if self.streams == "full_separation":
+                lo, hi, a = indices["gripper"]
+            if (
+                self.streams == "full_separation"
+                and self.gripper_stream_mode == "events"
+            ):
+                clock = clocks["gripper"]
+                tolerance = 8 * np.finfo(np.float32).eps * max(1.0, clock[-1])
+                gi = np.searchsorted(clock, query + tolerance, side="right") - 1
+                grip = grip[np.clip(gi, 0, len(grip) - 1)]
             else:
-                # s(k) = min(v * k * dt, total). Interpolate xyz / grip
-                # linearly and ypr via SLERP at each s(k) against the
-                # waypoints' cumdist.
-                s = np.minimum(speed * np.arange(h, dtype=np.float64) * dt, total)
-                pos_t, ypr_t, grip_t = resample_at_arc_lengths(
-                    xyz_wp, ypr_wp, grip_wp, cumdist, s
+                grip = grip[lo] + a[:, None] * (grip[hi] - grip[lo])
+            arms.append(np.concatenate((xyz, ypr, grip), axis=1))
+        return np.concatenate(arms, axis=1)
+
+    def _hybrid_gripper_coordinates(self, raw: np.ndarray):
+        """Independent normalized travel coordinates for left/right grippers."""
+        result = []
+        for offset in (6, 13):
+            cumulative = np.concatenate(
+                ([0.0], np.cumsum(np.abs(np.diff(raw[:, offset]))))
+            )
+            end = (
+                float(cumulative[-1])
+                if self.gripper_stream_mode == "events"
+                else min(self.gripper_distance_unit, float(cumulative[-1]))
+            )
+            result.append(
+                (
+                    cumulative,
+                    np.linspace(0.0, end, self.M),
+                    cumulative[-1] < self.tokenizer.config.zero_dist_epsilon,
                 )
-            arms_out.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
-        return np.concatenate(arms_out, axis=-1)  # (H, 14)
+            )
+        return result
+
+    def _gripper_event_frames(self, values: np.ndarray) -> np.ndarray:
+        """PR #202 supports: initial value, command changes, endpoint, padding.
+
+        Gripper values are held commands, not interpolated apertures. A full
+        hold carries the configured source-window duration in duration mode.
+        Like PR #202, rate tokens cannot encode a terminal stationary dwell.
+        """
+        changes = np.flatnonzero(np.abs(np.diff(values)) > 1e-9) + 1
+        endpoint = len(values) - 1 if len(changes) else self.hold_window_frames
+        required = np.unique(np.r_[0, changes, endpoint]).astype(np.float64)
+        if len(required) > self.M:
+            required = required[
+                np.rint(np.linspace(0, len(required) - 1, self.M)).astype(int)
+            ]
+        return np.r_[required, np.repeat(required[-1], self.M - len(required))]
+
+    @staticmethod
+    def _motion_start_time(cumulative: np.ndarray, dt: float) -> float:
+        """Last frame of the initial stationary plateau; no smoothing/floor."""
+        moving = np.flatnonzero(np.diff(cumulative) > 1e-12)
+        return float(moving[0] * dt) if len(moving) else 0.0
+
+    def _hybrid_clock_indices(
+        self, duration: np.ndarray, action_horizon: int, start_delay: float = 0.0
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        elapsed = start_delay + np.concatenate(([0.0], np.cumsum(duration)))
+        targets = self.tokenizer.config.dt * np.arange(action_horizon, dtype=np.float64)
+        upper = np.searchsorted(elapsed, targets, side="right")
+        upper = np.clip(upper, 1, len(elapsed) - 1)
+        lower = upper - 1
+        start = elapsed[lower]
+        end = elapsed[upper]
+        alpha = np.divide(
+            targets - start,
+            end - start,
+            out=np.zeros_like(targets),
+            where=(end - start) > self.zero_dist_epsilon,
+        )
+        return lower, upper, np.clip(alpha, 0.0, 1.0)
+
+    def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
+        """Resample both streams against their own source coordinates."""
+        translation, rotation = self._hybrid_source_coordinates(raw)
+        gripper = (
+            self._hybrid_gripper_coordinates(raw)
+            if self.streams == "full_separation"
+            else None
+        )
+
+        arms = []
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            rotation_indices, rotation_alpha = _bracket_segments(
+                rotation_cumulative, rotation_targets
+            )
+            if hold is None:
+                xyz = self._translation_values_at_targets(
+                    raw[:, offset : offset + 3],
+                    translation_cumulative,
+                    translation_targets,
+                )
+            else:
+                # A held translation stream remains constant for the window.
+                xyz = np.repeat(raw[0:1, offset : offset + 3], self.M, axis=0)
+            if gripper is not None:
+                grip_cumulative, grip_targets, grip_hold = gripper[offset // 7]
+                if self.gripper_stream_mode == "events":
+                    frames = self._gripper_event_frames(raw[:, offset + 6])
+                    indices = np.minimum(frames.astype(int), len(raw) - 1)
+                    grip = raw[indices, offset + 6 : offset + 7]
+                elif grip_hold:
+                    grip = np.repeat(raw[0:1, offset + 6 : offset + 7], self.M, axis=0)
+                else:
+                    grip_index, grip_alpha = _first_crossing_brackets(
+                        grip_cumulative, grip_targets
+                    )
+                    grip_values = raw[:, offset + 6 : offset + 7]
+                    grip = (1.0 - grip_alpha[:, None]) * grip_values[
+                        grip_index
+                    ] + grip_alpha[:, None] * grip_values[grip_index + 1]
+            elif hold is None:
+                grip = self._translation_values_at_targets(
+                    raw[:, offset + 6 : offset + 7],
+                    translation_cumulative,
+                    translation_targets,
+                )
+            else:
+                grip = np.repeat(raw[0:1, offset + 6 : offset + 7], self.M, axis=0)
+            if "rotation" in self._stream_names:
+                # Rotation keeps its own clock: a translation hold must not
+                # cut the independent rotation stream short.
+                ypr = _slerp_segments_ypr(
+                    raw[:, offset + 3 : offset + 6],
+                    rotation_indices,
+                    rotation_alpha,
+                )
+                still = (
+                    rotation_cumulative[-1] < self.tokenizer.config.zero_dist_epsilon
+                )
+            else:  # one clock per arm: rotation at the translation supports
+                ypr = _slerp_segments_ypr(
+                    raw[:, offset + 3 : offset + 6],
+                    *_first_crossing_brackets(
+                        translation_cumulative, translation_targets
+                    ),
+                )
+                still = hold is not None
+            if still:
+                ypr = np.repeat(raw[0:1, offset + 3 : offset + 6], self.M, axis=0)
+            arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
+        return np.concatenate(arms, axis=-1)

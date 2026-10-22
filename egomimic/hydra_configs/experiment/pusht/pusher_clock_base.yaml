@@ -1,0 +1,50 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pusher_triangle_holdout_base
+  - override /data: pusht/pusher_clock_holdout
+  - _self_
+
+planar:
+  action_dim: 8
+  action_horizon: 56
+  raw_action_horizon: 80
+  arc_waypoints: 56
+  arc_clock_mode: duration
+  arc_streams: full_separation
+  transform_target: egomimic.rldb.zarr.planar_arc_clock.get_planar_clock_transform_list
+
+evaluator:
+  native_decoders:
+    pushshapes_sim_circle_small: &clock_decoder
+      _target_: egomimic.pipeline.planar_clock.PlanarArcClockNativeDecoder
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 2
+      num_waypoints: ${planar.arc_waypoints}
+      clock_mode: ${planar.arc_clock_mode}
+      streams: ${planar.arc_streams}
+      min_distance_unit: ${planar.arc_distance}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+      hold_window_frames: ${planar.raw_action_horizon}
+    pushshapes_sim_stick:
+      <<: *clock_decoder
+    pushshapes_sim_pentagon:
+      <<: *clock_decoder
+      native_action_dim: 3
+    pushshapes_sim_triangle:
+      <<: *clock_decoder
+      native_action_dim: 3
+  semantic_blocks: [[0, 2], [2, 4], [4, 5], [5, 8]]
+
+run_provenance:
+  campaign: pusher-clock-contract-20261021
+  arc_contract: cartesian_arc_pr273_unbounded_v1
+  corrected_arc_source_commit: 5f9d75e185646ea3d302c8270ecb66f8da7949c8
+  training_runtime_parent: 92ac9c295d8ee58d41d41e73c2cb0e5479f0eb2b
+  clock_mode: ${planar.arc_clock_mode}
+  streams: ${planar.arc_streams}
+  translation_units: native
+  translation_speed_limit: null
+  duration_clock_correction: nonnegative_isotonic
+  gripper: Absent for every pusher; constant padded channels retain width8 and do not affect execution
+  support_groups: xy/rotation

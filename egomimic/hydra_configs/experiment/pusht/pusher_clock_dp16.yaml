@@ -1,0 +1,9 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pusher_triangle_holdout_dp16
+  - _self_
+name: pusher_clock_dp16
+run_provenance:
+  campaign: pusher-clock-contract-20261021
+  training_runtime_parent: 92ac9c295d8ee58d41d41e73c2cb0e5479f0eb2b
+  role: Fresh matched DP16 control with the original dense action representation

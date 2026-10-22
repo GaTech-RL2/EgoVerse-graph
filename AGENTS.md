@@ -1,5 +1,28 @@
 # Repo Agent Rules
 
+## Corrected pusher clock comparison
+
+`benchmark/pusher_clock_contract.yaml` is the fresh L40S campaign. It compares
+DP16 with grouped-XY ARC velocity and absolute-duration clocks, for cotrain and
+clean-only regimes at seeds 42/43/44. The training runtime stays on the previous
+pusher campaign parent `92ac9c295d8ee58d41d41e73c2cb0e5479f0eb2b`.
+The Cartesian codec, common clock bridge, planar codec, and native decoder are
+copied exactly from corrected commit `5f9d75e185646ea3d302c8270ecb66f8da7949c8`.
+Do not substitute historical grouped ARC for these targets or decoders.
+Use the maintained `launch_pusher_holdout.py --campaign
+egomimic/hydra_configs/benchmark/pusher_clock_contract.yaml` launcher.
+Keep the frozen data release, triangle-obstacle holdout, D80/R26/M56, 240k
+updates, effective batch128, four L40S per training, and fixed8 replanning.
+All four embodiments are pushers: the padded gripper channels preserve the
+original width8 ARC interface but do not participate in execution clocks.
+Positions/rates use native units; duration correction is nonnegative isotonic
+regression with no speed bound. No pixel/meter calibration or projection stream.
+Fit fresh training-only normalizers; keep old checkpoints and result prefixes
+immutable. Every final checkpoint has dependent per-level evaluations L0-L30,
+50 frozen resets per level. Report L0 separately from L1-L30.
+Tests, source hashes, launch specifications, and receipts live outside runtime
+source in `../pusher-clock-contract-20261021-artifacts/`.
+
 ## Absolute-duration ablation
 
 `benchmark/pusher_absolute_duration.yaml` selects one grouped-XY ARC arm at

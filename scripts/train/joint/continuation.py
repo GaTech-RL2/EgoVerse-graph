@@ -18,7 +18,7 @@ STABLE_FIELDS = (
     "output", "allocation", "smoke", "factorial_controls", "factorial_experiments",
     "allocation_boundaries", "archive_policy", "quota", "reserved_checkpoint_bytes",
     "allocation_recovery",
-    "operational_service",
+    "operational_service", "temporal_comparison",
 )
 
 

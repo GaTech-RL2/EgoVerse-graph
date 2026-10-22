@@ -1,0 +1,183 @@
+{
+  "_pending_bindings": [
+    "Pin maintained service closure and manifest; confirm temporal-pair full admission implementation.",
+    "Fresh native gpu03 allocation/cache/runtime readback; existing bound producer evidence is a reuse candidate, not fresh node certification.",
+    "Verify both new W&B identities absent, exact queues/claims/outputs empty, destination retention space.",
+    "Resolve both exact smoke/full configs in scheduled CPU allocation and record actual meta-model counts.",
+    "Both exact new4-rank smoke strict PASS + host0 + nativeCOMPLETED0:0, including50 actual1e-4 LR updates/all ranks,100 scheduled validation anchors,FP32/fullstate/hiddenNaN/capacity proofs.",
+    "New maintained temporal-pair admission receipt, common initial image hash and allowed D/C config differences. No optimizer parent or modality factorial surrogate.",
+    "Report measured per-arm smoke timings before either full submission."
+  ],
+  "_template_status": "NON_SUBMITTABLE_PENDING_EXACT_BINDINGS",
+  "active_streams": [
+    "image",
+    "proprio"
+  ],
+  "allocation": null,
+  "arm": "discrete",
+  "data_cache": {
+    "job_id": 411978,
+    "native_receipt": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/provenance/replacement/high-lr-gpu03-stage/data-recovery-native.txt",
+    "native_receipt_sha256": "ad08aa8efbd7ad8e74587aea8e839650d10e7757890c715bfd03f55dc79df3a0",
+    "node": "gpu03",
+    "parent": "/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020/complete-data",
+    "receipt": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/provenance/replacement/high-lr-gpu03-stage/data-recovery-receipt.json",
+    "receipt_sha256": "008d9947db54e14d7fee2d194e5e89786892d305b1edecd4e9ea209b5d9ba4a5",
+    "root": "/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020/complete-data/411978"
+  },
+  "data_manifest": "/workspace/users/paphiwetsa3/tasks/pixel-proprio-gripper-20261017-v1/data/manifest.json",
+  "data_manifest_sha256": "8c40d792a5cedd4105ff8270ff3141767b147513c52f11292f888d9b1527bfe2",
+  "experiment": "image_proprio",
+  "expert_parameters": {
+    "image": 88178688,
+    "proprio": 13956388
+  },
+  "expert_widths": [
+    768,
+    256
+  ],
+  "global_batch": 32,
+  "intended_full_output": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_discrete_image_proprio_lr1e4constant_4gpu",
+  "intended_full_run_id": "mot-shared-libero-image-proprio-discrete-lr1e-4-constant-s42-300k-20261021-v1",
+  "intended_full_target_steps": 300000,
+  "job_name": "joint-discrete-image-proprio-lr1e4-full-4gpu",
+  "lambda_runtime": {
+    "actual_python": "/workspace/users/paphiwetsa3/tasks/yam-arc400-lambda-20260921/runtime/venv-pinned/bin/python",
+    "bootstrap_python": "/workspace/users/paphiwetsa3/tasks/arc-global-basis-training-20260924/runtime-r6a/bin/python",
+    "container_image": "nvcr.io#nvidia/pytorch:25.06-py3",
+    "extra_pythonpath": "/workspace/users/paphiwetsa3/tasks/continuous-time-mot-world-model-20261016/preparation/runtime-overlays/dino4571/site-packages",
+    "fa3_root": "/workspace/users/paphiwetsa3/tasks/pixel-video-gripper-optimization-20261017-v1/runtime/fa3",
+    "fa4_root": "/workspace/users/paphiwetsa3/tasks/continuous-time-mot-world-model-20261016/preparation/training-runtime/profile/flash-attention",
+    "minimum_free_scratch_bytes": 10000000000,
+    "mounts": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/provenance/replacement/high-lr-gpu03-stage/local-runtime-mounts.csv",
+      "sha256": "b2835189da9504de5263e565bc5a1e827cfa6ce9b788a42e5aed02daca9bc41f"
+    },
+    "node": "gpu03",
+    "runtime_task": "/workspace/users/paphiwetsa3/tasks/pixel-video-gripper-optimization-20261017-v1",
+    "schema": "joint-lambda-runtime-v1",
+    "scratch_root": "/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020",
+    "temporary_root": "/ephemeral/enroot/41003"
+  },
+  "local_logs": "/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020/logs/mot-shared-libero-image-proprio-discrete-lr1e-4-constant-s42-300k-20261021-v1-step000000000",
+  "lr_policy": {
+    "peak_lr": 0.0001,
+    "schedule": "constant",
+    "warmup_optimizer_steps": 0
+  },
+  "model_execution": {
+    "compile_backend": "inductor",
+    "compile_dynamic": true,
+    "compile_mode": "default",
+    "implementation": "native_image_joint"
+  },
+  "operational_change": "Fresh discrete image+proprio constant AdamW1e-4 experiment from source535d: four dedicated GPUs,8/rank,global32,seed42,300000 optimizer updates,20k checkpoint/validation cadence,retain all15 immutable checkpoints. No action expert, checkpoint initialization, continuation or allocation boundary.",
+  "operational_service": {
+    "manifest": "/UNBOUND/operational-service/FILES.sha256",
+    "manifest_sha256": "UNBOUND_SERVICE_MANIFEST_SHA256",
+    "revision": "UNBOUND_MAINTAINED_SERVICE_REVISION",
+    "root": "/UNBOUND/operational-service"
+  },
+  "output": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_discrete_image_proprio_lr1e4constant_4gpu",
+  "overrides": [
+    "+experiment=pixel_proprio/native_joint/discrete_image_proprio",
+    "hydra/launcher=basic",
+    "data.manifest_path=/workspace/users/paphiwetsa3/tasks/pixel-proprio-gripper-20261017-v1/data/manifest.json",
+    "paths.work_dir=/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/source-535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+    "paths.output_dir=/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_discrete_image_proprio_lr1e4constant_4gpu",
+    "hydra.run.dir=/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_discrete_image_proprio_lr1e4constant_4gpu",
+    "hydra.sweep.dir=/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/runs/shared_discrete_image_proprio_lr1e4constant_4gpu",
+    "hydra.job.chdir=false",
+    "+trainer.enable_progress_bar=false",
+    "+trainer.enable_model_summary=false",
+    "logger=[wandb,csv]",
+    "logger.wandb.id=mot-shared-libero-image-proprio-discrete-lr1e-4-constant-s42-300k-20261021-v1",
+    "logger.wandb.resume=never",
+    "logger.csv.name=csv",
+    "logger.csv.flush_logs_every_n_steps=1",
+    "logger.csv.save_dir=/ephemeral/enroot/paphiwetsa3/joint-modality-ablations-20261020/logs/mot-shared-libero-image-proprio-discrete-lr1e-4-constant-s42-300k-20261021-v1-step000000000",
+    "evaluator.pixel_diagnostics.log_wandb=true",
+    "modality_ablation.screening_budget_updates=300000",
+    "trainer.devices=4",
+    "data.distributed_world_size=4",
+    "data.batch_size=8",
+    "model.optimizer.lr=1e-4",
+    "model.scheduler=null",
+    "data.mode=discrete",
+    "data.sampling_strategy=discrete_window",
+    "data.min_frames=2",
+    "data.max_frames=64",
+    "data.discrete_frames=16",
+    "data.stride=4",
+    "joint.max_tokens=3216",
+    "joint.pose_dims.libero_gripper=36",
+    "trainer.max_steps=300000",
+    "callbacks.model_checkpoint.save_last=link"
+  ],
+  "parameters": 102135076,
+  "per_rank_batch": 8,
+  "phase": "full",
+  "quota": {
+    "kind": "filesystem",
+    "mount": "/workspace",
+    "node": "gpu03",
+    "uid": 41003,
+    "user": "paphiwetsa3"
+  },
+  "reserved_checkpoint_bytes": 40000000000,
+  "run_id": "mot-shared-libero-image-proprio-discrete-lr1e-4-constant-s42-300k-20261021-v1",
+  "runtime_localization": {
+    "admission": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/provenance/replacement/high-lr-gpu03-stage/local-runtime-admission.json",
+      "sha256": "f5dbe6abf5aa0bdab9da7b96dbf65dd84c9ed7dc261e2bffc28694d882056670"
+    },
+    "archive_sha256": "92e461b28c8659b31b664e8899ae2e390bd6fdf6d85d575cef77fec5a6956fa8",
+    "destination_node": "gpu03",
+    "files_manifest_sha256": "c8bddcf4b2f998adae085f96a263356ad1e6392ce93f7c23a3c6d392e2214289",
+    "schema": "readonly-runtime-export-v1",
+    "source_gpu_job": "411963",
+    "source_node": "gpu21"
+  },
+  "schema": "joint-training-v2",
+  "smoke": {
+    "capacity": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/lambda-shared-ops/image-proprio-lr1e4-dc-20261021-v1/requests/discrete-image-proprio-lr1e4-smoke.capacity.json",
+      "sha256": "UNBOUND_EXACT_SMOKE_CAPACITY_SHA256"
+    },
+    "completion": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/smokes/shared-discrete-image-proprio-lr1e4-lambda-4gpu-gpu03-v1/smoke-completion.json",
+      "sha256": "UNBOUND_EXACT_SMOKE_COMPLETION_SHA256"
+    },
+    "host_exit": {
+      "path": "/UNBOUND/exact-smoke-host-exit",
+      "sha256": "UNBOUND_EXACT_SMOKE_HOST_EXIT_SHA256"
+    },
+    "job_id": "UNBOUND_EXACT_DISCRETE_SMOKE_JOB",
+    "native": {
+      "path": "/UNBOUND/exact-smoke-native-completion",
+      "sha256": "UNBOUND_EXACT_SMOKE_NATIVE_SHA256"
+    },
+    "preflight": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/lambda-shared-ops/image-proprio-lr1e4-dc-20261021-v1/requests/discrete-image-proprio-lr1e4-smoke.preflight.json",
+      "sha256": "UNBOUND_EXACT_SMOKE_PREFLIGHT_SHA256"
+    },
+    "request": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/lambda-shared-ops/image-proprio-lr1e4-dc-20261021-v1/requests/discrete-image-proprio-lr1e4-smoke.json",
+      "sha256": "UNBOUND_EXACT_SMOKE_REQUEST_SHA256"
+    },
+    "resolved": {
+      "path": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/lambda-shared-ops/image-proprio-lr1e4-dc-20261021-v1/requests/discrete-image-proprio-lr1e4-smoke.resolved.yaml",
+      "sha256": "UNBOUND_EXACT_SMOKE_RESOLVED_SHA256"
+    }
+  },
+  "source": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/source-535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+  "source_archive": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/inputs/replacement/source-535d4fc26c4c85cf57bbd2a776cc79cfec085c4e.tar.gz",
+  "source_archive_sha256": "f23b041bb2e8f250e406cbc24ef7be06b463221e8a004125d175f006661d8325",
+  "source_manifest": "/workspace/users/paphiwetsa3/tasks/joint-modality-ablations-20261020/inputs/replacement/source-535d4fc26c4c85cf57bbd2a776cc79cfec085c4e.files.sha256",
+  "source_manifest_sha256": "f29118056a2f7824b5215e503bed99b77264b1598bfe154ba20c5412be106184",
+  "source_parent": "3785f94392b9d900e21d9948fbc5bf94a6d975b8",
+  "source_revision": "535d4fc26c4c85cf57bbd2a776cc79cfec085c4e",
+  "target_steps": 300000,
+  "vector_expert_parameter_budget": 20000000,
+  "world_size": 4
+}

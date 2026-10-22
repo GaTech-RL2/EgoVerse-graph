@@ -76,11 +76,16 @@ def main():
 
         start, stop = allocation_steps(request)
         check_storage(request, completion)
-        if request.get("modality_comparison"):
-            need(not request.get("optimizer_comparison"), "Conflicting comparison contracts")
+        from scripts.train.joint.verify_temporal_pair import admission_mode
+
+        mode = admission_mode(request)
+        if mode == "temporal_comparison":
+            from scripts.train.joint.verify_temporal_pair import admit as admit_temporal_pair
+            admit_temporal_pair(request)
+        elif mode == "modality_comparison":
             from scripts.train.joint.contract import verify_modality_extension
             verify_modality_extension(request, completion)
-        elif request.get("optimizer_comparison"):
+        elif mode == "optimizer_comparison":
             from scripts.train.joint.contract import verify_optimizer_comparison
             verify_optimizer_comparison(request, completion)
         else:

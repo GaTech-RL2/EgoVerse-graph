@@ -49,8 +49,19 @@ def main():
     need(set(milestones) <= expected and target in milestones, "Unexpected milestones or missing local recovery")
     from scripts.train.joint.retention import archived_milestones
 
-    archived, archive_proof = archived_milestones(request, expected - set(milestones))
-    milestones.update(archived)
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_history import collect_milestones
+
+        # Parent checkpoints stay in their original immutable directories.
+        # The local attempt may legitimately begin after a restored milestone.
+        need(request.get("archive_policy") is None,
+             "Crash recovery requires all immutable checkpoints retained locally")
+        milestones = collect_milestones(request, target)
+        archive_proof = dict(kind="retained_crash_attempt_directories",
+                             checkpoints={str(k): str(v) for k, v in milestones.items()})
+    else:
+        archived, archive_proof = archived_milestones(request, expected - set(milestones))
+        milestones.update(archived)
     latest = directory / "last.ckpt"
     need(
         latest.is_symlink() and latest.resolve() == milestones[target].resolve(),
@@ -189,7 +200,7 @@ def main():
     validation = {}
     from scripts.train.joint.continuation import log_segments
 
-    for csv_path in log_segments(request):
+    for csv_path in ([] if request.get("crash_recovery") is not None else log_segments(request)):
         segment = {}
         with csv_path.open() as stream:
             for row in csv.DictReader(stream):
@@ -204,6 +215,12 @@ def main():
                     segment.setdefault(step, {}).update(metrics)
         need(not validation.keys() & segment.keys(), "Repeated validation across allocations")
         validation.update(segment)
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_history import collect_validation
+        from scripts.train.joint.crash_restore import assert_actual_restore
+
+        validation = collect_validation(request, target, streams)
+        assert_actual_restore(request, expected_request_sha256=sha(request_path))
     need(
         len(validation) == count
         and all(len(v) == 2 * len(streams) for v in validation.values())

@@ -24,6 +24,11 @@ STABLE_FIELDS = (
 
 def allocation_steps(request):
     """No continuation is inferred from a directory or W&B's status."""
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_recovery import admission
+
+        _, _, start = admission(request)
+        return start, request["target_steps"]
     target = request["target_steps"]
     stop = request.get("allocation_stop_step", target)
     start = 0
@@ -72,8 +77,15 @@ def allocation_steps(request):
     return start, stop
 
 
-def configure_allocation(cfg, request, start, stop):
+def configure_allocation(cfg, request, start, stop, *, request_sha256=None):
     """Apply operational additions only AFTER the existing science comparison."""
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_recovery import admission, configure
+
+        _, inspection, checked_start = admission(request)
+        need(checked_start == start and stop == request["target_steps"],
+             "Crash recovery boundary changed after admission")
+        return configure(cfg, request, inspection, start, request_sha256=request_sha256)
     from omegaconf import open_dict
 
     with open_dict(cfg):
@@ -93,6 +105,10 @@ def configure_allocation(cfg, request, start, stop):
 
 def log_segments(request):
     """Keep each allocation's CSV events; reject cycles and repeated log roots."""
+    if request.get("crash_recovery") is not None:
+        from scripts.train.joint.crash_history import history_segments
+
+        return [segment["csv_path"] for segment in history_segments(request)]
     result, seen = [], set()
     for _ in range(16):
         log = request["local_logs"]

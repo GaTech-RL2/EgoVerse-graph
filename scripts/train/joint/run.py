@@ -48,6 +48,8 @@ def main():
         "Wrong training request",
     )
     smoke = request["phase"] == "smoke"
+    crash = request.get("crash_recovery") is not None
+    need(not crash or not smoke, "Crash recovery cannot enter the fresh smoke runner")
     need(
         request["target_steps"] in ((50,) if smoke else (100000, 300000)),
         "Wrong authorized training budget",
@@ -68,6 +70,7 @@ def main():
     )
     preflight = None
     start, stop = 0, request["target_steps"]
+    crash_storage = None
     if not smoke:
         completion, preflight = verify_evidence(request)
         from scripts.train.joint.retention import check_storage
@@ -75,13 +78,25 @@ def main():
         from scripts.train.joint.continuation import allocation_steps
 
         start, stop = allocation_steps(request)
+        if crash:
+            from scripts.train.joint.crash_recovery import (
+                assert_native_writer_quiescence, prove_destination_storage,
+            )
+
+            assert_native_writer_quiescence(request)
+            crash_storage = prove_destination_storage(request)
         check_storage(request, completion)
         from scripts.train.joint.verify_temporal_pair import admission_mode
 
-        mode = admission_mode(request)
+        comparison_request = request
+        if crash:
+            from scripts.train.joint.crash_recovery import foundation_request
+
+            comparison_request = foundation_request(request)
+        mode = admission_mode(comparison_request)
         if mode == "temporal_comparison":
             from scripts.train.joint.verify_temporal_pair import admit as admit_temporal_pair
-            admit_temporal_pair(request)
+            admit_temporal_pair(comparison_request)
         elif mode == "modality_comparison":
             from scripts.train.joint.contract import verify_modality_extension
             verify_modality_extension(request, completion)
@@ -179,7 +194,7 @@ def main():
         compare_configs(resolved, smoke_cfg, request)
         from scripts.train.joint.continuation import configure_allocation
 
-        configure_allocation(cfg, request, start, stop)
+        configure_allocation(cfg, request, start, stop, request_sha256=sha(path))
     with torch.device("meta"):
         network = instantiate(
             cfg.model.pipeline.stages[cfg.model.pipeline.stage_ids.joint_denoiser].model
@@ -220,8 +235,8 @@ def main():
     output = Path(request["output"])
     need(
         str(cfg.paths.output_dir) == str(output)
-        and output.exists() == bool(start)
-        and (not start or (output / ".training-admitted").is_file()),
+        and output.exists() == bool(start and not crash)
+        and (not start or crash or (output / ".training-admitted").is_file()),
         "Output collision/mismatch",
     )
     provenance = dict(
@@ -255,6 +270,7 @@ def main():
             world_size=world,
             global_batch=32,
             allocation_attestation=allocation,
+            crash_destination_storage=crash_storage,
         ),
     )
     with path.with_suffix(".resolved.yaml").open("x") as stream:
@@ -263,7 +279,7 @@ def main():
         from scripts.world_model.check_joint_capacity import check_capacity
 
         check_capacity(cfg, data, path.with_suffix(".capacity.json"))
-    if not start:
+    if not start or crash:
         output.mkdir(parents=True)
         (output / ".training-admitted").write_text(sha(path) + "\n")
     extra = (

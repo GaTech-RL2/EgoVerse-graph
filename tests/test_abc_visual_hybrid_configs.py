@@ -15,8 +15,6 @@ from scripts.data.measure_abc_control_distance import TASKS, window_distances
 
 ROOT = Path(__file__).resolve().parents[1]
 SINGLE_TASK_VISUAL = [
-    ("robot_bc/stationery_rl2_hpt300_visual_baseline_openloop", "yam_bimanual", False),
-    ("robot_bc/stationery_rl2_hpt300_visual_hybrid_openloop", "yam_bimanual", True),
     (
         "human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
         "human_bimanual",

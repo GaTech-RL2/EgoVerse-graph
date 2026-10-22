@@ -1,0 +1,28 @@
+# @package _global_
+# HPT-300M frozen-YAM recipe scored by the complete-episode open-loop evaluator (baseline mode, 25 % prefix):
+# the training schedule of _shared/frozen_yam/stattempo, the open-loop validation of stattempo_openloop, and the
+# 2026-10-21 campaign widths (embed 840, trunk 19 blocks x 10 heads x 84, flow CrossTransformer 6 x 320 from
+# model abc_arc/frozen_yam_hpt300_time). Shared by the nine real task leaves; a leaf picks its frozen pool
+# (override /data), its spread and its name. The ARC leaves add _shared/arc_single_clock on top.
+defaults:
+  - /experiment/_shared/frozen_yam/stattempo_openloop
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - _self_
+description: h840t19_d320x6_cos10k_240k_${name}
+frozen_yam:
+  policy_domain: yam
+  variant: time
+  action_dim: 14
+hpt:
+  action_dim: ${frozen_yam.action_dim}
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  stem_specs:
+    cross_attn:
+      crossattn_heads: 10
+      crossattn_dim_head: 84
+      modality_embed_dim: 840
+logger:
+  wandb:
+    id: ${name}_s${seed}

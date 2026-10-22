@@ -247,8 +247,12 @@ def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, stream
 
     recipe = (
         CONFIGS
-        / "experiment/real/organize_stationary"
-        / ("arc_vel.yaml" if clock == "velocity" else "arc_dur.yaml")
+        / "experiment/real"
+        / (
+            "stationary_velocity.yaml"
+            if clock == "velocity"
+            else "stationary_duration.yaml"
+        )
     )
     with compose_for_audit(recipe) as cfg:
         cfg.abc.arc_streams = streams
@@ -259,14 +263,14 @@ def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, stream
             t for t in transforms if isinstance(t, TokenizeBimanualArcLengthCartesian)
         )
         assert c.clock_mode == clock and c.streams == streams
-        assert c.shape == (100, dim)
+        assert c.shape == (cfg.abc.arc_waypoints, dim)
         e = instantiate(cfg.evaluator)
         assert e.clock_mode == clock and e.streams == streams
         assert e._codec().shape == c.shape
         artifact = build_inference_config(cfg)
         assert artifact["status"] == "ready"
         profile = artifact["inference_graph"]["profiles"]["default"]
-        assert profile["native_shape"] == [100, dim]
+        assert profile["native_shape"] == [cfg.abc.arc_waypoints, dim]
         decoder = instantiate(profile["adapter"]["decoder"])
         assert decoder.codec.shape == c.shape
         assert decoder.codec.clock_mode == clock

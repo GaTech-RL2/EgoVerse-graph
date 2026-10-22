@@ -1,11 +1,11 @@
-# Human-only BC and migrated task recipes
+# ABC-lab visual experiments
 
-Robot and cotrain presets now live in the four task folders documented in
-[the experiment menu](../README.md). Distinct HPT180, ABC-DiT and data-pool
-variants are preserved under those folders; duplicate clock-layout recipes
-are replaced by the `abc.arc_streams` override.
-
-This folder retains the independent MECKA human-only folding experiments:
+The rl2 YAM task leaves live in `real/` (see [the experiment menu](../README.md)).
+This folder keeps the ABC-lab visual experiments on the `abc_visual` pool:
+`robot_bc/abc_towels_hpt180_{baseline,hybrid}_visual_openloop`, the ABC
+four-task `robot_bc/multitask/{baseline,arc_vel,arc_dur}` and the ABC-DiT
+`robot_bc/multitask/variants/abc_multitask4_abcdit_{baseline,hybrid}_visual_openloop`,
+plus the independent MECKA human-only folding experiments
 `human_bc/mecka_fold_clothes_40h_human_visual_{baseline,hybrid}_openloop`.
 Brace notation denotes two YAML files, not Hydra syntax.
 See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).

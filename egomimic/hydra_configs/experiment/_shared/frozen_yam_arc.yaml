@@ -89,5 +89,5 @@ evaluator:
   streams: ${abc.arc_streams}
 logger:
   wandb:
-    id: ${name}_s42
+    id: ${name}_s${seed}
     tags: [rl2, hpt300, "${abc.arc_clock_mode}", "${abc.arc_streams}", open_loop, video]

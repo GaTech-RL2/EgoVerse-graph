@@ -3,7 +3,7 @@ defaults:
   - /experiment/real/multitask/arc_vel
   - _self_
 name: multitask_arc_dur
-description: HPT300 ABC four-task first-delay log-duration ARC
+description: HPT300 ABC four-task first-delay absolute-duration ARC
 abc:
   arc_clock_mode: duration
 logger:

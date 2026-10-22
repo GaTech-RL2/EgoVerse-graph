@@ -1,7 +1,13 @@
 # @package _global_
 defaults:
   - /experiment/real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/hpt_yam_visual
   - override /data: abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: stationery_rl2_hpt300_visual_hybrid_openloop
 description: HPT300M RL2 organize_stationary visual-only hybrid D40 M100 R24deg

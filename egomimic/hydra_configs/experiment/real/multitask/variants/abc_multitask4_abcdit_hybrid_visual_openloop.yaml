@@ -1,6 +1,13 @@
 # @package _global_
 defaults:
   - /experiment/real/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/abc_dit_yam_visual
+  - override /data: abc_arc/abc_visual
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: abc_multitask4_abcdit_hybrid_visual_openloop
 description: ABC-DiT XL four-task hybrid ARC D81 M100 R24deg

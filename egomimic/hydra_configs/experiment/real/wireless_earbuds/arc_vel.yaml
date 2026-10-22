@@ -2,6 +2,13 @@
 defaults:
   - /experiment/real/wireless_earbuds/baseline
   - /experiment/_shared/frozen_yam_arc
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
+  - override /data: abc_arc/earbuds_updated
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: wireless_earbuds_arc_vel
 description: Frozen earbuds HPT300, canonical velocity ARC M200 D0.33 R100

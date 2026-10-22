@@ -1,6 +1,13 @@
 # @package _global_
 defaults:
   - /experiment/real/organize_stationary/arc_vel
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/hpt_bimanual_visual
+  - override /data: abc_arc/organize_rl2_elmo_cotrain
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: organize_stationary_arc_dur
 description: HPT300 robot + human organize stationery, first-delay absolute duration

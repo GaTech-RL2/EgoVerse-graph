@@ -3,7 +3,13 @@
 defaults:
   - /experiment/_shared/frozen_yam/earbuds_updated_hpt300
   - /experiment/real/arcdur_abstime/_base/arcdur_abstime
+  # Shared parents supply task settings; these links select every component.
+  - override /model: abc_arc/frozen_yam_hpt300_time
   - override /data: abc_arc/earbuds_plus49_20261020
+  - override /evaluator: eval_open_loop_sim
+  - override /trainer: ddp
+  - override /callbacks: checkpoints
+  - override /logger: wandb
   - _self_
 name: arcdur_abstime_wireless_earbuds
 description: Earbuds updated + Elmo's 49 takes of 2026-10-20 (319 train / 15 val), HPT300, absolute-duration single-clock ARC M200 D0.22

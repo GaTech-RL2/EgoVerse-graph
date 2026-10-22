@@ -1,8 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/real/organize_stationary/_base/arc
-  - _self_
-name: organize_stationary_arc_vel
-description: HPT300 robot + human organize stationery, first-delay ARC velocity
-abc:
-  arc_clock_mode: velocity

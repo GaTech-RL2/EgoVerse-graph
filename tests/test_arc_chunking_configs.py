@@ -139,13 +139,7 @@ def test_legacy_mode_omission_preserves_source_semantics():
 
 RECIPES = sorted(
     path
-    for folder in (
-        "abc_arc",
-        "real/organize_stationary",
-        "real/fold_and_stack_towels",
-        "real/wireless_earbuds",
-        "real/multitask",
-    )
+    for folder in ("abc_arc", "real")
     for path in (CONFIGS / "experiment" / folder).rglob("*.yaml")
 )
 

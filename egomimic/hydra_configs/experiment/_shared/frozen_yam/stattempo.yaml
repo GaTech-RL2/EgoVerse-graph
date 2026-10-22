@@ -2,7 +2,7 @@
 defaults:
 - /experiment/_shared/frozen_yam/base
 - override /model: abc_arc/frozen_yam_hpt_flow
-- override /data: abc_arc/stationery_slowpace366_bc_time
+- override /data: abc_arc/stationary
 - override /trainer: ddp
 - override /logger: wandb
 - override /callbacks: checkpoints

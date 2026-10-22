@@ -354,6 +354,21 @@ def run_rollout(robot, policy, config, view=None):
 
     publish_ik_relaxation()
 
+    # Live gripper force limit: only robots that can change it (YamInterface).
+    set_force = getattr(robot, "set_gripper_force_limit", None)
+    force_limits = (
+        {arm: float(robot.gripper_force_limit) for arm in robot.arms}
+        if callable(set_force) and hasattr(robot, "gripper_force_limit")
+        else {}
+    )
+
+    def publish_gripper_force():
+        publish = getattr(view, "set_gripper_force_limits", None)
+        if callable(publish) and force_limits:
+            publish(dict(force_limits))
+
+    publish_gripper_force()
+
     def publish_ik_solver(error=None):
         publish = getattr(view, "set_ik_solver", None)
         if callable(publish):
@@ -486,6 +501,16 @@ def run_rollout(robot, policy, config, view=None):
                     queue.clear()
                     _reset_policy_state(policy)
                 publish_ik_relaxation()
+            take_force = getattr(view, "take_gripper_force_request", None)
+            force_request = take_force() if callable(take_force) else None
+            if force_request is not None and force_limits:
+                try:
+                    force_limits.update(
+                        set_force(force_request["value"], arm=force_request["arm"])
+                    )
+                except (KeyError, TypeError, ValueError, RuntimeError) as error:
+                    _set_view_status(view, f"Gripper force unchanged: {error}")
+                publish_gripper_force()
             bundle = _take_model_selection_request(view)
             if bundle is not None:
                 # Freeze the current measured pose before the potentially slow

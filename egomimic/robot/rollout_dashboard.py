@@ -621,6 +621,8 @@ class RolloutDashboard:
         self._inference_controls_revision = 0
         self._ik_relaxation = {"available": False, "enabled": False}
         self._ik_relaxation_request = None
+        self._gripper_force_limits: dict[str, float] = {}
+        self._gripper_force_request = None
         self._ik_solver = {"available": False, "backend": "mujoco", "error": None}
         self._ik_solver_request = None
         self._inference_ms = deque(maxlen=20)
@@ -889,6 +891,30 @@ class RolloutDashboard:
             request, self._ik_relaxation_request = self._ik_relaxation_request, None
         return request
 
+    def set_gripper_force_limits(self, limits) -> None:
+        """Publish the limits the rollout thread applied, never command a robot."""
+        with self._lock:
+            self._gripper_force_limits = {arm: float(v) for arm, v in limits.items()}
+
+    def request_gripper_force(self, request) -> bool:
+        """Queue one arm's new force limit (1-50 N) for the rollout thread."""
+        if not isinstance(request, Mapping):
+            return False
+        try:
+            arm, value = request.get("arm"), float(request.get("value"))
+        except (TypeError, ValueError):
+            return False
+        with self._lock:
+            if arm not in self._gripper_force_limits or not 1 <= value <= 50:
+                return False
+            self._gripper_force_request = {"arm": arm, "value": value}
+        return True
+
+    def take_gripper_force_request(self):
+        with self._lock:
+            request, self._gripper_force_request = self._gripper_force_request, None
+        return request
+
     def request_inference_override(self, name: object, value: object) -> None:
         """Compatibility wrapper for callers submitting one declared value."""
         self.request_inference_overrides({name: value})
@@ -1036,6 +1062,7 @@ class RolloutDashboard:
                 "inference_controls": deepcopy(self._inference_controls),
                 "ik_relaxation": dict(self._ik_relaxation),
                 "ik_solver": dict(self._ik_solver),
+                "gripper_force_limits": dict(self._gripper_force_limits),
                 "inference_controls_revision": self._inference_controls_revision,
                 "inference": {
                     "samples": len(inference_ms),
@@ -1111,6 +1138,7 @@ class RolloutDashboard:
                 inference_controls_revision = self._inference_controls_revision
                 ik_relaxation = dict(self._ik_relaxation)
                 ik_solver = dict(self._ik_solver)
+                gripper_force_limits = dict(self._gripper_force_limits)
                 checkpoint = self._checkpoint
                 rollout_time = self._rollout_timer.snapshot()
             for client in superseded:
@@ -1135,6 +1163,7 @@ class RolloutDashboard:
                         "inference_controls": inference_controls,
                         "ik_relaxation": ik_relaxation,
                         "ik_solver": ik_solver,
+                        "gripper_force_limits": gripper_force_limits,
                         "inference_controls_revision": inference_controls_revision,
                         "video_recording_enabled": self.video_recording_config[
                             "enabled"
@@ -1184,6 +1213,8 @@ class RolloutDashboard:
                         self.request_ik_solver(command["ik_solver"])
                     if "ik_relaxation" in command:
                         self.request_ik_relaxation(command["ik_relaxation"])
+                    if "gripper_force" in command:
+                        self.request_gripper_force(command["gripper_force"])
                     overrides = command.get(
                         "inference_overrides", command.get("inference_override")
                     )
@@ -1303,6 +1334,7 @@ class RolloutDashboard:
                         "inference_controls": snapshot["inference_controls"],
                         "ik_relaxation": snapshot["ik_relaxation"],
                         "ik_solver": snapshot["ik_solver"],
+                        "gripper_force_limits": snapshot["gripper_force_limits"],
                         "inference_controls_revision": snapshot[
                             "inference_controls_revision"
                         ],

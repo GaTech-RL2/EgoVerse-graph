@@ -167,6 +167,38 @@ function updateIkRelaxation(settings) {
     : '';
 }
 
+function updateGripperForce(limits) {
+  const entries = Object.entries(limits ?? {});
+  const root = $('gripper-controls');
+  $('gripper-settings').hidden = entries.length === 0;
+  if (root.childElementCount !== entries.length) {
+    root.replaceChildren();
+    for (const [arm] of entries) {
+      const label = document.createElement('label');
+      label.className = 'gripper-control';
+      label.dataset.arm = arm;
+      const name = document.createElement('span');
+      name.textContent = `${arm} arm`;
+      const slider = document.createElement('input');
+      slider.type = 'range'; slider.min = '1'; slider.max = '50'; slider.step = '1';
+      const readout = document.createElement('output');
+      slider.oninput = () => { readout.textContent = `${slider.value} N`; };
+      slider.onchange = () => {
+        if (!send({gripper_force: {arm, value: Number(slider.value)}})) reportDisconnected();
+      };
+      label.append(name, slider, readout);
+      root.append(label);
+    }
+  }
+  for (const [arm, value] of entries) {
+    const slider = root.querySelector(`[data-arm="${arm}"] input`);
+    if (slider && document.activeElement !== slider) {
+      slider.value = value;
+      slider.nextElementSibling.textContent = `${Math.round(value)} N`;
+    }
+  }
+}
+
 $('ik-relaxation').addEventListener('change', event => {
   const enabled = event.target.checked;
   if (send({ik_relaxation: enabled})) {
@@ -622,6 +654,7 @@ function chooseVelocityAction(action) {
 function configure(message) {
   ikRelaxationPending = null;
   updateIkRelaxation(message.ik_relaxation);
+  updateGripperForce(message.gripper_force_limits);
   updateIkSolver(message.ik_solver);
   waitForStart = Boolean(message.wait_for_start);
   paused = Boolean(message.paused);
@@ -684,6 +717,7 @@ function configure(message) {
 
 function frame(message) {
   updateIkRelaxation(message.ik_relaxation);
+  updateGripperForce(message.gripper_force_limits);
   updateIkSolver(message.ik_solver);
   paused = Boolean(message.paused);
   started = Boolean(message.started);

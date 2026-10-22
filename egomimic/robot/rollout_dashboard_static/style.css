@@ -135,3 +135,9 @@ dialog header { align-items: center; }
 @media (max-width: 700px) {
   .rollout-button-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.gripper-settings { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid var(--line, #ccd2d8); border-radius: .5rem; }
+.gripper-settings small { display: block; margin-top: .35rem; opacity: .7; }
+.gripper-control { display: inline-flex; align-items: center; gap: .6rem; margin: .5rem 1rem 0 0; }
+.gripper-control span { min-width: 4.5rem; text-transform: capitalize; }
+.gripper-control input { width: 12rem; }
+.gripper-control output { min-width: 3.5rem; }

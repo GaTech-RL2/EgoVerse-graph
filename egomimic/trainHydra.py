@@ -619,10 +619,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     callbacks = _callbacks_for_mode(callbacks, mode)
     # Evaluator loop requirements were applied before expensive construction.
+    # Post-hoc checkpoint sweeps may retain the configured logger so each
+    # checkpoint can append metrics at its original global step.
     if mode == "eval":
-        log.info("Eval mode: disabling logger")
-        with open_dict(cfg):
-            cfg.logger = None
+        eval_logger_enabled = bool(cfg.get("eval_logger_enabled", False))
+        log.info(f"Eval mode: external logger enabled={eval_logger_enabled}")
+        if not eval_logger_enabled:
+            with open_dict(cfg):
+                cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))

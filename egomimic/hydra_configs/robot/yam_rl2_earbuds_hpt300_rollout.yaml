@@ -1,0 +1,179 @@
+# Bound HPT300 checkpoint profile. Validate with --check-model before hardware.
+robot:
+  kind: yam
+  arms:
+  - left
+  - right
+  channels:
+    left: can_follower_l
+    right: can_follower_r
+  gripper_type: linear_4310
+  gripper_kp: 20.0
+  gripper_kd: 0.5
+  # Rollouts cap gripper force at 20 N (Aidan 2026-10-21); live per-arm control on the dashboard.
+  gripper_force_limit: 20.0
+  zero_gravity_mode: true
+  enable_auto_recovery: true
+  frequency: 60
+  home_duration: 1.5
+  home:
+    left:
+    - -0.008
+    - 0.007
+    - 0.004
+    - -0.07
+    - 0.001
+    - -0.015
+    - 0.999
+    right:
+    - 0.007
+    - 0.006
+    - 0.005
+    - -0.073
+    - -0.013
+    - -0.022
+    - 0.999
+  kinematics:
+    joint_names:
+    - joint1
+    - joint2
+    - joint3
+    - joint4
+    - joint5
+    - joint6
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: '230322272195'
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '218622270679'
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '230322270555'
+      height: 480
+      width: 640
+      fps: 30
+frequency: 30
+max_joint_velocity: 12.0
+max_velocity_replans: 8
+max_steps: null
+camera_timeout: 30.0
+video_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_hptflow
+  fps: 12
+episode_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_hptflow/episodes
+  min_free_gb: 20.0
+  max_queued_rows: 60
+model_browser:
+  enabled: true
+  root: /home/rohan/checkpoints/EgoVerse
+reset_on_start: true
+reset_home_on_restart: true
+preview:
+  enabled: true
+  mode: dashboard
+  host: 127.0.0.1
+  port: 8081
+  open_browser: true
+  width: 640
+  camera_hz: 12
+  jpeg_quality: 80
+  wait_for_start: true
+  action_overlay:
+    initial_enabled: false
+    camera: front_img_1
+    calibration_path: egomimic/hydra_configs/robot/yam_rl2_agentview_extrinsics.yaml
+    arm_channels:
+      left: can_follower_l
+      right: can_follower_r
+policy:
+  kind: graph
+  training_config: /home/rohan/checkpoints/EgoVerse/earbuds_time_hpt300_180k_20261012/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k/resolved-config.yaml
+  checkpoint: /home/rohan/checkpoints/EgoVerse/earbuds_time_hpt300_180k_20261012/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k__epoch-1799-step-00180000__sha256-2241fb6245f5c34a.ckpt
+  normalizer_path: /home/rohan/checkpoints/EgoVerse/earbuds_time_hpt300_180k_20261012/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k.norm_stats.json
+  device: cuda:0
+  use_ema: false
+  max_valid_samples: 8
+  adapter:
+    _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+    embodiment_id: 7
+    base_T_model:
+      left:
+      - - 1.0
+        - 0.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 1.0
+        - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 1.0
+        - 0.0
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+      right:
+      - - 0.9999280428658718
+        - -0.0087524013509891
+        - 0.0082039357030244
+        - 0.0076888715736482
+      - - 0.0090029492300254
+        - 0.9994782921642691
+        - -0.0310175820714231
+        - 0.636483094945911
+      - - -0.0079281773182583
+        - 0.0310892097517301
+        - 0.9994851699957452
+        - 0.0069772851823239
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+    camera_keys:
+      front_img_1: observations.images.front_img_1
+      left_wrist_img: observations.images.left_wrist_img
+      right_wrist_img: observations.images.right_wrist_img
+    rotation_mode: euler
+    action_frame: eef_frame
+    image_hw:
+    - 480
+    - 640
+    proprio_key: observations.state.ee_pose
+    action_key: actions_cartesian
+    prompt: wireless earbuds
+    decoder: null
+    gripper_clip_tolerance: 0.05
+  inference_config: /home/rohan/checkpoints/EgoVerse/earbuds_time_hpt300_180k_20261012/yam_rl2_earbuds_all_time_h840t19_d320x6_s42_step180k/inference-config.yaml
+ik_solver:
+  backend: mujoco
+  timeout_s: 0.005
+  solver_type: Distance
+ik_relaxation:
+  enabled: false
+  position_tolerance_m: 0.005
+  rotation_tolerance_deg: 3.0
+ik_recovery:
+  enabled: true
+  max_joint_velocity: 1.0
+  position_scale_m: 0.05
+  rotation_scale_rad: 0.5
+  damping: 0.01
+  posture_weight: 0.05
+  max_ticks_per_target: 30

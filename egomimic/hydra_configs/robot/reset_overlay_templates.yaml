@@ -1,0 +1,23 @@
+# Visual annotations only, not metric calibration or motion targets.
+# Add templates here, then run: python -m egomimic.scripts.build_reset_guides
+version: 1
+templates:
+  - id: rl2-yam-earbuds-20261010
+    label: "Earbuds — left / case / right"
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance:
+      camera_serial: '230322272195'
+      captured_at: '2026-10-10T22:56:09-04:00'
+      source_image_sha256: ba58a2044fbaef73f4f916a067323752ea8916580ee22b546de21bc558b73336
+      placement: 'User-confirmed table-plane projection: size 105.7, x 0, y 63.5'
+      warning: 'Recheck placement after moving the camera or table. Not surveyed calibration.'
+    # Equal adjacent squares were constructed in the table plane, then projected
+    # into the original image. Do not replace them with image-aligned squares.
+    regions:
+      - label: Left
+        points: [[216.06140961614906, 231.80945168925663], [283.22134650936016, 231.45398786744497], [280.2821555535088, 295.01799006867714], [207.04833752125842, 295.1446907785335]]
+      - label: Case
+        points: [[283.22134650936016, 231.45398786744497], [350.7955911838059, 231.12289178846373], [354.0180506380843, 294.7067966731917], [280.2821555535088, 295.01799006867714]]
+      - label: Right
+        points: [[350.7955911838059, 231.12289178846373], [418.1763060993439, 230.81930061865893], [427.51468215290413, 294.2126378607729], [354.0180506380843, 294.7067966731917]]

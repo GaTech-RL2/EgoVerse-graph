@@ -1,5 +1,12 @@
 # ARC consolidation stack
 
+For the current feature-sized rebuild, see [ARC_REBUILD.md](ARC_REBUILD.md).
+
+> Historical reference, not a current API or launch menu. Removed E1/legacy
+> codecs, configs and launchers described below require their recorded source.
+> Current usage: [clock contract](ARC_CLOCK_CONTRACT.md) and
+> [experiment menu](../egomimic/hydra_configs/experiment/README.md).
+
 This is a dated architecture snapshot. It does not select the current PushT
 recipe or live launcher; start with `docs/cluster-pipeline.md`.
 

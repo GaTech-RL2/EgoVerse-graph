@@ -11,7 +11,7 @@ reconstruction-only phase. The generic pipeline runner is unchanged.
 
 ### FM-only clean stop-gradient (method 2)
 
-Config: `pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42`.
+Config: `arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42`.
 
 - Reconstruction: `A → E → g → MSE(A)`; updates E and g, weight1.
 - Latent FM: `A → E → stop-gradient → latent bridge → v(z,t,O) → latent MSE`;
@@ -28,7 +28,7 @@ Inference: `Gaussian latent → reverse Euler16(v,O) → g → action`.
 
 ### Learned Gaussian-bridge likelihood (method 3)
 
-Config: `pusht/action_flow_bc_usocket_bridge_likelihood_s42`.
+Config: `arc_sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42`.
 
 Private reference mean `mu(A,t)=(1-t)E_raw(A,t)` ends exactly at zero. The
 reference stage, Gaussian noising stage, conditional reverse-mean transformer,
@@ -64,7 +64,7 @@ errors and fixed-bank stochastic EnergyScore@32 remain required.
 
 ### Exact graph section (method 4, restricted diagnostic)
 
-Config: `pusht/action_flow_bc_usocket_graph_section_s42`.
+Config: `arc_sim/pusht/action_flow_bc_usocket_graph_section_s42`.
 
 `E(A)=(A,f(A))`; split each latent token into x4,h4 and decode
 `g(x,h)=x + [R(x,h)-R(x,f(x))]`. The subtraction is grouped before adding x.

@@ -81,6 +81,9 @@ require SQL, cloud packages or a policy backend.
 
 ## Evidence and remaining gates
 
+The following regression evidence is historical; test sources are no longer
+shipped. See [the verification policy](../VERIFICATION_POLICY.md).
+
 `tests/test_data_tool_parity.py` converts an actual HDF5 fixture, checks unchanged
 source bytes and overwrite rejection, imports with cloud/model modules blocked,
 encodes a complete annotated episode, validates video frame count/FPS and saved

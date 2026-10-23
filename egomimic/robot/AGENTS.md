@@ -70,8 +70,7 @@ Use the same graph, data normalization and evaluation components for HPT and PI.
 Do not introduce an embodiment-specific inference server or upstream runtime
 launcher. Do not deprecate Eva when adding another robot implementation.
 
-Run `tests/test_gello_teleop.py`, `tests/test_robot_runtime.py`, and
-`tests/test_robot_graph_policy.py` for CPU validation. `--help`, GELLO
+Keep CPU verification outside the repository; do not commit tests. `--help`, GELLO
 `--check-config`/`--list-ports`, and uploader `--list` open no devices.
 Collection/rollout commands open hardware; operate a physical station only when
 the user requests that operation. Preserve source branches, user worktrees and

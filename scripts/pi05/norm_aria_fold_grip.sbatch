@@ -24,7 +24,7 @@ mkdir -p "$OUT"
 
 "$PY" -u scripts/data/precompute_norm_stats.py \
   --data pi05/aria_fold_pi_6d_grip \
-  --model pi05/pi0.5_ft_aria_fold_grip \
+  --model pi/ft_aria_fold_grip \
   --sample-frac 0.1 \
   --max-samples 2000000 \
   --num-workers 22 \

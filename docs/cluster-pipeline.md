@@ -21,14 +21,21 @@ Refresh remote state and verify ancestry before choosing a new source. Older
 documents describing these PRs as unmerged are historical. Existing checkpoint
 source commits remain authoritative for strict reload and resume.
 
+## Aidan stationery selection
+
+New ARC/stattempo sessions use the clock-contract cleanup stack above PR #263.
+[The stationery guide](STATTEMPO.md) records the retained real-task recipes and
+source-preservation rules. Existing checkpoint source pins remain unchanged.
+Resolve the selected stack commit before new work.
+
 ## Current PushT selection
 
 The paired raw-multiplier recipes are:
 
 | Family | Experiment selector |
 | --- | --- |
-| Action Flow | `pusht/action_flow_cotrain_uc_multiplier_interpolation` |
-| Matched Standard DP | `pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier` |
+| Action Flow | `arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation` |
+| Matched Standard DP | `arc_sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier` |
 
 Use normal per-source image processing, retaining 32 U-Socket plus 32
 ChainGripper samples per optimizer update. ChainGripper manual4919 contains

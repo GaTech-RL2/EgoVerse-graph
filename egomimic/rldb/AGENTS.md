@@ -12,12 +12,23 @@ The root AGENTS.md applies here. Dataset/experiment selection belongs in
   conventions. `action_mode`, `coord_frame`, `rotation_mode`, camera mappings,
   local-frame corrections and calibration inputs come from YAML.
 - `embodiment/bimanual_arc.py`: raw-window horizons and time/ARC target choices
-  used by the E1 recipes. `e1_fold.py` is an old import name only.
+  used by the current Cartesian task recipes.
 - `zarr/action_chunk_transforms.py`: shared pose, rotation, gripper, interpolation
   and key-routing transforms. Add general transform behavior here.
-- `zarr/arc_length_tokenizer.py`, `zarr/e1_arc_tokenizer.py`: the two ARC timing
-  representations. Check their layouts before interpreting the last channels.
-- `zarr/e1_resolvers.py`, `zarr/e1_anchor_sampler.py`: metadata overrides and
+- `zarr/cartesian_arc.py` (stable exports in `arc_length_tokenizer.py`): Cartesian
+  ARC with `clock_mode` velocity or duration (absolute arrival seconds,
+  anchor-inclusive speed-bounded isotonic decode). `streams` supports
+  full_separation (M×20), translation_rotation (M×18), translation or rotation
+  (M×16, one clock per arm). Row zero is current measured pose to first future
+  target, never a start delay. The finite same-frame 14D `arc.current_action`
+  anchor is required separately; source rows begin at idx+1 / time dt, and
+  decoded controls are sampled at dt, 2dt, … . Every PW row is an incoming
+  speed. No synthetic 400-frame holds or projection mode are supported.
+  A zero-progress resampling fallback spans actual source times; fully static
+  PW needs the caller's explicit horizon because zero rates contain no time.
+  D/R budgets cover the future source path, excluding the incoming anchor
+  segment. See `docs/ARC_CLOCK_CONTRACT.md`.
+- `zarr/embodiment_resolvers.py`, `zarr/progress_sampler.py`: metadata overrides and
   configurable anchor sampling used by the tempo recipes.
 - `filters.py`: dataset query builder. Filter values belong in the selected YAML.
 - `zarr/selection.py`: pinned random/paired/custom diagnostic selections and
@@ -33,5 +44,5 @@ embodiment IDs when loading a cache. Live rollouts require the full
 `normalizer_state`, not just numeric bounds.
 
 Do not change stored episode metadata to rename an embodiment. Canonicalize the
-metadata at the loader boundary. Verify geometric and ARC/PI changes with local
-CPU checks outside the repository; do not commit tests or their fixtures.
+metadata at the loader boundary. Keep regression checks and their fixtures outside
+the repository; never commit tests. Record local verification results in PRs.

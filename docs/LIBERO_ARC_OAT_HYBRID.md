@@ -42,8 +42,8 @@ episodes, two observations, a 32-action horizon and 16 executed actions per
 replan. These are separate experiment runs; previous ARC/OAT weights are not
 used to initialize the models.
 
-The YAML recipes are `oat/libero_arc_oattok` and
-`oat/libero_arc_oatpolicy`. They compose the existing `LiberoArcStage`,
+The YAML recipes are `arc_sim/oat/libero_arc_oattok` and
+`arc_sim/oat/libero_arc_oatpolicy`. They compose the existing `LiberoArcStage`,
 `OATTokenizerStage`/`OATPolicyStage`, and ARC decoder in `PipelineAlgo`.
 The shared trainer, decoded replay loader, normalizer and evaluator are used.
 Validation reports dense controller-action errors after decoding, while the

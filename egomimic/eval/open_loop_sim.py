@@ -154,7 +154,11 @@ class OpenLoopSimEval(BimanualCartesianEval):
         **kwargs,
     ):
         mode = str(action_mode)
-        if mode not in ("auto", "baseline", "arc"):
+        if mode == "arc":
+            raise ValueError(
+                "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
+            )
+        if mode not in ("auto", "baseline"):
             raise ValueError("action_mode must be auto, baseline, or arc")
         if float(control_dt) <= 0:
             raise ValueError("control_dt must be positive")
@@ -438,23 +442,9 @@ class OpenLoopSimEval(BimanualCartesianEval):
                 )
             return prediction[: self.execute_steps].copy()
 
-        if self._arc_tokenizer is None:
-            from egomimic.rldb.zarr.arc_length_tokenizer import (
-                TokenizeBimanualArcLengthCartesian,
-            )
-
-            self._arc_tokenizer = TokenizeBimanualArcLengthCartesian(
-                min_distance_unit=self.min_distance_unit,
-                resampled_vector_length=self.resampled_vector_length,
-                dt=self.control_dt,
-                velocity_mode=self.velocity_mode,
-            )
-        partial = truncate_arc_token(
-            prediction, self.execute_fraction, self.velocity_mode
+        raise ValueError(
+            "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
         )
-        return self._arc_tokenizer.detokenize(
-            partial, action_horizon=self.execute_steps
-        ).astype(np.float64, copy=False)
 
     def _append_source_records(self, source_id: str, source_batch, prediction):
         if not isinstance(prediction, torch.Tensor) or prediction.ndim != 3:

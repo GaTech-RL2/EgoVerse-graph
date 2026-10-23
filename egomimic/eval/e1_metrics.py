@@ -49,9 +49,8 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     cumulative_arc_length,
     resample_by_distance,
 )
-from egomimic.rldb.zarr.e1_arc_tokenizer import (
+from egomimic.rldb.zarr.cartesian_baseline_support import (
     ARM_LAYOUT,
-    TokenizeBimanualArcLengthE1,
     lowpass_positions,
 )
 
@@ -171,9 +170,9 @@ class E1TempoAccumulator:
         self._gt_span_arg = arcmatch_gt_span_m
         if kwargs:
             raise TypeError(f"Unexpected E1 metric options: {sorted(kwargs)}")
-        if variant not in ("time", "arcmean", "arcvel", "arclogdur", "arcdur"):
+        if variant != "time":
             raise ValueError(
-                "variant must be time | arcmean | arcvel | arclogdur | arcdur"
+                "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
             )
         self.prog_horizon_m = float(prog_horizon_m)
         self.progress_smooth_hz = (
@@ -189,20 +188,6 @@ class E1TempoAccumulator:
         self.h_match = int(h_match_frames)
         self.results_path = Path(results_path) if results_path else None
         self._detok = None
-        if variant != "time":
-            self._detok = TokenizeBimanualArcLengthE1(
-                min_distance_unit=self.D,
-                resampled_vector_length=self.M,
-                dt=self.dt,
-                velocity_norm=velocity_norm,
-                velocity_mode={
-                    "arcmean": "mean",
-                    "arcvel": "profile",
-                    "arclogdur": "logdur",
-                    "arcdur": "dur",
-                }[variant],
-                progress_smooth_hz=progress_smooth_hz,
-            )
         self._reset()
 
     def _reset(self):

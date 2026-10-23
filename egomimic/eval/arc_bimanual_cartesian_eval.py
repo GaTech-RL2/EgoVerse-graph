@@ -52,9 +52,6 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        from egomimic.rldb.zarr.arc_length_tokenizer import (
-            TokenizeBimanualArcLengthCartesian,
-        )
 
         self.min_distance_unit = float(min_distance_unit)
         self.resampled_vector_length = int(resampled_vector_length)
@@ -78,15 +75,6 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
                 f"min_distance_unit ({self.min_distance_unit}); shared-D "
                 "arcmatch and the tokenizer would otherwise disagree on D"
             )
-        self._tokenizer = TokenizeBimanualArcLengthCartesian(
-            action_key=self.action_key,
-            output_action_key=self.action_key,
-            min_distance_unit=self.min_distance_unit,
-            resampled_vector_length=self.resampled_vector_length,
-            dt=float(dt),
-            preserve_action_key=None,
-            velocity_mode=self.velocity_mode,
-        )
 
     def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
         """Rows to hand the revert transforms.
@@ -134,16 +122,9 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
                     f"{other!r}. The evaluator and the data config disagree."
                 )
             return super()._viz_source(actions, embodiment_id)
-        del embodiment_id
-        native = actions.detach().cpu().numpy().astype(np.float64, copy=False)
-        decoded = np.stack(
-            [
-                self._tokenizer.detokenize(sample, self.action_horizon)
-                for sample in native
-            ],
-            axis=0,
+        raise ValueError(
+            "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
         )
-        return torch.from_numpy(decoded).to(dtype=actions.dtype)
 
     def _is_arc(self, actions) -> bool:
         """Whether these rows are an arc token rather than a pose chunk.
@@ -194,28 +175,11 @@ class ArcBimanualCartesianEval(BimanualCartesianEval):
         ``D`` is codec ``min_distance_unit`` (asserted equal to
         ``arcmatch_distance`` at init).
         """
-        from egomimic.eval.arc_metrics import arm_travel
-
         native = self._native(prediction, embodiment_id)
         if not self._is_arc(native):
             return super()._arc_pred_for_arcmatch(
                 prediction, ground_truth, embodiment_id
             )
-        if self.include_reconstruction_loss:
-            return self._arc_pred_time_indexed(prediction, embodiment_id)
-
-        tokens = native.detach().cpu().numpy().astype(np.float64, copy=False)
-        M = int(self.resampled_vector_length)
-        D = float(self.min_distance_unit)
-        out: list[np.ndarray] = []
-        for pred_i, gt_i in zip(tokens, ground_truth):
-            if np.any(arm_travel(gt_i) < D - 1e-12):
-                out.append(self._tokenizer.detokenize(pred_i, self.action_horizon))
-            else:
-                if pred_i.shape[0] < M:
-                    raise ValueError(
-                        f"ARC token has {pred_i.shape[0]} rows; need >= {M} "
-                        "waypoint rows for shared-D arcmatch"
-                    )
-                out.append(pred_i[:M].copy())
-        return out
+        raise ValueError(
+            "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
+        )

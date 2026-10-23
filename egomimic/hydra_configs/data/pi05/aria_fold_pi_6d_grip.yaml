@@ -5,7 +5,7 @@
 #     grip channel derived from the MANO hand keypoints (pinch/curl heuristic,
 #     KeypointsToGripper) inserted at the robot-layout slots 9/19 -> actions
 #     AND proprio are 20D, layout-identical to eva robot data. Use the ROBOT
-#     converter (model=pi0.5_ft_aria_fold_grip).
+#     converter (model=pi/ft_aria_fold_grip).
 #   - NO fix_mecka_left_wrist: verified on-data that raw aria already has the
 #     target left-wrist convention (aria was the reference mecka was fixed
 #     toward; applying the Rz(180) here would flip it wrong).

@@ -22,9 +22,9 @@ from tests.test_retained_recipe_steps import CONFIGS, small_cpu_model
 @pytest.mark.parametrize(
     "name",
     [
-        "hpt_cotrain_flow_shared_head",
-        "hpt_cotrain_flow_seperate_head",
-        "hpt_cotrain_enc_dec_base",
+        "hpt/cotrain_flow_shared_head",
+        "hpt/cotrain_flow_seperate_head",
+        "base/hpt_cotrain_enc_dec",
     ],
 )
 def test_both_domains_train_and_decode(name):

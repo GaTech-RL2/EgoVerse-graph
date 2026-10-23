@@ -34,8 +34,8 @@ NORM_PATH="${NORM_PATH-/storage/project/r-dxu345-0/agao81/norm_stats/mecka_abc_6
 "$PY" -u egomimic/trainHydra.py \
   --config-name=train_zarr_cartesian_pi \
   data=pi05/mecka_abc_pi_6d \
-  model=pi05/pi0.5_bc_mecka_abc_6d \
-  evaluator=pi05/eval_pi_wristframe_6d \
+  model=pi/bc_mecka_abc_6d \
+  evaluator=eval_cartesian_wrist_6d_prompt \
   trainer=debug \
   launch_params.gpus_per_node=1 \
   evaluator.viz_every_n_epochs=4 \

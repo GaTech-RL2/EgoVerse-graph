@@ -17,7 +17,7 @@ def test_camera_mse_preserves_source_semantics_at_angle_wrap():
     prediction = target.clone()
     target[..., 3] = torch.pi - 0.01
     prediction[..., 3] = -torch.pi + 0.01
-    for recipe in ("eval_hpt", "eval_pi"):
+    for recipe in ("eval_cartesian_camera", "eval_cartesian_camera_prompt"):
         with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
             cfg = compose(
                 config_name="train_zarr_cartesian", overrides=[f"evaluator={recipe}"]

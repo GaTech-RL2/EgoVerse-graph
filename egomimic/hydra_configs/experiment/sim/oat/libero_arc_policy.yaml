@@ -1,5 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/sim/oat/libero_base
-  - override /model: oat/arc_policy
-  - _self_

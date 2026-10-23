@@ -14,7 +14,7 @@ from hydra import compose, initialize_config_dir
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf, open_dict
 
-EXPERIMENT = "sim/pusht/action_flow_cotrain_uc_multiplier_interpolation"
+EXPERIMENT = "arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation"
 SOURCE = "344dd3baf5ba942d947e0a0e136c8990025d91e5"
 REFERENCE = 84.11600368466028
 ROUTES = ("pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper")

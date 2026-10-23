@@ -4,30 +4,29 @@ The Cartesian YAM/ABC experiment menu is:
 
 ```text
 experiment/
-  real/                   the nine rl2 YAM task leaves (Aidan's frozen pools)
+  arc_real/                   the nine rl2 YAM task leaves (Aidan's frozen pools)
     stationary_{time,duration,velocity}.yaml
     earbuds_{time,duration,velocity}.yaml
     towels_{time,duration,velocity}.yaml
   abc_arc/                ABC-lab visual experiments
     robot_bc/             ABC towels HPT180, ABC multitask4 HPT300 and ABC-DiT
-    human_bc/             MECKA human-only folding
-  sim/
+  arc_sim/
     libero/
     libero_historical/
     oat/
     pusht/
     synthetic/
-  _shared/                shared defaults, not standalone runs
 ```
 
-Select one with `+experiment=real/stationary_duration` (or `_velocity` or
+Select one with `+experiment=arc_real/stationary_duration` (or `_velocity` or
 `_time`). Cluster resources still come from the explicit `hydra/launcher=...`
 selection and require a separate launch preflight.
 
 Each leaf is a **complete experiment entry point**: its defaults select the
 model graph, data filters/splits/transforms, evaluator, optimizer, trainer,
 callbacks and logging. No additional `model=` or `data=` selection is needed.
-Shared parents avoid copying those definitions into every leaf. Supply
+Reusable definitions live in their component groups; real leaves do not inherit
+other experiments. Supply
 machine-specific data/weight paths, credentials, a fresh W&B identity
 (`logger.wandb.id` defaults to `<name>_s<seed>`) and the reviewed cluster
 allocation at launch.
@@ -36,7 +35,7 @@ Example (submits a run; execute only after launch preflight):
 
 ```bash
 python egomimic/trainHydra.py -m \
-  +experiment=real/stationary_duration \
+  +experiment=arc_real/stationary_duration \
   hydra/launcher=submitit_pace_h100
 ```
 
@@ -56,7 +55,8 @@ its pool. A pool YAML lists only its frozen validation hashes; the train rule is
 the task minus that list, and the count / SHA-256 pins guard the membership. To
 add data, add it to the task and update the pins.
 
-All nine share one graph and schedule (`_shared/frozen_yam/hpt300_openloop`:
+All nine share one graph and schedule (`model/hpt/yam_300m`,
+`model/base/real_yam_settings`, `trainer/real_yam` and `callbacks/real_yam`:
 HPT-300M, embed 840, trunk 19 x 10 heads, flow 6 x 320, 240k steps, cosine
 with 10k warmup) and one scorer (the complete-episode open-loop evaluator on
 the 25 % prefix; rank on `Valid/open_loop_sim/{XYZ,YPR,Grip}_MSE`). The three
@@ -65,7 +65,7 @@ leaves of a task select exactly the same episodes.
 - `<task>_time`: the baseline, 100 x 14 time-indexed actions, deployed through
   `TimeChunkRetimer`.
 - `<task>_duration`: absolute-duration single-clock ARC
-  (`_shared/arc_single_clock`): M 200, one clock per arm
+  (`model/hpt/yam_300m_arc` and `model_contract/arc_clock_settings`): M 200, one clock per arm
   (`abc.arc_streams=translation`, M x 16; rotation and gripper ride the
   translation supports), absolute waypoint seconds decoded by speed-bounded
   isotonic regression, 100-frame native source window, deployed 50 % waypoint
@@ -91,27 +91,26 @@ No tokenizer or detokenizer algorithm is changed by this YAML reorganization.
 `abc_arc/robot_bc/` keeps the ABC-lab visual experiments on the `abc_visual`
 pool (ABC towels HPT180 baseline / hybrid, ABC four-task HPT300
 `multitask/{baseline,arc_vel,arc_dur}` and the ABC-DiT `multitask/variants`).
-`abc_arc/human_bc/` keeps the MECKA human-only folding experiments. They read
-400 native frames with the full-separation clock contract and are not
+The ABC recipes read 400 native frames with the full-separation clock contract and are not
 interchangeable with the real task leaves.
 
 ## Retired on 2026-10-22
 
-The per-task folders (`real/{organize_stationary,wireless_earbuds,
+The per-task folders (`arc_real/{organize_stationary,wireless_earbuds,
 fold_and_stack_towels}/{baseline,arc_vel,arc_dur}` with their `variants/`),
-`real/arcdur_abstime/`, `real/multitask/` (moved to `abc_arc/robot_bc/`), the
-`_shared/frozen_yam/{towels_hpt300,earbuds_updated_hpt300}` recipes and the
+`arc_real/arcdur_abstime/`, `arc_real/multitask/` (moved to `abc_arc/robot_bc/`), the
+`_shared/yam/{towels_hpt300,earbuds_updated_hpt300}` recipes and the
 dated `data/abc_arc` pools they selected are removed in favour of the nine
 leaves above. `docs/experiment_config_migration.json` maps every old path to
 its replacement, or to `null` when it was retired (Elmo's organize
 robot + human cotrain leaves, the HPT180 / ABC-DiT rl2 towel variants and the
 `new290plus74` pool). All of it is recoverable from Git history (`8f5eeb7a`).
-PushT, LIBERO, OAT/LIBERO and synthetic experiments live under `sim/`.
+PushT, LIBERO, OAT/LIBERO and synthetic experiments live under `arc_sim/`.
 
 The `e1`, `ravens` and `stationary_recipe` configuration menus are removed.
 E1 scripts and runtime compatibility entry points are also removed. Shared
 components required by current real recipes have neutral names:
-`model/abc_arc/frozen_yam_*`, `model_contract/frozen_yam_wrists`,
+`model/hpt/yam_*`, `model_contract/yam_wrists`,
 `embodiment_resolvers`, and `progress_sampler`. Their behavior is unchanged.
 
 Old CLI paths under `abc_arc/{robot_bc,cotrain}` and `yam_arc_grid` are removed,

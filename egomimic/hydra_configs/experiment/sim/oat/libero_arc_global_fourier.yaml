@@ -1,4 +1,0 @@
-# @package _global_
-defaults: [/experiment/sim/oat/libero_arc_global_common, _self_]
-benchmark:
-  arc_basis: fourier

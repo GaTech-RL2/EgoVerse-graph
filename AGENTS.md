@@ -33,7 +33,7 @@ datasets, normalizers, environments, recorded source, and unverified checkpoints
 Use bounded task directories; never discover files by recursively scanning a
 whole scratch/project root. Candidate inventory alone does not authorize deletion.
 
-Publish source from the authenticated Skynet account with Graphite `gt submit`,
+Publish source with Graphite `gt submit` using the user's authorized GitHub account,
 preserving branch parents. Do not merge without an explicit user request.
 
 ## Aidan stationery source

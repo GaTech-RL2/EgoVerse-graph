@@ -35,8 +35,9 @@ The old scripts depended on absent `rldb.utils` and `egomimicUtils` imports at
 the audit baseline; copying them would not preserve a runnable workflow.
 
 For wrist-frame targets, configure the renderer's `transform_list` explicitly.
-Prediction-renderer selections such as `pi_cartesian_lang_wrist` remain usable
-with `evaluator=eval_hpt_wrist`; keypoints use `eval_keypoints_wrist`. These
+Prediction-renderer selections such as `evaluator/viz/cartesian_prompt` remain
+usable with `evaluator=eval_cartesian_wrist`; keypoints use
+`eval_keypoints_wrist`. These
 renderer selections expect the evaluator to perform coordinate reversion,
 as in the original runtime. They do not independently apply it a second time.
 

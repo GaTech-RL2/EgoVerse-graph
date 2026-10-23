@@ -1,0 +1,48 @@
+defaults:
+- /model/hpt/yam_300m@_here_
+- /model_contract/abc_visual@_here_
+- _self_
+action_token_dim: ${abc.arc_token_dim}
+action_horizon: ${abc.arc_token_rows}
+native_action_horizon: ${abc.arc_token_rows}
+native_action_dim: ${abc.arc_token_dim}
+inference: ${model.inference_contracts.hybrid_arc_tokenizer_cartesian}
+data_requirements:
+  preprocessing:
+    '7':
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+        yam_source_frames: ${abc.arc_source_buffer_frames}
+      transforms:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: arc
+        chunk_length: 200
+        time_rows: ${abc.arc_source_buffer_frames}
+        min_distance_unit: ${abc.arc_distance}
+        rotation_distance_unit: ${abc.arc_rotation_distance}
+        resampled_vector_length: ${abc.arc_waypoints}
+        stride: 1
+        rotation_mode: euler
+        embodiment: yam
+        yam_source_frames: ${abc.arc_source_buffer_frames}
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
+        gripper_stream_mode: ${abc.arc_gripper_stream_mode}
+      source_fps: 30.0
+graph:
+  noising:
+    action_horizon: ${abc.arc_token_rows}
+  sampler:
+    action_horizon: ${abc.arc_token_rows}
+    model:
+      act_seq: ${abc.arc_token_rows}
+inference_contracts:
+  hybrid_arc_tokenizer_cartesian:
+    profiles:
+      default:
+        adapter:
+          decoder:
+            execute_percent: 50

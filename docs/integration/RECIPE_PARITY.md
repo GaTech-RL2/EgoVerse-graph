@@ -26,7 +26,7 @@ Two stale source settings are corrected explicitly:
   `actions_joints`, while their shipped keymaps/transforms only produced
   Cartesian state/actions. The retained Cartesian recipes bind those actual
   keys. This is not a joint-action checkpoint converter.
-- `hpt_cotrain_enc_dec_base` declared eight decoder context tokens against
+- `base/hpt_cotrain_enc_dec` declared eight decoder context tokens against
   a 64-token trunk. Its deterministic decoder now declares 64 context tokens;
   its smooth-L1 loss retains beta 0.05. It rejects mismatched target shapes.
 

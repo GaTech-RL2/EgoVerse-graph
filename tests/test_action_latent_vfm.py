@@ -29,7 +29,7 @@ from tools.config_graph import build_graph
 ROOT = Path(__file__).resolve().parents[1]
 EXPERIMENT = (
     ROOT
-    / "egomimic/hydra_configs/experiment/sim/pusht/action_latent_vfm_usocket_val01_h16.yaml"
+    / "egomimic/hydra_configs/experiment/arc_sim/pusht/action_latent_vfm_usocket_val01_h16.yaml"
 )
 
 

@@ -3,7 +3,8 @@
 > Historical reference, not a current API or launch menu. Removed E1/legacy
 > codecs, configs and launchers described below require their recorded source.
 > Current usage: [clock contract](ARC_CLOCK_CONTRACT.md) and
-> [experiment menu](../egomimic/hydra_configs/experiment/README.md).
+> [experiment menu](../egomimic/hydra_configs/experiment/README.md), with the
+> current folder layout in [CONFIGURATION.md](CONFIGURATION.md).
 
 Every retained `abc_arc/robot_bc` and `abc_arc/human_bc` visual experiment
 accepts `abc.arc_chunking_mode=race`, `multistream`, or `joint_distance`.

@@ -1,10 +1,10 @@
-# Cartesian ARC: one codec, two clocks, two stream layouts
+# Cartesian ARC: one codec, two clocks, four stream layouts
 
 This contract replaces the historical Cartesian mean/wide/stacked/clock/E1
 families. It builds on PR #263 and preserves the local first-row-delay
 implementation. It does not change the separate planar or Libero codecs.
 
-New run presets are grouped by task under `hydra_configs/experiment/`:
+New run presets are grouped by task under `hydra_configs/experiment/arc_real/`:
 `organize_stationary`, `fold_and_stack_towels`, `wireless_earbuds`, and
 `multitask`, each with `arc_vel`, `arc_dur`, and `baseline`.
 See the [experiment menu](../egomimic/hydra_configs/experiment/README.md)
@@ -47,8 +47,8 @@ represent independent gripper movement.
 ## Timing rows
 
 Row zero of every timing column represents that stream's initial delay.
-Rows i > 0 represent the incoming interval from waypoint i-1 to waypoint i.
-There is no repeated final padding clock.
+The meaning of later rows depends on `clock_mode`: incoming rates for velocity,
+absolute waypoint seconds for duration. There is no repeated final padding clock.
 
 - velocity: row zero is seconds; later rows are the distance between emitted
   supports divided by the source interval's seconds. Units are m/s, rad/s,
@@ -62,15 +62,17 @@ There is no repeated final padding clock.
   `first_delay_absolute_v1`; velocity keeps `first_delay_incoming_v1`.
 
 Translation distances are Euclidean, rotation distances are SO(3) geodesic,
-and gripper distances are absolute value differences. No velocity smoothing,
-physical speed clamp, or decoder-duration floor is introduced.
+and gripper distances are absolute value differences. Velocity-mode rates are
+not smoothed or physically speed-clamped. Duration-mode clock projection does
+enforce its explicit 5 m/s translation bound. Neither mode adds an arbitrary
+decoder-duration floor.
 
 An initial wait retains constant geometry before the first movement. Rotation
 and distance-gripper target times use first arrival, so a final stationary
 plateau does not stretch the last moving interval.
 
 Full-window holds retain constant waypoints. Velocity interval rates are zero.
-Duration intervals span the configured hold_window_frames × dt. Constant
+Duration absolute clocks span the configured hold_window_frames × dt. Constant
 streams do not terminate a chunk. Internal dwells are not explicitly allocated
 duplicate supports; zero speed alone cannot encode a zero-distance dwell time.
 
@@ -82,7 +84,8 @@ Command-change supports and endpoint padding retain the prior local semantics.
 Both use the same codec and `control_steps()`:
 
 1. Keep an exact integer waypoint prefix, e.g. 30 of M100.
-2. Decode every stream using its own start delay and incoming intervals.
+2. Decode every stream using its selected clock representation: start delay
+   plus distance/rate intervals, or absolute waypoint seconds.
 3. Replan when the first moving stream reaches its prefix endpoint.
 4. Ignore fully constant streams in this race.
 
@@ -113,12 +116,14 @@ quantile widening (`norm_stats.widen_degenerate_quantiles: true`).
 
 The first-delay six-stream refactor was compared numerically against its
 preceding local implementation across 32 synthetic clock/gripper/hold cases,
-including token, detokenizer, and termination parity. New regression tests cover
-all four clock/stream combinations and validation/rollout agreement.
+including token, detokenizer, and termination parity. Regression tests cover
+clock/stream combinations and validation/rollout agreement.
 
-Verification for this migration: 536 focused CPU tests passed, including
+Historical verification for the initial two-layout migration: 536 focused CPU
+tests passed, including
 normalization-cache rejection, baseline graph forward/backward, source adapters,
-and planar ARC regressions. All 379 shipped Hydra YAML files composed.
+and planar ARC regressions. All 379 Hydra YAML files shipped at that revision
+composed; these are historical counts, not the current configuration inventory.
 The 32 six-stream comparisons used predecessor
 `f364923a3e675106882823da17f840a9505ab972`, with token tolerance 1e-10,
 decoded-trajectory tolerance 1e-9, and identical execution-step counts.

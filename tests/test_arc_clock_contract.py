@@ -264,7 +264,7 @@ def test_recipe_data_evaluator_and_declared_rollout_share_contract(clock, stream
 
     recipe = (
         CONFIGS
-        / "experiment/real"
+        / "experiment/arc_real"
         / (
             "stationary_velocity.yaml"
             if clock == "velocity"

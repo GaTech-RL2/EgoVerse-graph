@@ -427,7 +427,7 @@ def test_four_rows_compose_with_supported_data_and_evaluator_schema(
             config_name="train_zarr_cartesian",
             overrides=[
                 f"model=bf/{row}",
-                "+experiment=sim/pusht/unite_usocket_register_sweep_val01_h16",
+                "+experiment=arc_sim/pusht/unite_usocket_register_sweep_val01_h16",
                 "++paths.root_dir=.",
             ],
         )
@@ -507,7 +507,7 @@ def test_ice_launcher_explicitly_wires_unite_diagnostics():
     experiment = yaml.safe_load(
         (
             CONFIG_DIR
-            / "experiment/sim/pusht/unite_usocket_register_sweep_val01_h16.yaml"
+            / "experiment/arc_sim/pusht/unite_usocket_register_sweep_val01_h16.yaml"
         ).read_text()
     )
     assert experiment["trainer"]["max_steps"] == 240_000

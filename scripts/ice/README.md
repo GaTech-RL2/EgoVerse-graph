@@ -36,10 +36,10 @@ Export these before `sbatch --export=ALL`:
   `3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313`.
 - `ICE_DATASET_DIR` and a new, absolute `ICE_OUTPUT_DIR`
 - `ICE_EXPERIMENT`, exactly one of
-  `sim/pusht/planar_v2_usocket_direct_bc`,
-  `sim/pusht/planar_v2_usocket_arc_bc`, or
-  `sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc`, or
-  `sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg`
+  `arc_sim/pusht/planar_v2_usocket_direct_bc`,
+  `arc_sim/pusht/planar_v2_usocket_arc_bc`, or
+  `arc_sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc`, or
+  `arc_sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg`
 - `ICE_WANDB_ENTITY`, `ICE_WANDB_PROJECT`, and a unique
   `ICE_WANDB_RUN_ID`
 - one GPU selected by the launcher's `H100|H200` Slurm constraint

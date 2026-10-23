@@ -39,7 +39,7 @@ def test_retained_pi_schedules_match_pinned_source_and_base_fails_closed():
                 value = OmegaConf.to_container(value, resolve=True)
             assert value == original[field]
         artifact = build_inference_config(cfg)
-        if name == "pi0.5_base":
+        if name == "base/pi05":
             assert artifact["status"] == "unsupported"
             with pytest.raises(Exception, match="incomplete base fragment"):
                 instantiate(cfg.model.pipeline)
@@ -54,9 +54,9 @@ def test_cotrain_keeps_normalization_isolated_and_renders_prompt(
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "model=pi0.5_cotrain_eva_aria",
+                "model=pi/cotrain_eva_aria_legacy",
                 "data=cotrain_pi_base",
-                "evaluator=eval_pi",
+                "evaluator=eval_cartesian_camera_prompt",
             ],
         )
     datasets = {}

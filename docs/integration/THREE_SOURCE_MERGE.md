@@ -73,7 +73,7 @@ parity retest passes seven cases. The next full run reached a terminal result:
 ongoing repairs and is not a final-head gate. Its failures remain recorded.
 This runner does not
 change cluster execution or establish exact-runtime or historical-run parity.
-Publication through authenticated Skynet Graphite and the final GitHub merge are
+Publication through Graphite and the final GitHub merge are
 still incomplete. No final integration, deployment, training or GPU parity claim
 is made by this progress record.
 

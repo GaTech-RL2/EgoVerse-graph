@@ -8,7 +8,7 @@
 # in the inference graph, so the dependency resolver drops it from training on
 # its own rather than through a mode flag.
 #
-# Contrast with experiment/sim/pusht/planar_v2_usocket_arc_bc, where the same
+# Contrast with experiment/arc_sim/pusht/planar_v2_usocket_arc_bc, where the same
 # tokenization happens in the loader's transform_list: there the stage list
 # gives no sign the target is a token, and the linter cannot see the boundary.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper

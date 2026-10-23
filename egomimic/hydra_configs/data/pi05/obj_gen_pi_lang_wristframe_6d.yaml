@@ -2,7 +2,7 @@
 # cotrain (obj_gen_pi_lang_wristframe):
 #   - actions in each wrist's own frame, rotation expressed as the continuous 6D
 #     representation via the `cartesian_wristframe_6d` transform mode. Pairs with
-#     model=pi0.5_cotrain_eva_aria_6d and evaluator=eval_pi_wristframe_6d (which
+#     model=pi/cotrain_eva_aria_6d and evaluator=eval_cartesian_wrist_6d_prompt (which
 #     un-6Ds then projects wrist-frame preds back to cam frame for viz/MSE).
 #   - dataset switched to the AnnotationCutoff resolver (clamps each action chunk
 #     at the end of its enclosing language-annotation span).

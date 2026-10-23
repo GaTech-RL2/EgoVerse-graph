@@ -38,8 +38,14 @@ accept `WT`, `PY`, `PI05_WEIGHTS`, and their existing norm/output/resume options
 Their lab filesystem defaults and Slurm partitions still need to match the
 cluster. Checkpoints are retained. No launcher was submitted during this port.
 
-Data, model and evaluator groups are prefixed with `pi05/`, for example
-`data=pi05/mecka_abc_pi_6d`. The older `aria_bimanual` configuration slot maps
+Data groups retain `pi05/`, for example `data=pi05/mecka_abc_pi_6d`. Model
+recipes now live under `model/pi/` with their shared implementation defaults
+under `model/base/`; for example `model=pi/bc_mecka_abc_6d`.
+Evaluators are named by behavior and frame, such as
+`evaluator=eval_cartesian_wrist_6d_prompt`, not by model family. See the
+[configuration guide](CONFIGURATION.md). This config reorganization does not
+move the Python backend in `models/pi05/` or its compatibility imports.
+The older `aria_bimanual` configuration slot maps
 to `human_bimanual`; the SQL filters and episode exclusions retain their source
 values. Some historical filters intentionally describe older episode-table
 snapshots and may require a matching snapshot to reproduce their experiments.
@@ -91,7 +97,7 @@ dataset access and robot actuation remain cluster validation work.
 
 ## Attention and latent analysis
 
-Root `pi0.5_*` recipes declare `PI05AttentionProvider` under
+The retained `model/pi/*_legacy` recipes declare `PI05AttentionProvider` under
 `model.diagnostic_provider`. Select `data=cotrain_pi_latent evaluator=eval_latent`
 with a cotraining model to capture attention keys through the normal graph.
 Set `data.selection.mode=pairs` for the source-pinned pairs, or `custom` with

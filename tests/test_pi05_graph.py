@@ -21,6 +21,12 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
+PI_EVALUATORS = (
+    "eval_cartesian_wrist_prompt",
+    "eval_cartesian_camera_6d_prompt",
+    "eval_cartesian_wrist_6d_prompt",
+    "eval_cartesian_wrist_6d_gripper_prompt",
+)
 
 
 def config(overrides=()):
@@ -34,13 +40,18 @@ def config(overrides=()):
 @pytest.mark.parametrize(
     "group,name",
     [
-        (group, path.stem)
-        for group in ["model", "data", "evaluator"]
-        for path in sorted((CONFIGS / group / "pi05").glob("*.yaml"))
-    ],
+        ("model", f"pi/{path.stem}")
+        for path in sorted((CONFIGS / "model/pi").glob("*.yaml"))
+        if not path.stem.endswith("_legacy")
+    ]
+    + [
+        ("data", f"pi05/{path.stem}")
+        for path in sorted((CONFIGS / "data/pi05").glob("*.yaml"))
+    ]
+    + [("evaluator", name) for name in PI_EVALUATORS],
 )
 def test_pi_configs_resolve_without_openpi(group, name):
-    cfg = config([f"{group}=pi05/{name}"])
+    cfg = config([f"{group}={name}"])
     instantiate(cfg.model.pipeline)  # backend remains deferred
     instantiate(cfg.evaluator)
     for ds in cfg.data.train_datasets.values():
@@ -48,6 +59,19 @@ def test_pi_configs_resolve_without_openpi(group, name):
             continue
         instantiate(ds.resolver.key_map)
         instantiate(ds.resolver.transform_list)
+
+
+def test_modern_and_legacy_pi_eva_keep_distinct_encodings():
+    modern = config(["model=pi/bc_eva"])
+    legacy = config(["model=pi/bc_eva_legacy"])
+    assert (
+        modern.model.pipeline.stages[0].policy.action_encoding
+        == "cartesian_ypr_raw_rot6d"
+    )
+    assert (
+        legacy.model.pipeline.stages[0].policy.action_encoding
+        == "legacy_normalized_ypr_rot6d"
+    )
 
 
 @pytest.fixture

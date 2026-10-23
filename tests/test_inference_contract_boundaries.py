@@ -17,6 +17,11 @@ from egomimic.pipeline.inference_config import (
 from egomimic.robot.graph_policy import configure_profile_controls
 
 CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
+YAM_DP_OVERRIDES = [
+    "model=abc/yam_bimanual_dp",
+    "data=abc_arc/abc_fstshirt_bc",
+    "~evaluator",
+]
 
 
 def compose_recipe(**kwargs):
@@ -27,7 +32,7 @@ def compose_recipe(**kwargs):
 def test_resampled_yam_contract_restores_native_duration():
     cfg = compose_recipe(
         config_name="train_zarr_cartesian",
-        overrides=["+experiment=abc/yam_fstshirt_dp"],
+        overrides=YAM_DP_OVERRIDES,
     )
     artifact = build_inference_config(cfg)
     assert artifact["status"] == "ready"
@@ -47,7 +52,7 @@ def test_chunk_mean_timing_is_non_deployable_even_with_same_model_shape():
     cfg = compose_recipe(
         config_name="train_zarr_cartesian",
         overrides=[
-            "+experiment=abc/yam_fstshirt_dp",
+            *YAM_DP_OVERRIDES,
             "model.inference.native_output.timing.kind=chunk_mean",
             "model.inference.native_output.timing.temporally_resolved=false",
         ],
@@ -70,7 +75,7 @@ def test_pi_mixed_source_contract_selects_exact_width_and_time(
     cfg = compose_recipe(
         config_name="train_zarr_cartesian_pi",
         overrides=[
-            "model=pi05/pi0.5_bc_mecka_abc_6d",
+            "model=pi/bc_mecka_abc_6d",
             "pi05.pretrained_weights=/unused/weights",
             f"model.deployment_domain={domain}",
         ],

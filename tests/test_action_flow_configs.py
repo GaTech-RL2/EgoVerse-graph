@@ -18,7 +18,7 @@ def _compose(row: str):
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_DIR.resolve())):
         cfg = compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment=sim/pusht/{row}", "++paths.root_dir=."],
+            overrides=[f"+experiment=arc_sim/pusht/{row}", "++paths.root_dir=."],
         )
     return cfg
 

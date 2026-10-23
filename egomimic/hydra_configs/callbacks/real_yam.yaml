@@ -1,0 +1,9 @@
+defaults:
+- /callbacks/checkpoints@_here_
+- _self_
+model_checkpoint:
+  every_n_epochs: null
+  save_top_k: -1
+  filename: epoch-{epoch:04d}-step-{step:08d}
+  every_n_train_steps: 30000
+  auto_insert_metric_name: false

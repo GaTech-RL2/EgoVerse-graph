@@ -155,7 +155,7 @@ def test_recipe_preserves_compression_and_explicit_rollout_contract(monkeypatch)
             config_name="train_zarr_cartesian",
             overrides=[
                 "hydra/launcher=basic",
-                "+experiment=sim/pusht/action_flow_cotrain_uc_multiplier_interpolation",
+                "+experiment=arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation",
             ],
         )
     assert (

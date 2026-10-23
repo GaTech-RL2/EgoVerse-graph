@@ -32,8 +32,8 @@ echo "=== commit=$(git rev-parse --short HEAD) node=$SLURMD_NODENAME $(date) ===
 "$PY" -u egomimic/trainHydra.py \
   --config-name=train_zarr_cartesian_pi \
   data=pi05/abc_stationery_pi_6d \
-  model=pi05/pi0.5_bc_abc_eva_6d \
-  evaluator=pi05/eval_pi_wristframe_6d \
+  model=pi/bc_abc_eva_6d \
+  evaluator=eval_cartesian_wrist_6d_prompt \
   trainer=debug \
   launch_params.gpus_per_node=1 \
   evaluator.viz_every_n_epochs=4 \

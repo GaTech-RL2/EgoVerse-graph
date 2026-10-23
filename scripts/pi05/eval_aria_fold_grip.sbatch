@@ -28,8 +28,8 @@ CKPT="${CKPT-/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_mecka_all_6d/
 "$PY" -u egomimic/trainHydra.py \
   --config-name=train_zarr_cartesian_pi \
   data=pi05/aria_fold_pi_6d_grip \
-  model=pi05/pi0.5_ft_aria_fold_grip \
-  evaluator=pi05/eval_pi_wristframe_6d_grip \
+  model=pi/ft_aria_fold_grip \
+  evaluator=eval_cartesian_wrist_6d_gripper_prompt \
   launch_params.gpus_per_node=1 \
   ++mode=eval \
   "ckpt_path='$CKPT'" \

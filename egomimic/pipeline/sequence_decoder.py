@@ -3,6 +3,8 @@
 import numpy as np
 import torch
 
+from egomimic.pipeline.action_adapter import decode_actions, decoder_context_keys
+
 
 class UniformTimeGridDecoder:
     def __init__(
@@ -79,8 +81,15 @@ class SequentialActionDecoder:
         self.decoders = tuple(decoders)
         if not self.decoders or not all(callable(step) for step in self.decoders):
             raise ValueError("Declare a nonempty sequence of callable decoders")
+        self.context_keys = tuple(
+            dict.fromkeys(
+                key
+                for decoder in self.decoders
+                for key in decoder_context_keys(decoder)
+            )
+        )
 
-    def __call__(self, actions):
+    def __call__(self, actions, **context):
         for decoder in self.decoders:
-            actions = decoder(actions)
+            actions = decode_actions(decoder, actions, context=context)
         return actions

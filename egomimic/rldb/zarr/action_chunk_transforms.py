@@ -56,12 +56,26 @@ class Transform:
 # ---------------------------------------------------------------------------
 
 
+def _interpolation_source(actions, new_chunk_length, stride):
+    """Select source rows once for both pose and scalar interpolation.
+
+    A native window ignores stride. Identity outputs own their storage so a
+    downstream transform cannot mutate the original trajectory through a view.
+    """
+    if new_chunk_length is None:
+        return actions.copy(), True
+    actions = actions[::stride]
+    if len(actions) == new_chunk_length:
+        return actions.copy(), True
+    return actions, False
+
+
 class InterpolatePose(Transform):
     """Interpolate a pose chunk of shape (T, 6) or (T, 7)."""
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -77,7 +91,12 @@ class InterpolatePose(Transform):
 
     def transform(self, batch: dict) -> dict:
         actions = np.asarray(batch[self.action_key])
-        actions = actions[:: self.stride]
+        actions, identity = _interpolation_source(
+            actions, self.new_chunk_length, self.stride
+        )
+        if identity:
+            batch[self.output_action_key] = actions
+            return batch
         if self.mode == "xyzwxyz":
             if actions.ndim != 2 or actions.shape[-1] != 7:
                 raise ValueError(
@@ -113,7 +132,7 @@ class InterpolateLinear(Transform):
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -132,7 +151,12 @@ class InterpolateLinear(Transform):
                 f"InterpolateLinear expects (T, D), got {actions.shape} for key "
                 f"'{self.action_key}'"
             )
-        actions = actions[:: self.stride]
+        actions, identity = _interpolation_source(
+            actions, self.new_chunk_length, self.stride
+        )
+        if identity:
+            batch[self.output_action_key] = actions
+            return batch
         batch[self.output_action_key] = _interpolate_linear(
             actions, self.new_chunk_length
         )

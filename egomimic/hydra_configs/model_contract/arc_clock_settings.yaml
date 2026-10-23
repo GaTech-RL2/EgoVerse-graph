@@ -1,0 +1,29 @@
+# @package _global_
+abc:
+  arc_clock_mode: velocity
+  arc_streams: full_separation
+  arc_stream_dims:
+    full_separation: 20
+    translation_rotation: 18
+    translation: 16
+    rotation: 16
+  arc_timing_layouts:
+    velocity: incoming_rate_v2
+    duration: absolute_arrival_seconds_v2
+  arc_token_dim: ${abc.arc_stream_dims.${abc.arc_streams}}
+  arc_token_rows: ${abc.arc_waypoints}
+run_provenance:
+  action_contract:
+    representation: ${abc.action_mode}
+    codec_contract: cartesian_arc_arrival_v2
+    source_time_origin: next_frame
+    initial_action_key: arc.current_action
+    translation_distance_m: ${abc.arc_distance}
+    rotation_distance_radians: ${abc.arc_rotation_distance}
+    waypoints: ${abc.arc_waypoints}
+    clock_mode: ${abc.arc_clock_mode}
+    streams: ${abc.arc_streams}
+    timing_layout: ${abc.arc_timing_layouts.${abc.arc_clock_mode}}
+    gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
+    gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}
+    control_dt: ${evaluator.control_dt}

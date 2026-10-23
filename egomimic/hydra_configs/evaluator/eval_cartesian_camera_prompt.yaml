@@ -1,0 +1,10 @@
+# Camera-frame Cartesian metrics with sampled-prompt overlays.
+defaults:
+  - eval_cartesian_camera
+  - _self_
+rkl_samples: 8
+viz_func:
+  eva_bimanual:
+    annotation_key: sampled_prompt
+  human_bimanual:
+    annotation_key: sampled_prompt

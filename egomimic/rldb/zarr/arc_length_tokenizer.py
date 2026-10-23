@@ -1099,71 +1099,34 @@ class TokenizeBimanualArcLength:
         return batch
 
 
-# Canonical layout for the (M+1, 14) arc-token variant used by the FM policy
-# head (see hpt_cotrain_mecka_flow_shared_head_arc.yaml). Per-slot dims:
-#   [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)] = 14
-# Rows: 0..M-1 = waypoints, row M = velocity token.
-# Velocity row layout per arm:
-#   [xyz_mean_rate(3), ypr_mean_rate(3), grip_mean_rate(1)]
-# The ypr slots hold mean angular velocity per axis: (ypr[M-1] - ypr[0]) /
-# duration_arm. This is documented, unconditional (no config flag), and
-# survives round-trip through detokenize by way of SLERP over the M
-# waypoints (the velocity row's ypr is used for learning signal / stats,
-# not by the detokenize timing path — timing comes from ||vel_xyz|| as
-# before, matching the pre-rotation behavior).
-ARC_TOK_PER_ARM_DIM = 7  # per-arm dims: xyz(3) + ypr(3) + gripper(1)
-ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
+# Cartesian ARC has one implementation; this path remains valid for saved configs.
+_CARTESIAN_EXPORTS = [
+    "CLOCK_MODES",
+    "STREAM_MODES",
+    "STREAM_NAMES",
+    "STREAM_DIMS",
+    "SIX_CLOCK_COLUMNS",
+    "CLOCK_COLUMNS",
+    "SINGLE_CLOCK_COLUMNS",
+    "MAX_SPEED",
+    "validate_clock_mode",
+    "validate_streams",
+    "bimanual_arc_token_shape",
+    "stream_distances",
+    "absolute_times_to_seconds",
+    "clock_token_seconds",
+    "stack_arc_token",
+    "TokenizeBimanualArcLengthCartesian",
+]
 
 
-# How a bimanual arc token carries timing. Mirrors planar_arc.VELOCITY_MODES.
-#
-#   "mean"          M waypoints + ONE velocity row (the historical layout).
-#                   One rate for the whole token, so it only describes motion
-#                   traversed at constant speed.
-#   "per_waypoint"  M waypoints + M velocity rows, one per interval. Recovers
-#                   the elapsed-time parameterization of a non-uniform chunk.
-#   "duration"      M waypoints + M duration rows, one elapsed-time (seconds)
-#                   per interval per arm. Same row count as per_waypoint, but
-#                   stores Δt directly instead of pose_delta / Δt.
-#
-# Note the chord-vs-arc correction the mean path needs does NOT apply here:
-# consecutive waypoints are joined by straight segments, so a single interval's
-# chord IS its arc length. That discrepancy only arises when one rate spans the
-# whole token.
-ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
+def __getattr__(name):
+    if name not in _CARTESIAN_EXPORTS:
+        raise AttributeError(name)
+    from egomimic.rldb.zarr import cartesian_arc
+
+    return getattr(cartesian_arc, name)
 
 
-def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None):
-    # Source-window and geometric utilities retain their existing defaults.
-    # The Cartesian codec does not use this selector.
-    if mode is None:
-        return "joint_distance" if rotation_distance_unit is not None else "multistream"
-    value = str(mode).strip().lower()
-    if value not in ARC_CHUNKING_MODES:
-        raise ValueError(
-            f"Unknown arc_chunking_mode geometric progress measure: {value!r}"
-        )
-    return value
-
-
-BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
-
-
-def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
-    if velocity_mode not in BIMANUAL_VELOCITY_MODES:
-        raise ValueError(
-            f"velocity_mode must be one of {BIMANUAL_VELOCITY_MODES}, "
-            f"got {velocity_mode!r}"
-        )
-    return velocity_mode
-
-
-def bimanual_arc_token_rows(
-    resampled_vector_length: int, velocity_mode: str = "mean"
-) -> int:
-    """Rows in one bimanual arc token -- the single source of truth."""
-    validate_bimanual_velocity_mode(velocity_mode)
-    num_waypoints = int(resampled_vector_length)
-    if num_waypoints < 2:
-        raise ValueError("resampled_vector_length must be at least two")
-    return num_waypoints + 1 if velocity_mode == "mean" else 2 * num_waypoints
+def __dir__():
+    return sorted(set(globals()) | set(_CARTESIAN_EXPORTS))

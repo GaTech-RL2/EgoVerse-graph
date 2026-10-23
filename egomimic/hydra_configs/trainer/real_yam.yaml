@@ -1,0 +1,14 @@
+defaults:
+- /trainer/ddp@_here_
+- _self_
+strategy: auto
+sync_batchnorm: false
+check_val_every_n_epoch: 200
+num_sanity_val_steps: 2
+limit_val_batches: 1.0
+default_root_dir: null
+max_epochs: -1
+min_epochs: 0
+devices: 1
+num_nodes: 1
+max_steps: ${ft.max_steps}

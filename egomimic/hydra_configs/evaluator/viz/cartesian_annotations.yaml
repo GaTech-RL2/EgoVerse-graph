@@ -1,0 +1,8 @@
+# Recorded annotations, rather than model-sampled prompts.
+defaults:
+  - cartesian
+  - _self_
+eva_bimanual:
+  annotation_key: observations.annotation
+human_bimanual:
+  annotation_key: observations.annotation

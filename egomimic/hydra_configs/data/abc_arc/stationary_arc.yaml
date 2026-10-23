@@ -1,0 +1,4 @@
+defaults:
+- /data/abc_arc/stationary@_here_
+- /data/_base/yam_arc@_here_
+- _self_

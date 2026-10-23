@@ -4,8 +4,8 @@
 # distinct task label 'folding_clothes' and is excluded).
 #
 # Same wristframe-6D pipeline as mecka_all_pi_6d (left-wrist fix, padded
-# 20-dim proprio, stride 1); pairs with model=pi0.5_bc_mecka_6d and
-# evaluator=eval_pi_wristframe_6d (+ the train_viz second head).
+# 20-dim proprio, stride 1); pairs with model=pi/bc_mecka_6d and
+# evaluator=eval_cartesian_wrist_6d_prompt (+ the train_viz second head).
 # Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
 # videos_train_viz/). No shuffle -> same leading slice every val.
 # Graph port: train_viz is a nested validation group; episode filters retained.

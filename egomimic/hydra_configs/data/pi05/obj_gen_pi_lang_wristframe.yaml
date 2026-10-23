@@ -1,7 +1,7 @@
 # Wristframe variant of motion_gen_pi_lang: annotated-only eva + annotated-only
 # aria (base/object descriptions). Actions are expressed in each wrist's own
 # frame (cartesian_wristframe_ypr) instead of the head/camera frame. Pair with
-# evaluator=eval_pi so the revert transform projects predictions back to cam
+# evaluator=eval_cartesian_wrist_prompt so the revert transform projects predictions back to cam
 # frame for the viz video.
 # Graph port: train_viz is a nested validation group; episode filters retained.
 _target_: egomimic.rldb.zarr.data_module.ZarrDataModule

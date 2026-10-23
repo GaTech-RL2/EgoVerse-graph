@@ -1,0 +1,39 @@
+# rl2 fold_towels pool, pointed at the SQL task (2026-10-22): every lab=rl2 yam_bimanual episode under task fold_towels.
+# That task now holds exactly since0924plus74 + Aidan's 19 takes of 10-21 (462 train / 17 val); the 329 pre-09-24 takes
+# (incl. 30 soft-deleted) were moved to fold_towels_retired. Validation is the frozen 17 listed below; the counts and
+# SHA-256 pins guard the membership.
+defaults:
+- /data/abc_arc/stationery_yam_loader@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: ${yam.variant}
+    filters:
+      filter_lambdas:
+      - 'lambda row, V=frozenset({''2026-09-24-23-51-03-634000'',''2026-09-24-23-57-00-028000'',''2026-09-25-01-06-37-195000'',''2026-10-06-23-40-47-843000'',''2026-10-07-02-32-49-094000'',''2026-10-07-03-51-16-530000'',''2026-10-07-04-13-01-063000'',''2026-10-07-04-20-33-929000'',''2026-10-07-04-22-32-444000'',''2026-10-07-04-47-47-787000'',''2026-10-07-23-17-42-659000'',''2026-10-08-19-55-54-515000'',''2026-10-08-20-13-56-804000'',''2026-10-08-20-28-07-741000'',''2026-10-08-20-39-24-864000'',''2026-10-08-20-51-59-155000'',''2026-10-08-20-57-27-696000''}):
+        row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment'']
+        == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and
+        row[''num_frames''] > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']
+        and row[''episode_hash''] not in V'
+    expected_train_episode_count: 462
+    expected_train_episode_names_sha256: 77dd0e6fc55a4eb8de616328988ea4d7fc22d449314516cbeb048322db0ce39c
+    expected_valid_episode_count: 0
+    expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+valid_datasets:
+  yam_bimanual:
+    resolver:
+      transform_list:
+        variant: ${yam.variant}
+    filters:
+      filter_lambdas:
+      - 'lambda row, V=frozenset({''2026-09-24-23-51-03-634000'',''2026-09-24-23-57-00-028000'',''2026-09-25-01-06-37-195000'',''2026-10-06-23-40-47-843000'',''2026-10-07-02-32-49-094000'',''2026-10-07-03-51-16-530000'',''2026-10-07-04-13-01-063000'',''2026-10-07-04-20-33-929000'',''2026-10-07-04-22-32-444000'',''2026-10-07-04-47-47-787000'',''2026-10-07-23-17-42-659000'',''2026-10-08-19-55-54-515000'',''2026-10-08-20-13-56-804000'',''2026-10-08-20-28-07-741000'',''2026-10-08-20-39-24-864000'',''2026-10-08-20-51-59-155000'',''2026-10-08-20-57-27-696000''}):
+        row[''lab''] == ''rl2'' and row[''task''] == ''fold_towels'' and row[''embodiment'']
+        == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and
+        row[''num_frames''] > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']
+        and row[''episode_hash''] in V'
+    expected_train_episode_count: 17
+    expected_train_episode_names_sha256: 4e519c3a65de3b1886e11bdccfdb9caba4d698b274f9583f9f5d79e876ea0343
+    expected_valid_episode_count: 0
+    expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

@@ -16,6 +16,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     NumpyToTensor,
     PoseCoordinateFrameTransform,
     SplitKeys,
+    StoreArcCurrentAction,
     Transform,
     transforms_for_rotation_mode,
 )
@@ -47,10 +48,17 @@ class Eva(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        action_mode: Literal["cartesian"] = "cartesian",
+        action_mode: Literal[
+            "cartesian", "arc_tokenizer_cartesian", "hybrid_arc_tokenizer_cartesian"
+        ] = "cartesian",
         coord_frame: Literal["camframe", "eef_frame"] = "camframe",
         rotation_mode: Literal["euler", "quat", "6D"] = "euler",
         extrinsics: dict | None = None,
+        min_distance_unit: float = 0.40,
+        rotation_distance_unit: float = 1.7453292519943295,
+        resampled_vector_length: int = 100,
+        clock_mode: str = "velocity",
+        streams: str = "full_separation",
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -61,17 +69,84 @@ class Eva(Embodiment):
         ``rotation_mode`` converts rotation to euler (xyz+ypr, 14D), quat (16D),
         or Zhou 6D (20D).
         """
-        if action_mode != "cartesian":
+        if action_mode not in (
+            "cartesian",
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        ):
             raise ValueError(f"unknown action_mode {action_mode!r}")
+        if (
+            action_mode == "hybrid_arc_tokenizer_cartesian"
+            and rotation_distance_unit is None
+        ):
+            raise ValueError(
+                "hybrid_arc_tokenizer_cartesian requires rotation_distance_unit"
+            )
+        chunk_length = 100 if action_mode == "cartesian" else None
         if coord_frame == "camframe":
-            return _build_eva_bimanual_transform_list(
-                rotation_mode=rotation_mode, extrinsics=extrinsics
+            transform_list = _build_eva_bimanual_transform_list(
+                rotation_mode=rotation_mode,
+                extrinsics=extrinsics,
+                chunk_length=chunk_length,
             )
-        if coord_frame == "eef_frame":
-            return _build_eva_bimanual_eef_frame_transform_list(
-                rotation_mode=rotation_mode, extrinsics=extrinsics
+        elif coord_frame == "eef_frame":
+            transform_list = _build_eva_bimanual_eef_frame_transform_list(
+                rotation_mode=rotation_mode,
+                extrinsics=extrinsics,
+                chunk_length=chunk_length,
             )
-        raise ValueError(f"unknown coord_frame {coord_frame!r}")
+        else:
+            raise ValueError(f"unknown coord_frame {coord_frame!r}")
+        if action_mode == "cartesian":
+            return transform_list
+        return _append_arc_tokenizer(
+            transform_list,
+            min_distance_unit=min_distance_unit,
+            rotation_distance_unit=rotation_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            rotation_mode=rotation_mode,
+            clock_mode=clock_mode,
+            streams=streams,
+            preserve_action_rows=100,
+            coord_frame=coord_frame,
+        )
+
+    @classmethod
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        camera_keys: dict | None = None,
+        min_distance_unit: float = 0.40,
+        rotation_distance_unit: float | None = None,
+    ):
+        is_arc = keymap_mode in (
+            "arc_tokenizer_cartesian",
+            "hybrid_arc_tokenizer_cartesian",
+        )
+        key_map = super().get_keymap(
+            "cartesian" if is_arc else keymap_mode,
+            norm_mode=norm_mode,
+            annotation_key=annotation_key,
+            camera_keys=camera_keys,
+        )
+        if is_arc:
+            horizon = {
+                "type": "arc_hybrid"
+                if rotation_distance_unit is not None
+                else "arc_distance",
+                "distance": float(min_distance_unit),
+                "source_buffer_frames": 600,
+                "pose_zarr_keys": ["left.cmd_ee_pose", "right.cmd_ee_pose"],
+            }
+            if rotation_distance_unit is not None:
+                horizon["rotation_distance"] = float(rotation_distance_unit)
+            for spec in key_map.values():
+                if spec.get("key_type") == "action_keys":
+                    spec["horizon"] = horizon
+                    spec["start_offset"] = 1
+        return key_map
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -541,16 +616,72 @@ def _append_arc_tokenizer(
     transform_list: list[Transform],
     *,
     min_distance_unit: float,
+    rotation_distance_unit: float = 1.7453292519943295,
+    gripper_distance_unit: float | None = None,
+    gripper_stream_mode: str = "events",
     resampled_vector_length: int,
     rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     dt: float | None = None,
     action_key: str = "actions_cartesian",
     preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
-    velocity_mode: str = "mean",
+    preserve_action_rows: int | None = None,
+    clock_mode: str = "velocity",
+    streams: str = "full_separation",
+    coord_frame: str = "eef_frame",
+    observation_key: str = "observations.state.ee_pose",
 ) -> list[Transform]:
-    raise ValueError(
-        "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
+    """Splice the arc-length tokenizer in before the final NumpyToTensor.
+
+    The tokenizer works on numpy arrays, so it has to run before the cast;
+    NumpyToTensor then converts the token result to a torch tensor.  A
+    ``preserve_action_rows`` value may be supplied when the source chunk is
+    variable-length (for example YAM ARC): the preserved GT copy is truncated
+    or repeat-last padded to that fixed control horizon.
+
+    ``rotation_mode`` must be ``euler``: the tokenizer's chunk layout is a
+    hard-coded 14D ``[xyz(3), ypr(3), grip(1)] x 2``, and it SLERPs through
+    the ypr slots. quat (16D) and 6D (20D) chunks are rejected here rather
+    than at the first batch, where the shape check fires deep inside a run.
+    """
+    if rotation_mode != "euler":
+        raise ValueError(
+            "the arc-length tokenizer only supports rotation_mode='euler' "
+            f"(its chunk layout is 14D [xyz, ypr, grip] x 2); got {rotation_mode!r}"
+        )
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeBimanualArcLengthCartesian,
     )
+
+    kwargs = {} if dt is None else {"dt": float(dt)}
+    anchor = StoreArcCurrentAction(
+        observation_key=observation_key,
+        coord_frame=coord_frame,
+    )
+    tokenize = TokenizeBimanualArcLengthCartesian(
+        action_key=action_key,
+        output_action_key=action_key,
+        initial_action_key="arc.current_action",
+        min_distance_unit=float(min_distance_unit),
+        rotation_distance_unit=rotation_distance_unit,
+        gripper_distance_unit=gripper_distance_unit,
+        gripper_stream_mode=gripper_stream_mode,
+        resampled_vector_length=int(resampled_vector_length),
+        preserve_action_key=preserve_action_key,
+        preserve_action_rows=preserve_action_rows,
+        clock_mode=clock_mode,
+        streams=streams,
+        **kwargs,
+    )
+    for i in range(len(transform_list) - 1, -1, -1):
+        if isinstance(transform_list[i], NumpyToTensor):
+            # The preserved chunk has to ride through the same cast as
+            # everything else or it reaches the collate fn as a numpy array.
+            if preserve_action_key is not None:
+                transform_list[i].keys = list(transform_list[i].keys) + [
+                    preserve_action_key
+                ]
+            return transform_list[:i] + [anchor, tokenize] + transform_list[i:]
+    return transform_list + [anchor, tokenize]
 
 
 def _build_eva_cartesian_revert_6d_transform_list(

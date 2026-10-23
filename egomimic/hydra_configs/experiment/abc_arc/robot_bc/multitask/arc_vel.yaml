@@ -1,0 +1,58 @@
+# @package _global_
+defaults:
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: hpt/yam_visual
+- override /data: abc_arc/abc_visual
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  action_horizon: 100
+  arc_distance: 0.81
+  arc_rotation_distance: 0.4188790204786391
+  arc_waypoints: 100
+  task_predicate: row['task'] in ['fold and stack the towels', 'take the fake fruits out of the plastic
+    bag', 'sort the stationery into containers', 'insert the wireless bluetooth earbuds into the charging
+    case']
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+norm_stats:
+  sample_frac: 0.1
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+    - hpt300m
+    - abc
+    - multitask4
+    - visual_only
+    - no_language
+    - hybrid
+    - M100
+    - R24deg
+    - per_waypoint
+    - open_loop
+    - video
+name: abc_multitask4_hpt300_hybrid_visual_openloop
+description: HPT300M ABC four-task visual-only hybrid ARC D81 M100 R24deg

@@ -31,7 +31,7 @@ from scripts.audit_hydra_configs import CONFIGS, ROOT, compose_for_audit
 FRAGMENTS = {
     "model/pi0.5_base.yaml": "Select a concrete domains/ac_keys recipe; owner: graph integration"
 }
-QWEN_METADATA = ROOT / "tests/fixtures/qwen3_embedding_06b_config.json"
+QWEN_METADATA = ROOT / "scripts/resources/qwen3_embedding_06b_config.json"
 QWEN_METADATA_SHA256 = (
     "b5bf1f51fc45be473a54718cef92448d90a1be001bf9b9a44b8c7f10a19feaa9"
 )

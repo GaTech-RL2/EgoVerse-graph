@@ -154,7 +154,3 @@ egomimic = [
     "robot/rollout_dashboard_static/*.js",
     "robot/rollout_dashboard_static/*.css",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]

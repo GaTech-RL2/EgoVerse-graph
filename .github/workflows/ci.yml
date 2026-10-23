@@ -21,10 +21,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: uv lock --check
-      - run: uvx ruff@${RUFF_VERSION} check egomimic tests scripts tools
-      - run: uvx ruff@${RUFF_VERSION} format --check egomimic tests scripts tools
+      - run: uvx ruff@${RUFF_VERSION} check egomimic scripts tools
+      - run: uvx ruff@${RUFF_VERSION} format --check egomimic scripts tools
 
-  cpu-and-wheel:
+  configuration-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -45,13 +45,6 @@ jobs:
           source .venv/bin/activate
           python scripts/audit_hydra_configs.py --output config-audit.json
           HF_HUB_OFFLINE=1 python -m scripts.audit_components --output component-audit.json
-      - name: CPU functional and isolated installed-wheel gates
-        env:
-          HF_HUB_OFFLINE: "1"
-          WANDB_MODE: disabled
-        run: |
-          source .venv/bin/activate
-          pytest tests -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:

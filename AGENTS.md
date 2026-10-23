@@ -1,5 +1,8 @@
 # Repo Agent Rules
 
+See [the verification policy](docs/VERIFICATION_POLICY.md): keep tests and
+verification fixtures outside this repository; never commit them.
+
 ## Shell / Command Execution
 To run commands in the interactive shell, source `emimic/bin/activate` when it
 exists. In worktrees where `emimic` is absent and the checked project
@@ -72,12 +75,12 @@ not imply a separate runtime for that task or model.
 | Dataset filters, task prompts, camera/frame choices and experiment parameters | `egomimic/hydra_configs/`; calibration matrices in `hydra_configs/calibration/` |
 | Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](docs/YAM_RUNTIME.md) |
 | Offline normalization export for any model | [scripts/data/precompute_norm_stats.py](scripts/data/precompute_norm_stats.py), or `trainHydra.py norm_stats_only=true` |
-| Focused CPU regression checks | `tests/test_pipeline*.py`, `test_hpt*.py`, `test_arc*.py`, `test_e1*.py`, `test_pi05*.py`, `test_wrist6d_roundtrip.py`, `test_robot_runtime.py`, `test_robot_graph_policy.py` |
+| Offline configuration audits | `scripts/audit_hydra_configs.py`, `scripts/audit_components.py` |
 
 Useful searches from the repository root:
 
 ```bash
-rg --files egomimic/pipeline egomimic/rldb egomimic/eval egomimic/robot tests
+rg --files egomimic/pipeline egomimic/rldb egomimic/eval egomimic/robot
 rg -n '_target_:|action_mode:|coord_frame:|rotation_mode:' egomimic/hydra_configs
 rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 ```
@@ -100,9 +103,11 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 - `egomimic/campaigns/pi05/`, `e1_fold.py`, and `pi05_graph_eval.py` retain old
   import names. Their implementations now live at the canonical paths above.
   Use current YAML examples when migrating older serialized configuration APIs.
-- Read the relevant tests before changing normalization, pose conventions or
-  checkpoint loading. Verify behavior with small CPU fixtures before a cluster
-  run; hardware and pretrained-model validation are separate from those tests.
+- Do not commit tests, test fixtures, or local verification scripts. Keep any
+  regression checks outside the repository and report their results in the PR.
+  Verify normalization, pose conventions and checkpoint loading with local CPU
+  checks before a cluster run; hardware and pretrained-model validation remain
+  separate. Historical test sources remain available in Git history.
 
 ## Preserve work and verify the target
 

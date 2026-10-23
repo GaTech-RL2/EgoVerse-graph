@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM GELLO Teleop</title>
-    <link rel="stylesheet" href="/style.css?v=14">
+    <link rel="stylesheet" href="/style.css?v=15">
   </head>
   <body>
     <main>
@@ -27,6 +27,13 @@
         <strong>Gripper force limit</strong>
         <div id="gripper-controls"></div>
         <small>Applied dynamically when resistance is detected (1–100 N).</small>
+      </section>
+      <section class="reset-guide-controls" aria-label="Visual reset guides">
+        <label for="reset-guide">Reset guide</label>
+        <select id="reset-guide" aria-describedby="reset-guide-status">
+          <option value="">Off</option>
+        </select>
+        <small id="reset-guide-status" role="status">Visual guide only · not recorded · no robot motion</small>
       </section>
       <section id="cameras" class="cameras" aria-label="Live RGB cameras"></section>
       <section class="bottom-bar" aria-label="Episode and collected demo controls">
@@ -100,6 +107,8 @@
         </section>
       </div>
     </dialog>
-    <script type="module" src="/app.js?v=14"></script>
+    <!-- Generated from robot/reset_overlay_templates.yaml. Run build_reset_guides.py. -->
+    <script id="reset-guide-catalog" type="application/json">{"version":1,"templates":[{"id":"rl2-yam-earbuds-20261010","label":"Earbuds \u2014 left / case / right","camera":"front_img_1","image_size":[640,480],"provenance":{"camera_serial":"230322272195","captured_at":"2026-10-10T22:56:09-04:00","source_image_sha256":"ba58a2044fbaef73f4f916a067323752ea8916580ee22b546de21bc558b73336","placement":"User-confirmed table-plane projection: size 105.7, x 0, y 63.5","warning":"Recheck placement after moving the camera or table. Not surveyed calibration."},"regions":[{"label":"Left","points":[[216.06140961614906,231.80945168925663],[283.22134650936016,231.45398786744497],[280.2821555535088,295.01799006867714],[207.04833752125842,295.1446907785335]]},{"label":"Case","points":[[283.22134650936016,231.45398786744497],[350.7955911838059,231.12289178846373],[354.0180506380843,294.7067966731917],[280.2821555535088,295.01799006867714]]},{"label":"Right","points":[[350.7955911838059,231.12289178846373],[418.1763060993439,230.81930061865893],[427.51468215290413,294.2126378607729],[354.0180506380843,294.7067966731917]]}]}]}</script>
+    <script type="module" src="/app.js?v=15"></script>
   </body>
 </html>

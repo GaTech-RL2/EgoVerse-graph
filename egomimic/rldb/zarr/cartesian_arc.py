@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+from scipy.optimize import isotonic_regression
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     _first_crossing_brackets,
@@ -13,7 +14,7 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     cumulative_rotation_length,
 )
 
-CLOCK_MODES = ("velocity",)
+CLOCK_MODES = ("velocity", "duration")
 STREAM_MODES = ("full_separation", "translation_rotation", "translation", "rotation")
 STREAM_NAMES = {
     "full_separation": ("translation", "rotation", "gripper"),
@@ -30,6 +31,8 @@ STREAM_DIMS = {
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 CLOCK_COLUMNS = (0, 7, 3, 10)
 SINGLE_CLOCK_COLUMNS = (0, 7)
+# Only absolute translation clocks have this speed bound, including anchor->row 0.
+MAX_SPEED = 5.0
 _NUMERICAL_EPS = 1e-12
 
 
@@ -96,16 +99,62 @@ def stream_distances(waypoints, off, stream, streams, *, initial_action=None):
     raise ValueError(f"Unknown ARC stream: {stream!r}")
 
 
+def absolute_times_to_seconds(times, distances, max_speed=None):
+    """Absolute arrival seconds -> incoming intervals, including anchor->row 0.
+
+    Project absolute times onto a non-decreasing clock. A translation clock is
+    projected above its fastest possible clock, including the distance from the
+    measured current pose at t=0. There is no synthetic initial hold interval.
+    """
+    t = np.asarray(times, dtype=np.float64)
+    distance = np.asarray(distances, dtype=np.float64)
+    if (
+        t.ndim != 1
+        or not len(t)
+        or t.shape != distance.shape
+        or not np.isfinite(t).all()
+        or not np.isfinite(distance).all()
+        or np.any(distance < 0)
+    ):
+        raise ValueError(
+            "Absolute times require one finite arrival and distance per waypoint"
+        )
+    if max_speed is not None and (not np.isfinite(max_speed) or max_speed <= 0):
+        raise ValueError("max_speed must be positive and finite")
+    fastest = np.cumsum(distance) / max_speed if max_speed else np.zeros_like(t)
+    slack = np.maximum(isotonic_regression(t - fastest).x, 0.0)
+    clock = fastest + slack
+    return np.diff(np.r_[0.0, clock])
+
+
 def clock_token_seconds(token, clock_mode, streams=None, *, initial_action):
-    """Validate incoming-rate tokens; velocity columns remain rates in every row."""
+    """Convert absolute duration columns once to incoming interval seconds.
+
+    Velocity columns remain rates in every row, including row zero. Both modes
+    require an explicit current pose; token width never selects a 16D clock.
+    """
     validate_clock_mode(clock_mode)
     value = np.array(token, dtype=np.float64)
     if value.ndim < 2 or value.shape[-1] not in (16, 18, 20):
         raise ValueError("Expected an ARC token with 16, 18 or 20 columns")
     if not np.isfinite(value).all():
         raise ValueError("ARC tokens must be finite")
-    _token_streams(value.shape[-1], streams)
-    _initial_actions(initial_action, value.shape[:-2])
+    streams = _token_streams(value.shape[-1], streams)
+    anchors = _initial_actions(initial_action, value.shape[:-2])
+    if clock_mode == "duration":
+        rows = value.reshape(-1, *value.shape[-2:])
+        for row, anchor in zip(rows, anchors.reshape(-1, 14)):
+            for index, name in enumerate(STREAM_NAMES[streams]):
+                for arm, off in enumerate((0, 7)):
+                    col = 14 + 2 * index + arm
+                    row[:, col] = absolute_times_to_seconds(
+                        row[:, col],
+                        stream_distances(
+                            row, off, name, streams, initial_action=anchor
+                        ),
+                        MAX_SPEED if name == "translation" else None,
+                    )
+        value = rows.reshape(value.shape)
     return value
 
 
@@ -127,7 +176,7 @@ def stack_arc_token(token, streams=None):
 
 
 class TokenizeBimanualArcLengthCartesian:
-    """M future targets with incoming per-waypoint rates.
+    """M future targets with incoming rates or absolute arrival seconds.
 
     The measured current pose is supplied separately as initial_action at t=0.
     Raw source row i is a future action at (i+1)*dt; it must not include the
@@ -243,14 +292,17 @@ class TokenizeBimanualArcLengthCartesian:
         for index, name in enumerate(self._stream_names):
             for arm, off in enumerate((0, 7)):
                 times = arrival_times[name, arm]
-                intervals = np.diff(np.r_[0.0, times])
-                distance = self._distances(waypoints, off, name, anchor)
-                clock = np.divide(
-                    distance,
-                    intervals,
-                    out=np.zeros_like(distance),
-                    where=intervals > _NUMERICAL_EPS,
-                )
+                if self.clock_mode == "duration":
+                    clock = times
+                else:
+                    intervals = np.diff(np.r_[0.0, times])
+                    distance = self._distances(waypoints, off, name, anchor)
+                    clock = np.divide(
+                        distance,
+                        intervals,
+                        out=np.zeros_like(distance),
+                        where=intervals > _NUMERICAL_EPS,
+                    )
                 clocks.append(clock)
         batch[self.output_action_key] = np.concatenate(
             (waypoints, np.stack(clocks, axis=1)), axis=1
@@ -330,18 +382,26 @@ class TokenizeBimanualArcLengthCartesian:
             waypoints, off, stream, self.streams, initial_action=initial_action
         )
 
-    def _native(self, token, initial_action):
+    def _native(self, token, initial_action, clocks_in_seconds=False):
         value = np.asarray(token, dtype=np.float64)
         if value.ndim != 2 or value.shape[1] != self.shape[1] or len(value) < 1:
             raise ValueError(f"Expected (M>=1, {self.shape[1]}) ARC token")
         if not np.isfinite(value).all():
             raise ValueError("ARC tokens must be finite")
         _initial_actions(initial_action)
-        return clock_token_seconds(
-            value, self.clock_mode, self.streams, initial_action=initial_action
+        if clocks_in_seconds and self.clock_mode != "duration":
+            raise ValueError("clocks_in_seconds is only valid for duration clocks")
+        return (
+            value.copy()
+            if clocks_in_seconds
+            else clock_token_seconds(
+                value, self.clock_mode, self.streams, initial_action=initial_action
+            )
         )
 
     def _intervals(self, distance, stored):
+        if self.clock_mode == "duration":
+            return np.maximum(stored, 0)
         moving, usable = distance > _NUMERICAL_EPS, np.abs(stored) > 1e-8
         intervals = np.divide(
             distance,
@@ -369,8 +429,10 @@ class TokenizeBimanualArcLengthCartesian:
         )
         return lower, upper, np.clip(alpha, 0.0, 1.0), elapsed
 
-    def detokenize(self, arc_actions, action_horizon, *, initial_action):
-        value = self._native(arc_actions, initial_action)
+    def detokenize(
+        self, arc_actions, action_horizon, *, initial_action, clocks_in_seconds=False
+    ):
+        value = self._native(arc_actions, initial_action, clocks_in_seconds)
         h = int(action_horizon)
         if h < 1:
             raise ValueError("action_horizon must be positive")

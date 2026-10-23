@@ -67,6 +67,7 @@ def validate_control(name, spec, *, stage_ids):
     if not isinstance(target, Mapping) or target.get("kind") not in {
         "stage_attribute",
         "policy_attribute",
+        "decoder_attribute",
     }:
         raise ValueError(
             f"Inference control {name!r} requires a declared setting target"
@@ -127,7 +128,7 @@ class _InferenceControlBinding:
         }
 
 
-def configure_profile_controls(graph, training, inference_profiles):
+def configure_profile_controls(graph, training, inference_profiles, *, decoder=None):
     """Bind declared settings by stable stage ID, with atomic preflight."""
     _, profile, _ = resolve_inference_profile(training, inference_profiles)
     stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
@@ -137,8 +138,16 @@ def configure_profile_controls(graph, training, inference_profiles):
         target = spec["target"]
         kind, path = target["kind"], target["attribute_path"]
         owner = attribute = None
-        if kind == "stage_attribute":
-            owner = graph.pipeline.stage_by_id(target["stage_id"])
+        if kind in {"stage_attribute", "decoder_attribute"}:
+            owner = (
+                graph.pipeline.stage_by_id(target["stage_id"])
+                if kind == "stage_attribute"
+                else decoder
+            )
+            if owner is None:
+                raise ValueError(
+                    "Decoder controls require an explicitly configured decoder"
+                )
             parts = path.split(".")
             for part in parts[:-1]:
                 if not hasattr(owner, part):
@@ -155,7 +164,44 @@ def configure_profile_controls(graph, training, inference_profiles):
             )
         )
     # No mutation occurs until every target and every default is valid.
-    for binding in bindings:
-        if binding.owner is not None:
-            setattr(binding.owner, binding.attribute, binding.value)
+    apply_control_bindings(
+        {binding.name: binding for binding in bindings},
+        {
+            binding.name: binding.value
+            for binding in bindings
+            if binding.owner is not None
+        },
+    )
     return tuple(bindings)
+
+
+def apply_control_bindings(controls, values, *, policy=None):
+    """Apply declared controls transactionally, including property validation.
+
+    Keep this boundary model-agnostic: ownership comes from YAML, not a model
+    class, tensor width, embodiment, or control name.
+    """
+    if not isinstance(values, Mapping) or set(values) - controls.keys():
+        raise ValueError("Inference overrides must name declared controls")
+    checked = {name: controls[name].validate(value) for name, value in values.items()}
+    targets = []
+    for name, value in checked.items():
+        control = controls[name]
+        owner = control.owner if control.owner is not None else policy
+        attribute = (
+            control.attribute if control.owner is not None else control.attribute_path
+        )
+        if owner is None or not hasattr(owner, attribute):
+            raise ValueError(f"Inference control {name!r} has no bound target")
+        targets.append((control, owner, attribute, value, getattr(owner, attribute)))
+    changed = []
+    try:
+        for control, owner, attribute, value, previous in targets:
+            changed.append((owner, attribute, previous))
+            setattr(owner, attribute, value)
+    except Exception:
+        for owner, attribute, previous in reversed(changed):
+            setattr(owner, attribute, previous)
+        raise
+    for control, _, _, value, _ in targets:
+        control.value = value

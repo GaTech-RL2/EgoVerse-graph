@@ -10,16 +10,22 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     _first_crossing_brackets,
     _slerp_segments_ypr,
     cumulative_arc_length,
+    cumulative_rotation_length,
 )
 
 CLOCK_MODES = ("velocity",)
-STREAM_MODES = ("translation",)
+STREAM_MODES = ("translation_rotation", "translation", "rotation")
 STREAM_NAMES = {
+    "translation_rotation": ("translation", "rotation"),
     "translation": ("translation",),
+    "rotation": ("rotation",),
 }
 STREAM_DIMS = {
+    "translation_rotation": 18,
     "translation": 16,
+    "rotation": 16,
 }
+CLOCK_COLUMNS = (0, 7, 3, 10)
 SINGLE_CLOCK_COLUMNS = (0, 7)
 _NUMERICAL_EPS = 1e-12
 
@@ -37,7 +43,7 @@ def validate_streams(streams):
 
 
 def bimanual_arc_token_shape(
-    resampled_vector_length, clock_mode="velocity", streams="translation"
+    resampled_vector_length, clock_mode="velocity", streams="translation_rotation"
 ):
     validate_clock_mode(clock_mode)
     validate_streams(streams)
@@ -60,7 +66,12 @@ def _initial_actions(initial_action, leading_shape=()):
 
 
 def _token_streams(width, streams):
-    streams = "translation" if streams is None else streams
+    if streams is None:
+        streams = {18: "translation_rotation"}.get(width)
+        if streams is None:
+            raise ValueError(
+                "16D ARC tokens require explicit translation or rotation streams"
+            )
     if STREAM_DIMS[validate_streams(streams)] != width:
         raise ValueError(f"{streams} tokens have {STREAM_DIMS[streams]} columns")
     return streams
@@ -75,6 +86,8 @@ def stream_distances(waypoints, off, stream, streams, *, initial_action=None):
         values = np.concatenate((anchor[None], values[:, :14]), axis=0)
     if stream == "translation":
         return np.linalg.norm(np.diff(values[:, off : off + 3], axis=0), axis=1)
+    if stream == "rotation":
+        return np.diff(cumulative_rotation_length(values[:, off + 3 : off + 6]))
     raise ValueError(f"Unknown ARC stream: {stream!r}")
 
 
@@ -82,8 +95,8 @@ def clock_token_seconds(token, clock_mode, streams=None, *, initial_action):
     """Validate incoming speed columns and the separate measured current pose."""
     validate_clock_mode(clock_mode)
     value = np.array(token, dtype=np.float64)
-    if value.ndim < 2 or value.shape[-1] not in (16,):
-        raise ValueError("Expected an ARC token with 16 columns")
+    if value.ndim < 2 or value.shape[-1] not in (16, 18):
+        raise ValueError("Expected an ARC token with 16 or 18 columns")
     if not np.isfinite(value).all():
         raise ValueError("ARC tokens must be finite")
     _token_streams(value.shape[-1], streams)
@@ -95,10 +108,12 @@ def stack_arc_token(token, streams=None):
     """Internal geometry/timing view, not a selectable serialized layout."""
     value = np.asarray(token, dtype=np.float64)
     if value.ndim < 2 or value.shape[-1] not in (16, 18, 20):
-        raise ValueError("Only the explicit 16D ARC contract is supported")
+        raise ValueError("Only the explicit 16D/18D ARC contracts are supported")
     streams = _token_streams(value.shape[-1], streams)
     cols = {
+        "translation_rotation": CLOCK_COLUMNS,
         "translation": SINGLE_CLOCK_COLUMNS,
+        "rotation": (3, 10),
     }[streams]
     timing = np.zeros(value.shape[:-1] + (14,))
     timing[..., cols] = value[..., 14:]
@@ -113,8 +128,8 @@ class TokenizeBimanualArcLengthCartesian:
     current observation row. Row zero has the same clock meaning as every other
     row: current->target 0, then target i-1->target i.
 
-    Each arm's translation supports and clock carry all seven pose/gripper
-    components of that arm. No legacy layout,
+    Translation-only and rotation-only streams use that stream's supports and
+    clock for all seven pose/gripper components of the arm. No legacy layout,
     initial-delay row, projection mode or synthetic hold window is inferred.
     """
 
@@ -123,13 +138,14 @@ class TokenizeBimanualArcLengthCartesian:
         action_key="actions_cartesian",
         output_action_key="actions_cartesian",
         min_distance_unit=0.60,
+        rotation_distance_unit=1.7453292519943295,
         resampled_vector_length=100,
         dt=1 / 30,
         zero_dist_epsilon=1e-6,
         preserve_action_key=None,
         preserve_action_rows=None,
         clock_mode="velocity",
-        streams="translation",
+        streams="translation_rotation",
         initial_action_key="arc.current_action",
     ):
         self.clock_mode = validate_clock_mode(clock_mode)
@@ -147,6 +163,7 @@ class TokenizeBimanualArcLengthCartesian:
         )
         for name, value in (
             ("D", min_distance_unit),
+            ("R", rotation_distance_unit),
             ("dt", dt),
             ("zero_dist_epsilon", zero_dist_epsilon),
         ):
@@ -154,6 +171,7 @@ class TokenizeBimanualArcLengthCartesian:
                 raise ValueError(f"{name} must be positive and finite")
         if preserve_action_rows is not None and int(preserve_action_rows) < 1:
             raise ValueError("preserve_action_rows must be positive")
+        self.rotation_distance_unit = float(rotation_distance_unit)
         self.zero_dist_epsilon = float(zero_dist_epsilon)
         self.tokenizer = SimpleNamespace(
             M=self.shape[0],
@@ -236,14 +254,27 @@ class TokenizeBimanualArcLengthCartesian:
         arms, times = [], {}
         dt = self.tokenizer.config.dt
         for arm, off in enumerate((0, 7)):
-            supports = self._resample_coordinates(
+            translation = self._resample_coordinates(
                 cumulative_arc_length(raw[:, off : off + 3]),
                 self.tokenizer.config.min_distance_unit,
             )
-            xyz = self._linear(raw[:, off : off + 3], *supports)
-            ypr = _slerp_segments_ypr(raw[:, off + 3 : off + 6], *supports)
-            grip = self._linear(raw[:, off + 6 : off + 7], *supports)
-            times["translation", arm] = (supports[0] + supports[1] + 1) * dt
+            rotation = self._resample_coordinates(
+                cumulative_rotation_length(raw[:, off + 3 : off + 6]),
+                self.rotation_distance_unit,
+            )
+            primary = rotation if self.streams == "rotation" else translation
+            xyz = self._linear(raw[:, off : off + 3], *primary)
+            rotation_supports = (
+                rotation if "rotation" in self._stream_names else primary
+            )
+            ypr = _slerp_segments_ypr(raw[:, off + 3 : off + 6], *rotation_supports)
+            grip = self._linear(raw[:, off + 6 : off + 7], *primary)
+            for name, supports in (
+                ("translation", translation),
+                ("rotation", rotation),
+            ):
+                if name in self._stream_names:
+                    times[name, arm] = (supports[0] + supports[1] + 1) * dt
             arms.append(np.concatenate((xyz, ypr, grip), axis=1))
         return np.concatenate(arms, axis=1), times
 
@@ -299,15 +330,21 @@ class TokenizeBimanualArcLengthCartesian:
         geometry = np.concatenate((anchor[None], value[:, :14]), axis=0)
         arms = []
         for arm, off in enumerate((0, 7)):
-            durations = self._intervals(
-                self._distances(value, off, "translation", anchor),
-                value[:, 14 + arm],
-            )
-            lo, hi, a, _ = self._clock_indices(durations, h)
+            indices = {}
+            for index, name in enumerate(self._stream_names):
+                durations = self._intervals(
+                    self._distances(value, off, name, anchor),
+                    value[:, 14 + index * 2 + arm],
+                )
+                lower, upper, alpha, _ = self._clock_indices(durations, h)
+                indices[name] = (lower, upper, alpha)
+            primary = indices.get("translation", indices.get("rotation"))
+            lo, hi, a = primary
             xyz = geometry[lo, off : off + 3] + a[:, None] * (
                 geometry[hi, off : off + 3] - geometry[lo, off : off + 3]
             )
-            ypr = _slerp_segments_ypr(geometry[:, off + 3 : off + 6], lo, a)
+            rlo, _, ra = indices.get("rotation", primary)
+            ypr = _slerp_segments_ypr(geometry[:, off + 3 : off + 6], rlo, ra)
             grip = geometry[:, off + 6 : off + 7]
             grip = grip[lo] + a[:, None] * (grip[hi] - grip[lo])
             arms.append(np.concatenate((xyz, ypr, grip), axis=1))

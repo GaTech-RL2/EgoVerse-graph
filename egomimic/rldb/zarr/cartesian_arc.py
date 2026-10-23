@@ -145,6 +145,8 @@ class TokenizeBimanualArcLengthCartesian:
         output_action_key="actions_cartesian",
         min_distance_unit=0.60,
         rotation_distance_unit=1.7453292519943295,
+        gripper_distance_unit=None,
+        gripper_stream_mode="events",
         resampled_vector_length=100,
         dt=1 / 30,
         zero_dist_epsilon=1e-6,
@@ -177,7 +179,20 @@ class TokenizeBimanualArcLengthCartesian:
                 raise ValueError(f"{name} must be positive and finite")
         if preserve_action_rows is not None and int(preserve_action_rows) < 1:
             raise ValueError("preserve_action_rows must be positive")
+        if gripper_stream_mode not in ("events", "distance"):
+            raise ValueError("gripper_stream_mode must be events or distance")
+        if streams == "full_separation" and gripper_stream_mode == "distance":
+            if (
+                gripper_distance_unit is None
+                or not np.isfinite(gripper_distance_unit)
+                or gripper_distance_unit <= 0
+            ):
+                raise ValueError(
+                    "Separate distance gripper streams require positive gripper_distance_unit"
+                )
         self.rotation_distance_unit = float(rotation_distance_unit)
+        self.gripper_distance_unit = gripper_distance_unit
+        self.gripper_stream_mode = gripper_stream_mode
         self.zero_dist_epsilon = float(zero_dist_epsilon)
         self.tokenizer = SimpleNamespace(
             M=self.shape[0],
@@ -276,9 +291,19 @@ class TokenizeBimanualArcLengthCartesian:
             ypr = _slerp_segments_ypr(raw[:, off + 3 : off + 6], *rotation_supports)
             if self.streams == "full_separation":
                 grip_values = raw[:, off + 6 : off + 7]
-                frames = self._gripper_event_frames(grip_values[:, 0])
-                grip = grip_values[frames]
-                times["gripper", arm] = (frames + 1) * dt
+                if self.gripper_stream_mode == "events":
+                    frames = self._gripper_event_frames(grip_values[:, 0])
+                    grip = grip_values[frames]
+                    times["gripper", arm] = (frames + 1) * dt
+                else:
+                    cumulative = np.r_[
+                        0.0, np.cumsum(np.abs(np.diff(grip_values[:, 0])))
+                    ]
+                    supports = self._resample_coordinates(
+                        cumulative, self.gripper_distance_unit
+                    )
+                    grip = self._linear(grip_values, *supports)
+                    times["gripper", arm] = (supports[0] + supports[1] + 1) * dt
             else:
                 grip = self._linear(raw[:, off + 6 : off + 7], *primary)
             for name, supports in (
@@ -371,7 +396,10 @@ class TokenizeBimanualArcLengthCartesian:
             rlo, _, ra = indices.get("rotation", primary)
             ypr = _slerp_segments_ypr(geometry[:, off + 3 : off + 6], rlo, ra)
             grip = geometry[:, off + 6 : off + 7]
-            if self.streams == "full_separation":
+            if (
+                self.streams == "full_separation"
+                and self.gripper_stream_mode == "events"
+            ):
                 clock = clocks["gripper"]
                 finite_end = clock[np.isfinite(clock)][-1]
                 tolerance = 8 * np.finfo(np.float32).eps * max(1.0, finite_end)

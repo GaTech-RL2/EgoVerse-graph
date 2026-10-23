@@ -157,6 +157,26 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return OmegaConf.create(config_tree)
 
 
+def _arc_normalization_contract(cfg: DictConfig) -> dict | None:
+    """Bind retained ARC recipes to cache provenance without changing old configs."""
+    contract = OmegaConf.select(cfg, "run_provenance.action_contract", default=None)
+    if contract is None or "arc_tokenizer" not in str(
+        contract.get("representation", "")
+    ):
+        return None
+    return OmegaConf.to_container(contract, resolve=True)
+
+
+def _normalization_options(cfg: DictConfig) -> dict | None:
+    """norm_stats as plain options, binding retained ARC recipes to cache provenance."""
+    options = cfg.get("norm_stats")
+    options = {} if options is None else OmegaConf.to_container(options, resolve=True)
+    contract = _arc_normalization_contract(cfg)
+    if contract is not None:
+        options["action_contract"] = contract
+    return options or None
+
+
 def _validate_run_config(cfg: DictConfig) -> str:
     if cfg.get("model") is None:
         raise ValueError("Select a complete Pipeline model config")
@@ -546,7 +566,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
     context = datamodule.prepare_context(
         mode="normalization" if cfg.get("norm_stats_only", False) else mode,
-        normalization=cfg.get("norm_stats"),
+        normalization=_normalization_options(cfg),
         normalizer=cfg.get("normalizer"),
         restored_state=None if checkpoint is None else checkpoint.get("data_context"),
     )

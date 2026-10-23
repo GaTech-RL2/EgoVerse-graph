@@ -7,7 +7,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 from egomimic.eval.checkpoint_loading import strict_load_pipeline_checkpoint
-from egomimic.pipeline.action_adapter import CanonicalSequenceAdapter
+from egomimic.pipeline.action_adapter import CanonicalSequenceAdapter, execution_prefix
 from egomimic.pipeline.checkpoint_binding import validate_artifact_binding
 from egomimic.pipeline.construction import checkpoint_construction
 from egomimic.pipeline.core import resolve_homogeneous_scalar
@@ -16,7 +16,10 @@ from egomimic.pipeline.inference_config import (
     validate_inference_config,
     validate_model_data_context,
 )
-from egomimic.pipeline.inference_controls import configure_profile_controls
+from egomimic.pipeline.inference_controls import (
+    apply_control_bindings,
+    configure_profile_controls,
+)
 from egomimic.pl_utils.data_context import DataContext
 
 
@@ -100,12 +103,23 @@ class InferenceSession:
         profile = next(iter(declaration["profiles"].values()))
         decoder = instantiate(profile["adapter"]["decoder"])
         self.adapter = CanonicalSequenceAdapter(
-            declaration["output"]["shape"], decoder=decoder
+            declaration["output"]["shape"],
+            decoder=decoder,
+            decode_context=instantiate(profile["adapter"].get("decode_context", {})),
+        )
+        if missing := set(self.adapter.context_input_keys) - set(
+            declaration["input"]["keys"]
+        ):
+            raise ValueError(
+                f"Decode context requires undeclared model inputs: {sorted(missing)}"
+            )
+        context.normalizer.validate_inference_schema(
+            schema, identity=identity, required_keys=self.adapter.context_input_keys
         )
         self._controls = {
             control.name: control
             for control in configure_profile_controls(
-                graph, training, declaration["profiles"]
+                graph, training, declaration["profiles"], decoder=decoder
             )
         }
         self.replan_every = None
@@ -142,13 +156,7 @@ class InferenceSession:
         checked = {
             name: self._controls[name].validate(value) for name, value in values.items()
         }
-        for name, value in checked.items():
-            control = self._controls[name]
-            if control.target_kind == "stage_attribute":
-                setattr(control.owner, control.attribute, value)
-            else:
-                setattr(self, control.attribute_path, value)
-            control.value = value
+        apply_control_bindings(self._controls, checked, policy=self)
         return self.inference_controls()
 
     @torch.no_grad()
@@ -184,11 +192,22 @@ class InferenceSession:
         native = self.context.normalizer.unnormalize(
             {self.action_key: result}, self.identity
         )[self.action_key]
-        return self.adapter(native)
+        # The decoder consumes physical values, never normalized observations.
+        # Raw callers already supplied those values; pre-normalized callers need
+        # exactly one inverse transform for the explicitly declared context keys.
+        native_observations = {
+            key: observations[key] for key in self.adapter.context_input_keys
+        }
+        if not self.normalize_inputs and native_observations:
+            native_observations = self.context.normalizer.unnormalize(
+                native_observations, self.identity
+            )
+        return self.adapter(native, observations=native_observations)
 
     def execution_plan(self, prediction):
-        return (
-            prediction
-            if self.replan_every is None
-            else prediction[:, : self.replan_every]
+        return execution_prefix(
+            prediction,
+            decoder=self.adapter.decoder,
+            replan_every=self.replan_every,
+            time_axis=1,
         )

@@ -10,6 +10,12 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from scipy.spatial.transform import Rotation
 
+from egomimic.pipeline.action_adapter import (
+    decode_actions,
+    execution_prefix,
+    resolve_decode_context,
+    validate_decode_context,
+)
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.inference_config import (
     build_inference_config,
@@ -17,6 +23,9 @@ from egomimic.pipeline.inference_config import (
     load_inference_config,
     validate_inference_config,
     validate_input_constants,
+)
+from egomimic.pipeline.inference_controls import (
+    apply_control_bindings,
 )
 from egomimic.pipeline.inference_controls import (
     configure_profile_controls as configure_profile_controls,
@@ -152,6 +161,7 @@ class CartesianGraphAdapter:
         action_key="actions_cartesian",
         prompt="",
         decoder=None,
+        decode_context=None,
         gripper_clip_tolerance=0.0,
     ):
         if rotation_mode not in ("euler", "6D") or action_frame not in (
@@ -180,6 +190,14 @@ class CartesianGraphAdapter:
         if not 0 <= self.gripper_clip_tolerance <= 0.5:
             raise ValueError("gripper_clip_tolerance must be in [0, 0.5]")
         self.prompt, self.decoder = prompt, decoder
+        self.decode_context = validate_decode_context(decoder, decode_context)
+        for provider in self.decode_context.values():
+            if getattr(provider, "action_frame", action_frame) != action_frame:
+                raise ValueError("Decode context and station action frames must match")
+            if getattr(provider, "rotation_mode", rotation_mode) != rotation_mode:
+                raise ValueError(
+                    "Decode context and station proprio rotations must match"
+                )
 
     def input_constants(self):
         return {"embodiment": self.embodiment_id}
@@ -200,6 +218,9 @@ class CartesianGraphAdapter:
             self.proprio_key: torch.tensor([proprio], dtype=torch.float32),
             "embodiment": torch.tensor([self.embodiment_id]),
             "annotations": [[self.prompt]],
+            # ABC-DiT reads its CLIP conditioning prompt from ``task``; HPT reads
+            # ``annotations``. Supplying both keeps the adapter graph-agnostic.
+            "task": [self.prompt],
         }
         for camera, key in self.camera_keys.items():
             bgr = obs.get(camera)
@@ -221,9 +242,11 @@ class CartesianGraphAdapter:
             )
         return values
 
-    def actions(self, native, obs):
-        if self.decoder is not None:
-            native = self.decoder(native)
+    def actions(self, native, obs, *, native_observations=None):
+        if self.decode_context and native_observations is None:
+            native_observations = self.observation(obs)
+        context = resolve_decode_context(self.decode_context, native_observations or {})
+        native = decode_actions(self.decoder, native, context=context)
         if torch.is_tensor(native):
             native = native.detach().cpu().numpy()
         native = np.asarray(native)
@@ -389,21 +412,15 @@ class GraphRobotPolicy:
             name: self._inference_controls[name].validate(value)
             for name, value in overrides.items()
         }
-        for name, value in validated.items():
-            control = self._inference_controls[name]
-            if control.target_kind == "stage_attribute":
-                setattr(control.owner, control.attribute, value)
-            else:
-                setattr(self, control.attribute_path, value)
-            control.value = value
+        apply_control_bindings(self._inference_controls, validated, policy=self)
         return self.inference_controls()
 
     def execution_plan(self, prediction):
         """Choose the executable prefix; the full prediction remains visualizable."""
         actions = np.asarray(prediction)
-        if self.replan_every is None:
-            return actions
-        return actions[: min(self.replan_every, len(actions))]
+        return execution_prefix(
+            actions, decoder=self.adapter.decoder, replan_every=self.replan_every
+        )
 
     def _observation(self, obs):
         values = self.adapter.observation(obs)
@@ -429,9 +446,8 @@ class GraphRobotPolicy:
     @torch.no_grad()
     def predict(self, obs):
         adapter = self.adapter
-        values = self.normalizer.normalize(
-            self._observation(obs), adapter.embodiment_id
-        )
+        native_observations = self._observation(obs)
+        values = self.normalizer.normalize(native_observations, adapter.embodiment_id)
         batch = self.graph.process_batch_for_training({"robot": values})
         error = None
         for _ in range(self.max_valid_samples):
@@ -446,7 +462,9 @@ class GraphRobotPolicy:
                 {adapter.action_key: prediction}, adapter.embodiment_id
             )[adapter.action_key]
             try:
-                actions = adapter.actions(native, obs)
+                actions = adapter.actions(
+                    native, obs, native_observations=native_observations
+                )
                 if self.output_shape is not None and actions.shape != self.output_shape:
                     raise ValueError(
                         "Inference graph violated its canonical output contract: "
@@ -465,6 +483,20 @@ class GraphRobotPolicy:
 
 
 def load_graph_policy(config):
+    legacy = sorted(
+        set(config)
+        & {
+            "inference_graph",
+            "inference_profiles",
+            "auto_inference_config",
+            "num_inference_steps",
+        }
+    )
+    if legacy:
+        raise ValueError(
+            f"Obsolete station inference settings {legacy}; use the model-owned "
+            "checkpoint-bound inference-config.yaml and its typed controls"
+        )
     training = OmegaConf.load(config["training_config"])
     device = validate_graph_device(str(config["device"]))
     inference_config_path = config.get("inference_config")
@@ -489,6 +521,7 @@ def load_graph_policy(config):
         adapter.proprio_key,
         "embodiment",
         "annotations",
+        "task",
         *adapter.camera_keys.values(),
     }
     missing = set(inference_graph["input"]["keys"]) - supplied_keys
@@ -508,11 +541,7 @@ def load_graph_policy(config):
     inference_controls = ()
     if inference_profiles is not None:
         inference_controls = configure_profile_controls(
-            graph, training, inference_profiles
-        )
-    elif "num_inference_steps" in config:
-        raise ValueError(
-            "Move num_inference_steps into the model-owned typed inference controls"
+            graph, training, inference_profiles, decoder=adapter.decoder
         )
     graph.nets.eval()
     return GraphRobotPolicy(

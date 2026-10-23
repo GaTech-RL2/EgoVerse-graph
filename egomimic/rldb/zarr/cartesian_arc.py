@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 from scipy.optimize import isotonic_regression
+from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     _first_crossing_brackets,
@@ -15,18 +16,26 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
 )
 
 CLOCK_MODES = ("velocity", "duration")
-STREAM_MODES = ("full_separation", "translation_rotation", "translation", "rotation")
+STREAM_MODES = (
+    "full_separation",
+    "translation_rotation",
+    "translation",
+    "rotation",
+    "projection",
+)
 STREAM_NAMES = {
     "full_separation": ("translation", "rotation", "gripper"),
     "translation_rotation": ("translation", "rotation"),
     "translation": ("translation",),
     "rotation": ("rotation",),
+    "projection": ("translation",),
 }
 STREAM_DIMS = {
     "full_separation": 20,
     "translation_rotation": 18,
     "translation": 16,
     "rotation": 16,
+    "projection": 16,
 }
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 CLOCK_COLUMNS = (0, 7, 3, 10)
@@ -34,6 +43,17 @@ SINGLE_CLOCK_COLUMNS = (0, 7)
 # Only absolute translation clocks have this speed bound, including anchor->row 0.
 MAX_SPEED = 5.0
 _NUMERICAL_EPS = 1e-12
+PROJECTION_OFFSET_M = (0.02, 0.02, 0.02)
+
+
+def translation_progress_points(values, offset, streams):
+    """Optional projection branch: measure travel at an offset wrist point."""
+    xyz = values[:, offset : offset + 3]
+    if streams == "projection":
+        xyz = xyz + Rotation.from_euler(
+            "ZYX", values[:, offset + 3 : offset + 6]
+        ).apply(PROJECTION_OFFSET_M)
+    return xyz
 
 
 def validate_clock_mode(mode):
@@ -91,7 +111,9 @@ def stream_distances(waypoints, off, stream, streams, *, initial_action=None):
         anchor = _initial_actions(initial_action)
         values = np.concatenate((anchor[None], values[:, :14]), axis=0)
     if stream == "translation":
-        return np.linalg.norm(np.diff(values[:, off : off + 3], axis=0), axis=1)
+        return np.linalg.norm(
+            np.diff(translation_progress_points(values, off, streams), axis=0), axis=1
+        )
     if stream == "rotation":
         return np.diff(cumulative_rotation_length(values[:, off + 3 : off + 6]))
     if stream == "gripper":
@@ -328,7 +350,9 @@ class TokenizeBimanualArcLengthCartesian:
         dt = self.tokenizer.config.dt
         for arm, off in enumerate((0, 7)):
             translation = self._resample_coordinates(
-                cumulative_arc_length(raw[:, off : off + 3]),
+                cumulative_arc_length(
+                    translation_progress_points(raw, off, self.streams)
+                ),
                 self.tokenizer.config.min_distance_unit,
             )
             rotation = self._resample_coordinates(

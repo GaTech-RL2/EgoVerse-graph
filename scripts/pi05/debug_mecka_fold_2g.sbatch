@@ -40,8 +40,8 @@ NORM_PATH="${NORM_PATH-/storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6
 ARGS=(
   --config-name=train_zarr_cartesian_pi
   data=pi05/mecka_fold_flagship_pi_6d
-  model=pi05/pi0.5_bc_mecka_6d
-  evaluator=pi05/eval_pi_wristframe_6d
+  model=pi/bc_mecka_6d
+  evaluator=eval_cartesian_wrist_6d_prompt
   launch_params.gpus_per_node=2
   trainer.check_val_every_n_epoch=10
   # norm stats from the full mecka set (superset, same distribution) — avoids

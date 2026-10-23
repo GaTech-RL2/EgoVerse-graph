@@ -21,38 +21,38 @@ cases:
   hpt-eva:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_eva, data=eva, evaluator=eval_hpt]
+    overrides: [model=hpt/bc_flow_eva, data=eva, evaluator=eval_cartesian_camera]
     sources: {eva_bimanual: eva}
   hpt-aria:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_human, data=aria, evaluator=eval_hpt]
+    overrides: [model=hpt/bc_flow_human, data=aria, evaluator=eval_cartesian_camera]
     sources: {human_bimanual: aria}
   hpt-mecka:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_mecka, data=mecka, evaluator=eval_hpt]
+    overrides: [model=hpt/bc_flow_mecka, data=mecka, evaluator=eval_cartesian_camera]
     sources: {human_bimanual: mecka}
   hpt-scale:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_scale, data=scale, evaluator=eval_hpt]
+    overrides: [model=hpt/bc_flow_scale, data=scale, evaluator=eval_cartesian_camera]
     sources: {human_bimanual: scale}
   hpt-yam:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [+experiment=abc/yam_fstshirt_hpt, evaluator=eval_hpt]
+    overrides: [model=hpt/yam_bimanual, data=abc_arc/abc_fstshirt_bc, evaluator=eval_cartesian_camera]
     sources: {yam_bimanual: yam}
     inference_identity: 7
   hpt-cotrain:
     suite: hpt
     config: train_zarr_cartesian
-    overrides: [model=hpt_cotrain_flow_seperate_head, data=cotrain_pi_base, evaluator=eval_hpt]
+    overrides: [model=hpt/cotrain_flow_seperate_head, data=cotrain_pi_base, evaluator=eval_cartesian_camera]
     sources: {eva_bimanual: eva, human_bimanual: aria}
   pi-eva:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_bc_eva, data=eva, evaluator=eval_pi]
+    overrides: [model=pi/bc_eva_legacy, data=eva, evaluator=eval_cartesian_camera_prompt]
     sources: {eva_bimanual: eva}
     runtime_overrides: &pi_runtime
       model.pipeline.stages.0.policy.gradient_checkpointing: true
@@ -62,31 +62,31 @@ cases:
   pi-aria:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_bc_aria, data=aria, evaluator=eval_pi]
+    overrides: [model=pi/bc_aria_legacy, data=aria, evaluator=eval_cartesian_camera_prompt]
     sources: {human_bimanual: aria}
     runtime_overrides: *pi_runtime
   pi-mecka:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_bc_mecka, data=mecka, evaluator=eval_pi]
+    overrides: [model=pi/bc_mecka_legacy, data=mecka, evaluator=eval_cartesian_camera_prompt]
     sources: {human_bimanual: mecka}
     runtime_overrides: *pi_runtime
   pi-scale:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_bc_mecka, data=scale, evaluator=eval_pi]
+    overrides: [model=pi/bc_mecka_legacy, data=scale, evaluator=eval_cartesian_camera_prompt]
     sources: {human_bimanual: scale}
     runtime_overrides: *pi_runtime
   pi-cotrain:
     suite: pi
     config: train_zarr_cartesian
-    overrides: [model=pi0.5_cotrain_eva_aria, data=cotrain_pi_base, evaluator=eval_pi]
+    overrides: [model=pi/cotrain_eva_aria_legacy, data=cotrain_pi_base, evaluator=eval_cartesian_camera_prompt]
     sources: {eva_bimanual: eva, human_bimanual: aria}
     runtime_overrides: *pi_runtime
   hpt-ddp:
     suite: ddp
     config: train_zarr_cartesian
-    overrides: [model=hpt_bc_flow_eva, data=eva, evaluator=eval_hpt]
+    overrides: [model=hpt/bc_flow_eva, data=eva, evaluator=eval_cartesian_camera]
     sources: {eva_bimanual: eva}
     trainer:
       devices: 2

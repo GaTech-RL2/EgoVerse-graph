@@ -28,7 +28,7 @@ mkdir -p "$OUT"
 echo "=== commit=$(git rev-parse --short HEAD) node=$SLURMD_NODENAME $(date) ==="
 "$PY" -u scripts/data/precompute_norm_stats.py \
   --data pi05/abc_stationery_pi_6d \
-  --model pi05/pi0.5_bc_abc_eva_6d \
+  --model pi/bc_abc_eva_6d \
   --sample-frac 0.2 \
   --max-samples 2000000 \
   --num-workers 22 \

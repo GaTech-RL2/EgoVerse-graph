@@ -56,8 +56,8 @@ fi
 ARGS=(
   --config-name=train_zarr_cartesian_pi
   data=pi05/aria_fold_pi_6d_grip
-  model=pi05/pi0.5_ft_aria_fold_grip
-  evaluator=pi05/eval_pi_wristframe_6d_grip
+  model=pi/ft_aria_fold_grip
+  evaluator=eval_cartesian_wrist_6d_gripper_prompt
   launch_params.gpus_per_node=4
   "model.optimizer.lr=$LR"
   "norm_stats.precomputed_norm_path=$NORM_PATH"

@@ -25,7 +25,7 @@ export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
 "$PY" scripts/data/precompute_norm_stats.py \
   --data pi05/mecka_all_pi_6d \
-  --model pi05/pi0.5_bc_mecka_6d \
+  --model pi/bc_mecka_6d \
   --sample-frac 0.1 \
   --num-workers 22 \
   --out /storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6d

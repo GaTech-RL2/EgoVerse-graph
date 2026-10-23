@@ -1,0 +1,43 @@
+# Recorded-episode execution evaluation; not closed-loop physics simulation.
+defaults:
+  - /evaluator/_base/yam_human_cartesian@_here_
+  - _self_
+_target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
+
+# Execution: baseline control steps or a prefix of canonical ARC waypoints.
+action_mode: auto
+ground_truth_action_key: actions_cartesian_untokenized
+execute_fraction: 0.3
+control_horizon: 100
+control_dt: 0.03333333333333333
+
+# Canonical codec: independent streams, ending at the first moving stream.
+# duration means absolute waypoint seconds; velocity means incoming rates.
+clock_mode: ${oc.select:abc.arc_clock_mode,velocity}
+streams: ${oc.select:abc.arc_streams,full_separation}
+min_distance_unit: ${oc.select:abc.arc_distance,0.40}
+rotation_distance_unit: ${oc.select:abc.arc_rotation_distance,1.7453292519943295}
+resampled_vector_length: ${oc.select:abc.arc_waypoints,100}
+gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}
+arc_execution_cap_mode: waypoints
+arc_video_trajectory_cap_mode: execution_horizon
+
+# Complete-episode scoring and bounded DTW work.
+require_episode_start: true
+requires_ordered_validation: true
+limit_val_episodes: null
+distance_dtw_enabled: true
+dtw_max_cells: 50000000
+dtw_max_prediction_steps: 30000
+dtw_max_segment_steps: null
+
+# Artifacts and overlays. Null dump paths disable optional diagnostic exports.
+results_path: ${paths.output_dir}/open_loop_sim.json
+video_output_dir: ${paths.output_dir}/val_videos
+video_overlay_mode: executed_chunk
+video_only: false
+viz_every_n_epochs: 1
+viz_max_batches: null
+log_step: null
+records_dump_path: null
+trajectory_snapshot_path: null

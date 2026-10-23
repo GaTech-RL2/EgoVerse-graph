@@ -1,0 +1,9 @@
+defaults:
+  - /evaluator/_base/cartesian_prompt@_here_
+  - _self_
+viz_max_batches: 10
+revert_transforms:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list

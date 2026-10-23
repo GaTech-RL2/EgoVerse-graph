@@ -344,7 +344,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 raise ValueError("Declare sampler or anchor_sampler, not both")
             from omegaconf import OmegaConf
 
-            from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
+            from egomimic.rldb.zarr.progress_sampler import build_anchor_sampler
 
             if OmegaConf.is_config(anchor_sampler):
                 anchor_sampler = OmegaConf.to_container(anchor_sampler, resolve=True)

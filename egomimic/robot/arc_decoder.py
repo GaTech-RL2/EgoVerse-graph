@@ -1,19 +1,11 @@
-"""Historical Cartesian ARC deployment is withdrawn at this review level.
+"""Stable import path for the single explicit stream implementation."""
 
-Baseline graph policies use decoder=None and remain available.
-The explicit ARC integration later replaces this temporary boundary.
-"""
+import egomimic.robot.stream_decoder as _implementation
 
 
-def _withdrawn(*args, **kwargs):
-    raise ValueError(
-        "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
-    )
+def __getattr__(name):
+    return getattr(_implementation, name)
 
 
-BimanualArcDecoder = _withdrawn
-BimanualIntervalArcDecoder = _withdrawn
-
-
-if __name__ == "__main__":
-    _withdrawn()
+def __dir__():
+    return sorted(set(globals()) | set(dir(_implementation)))

@@ -1,0 +1,6 @@
+# Metrics-only Cartesian chunks; the selected recipe supplies its batch budget.
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+action_key: actions_cartesian
+untokenized_action_key: actions_time
+limit_val_batches: ${yam.limit_val_batches}
+viz_func: null

@@ -1,7 +1,7 @@
 # Same dense-language cotrain data as `cotrain_pi_lang`, but the cartesian action
 # chunk is expressed with the continuous 6D rotation representation
 # (xyz+6D per arm, +gripper for eva) instead of xyz+ypr. Pairs with the
-# `cartesian_normalized_rot6d` action_encoding (model=pi0.5_cotrain_eva_aria_6d).
+# `cartesian_normalized_rot6d` action_encoding (model=pi/cotrain_eva_aria_6d).
 # Valid datasets inherit the train resolver via `${...}` interpolation in
 # cotrain_pi_base, so overriding the train transform mode is sufficient.
 # Graph port: train_viz is a nested validation group; episode filters retained.

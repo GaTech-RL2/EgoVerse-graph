@@ -1,0 +1,69 @@
+# @package _global_
+defaults:
+- /model/base/real_yam_settings
+- override /model: hpt/yam_300m
+- override /data: abc_arc/stationary
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_yam
+- override /callbacks: real_yam
+- override /logger: wandb
+- _self_
+yam:
+  policy_domain: yam
+  variant: time
+  spread: stationery
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+  train_mode: total
+  valid_mode: total
+  D: 0.4
+  M: 100
+  time_rows: 100
+  chunk_length: 100
+  h_match_frames: 40
+  limit_val_batches: 40
+  prog_horizon_m: 0.19
+  anchor_sampler: null
+  arcmatch_gt_span_m: null
+  action_dim: 14
+  action_horizon: 100
+  image_weights: DEFAULT
+name: stationary_time
+description: h840t19_d320x6_cos10k_240k_${name}
+arc_tokenizer:
+  min_distance_unit: 0.4
+  resampled_vector_length: 100
+norm_stats:
+  sample_frac: 0.2
+  num_workers: 8
+  save_cache_dir: null
+ft:
+  max_steps: 240000
+  warmup_steps: 10000
+init_weights_from: null
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+  work_dir: null
+logger:
+  wandb:
+    save_dir: null
+    id: ${name}_s${seed}
+    project: arc
+    tags:
+    - rl2
+    - stationery
+    - sp366e51
+    - hpt300
+    - time
+    - open_loop
+    resume: never
+evaluator:
+  arc_video_trajectory_cap_mode: distance
+  limit_val_episodes: null
+  execute_fraction: 0.25
+  distance_dtw_enabled: false
+  viz_every_n_epochs: 0
+  ground_truth_action_key: actions_time
+  action_mode: baseline
+  min_distance_unit: 0.4
+  resampled_vector_length: 100

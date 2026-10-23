@@ -1,0 +1,8 @@
+# Frame-independent drawing; the evaluator owns coordinate reversion.
+defaults:
+  - cartesian
+  - _self_
+eva_bimanual:
+  annotation_key: sampled_prompt
+human_bimanual:
+  annotation_key: sampled_prompt

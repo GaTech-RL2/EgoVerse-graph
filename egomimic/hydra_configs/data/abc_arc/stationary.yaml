@@ -1,0 +1,29 @@
+# rl2 organize_stationary pool, pointed at the SQL task (2026-10-22): every lab=rl2 yam_bimanual rl2_abc episode under
+# task organize_stationary with a processed zarr. The slow-pace 366 + Elmo's 51 (417 train / 24 val) are all the task
+# holds: the unused episodes (Aniketh's 09-17 re-collection, one zero-frame take) were moved to organize_stationary_retired
+# and the 12 pool episodes that carried organize_stationary_updated were folded into organize_stationary; sort_stationary_slow
+# is untouched. Validation is the frozen 24 listed below; the counts and SHA-256 pins guard the membership.
+defaults:
+- /data/abc_arc/stationery_yam_loader@_here_
+- _self_
+train_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row, V=frozenset({''2026-09-17-02-03-12-295000'',''2026-09-17-02-07-27-923000'',''2026-09-17-02-09-13-305000'',''2026-09-17-02-11-00-763000'',''2026-09-17-02-34-08-300000'',''2026-09-17-02-52-18-469000'',''2026-09-17-03-04-46-076000'',''2026-09-17-03-25-51-773000'',''2026-09-17-03-31-48-282000'',''2026-09-17-03-34-28-439000'',''2026-09-17-03-39-54-170000'',''2026-09-17-03-46-27-156000'',''2026-09-19-19-44-15-224000'',''2026-09-19-19-54-45-507000'',''2026-09-19-20-10-59-111000'',''2026-09-24-17-07-24-828000'',''2026-09-24-17-48-59-973000'',''2026-09-24-19-17-01-122000'',''2026-09-24-19-41-27-111000'',''2026-09-24-19-47-08-898000'',''2026-09-24-20-45-45-762000'',''2026-09-24-20-50-44-928000'',''2026-09-24-21-02-00-368000'',''2026-09-24-22-37-35-658000''}):
+        row[''embodiment''] == ''yam_bimanual'' and row[''lab''] == ''rl2'' and row[''task'']
+        == ''organize_stationary'' and row[''rig_name''] == ''rl2_abc'' and row[''zarr_processed_path'']
+        != '''' and row[''is_deleted''] == False and row[''episode_hash''] not in
+        V'
+    expected_train_episode_count: 417
+    expected_train_episode_names_sha256: 5128bedbaf3ace41897dbd7a5a9c2adf563aa5031605c0c4af30c5417165e39a
+valid_datasets:
+  yam_bimanual:
+    filters:
+      filter_lambdas:
+      - 'lambda row, V=frozenset({''2026-09-17-02-03-12-295000'',''2026-09-17-02-07-27-923000'',''2026-09-17-02-09-13-305000'',''2026-09-17-02-11-00-763000'',''2026-09-17-02-34-08-300000'',''2026-09-17-02-52-18-469000'',''2026-09-17-03-04-46-076000'',''2026-09-17-03-25-51-773000'',''2026-09-17-03-31-48-282000'',''2026-09-17-03-34-28-439000'',''2026-09-17-03-39-54-170000'',''2026-09-17-03-46-27-156000'',''2026-09-19-19-44-15-224000'',''2026-09-19-19-54-45-507000'',''2026-09-19-20-10-59-111000'',''2026-09-24-17-07-24-828000'',''2026-09-24-17-48-59-973000'',''2026-09-24-19-17-01-122000'',''2026-09-24-19-41-27-111000'',''2026-09-24-19-47-08-898000'',''2026-09-24-20-45-45-762000'',''2026-09-24-20-50-44-928000'',''2026-09-24-21-02-00-368000'',''2026-09-24-22-37-35-658000''}):
+        row[''embodiment''] == ''yam_bimanual'' and row[''lab''] == ''rl2'' and row[''task'']
+        == ''organize_stationary'' and row[''rig_name''] == ''rl2_abc'' and row[''zarr_processed_path'']
+        != '''' and row[''is_deleted''] == False and row[''episode_hash''] in V'
+    expected_train_episode_count: 24
+    expected_train_episode_names_sha256: 8444289c363ede1f4527515bc668f42f42a586524f760d10c39a07426a4b3243

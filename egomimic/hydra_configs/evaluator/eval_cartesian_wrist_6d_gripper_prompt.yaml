@@ -1,0 +1,6 @@
+defaults:
+  - eval_cartesian_wrist_6d_prompt
+  - _self_
+revert_transforms:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_grip_transform_list

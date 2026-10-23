@@ -1,0 +1,19 @@
+# Shared native-pose bindings; both metrics and videos use the same reversion.
+defaults:
+  - /evaluator/viz@viz_func: cartesian/base
+  - _self_
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+action_key: actions_cartesian
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+video_chunk_frames: 1000
+max_episode_frames: 6000

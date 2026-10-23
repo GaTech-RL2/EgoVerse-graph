@@ -1,18 +1,33 @@
-"""Configurable bimanual Cartesian chunks and ARC timing targets.
+"""Bimanual raw-window transforms for baseline and canonical ARC targets."""
 
-Dataset selection and experimental parameters belong in Hydra YAML.
-"""
-
-from __future__ import annotations
+import numpy as np
 
 from egomimic.rldb.embodiment.human import (
     Human,
     _build_human_cartesian_eef_frame_transform_list,
     _pad_human_cartesian_gripper,
 )
-from egomimic.rldb.zarr.cartesian_baseline_support import CopyKeyRows
+from egomimic.rldb.zarr.action_chunk_transforms import StoreArcCurrentAction
+from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
 
-VARIANTS = ("time",)
+VARIANTS = ("time", "arc")
+
+
+class CopyKeyRows:
+    def __init__(self, src, dst, n_rows):
+        self.src, self.dst, self.n_rows = src, dst, int(n_rows)
+
+    def transform(self, batch):
+        value = np.asarray(batch[self.src])
+        if len(value) == 0 or self.n_rows < 1:
+            raise ValueError("Cannot preserve an empty source or nonpositive horizon")
+        out = value[: self.n_rows].copy()
+        if len(out) < self.n_rows:
+            out = np.concatenate(
+                (out, np.repeat(out[-1:], self.n_rows - len(out), axis=0))
+            )
+        batch[self.dst] = out
+        return batch
 
 
 def get_keymap(
@@ -20,9 +35,22 @@ def get_keymap(
     keymap_mode: str = "cartesian",
     embodiment: str = "human",
     drop_wrist_images: bool = True,
+    yam_source_frames: int | None = None,
+    variant: str = "time",
     **kwargs,
 ):
-    """Plain cartesian keymap with every action key's raw window set to ``horizon``."""
+    """Build a Cartesian keymap, preserving declarative distance horizons.
+
+    ``yam_source_frames`` explicitly pins a YAM Cartesian source window for
+    stationery recipes. Otherwise the caller's horizon remains unchanged.
+    """
+    if variant not in VARIANTS:
+        raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+    if yam_source_frames is not None:
+        if type(yam_source_frames) is not int or yam_source_frames < 1:
+            raise ValueError("yam_source_frames must be a positive integer")
+        if embodiment != "yam" or keymap_mode != "cartesian":
+            raise ValueError("yam_source_frames applies only to YAM cartesian windows")
     if embodiment == "human":
         key_map = Human.get_keymap(keymap_mode, **kwargs)
     elif embodiment == "yam":
@@ -38,8 +66,16 @@ def get_keymap(
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     for spec in key_map.values():
-        if "horizon" in spec:
-            spec["horizon"] = int(horizon)
+        if variant == "arc" and spec.get("key_type") == "action_keys":
+            spec["start_offset"] = 1
+        if "horizon" not in spec:
+            continue
+        # A distance horizon is a resolver contract, not an integer frame count.
+        if isinstance(spec["horizon"], dict):
+            continue
+        spec["horizon"] = int(
+            horizon if yam_source_frames is None else yam_source_frames
+        )
     return key_map
 
 
@@ -51,24 +87,26 @@ def get_transform_list(
     resampled_vector_length: int = 100,
     stride: int = 1,
     rotation_mode: str = "euler",
-    speed_smooth_frames: int = 7,
-    velocity_norm: str = "path",
-    progress_smooth_hz: float | None = None,
     embodiment: str = "human",
-    fixed_spacing: bool = False,
     source_fps: float = 30.0,
+    yam_source_frames: int | None = None,
+    rotation_distance_unit: float = 1.7453292519943295,
+    clock_mode: str = "velocity",
+    streams: str = "full_separation",
+    gripper_distance_unit: float | None = None,
+    gripper_stream_mode: str = "events",
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
     if variant not in VARIANTS:
-        raise ValueError(
-            "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
-        )
+        raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+    if variant == "arc" and stride != 1:
+        raise ValueError("Arrival ARC requires native future frames with stride=1")
     if embodiment == "human":
         tl = _build_human_cartesian_eef_frame_transform_list(
             stride=int(stride),
             rotation_mode=rotation_mode,
-            chunk_length=int(chunk_length),
+            chunk_length=None if variant == "arc" else int(chunk_length),
         )
         tl = _pad_human_cartesian_gripper(tl, rotation_mode=rotation_mode)
     elif embodiment == "yam":
@@ -76,12 +114,41 @@ def get_transform_list(
             _build_yam_bimanual_eef_frame_transform_list,
         )
 
+        # Stationery pins native source frames; older main recipes retain their
+        # configured interpolation horizon and stride.
+        if yam_source_frames is not None and (
+            type(yam_source_frames) is not int or yam_source_frames < 1
+        ):
+            raise ValueError("yam_source_frames must be a positive integer")
+        # Native windows are already padded by the loader. TIME must also
+        # preserve these rows exactly, as in the original stationery source.
+        yam_chunk_length = (
+            None
+            if variant == "arc" or yam_source_frames is not None
+            else int(chunk_length)
+        )
+        yam_stride = 1 if yam_source_frames is not None else int(stride)
         tl = _build_yam_bimanual_eef_frame_transform_list(
-            stride=int(stride),
+            stride=yam_stride,
             rotation_mode=rotation_mode,
-            chunk_length=int(chunk_length),
+            chunk_length=yam_chunk_length,
         )
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
+    if variant == "arc":
+        tl.append(StoreArcCurrentAction(coord_frame="eef_frame"))
+        tl.append(
+            TokenizeBimanualArcLengthCartesian(
+                initial_action_key="arc.current_action",
+                min_distance_unit=min_distance_unit,
+                rotation_distance_unit=rotation_distance_unit,
+                resampled_vector_length=resampled_vector_length,
+                clock_mode=clock_mode,
+                streams=streams,
+                gripper_distance_unit=gripper_distance_unit,
+                gripper_stream_mode=gripper_stream_mode,
+                dt=1 / source_fps,
+            )
+        )
     return tl

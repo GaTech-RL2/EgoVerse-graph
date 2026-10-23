@@ -1,5 +1,0 @@
-# Compatibility name for saved commands/configs; architecture is shared.
-# Canonical definition: pi05/pi0.5_bc_abc_eva_6d.yaml
-defaults:
-  - /model/pi05/pi0.5_bc_abc_eva_6d@_here_
-  - _self_

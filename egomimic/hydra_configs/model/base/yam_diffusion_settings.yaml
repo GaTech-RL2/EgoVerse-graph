@@ -1,0 +1,31 @@
+# @package _global_
+# Model hyperparameters only; task, dataset and trainer choices stay experiment-owned.
+abc:
+  action_dim: 14
+  action_horizon: 100
+  condition_dim: 78
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      ee_pose:
+        input_dim: 14
+        input_slice:
+        - 0
+        - 14
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 480
+        image_width: 640
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 432
+        crop_width: 576
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax

@@ -34,6 +34,8 @@ _SPEC = importlib.util.spec_from_file_location(
 )
 config_graph = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(config_graph)
+_MODEL_YAML = _REPO / "egomimic/hydra_configs/model/abc/yam_bimanual_dp.yaml"
+_GRAPH_OVERRIDES = ["data=abc_arc/abc_fstshirt_bc", "~evaluator"]
 
 
 # -- embodiment registration ------------------------------------------------
@@ -192,18 +194,17 @@ def test_action_target_builder_is_excluded_from_the_inference_graph():
 
 
 @pytest.mark.parametrize("mode", ["train", "inference"])
-def test_abc_experiment_graph_lints_clean(mode):
-    graph = config_graph.build_graph(
-        _REPO / "egomimic/hydra_configs/experiment/abc/yam_fstshirt_dp.yaml", mode=mode
-    )
+def test_abc_model_graph_lints_clean(mode):
+    graph = config_graph.build_graph(_MODEL_YAML, mode=mode, overrides=_GRAPH_OVERRIDES)
     assert graph["lint"] == []
     assert graph["seed_keys_by_source"]["yam_bimanual"]
 
 
 def test_abc_train_graph_has_the_five_dp_stages_and_a_loss():
     graph = config_graph.build_graph(
-        _REPO / "egomimic/hydra_configs/experiment/abc/yam_fstshirt_dp.yaml",
+        _MODEL_YAML,
         mode="train",
+        overrides=_GRAPH_OVERRIDES,
     )
     assert [node["t"] for node in graph["nodes"]] == [
         "FusedObsEncoder",
@@ -219,8 +220,9 @@ def test_abc_train_graph_has_the_five_dp_stages_and_a_loss():
 
 def test_abc_inference_graph_drops_the_training_only_stages():
     graph = config_graph.build_graph(
-        _REPO / "egomimic/hydra_configs/experiment/abc/yam_fstshirt_dp.yaml",
+        _MODEL_YAML,
         mode="inference",
+        overrides=_GRAPH_OVERRIDES,
     )
     skipped = {entry["t"] for entry in graph["skipped_stages"]}
     assert skipped == {

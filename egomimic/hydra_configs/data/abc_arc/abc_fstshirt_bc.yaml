@@ -6,9 +6,9 @@
 # ABC-ONLY (no cotraining) time-indexed BC data: fold_and_stack_the_t_shirts,
 # yam_bimanual.
 #
-# Retained for experiment/abc/yam_fstshirt_{dp,hpt}. Historical cotrain/ARC
-# ablation templates were retired; the supported ARC experiments now live in
-# experiment/abc_arc/{robot_bc,human_bc}. Keep this older baseline's 20-episode
+# Reusable by the YAM diffusion and HPT models. The old experiment/abc menu
+# is retired; supported run entrypoints now live in experiment/arc_real/.
+# Keep this older baseline's 20-episode
 # sampling contract unchanged for its existing consumers.
 _target_: egomimic.rldb.zarr.data_module.ZarrDataModule
 _recursive_: false

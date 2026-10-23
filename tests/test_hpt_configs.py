@@ -6,11 +6,13 @@ from pathlib import Path
 import hydra
 import pytest
 import torch
+import torchvision
 from hydra import compose, initialize_config_dir
 
 _REPO = Path(__file__).resolve().parents[1]
 _CONFIGS = _REPO / "egomimic/hydra_configs"
-_EXPERIMENT = "abc/yam_fstshirt_hpt"
+_MODEL = "hpt/yam_bimanual"
+_DATA = "abc_arc/abc_fstshirt_bc"
 
 _SPEC = importlib.util.spec_from_file_location(
     "config_graph_hpt", _REPO / "tools/config_graph.py"
@@ -18,14 +20,29 @@ _SPEC = importlib.util.spec_from_file_location(
 config_graph = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(config_graph)
 
-_EXPERIMENT_YAML = _CONFIGS / "experiment" / "abc" / "yam_fstshirt_hpt.yaml"
+_MODEL_YAML = _CONFIGS / "model" / "hpt" / "yam_bimanual.yaml"
+_GRAPH_OVERRIDES = [f"data={_DATA}", "~evaluator"]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def offline_resnet_weights():
+    """Exercise the real architecture without downloading ImageNet weights."""
+    real_resnet18 = torchvision.models.resnet18
+
+    def offline_resnet18(*args, **kwargs):
+        kwargs["weights"] = None
+        return real_resnet18(*args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(torchvision.models, "resnet18", offline_resnet18)
+        yield
 
 
 def _cfg():
     with initialize_config_dir(version_base=None, config_dir=str(_CONFIGS)):
         return compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment={_EXPERIMENT}", "++paths.root_dir=."],
+            overrides=[f"model={_MODEL}", *_GRAPH_OVERRIDES, "++paths.root_dir=."],
         )
 
 
@@ -91,11 +108,18 @@ def test_action_key_matches_what_the_yam_transform_list_emits(cfg):
 
 @pytest.mark.parametrize("mode", ["train", "inference"])
 def test_the_configured_graph_lints_clean(mode):
-    assert config_graph.build_graph(_EXPERIMENT_YAML, mode=mode)["lint"] == []
+    assert (
+        config_graph.build_graph(_MODEL_YAML, mode=mode, overrides=_GRAPH_OVERRIDES)[
+            "lint"
+        ]
+        == []
+    )
 
 
 def test_inference_drops_the_training_only_stages():
-    graph = config_graph.build_graph(_EXPERIMENT_YAML, mode="inference")
+    graph = config_graph.build_graph(
+        _MODEL_YAML, mode="inference", overrides=_GRAPH_OVERRIDES
+    )
     assert {e["t"] for e in graph["skipped_stages"]} == {
         "ActionTargetBuilder",
         "FlowNoisingStage",
@@ -106,7 +130,9 @@ def test_inference_drops_the_training_only_stages():
 
 def test_the_encoder_survives_into_inference():
     """Stems and trunk must NOT be mode-restricted: sampling needs them."""
-    graph = config_graph.build_graph(_EXPERIMENT_YAML, mode="inference")
+    graph = config_graph.build_graph(
+        _MODEL_YAML, mode="inference", overrides=_GRAPH_OVERRIDES
+    )
     names = [n["t"] for n in graph["nodes"]]
     assert names[:2] == ["HPTStemStage", "HPTTrunkStage"]
 
@@ -158,11 +184,15 @@ def test_inference_samples_an_action_chunk(cfg, algo):
 
 
 def test_the_dp_counterpart_still_uses_diffusion(cfg):
-    """The two abc experiments must stay distinct architectures."""
+    """The two YAM model configurations must stay distinct architectures."""
     with initialize_config_dir(version_base=None, config_dir=str(_CONFIGS)):
         dp = compose(
             config_name="train_zarr_cartesian",
-            overrides=["+experiment=abc/yam_fstshirt_dp", "++paths.root_dir=."],
+            overrides=[
+                "model=abc/yam_bimanual_dp",
+                *_GRAPH_OVERRIDES,
+                "++paths.root_dir=.",
+            ],
         )
     dp_stages = [s._target_.rsplit(".", 1)[-1] for s in dp.model.pipeline.stages]
     hpt_stages = [s._target_.rsplit(".", 1)[-1] for s in cfg.model.pipeline.stages]

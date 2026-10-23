@@ -6,6 +6,8 @@ stack for training and evaluation.
 For cluster training and maintenance, start with
 [Pipeline and cluster operations](docs/cluster-pipeline.md). It distinguishes
 current source, historical run checkouts, and shared data/runtime dependencies.
+For current task recipes and the data/model/evaluator configuration layout,
+start with the [configuration guide](docs/CONFIGURATION.md).
 For the integration branch, start with the [migration guide](docs/integration/MIGRATION.md)
 for the locked environment, retained HPT/PI recipes, data tools, and checkpoint
 rules. [Integration status](docs/integration/PLAN.md) records the draft stack and
@@ -146,14 +148,22 @@ python egomimic/scripts/data_download/sync_s3.py \
 ```
 
 ### Training
-Select a complete Pipeline experiment; the root config deliberately has no
-implicit model, data, or evaluator:
-``` bash
-python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-  model=<pipeline-model-config> data=<dataset-config> \
-  evaluator=<evaluator-config>
+Select a complete task recipe. Each public real experiment explicitly links its
+model, data, evaluator, trainer, callbacks and logger. Inspect it without
+starting training:
+
+```bash
+python egomimic/trainHydra.py \
+  +experiment=arc_real/stationary_velocity --cfg job --resolve
 ```
-For full instructions on training see [``training.md``](./training.md)
+
+The [experiment menu](egomimic/hydra_configs/experiment/README.md) lists
+`baseline`, `arc_vel` and `arc_dur` for each real task. A cluster launch adds
+`-m hydra/launcher=<approved-submitit-config>` after resource/data preflight;
+machine-specific paths and credentials must be configured. Advanced direct
+`model=... data=... evaluator=...` composition remains supported; the root
+config deliberately does not select those components implicitly.
+See [training.md](./training.md) for the graph and launch workflow.
 
 ### Converting your own data
 See [``embodiment_tutorial.ipynb``](./egomimic/scripts/tutorials/embodiment_tutorial.ipynb) as reference to write a conversion script for your own data.

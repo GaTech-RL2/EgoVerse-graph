@@ -1,7 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/sim/oat/libero_base
-  - override /model: oat/tokenizer
-  - _self_
-benchmark:
-  n_obs_steps: 0

@@ -1,32 +1,60 @@
 # @package _global_
 defaults:
-  - /experiment/_shared/visual_hpt300
-  - _self_
-
-name: abc_towels_hpt180_baseline_visual_openloop
-description: HPT180 ABC towels visual-only baseline 100-frame chunks
-
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: hpt/yam_visual
+- override /data: abc_arc/abc_visual
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
 abc:
-  task_predicate: "row['task'] == 'fold and stack the towels'"
   action_mode: cartesian
-  arc_distance: 0.40
+  action_horizon: 100
+  arc_distance: 0.4
   arc_rotation_distance: 0.4188790204786391
-
+  arc_waypoints: 100
+  arc_chunking_mode: multistream
+  task_predicate: row['task'] == 'fold and stack the towels'
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
 hpt:
   embed_dim: 640
   num_heads: 8
-  action_horizon: 100
   flow_blocks: 10
   flow_hidden_dim: 384
   stem_specs:
     cross_attn:
       crossattn_dim_head: 80
-
+norm_stats:
+  sample_frac: 0.1
 evaluator:
   action_mode: baseline
   ground_truth_action_key: actions_cartesian
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  arc_chunking_mode: ${abc.arc_chunking_mode}
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
   limit_val_episodes: 4
-
+  requires_ordered_validation: true
 logger:
   wandb:
-    tags: [hpt180, abc, towels, visual_only, no_language, baseline, open_loop, video]
+    project: abc-yam
+    tags:
+    - hpt180
+    - abc
+    - towels
+    - visual_only
+    - no_language
+    - baseline
+    - open_loop
+    - video
+name: abc_towels_hpt180_baseline_visual_openloop
+description: HPT180 ABC towels visual-only baseline 100-frame chunks

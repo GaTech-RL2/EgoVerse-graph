@@ -10,7 +10,7 @@ from egomimic.pipeline.inference_config import build_inference_config
 from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
 from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
-REAL = CONFIGS / "experiment/real"
+REAL = CONFIGS / "experiment/arc_real"
 TASKS = {"stationary": 0.22, "earbuds": 0.22, "towels": 0.33}
 MODES = ("time", "duration", "velocity")
 POOLS = {"stationary": (417, 24), "earbuds": (339, 15), "towels": (462, 17)}
@@ -59,9 +59,9 @@ def test_the_three_leaves_of_a_task_share_graph_widths_pool_and_schedule(task):
 
 
 @pytest.mark.parametrize("task", TASKS)
-def test_time_leaf_is_the_frozen_yam_time_baseline(task):
+def test_time_leaf_is_the_yam_time_baseline(task):
     with compose_for_audit(REAL / f"{task}_time.yaml") as cfg:
-        assert cfg.frozen_yam.variant == "time"
+        assert cfg.yam.variant == "time"
         assert "abc" not in cfg
         assert cfg.evaluator.action_mode == "baseline"
         for split in ("train_datasets", "valid_datasets"):

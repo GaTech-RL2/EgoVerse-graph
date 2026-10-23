@@ -15,24 +15,21 @@ from egomimic.rldb.zarr.data_module import _preprocessing_contract
 from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
 PI_CASES = [
-    ("pi0.5_bc_eva", "eva_pi_lang"),
-    ("pi0.5_bc_abc_eva_6d", "pi05/abc_eva_pi_6d"),
-    ("pi0.5_ft_abc_eva_6d", "pi05/abc_eva_pi_6d"),
-    ("pi0.5_bc_mecka_6d", "pi05/mecka_all_pi_6d"),
-    ("pi0.5_bc_mecka_abc_6d", "pi05/mecka_abc_pi_6d"),
-    ("pi0.5_cotrain_eva_aria_6d", "pi05/cotrain_pi_lang_6d"),
-    ("pi0.5_ft_aria_fold_grip", "pi05/aria_fold_pi_6d_grip"),
+    ("pi/bc_eva_legacy", "eva_pi_lang"),
+    ("pi/bc_abc_eva_6d", "pi05/abc_eva_pi_6d"),
+    ("pi/bc_mecka_6d", "pi05/mecka_all_pi_6d"),
+    ("pi/bc_mecka_abc_6d", "pi05/mecka_abc_pi_6d"),
+    ("pi/cotrain_eva_aria_6d", "pi05/cotrain_pi_lang_6d"),
+    ("pi/ft_aria_fold_grip", "pi05/aria_fold_pi_6d_grip"),
 ]
 EXPERIMENTS = [
-    "abc/yam_fstshirt_dp",
-    "abc/yam_fstshirt_hpt",
     "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
     "abc_arc/robot_bc/multitask/arc_dur",
-    "real/stationary_time",
-    "real/stationary_velocity",
-    "real/stationary_duration",
-    "real/earbuds_duration",
-    "real/towels_duration",
+    "arc_real/stationary_time",
+    "arc_real/stationary_velocity",
+    "arc_real/stationary_duration",
+    "arc_real/earbuds_duration",
+    "arc_real/towels_duration",
 ]
 SOURCE_IDENTITIES = {"human_bimanual": "3", "eva_bimanual": "6", "yam_bimanual": "7"}
 
@@ -83,7 +80,7 @@ def test_pi_selected_frame_rotation_and_stride(model, data):
         cfg = compose(
             config_name="train_zarr_cartesian_pi",
             overrides=[
-                f"model=pi05/{model}",
+                f"model={model}",
                 f"data={data}",
                 "pi05.pretrained_weights=/unused/no-weight-download",
             ],
@@ -95,6 +92,16 @@ def test_pi_selected_frame_rotation_and_stride(model, data):
 def test_yam_arc_and_tempo_selected_contracts(experiment):
     with compose_for_audit(CONFIGS / f"experiment/{experiment}.yaml") as cfg:
         check_selected_contract(cfg)
+
+
+@pytest.mark.parametrize("model", ["abc/yam_bimanual_dp", "hpt/yam_bimanual"])
+def test_reusable_yam_model_data_contracts(model):
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
+        cfg = compose(
+            config_name="train_zarr_cartesian",
+            overrides=[f"model={model}", "data=abc_arc/abc_fstshirt_bc"],
+        )
+    check_selected_contract(cfg)
 
 
 def test_every_shipped_ready_model_declares_data_semantics():

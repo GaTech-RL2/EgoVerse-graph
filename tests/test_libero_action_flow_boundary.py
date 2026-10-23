@@ -59,7 +59,7 @@ def test_libero_action_flow_recipe_selects_effective_train_and_validation_data(
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                "+experiment=sim/libero_historical/action_flow_libero10_avln_80k_s42"
+                "+experiment=arc_sim/libero_historical/action_flow_libero10_avln_80k_s42"
             ],
         )
     assert "data" not in cfg.data

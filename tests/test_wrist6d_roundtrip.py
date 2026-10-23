@@ -265,7 +265,7 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     torch.testing.assert_close(a_un, a_t, atol=1e-5, rtol=0)
     torch.testing.assert_close(o_un, o_t, atol=1e-5, rtol=0)
 
-    # (4) evaluator revert (batched, like eval_pi) lands back in head frame
+    # (4) evaluator revert (batched, like eval_cartesian_camera_prompt) lands back in head frame
     rev = _build_human_cartesian_revert_6d_wristframe_transform_list()
     out = Embodiment.apply_transform(
         {"actions_cartesian": a_un, "observations.state.ee_pose": o_un}, rev
@@ -416,7 +416,7 @@ def test_split_keys_rejects_width_mismatch():
 
 
 def test_ypr_revert_on_6d_batch_fails_loudly():
-    """The evaluator/data-config mismatch the guard is for: eval_pi.yaml's
+    """The evaluator/data-config mismatch the guard is for: eval_cartesian_camera_prompt.yaml's
     ypr revert applied to a cartesian_wristframe_6d batch."""
     from egomimic.rldb.embodiment.human import (
         _build_human_cartesian_revert_eef_frame_transform_list,

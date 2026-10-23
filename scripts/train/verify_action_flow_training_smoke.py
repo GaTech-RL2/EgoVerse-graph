@@ -66,10 +66,10 @@ EXPECTED_PARAMETER_COUNT = 50_725_221
 CODEC98K_EXPERIMENT = "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42"
 CODEC98K_PARAMETER_COUNT = 50_801_685
 SCALED_MUON_EXPERIMENT = (
-    "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42"
 )
 SCALED_ADAMW_EXPERIMENT = (
-    "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42"
 )
 SCALED_200M_EXPERIMENTS = {SCALED_MUON_EXPERIMENT, SCALED_ADAMW_EXPERIMENT}
 SCALED_200M_PARAMETER_COUNT = 199_754_837
@@ -109,7 +109,7 @@ APPROVED_EXPERIMENTS = {
         1.0,
         1.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": (
         "action_flow_bc_usocket_latent_fm_sg_recon1_s42",
         1.0,
         1.0,
@@ -129,27 +129,27 @@ APPROVED_EXPERIMENTS = {
         1.0,
         1.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42": (
         "action_flow_bc_usocket_bridge_likelihood_s42",
         0.0,
         0.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_graph_section_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_graph_section_s42": (
         "action_flow_bc_usocket_graph_section_s42",
         0.0,
         1.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_recon1_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_recon1_s42": (
         "action_flow_bc_usocket_recon1_s42",
         1.0,
         1.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_recon10_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_recon10_s42": (
         "action_flow_bc_usocket_recon10_s42",
         10.0,
         1.0,
     ),
-    "sim/pusht/action_flow_bc_usocket_recon10_warmup10k_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_recon10_warmup10k_s42": (
         "action_flow_bc_usocket_recon10_warmup10k_s42",
         10.0,
         1.0,
@@ -159,7 +159,7 @@ APPROVED_EXPERIMENTS = {
         10.0,
         0.01,
     ),
-    "sim/pusht/action_flow_bc_usocket_recon100_s42": (
+    "arc_sim/pusht/action_flow_bc_usocket_recon100_s42": (
         "action_flow_bc_usocket_recon100_s42",
         100.0,
         1.0,
@@ -2456,8 +2456,8 @@ def verify_smoke(
     expected_preflight_sha256: str | None = None,
 ) -> dict[str, Any]:
     if experiment in {
-        "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
-        "sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
+        "arc_sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+        "arc_sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
     }:
         from scripts.train.verify_libero_native_action_flow_smoke import (
             verify_joint_smoke,
@@ -2473,14 +2473,14 @@ def verify_smoke(
             shared=sys.modules[__name__],
         )
     if experiment in (
-        "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-        "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
-        "sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
-        "sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
-        "sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
-        "sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
-        "sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
-        "sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
+        "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+        "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
+        "arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
+        "arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
+        "arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
+        "arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
+        "arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
+        "arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
     ):
         from scripts.train.verify_libero_native_action_flow_smoke import (
             verify_native_smoke,
@@ -2639,16 +2639,16 @@ def _parser() -> argparse.ArgumentParser:
         dest="experiment",
         choices=(
             *tuple(APPROVED_EXPERIMENTS),
-            "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
-            "sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
-            "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-            "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
-            "sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
-            "sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
-            "sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
-            "sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
-            "sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
-            "sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
+            "arc_sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+            "arc_sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
+            "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+            "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42",
+            "arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42",
+            "arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42",
+            "arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42",
+            "arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42",
+            "arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42",
+            "arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42",
         ),
         required=True,
     )
@@ -2675,8 +2675,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             _require(
                 args.experiment
                 in {
-                    "sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
-                    "sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
+                    "arc_sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42",
+                    "arc_sim/libero/action_flow_libero_spatial_sharpa_mot_s42",
                 },
                 "separate verifier source requires explicit joint route",
             )

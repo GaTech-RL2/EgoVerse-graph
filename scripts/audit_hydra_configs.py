@@ -19,46 +19,53 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
-    "experiment/_shared/clock_settings": "real/stationary_velocity",
-    "experiment/_shared/frozen_yam_arc": "real/earbuds_velocity",
-    "experiment/_shared/arc_single_clock": "real/earbuds_duration",
-    "experiment/_shared/frozen_yam/hpt300_openloop": "real/earbuds_time",
-    "experiment/_shared/frozen_yam/base": "real/earbuds_time",
-    "evaluator/frozen_yam_time": "real/earbuds_time",
-    "model/abc_arc/frozen_yam_hpt_flow": "real/earbuds_time",
-    "model/abc_arc/frozen_yam_hpt300_time": "real/earbuds_time",
-    "model_contract/frozen_yam_wrists": "real/earbuds_time",
-    "data/pusht/planar_chain_manual4919_standard_retimed": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "data/pusht/parents/standard_dp_uc_h16": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "model/libero/oat_dp_matched": "sim/libero_historical/dp_libero10_oat_dp_matched_s42",
-    "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
-    "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
+    "model_contract/arc_clock_settings": "arc_real/stationary_velocity",
+    "model/hpt/yam_300m_arc": "arc_real/earbuds_velocity",
+    "trainer/real_yam": "arc_real/earbuds_time",
+    "trainer/real_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/hpt/yam_flow": "arc_real/earbuds_time",
+    "model/hpt/yam_300m": "arc_real/earbuds_time",
+    "model_contract/yam_wrists": "arc_real/earbuds_time",
     "model_contract/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
-    "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
-    "model/abc_arc/hpt_bimanual_visual": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
+    "model/hpt/yam_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
     "model/abc_arc/abc_dit_yam_visual": "abc_arc/robot_bc/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
     "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
-    "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
-    "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
-    "experiment/_shared/visual_hpt300": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
-    "model/bf/bf_planar_v2_arc_graph_tok": "sim/pusht/planar_v2_usocket_arc_graph_tok",
-    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "sim/pusht/parents/action_flow_usocket_h384",
-    "data/libero/action_flow_libero10_val01_h16": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "data/libero/oat": "sim/oat/libero_oattok",
-    "model/oat/tokenizer": "sim/oat/libero_oattok",
-    "model/oat/policy": "sim/oat/libero_oatpolicy",
-    "model/oat/arc_tokenizer": "sim/oat/libero_arc_oattok",
-    "model/oat/arc_policy": "sim/oat/libero_arc_policy",
-    "model/oat/arc_oat_policy": "sim/oat/libero_arc_oatpolicy",
-    "model/oat/arc_oat_dp_policy": "sim/oat/libero_arc_oat_dp_policy",
+    "data/pusht/planar_chain_manual4919_standard_retimed": "arc_sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/parents/standard_dp_uc_h16": "arc_sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "model/libero/oat_dp_matched": "arc_sim/libero_historical/dp_libero10_oat_dp_matched_s42",
+    "model/bf/bf_planar_v2_arc_graph_tok": "arc_sim/pusht/planar_v2_usocket_arc_graph_tok",
+    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "arc_sim/pusht/parents/action_flow_usocket_h384",
+    "data/libero/action_flow_libero10_val01_h16": "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "data/libero/oat": "arc_sim/oat/libero_oattok",
+    "model/oat/tokenizer": "arc_sim/oat/libero_oattok",
+    "model/oat/policy": "arc_sim/oat/libero_oatpolicy",
+    "model/oat/arc_tokenizer": "arc_sim/oat/libero_arc_oattok",
+    "model/oat/arc_policy": "arc_sim/oat/libero_arc_policy",
+    "model/oat/arc_oat_policy": "arc_sim/oat/libero_arc_oatpolicy",
+    "model/oat/arc_oat_dp_policy": "arc_sim/oat/libero_arc_oat_dp_policy",
+    "data/abc_arc/stationary": "arc_real/stationary_time",
+    "data/abc_arc/stationary_arc": "arc_real/stationary_duration",
+    "data/abc_arc/earbuds": "arc_real/earbuds_time",
+    "data/abc_arc/earbuds_arc": "arc_real/earbuds_duration",
+    "data/abc_arc/towels": "arc_real/towels_time",
+    "data/abc_arc/towels_arc": "arc_real/towels_duration",
+    "data/abc_arc/stationery_yam_loader": "arc_real/stationary_time",
 }
+
+EXPERIMENT_CONTEXTS.update(
+    {
+        "model/hpt/bimanual_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/robot_bc/abc_towels_hpt180_hybrid_visual_openloop",
+    }
+)
 MODEL_CONTEXTS = {
-    "experiment/sim/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
-    "experiment/sim/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
-    "experiment/sim/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
-    "experiment/sim/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
-    "experiment/sim/oat/libero_base": "oat/tokenizer",
+    "experiment/arc_sim/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
+    "experiment/arc_sim/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
+    "experiment/arc_sim/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
+    "experiment/arc_sim/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
+    "experiment/arc_sim/oat/libero_base": "oat/tokenizer",
 }
 
 # Explicit non-production composition inputs, scoped and restored even on error.
@@ -129,10 +136,47 @@ def audit_context(path):
         # This is a dataset fragment, not a selectable DataModule. Audit it
         # in the same nested package used by its real data parents.
         return "train_zarr_cartesian", [
-            "+experiment=sim/pusht/planar_v2_usocket_dp_standard",
+            "+experiment=arc_sim/pusht/planar_v2_usocket_dp_standard",
             "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
         ]
     group, _, entry = name.partition("/")
+    component_contexts = {
+        # Chunk metrics must not inherit the public baseline's open-loop kwargs.
+        "evaluator/eval_cartesian_chunk_metrics": [
+            "evaluator=eval_cartesian_chunk_metrics",
+            "++yam.limit_val_batches=40",
+        ],
+        "model/base/real_visual_settings": [
+            "+experiment=abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop"
+        ],
+        "model/base/real_yam_settings": ["+experiment=arc_real/earbuds_time"],
+        "data/_base/yam_arc": ["+experiment=arc_real/earbuds_velocity"],
+        "model/base/yam_diffusion_settings": [
+            "model=abc/yam_bimanual_dp",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/base/yam_hpt_settings": [
+            "model=hpt/yam_bimanual",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/hpt/yam_bimanual": [
+            "model=hpt/yam_bimanual",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/base/hpt_human_flow": ["model=hpt/bc_flow_human"],
+        "model/base/hpt_cotrain_flow": ["model=hpt/cotrain_flow_shared_head"],
+        "model/base/hpt_pickplace_qwen": ["model=hpt/bc_pickplace_qwen_pooled"],
+        "model/base/pi_human_legacy": ["model=pi/bc_mecka_legacy"],
+        "evaluator/_base/yam_human_cartesian": ["evaluator=eval_bimanual_cartesian"],
+        "evaluator/_base/cartesian_prompt": ["evaluator=eval_cartesian_wrist_prompt"],
+    }
+    if name in component_contexts:
+        root = (
+            "train_zarr_cartesian_pi"
+            if name == "evaluator/_base/cartesian_prompt"
+            else "train_zarr_cartesian"
+        )
+        return root, component_contexts[name]
     if group == "visualization":
         # Standalone data-visualization roots composed from their own
         # directory (egomimic/scripts/data_visualization), not under a run.
@@ -141,22 +185,51 @@ def audit_context(path):
     if group == "experiment":
         experiment = entry
     elif group in {"model", "data"} and entry.startswith(("bf/", "pusht/")):
-        experiment = "sim/pusht/planar_v2_usocket_dp_standard"
-    elif group in {"model", "data"} and entry.startswith(("abc/", "abc_arc/")):
-        # The retired language-conditioned ABC ablations are gone; the kept
-        # 20-episode fstshirt baseline is the remaining shared ABC context.
-        experiment = "abc/yam_fstshirt_dp"
+        experiment = "arc_sim/pusht/planar_v2_usocket_dp_standard"
     # Stationery fragments require the same FT sizes, source frames and fixed
     # ranges supplied by their real inheriting recipes, never invented values.
-    # Frozen rl2 YAM pools (and their loader) take their FT sizes, source frames
-    # and codec from the task's time recipe, never invented values.
-    for pool in ("stationary", "earbuds", "towels"):
-        if name in (f"data/abc_arc/{pool}", "data/abc_arc/stationery_yam_loader"):
-            experiment = f"real/{pool}_time"
+    if name.startswith("data/abc_arc/stationery_"):
+        experiment = "arc_real/earbuds_time"
+    if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
+        # YAM pools select their codec through the HPT300 recipe.
+        experiment = "arc_real/towels_time"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
+    if name == "model/hpt/bimanual_visual":
+        overrides.append("++abc.population=human")
+    if name.startswith("data/abc_arc/mecka_fold_clothes_40h_human_"):
+        overrides.extend(
+            [
+                "model=hpt/bimanual_visual",
+                "++abc.population=human",
+                "abc.arc_distance=0.4",
+                "abc.arc_chunking_mode=multistream",
+                "abc.task_predicate=\"row['task'] == 'fold_clothes'\"",
+            ]
+        )
+        if "hybrid" in name:
+            overrides.append("++abc.arc_rotation_distance=0.4188790204786391")
+    if (
+        experiment is None
+        and group in {"model", "data"}
+        and entry.startswith(("abc/", "abc_arc/"))
+    ):
+        # Retained reusable components no longer depend on deleted public
+        # experiment menus. Model-owned dimensions come from its base config.
+        overrides.extend(["model=abc/yam_bimanual_dp", "data=abc_arc/abc_fstshirt_bc"])
     config_name = name if not entry else "train_zarr_cartesian"
-    if group in {"model", "evaluator"} and entry.startswith("pi05/"):
+    if (
+        group == "model" and entry.startswith("pi/") and not entry.endswith("_legacy")
+    ) or (
+        group == "evaluator"
+        and entry
+        in {
+            "eval_cartesian_wrist_prompt",
+            "eval_cartesian_camera_6d_prompt",
+            "eval_cartesian_wrist_6d_prompt",
+            "eval_cartesian_wrist_6d_gripper_prompt",
+        }
+    ):
         config_name = "train_zarr_cartesian_pi"
     if name == "evaluator/dataset_video":
         config_name = "viz_language"
@@ -212,7 +285,7 @@ def _compose_for_audit(path):
         cfg.hydra.job.id = "config-audit"
         if "pi05" in cfg and OmegaConf.is_missing(cfg.pi05, "pretrained_weights"):
             cfg.pi05.pretrained_weights = "/tmp/egoverse-config-audit/pi-weights"
-        if "frozen_yam" in cfg:
+        if "yam" in cfg:
             for key, value in {
                 "variant": "time",
                 "spread": "smoke",
@@ -220,8 +293,8 @@ def _compose_for_audit(path):
                 "valid_root": "/tmp/audit/valid",
                 "data_root": "/tmp/audit/yam",
             }.items():
-                if OmegaConf.is_missing(cfg.frozen_yam, key):
-                    cfg.frozen_yam[key] = value
+                if OmegaConf.is_missing(cfg.yam, key):
+                    cfg.yam[key] = value
         for section, values in {
             "benchmark": {"dataset": "/tmp/audit/libero", "arc_basis": "chebyshev"},
             "speed_diagnostic": {"speed_reference": 0.1},
@@ -233,7 +306,7 @@ def _compose_for_audit(path):
                         cfg[section][key] = value
         if (
             path.relative_to(CONFIGS).as_posix()
-            == "experiment/sim/oat/libero_arc_shared_r384_d1p6_m36.yaml"
+            == "experiment/arc_sim/oat/libero_arc_shared_r384_d1p6_m36.yaml"
         ):
             # This reusable shortlist explicitly requires stk/dur selection.
             # Supplying an audit context does not make null a runtime default.

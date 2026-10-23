@@ -33,7 +33,7 @@ def config(monkeypatch):
             config_name="train_zarr_cartesian",
             overrides=[
                 "hydra/launcher=basic",
-                "+experiment=sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier",
+                "+experiment=arc_sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier",
             ],
         )
 

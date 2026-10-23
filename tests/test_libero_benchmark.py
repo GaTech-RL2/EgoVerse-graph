@@ -276,7 +276,7 @@ def test_complete_benchmark_recipes_compose(experiment):
             cfg = compose(
                 config_name="train_zarr_cartesian",
                 overrides=[
-                    f"+experiment=sim/oat/{experiment}",
+                    f"+experiment=arc_sim/oat/{experiment}",
                     f"benchmark.suite={suite}",
                     "benchmark.dataset=/tmp/libero.zarr",
                 ],

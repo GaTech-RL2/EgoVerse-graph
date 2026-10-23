@@ -1,6 +1,6 @@
 # ABC-lab visual experiments
 
-The rl2 YAM task leaves live in `real/` (see [the experiment menu](../README.md)).
+The rl2 YAM task leaves live in `arc_real/` (see [the experiment menu](../README.md)).
 This folder keeps the ABC-lab visual experiments on the `abc_visual` pool:
 `robot_bc/abc_towels_hpt180_{baseline,hybrid}_visual_openloop`, the ABC
 four-task `robot_bc/multitask/{baseline,arc_vel,arc_dur}` and the ABC-DiT

@@ -15,7 +15,7 @@ def test_pair_config_diff_is_only_encoding(monkeypatch):
                 config_name="train_zarr_cartesian",
                 overrides=[
                     "hydra/launcher=basic",
-                    "+experiment=sim/pusht/action_flow_cotrain_uc_multiplier_interpolation",
+                    "+experiment=arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation",
                     f"speed_diagnostic.encoding={encoding}",
                 ],
             )
@@ -70,7 +70,7 @@ def test_factory_places_speed_inside_diagnostic_prefix(monkeypatch):
 def test_measured_speed_recipes_are_not_shipped():
     root = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
     for name in (
-        "experiment/sim/pusht/action_flow_cotrain_uc_speed_interpolation.yaml",
+        "experiment/arc_sim/pusht/action_flow_cotrain_uc_speed_interpolation.yaml",
         "experiment/e1/yam_human_keypoints_speed_h816_private512_s42.yaml",
         "data/e1/yam_human_keypoints_speed_proportional_val01.yaml",
     ):

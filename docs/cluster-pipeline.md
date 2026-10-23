@@ -34,8 +34,8 @@ The paired raw-multiplier recipes are:
 
 | Family | Experiment selector |
 | --- | --- |
-| Action Flow | `sim/pusht/action_flow_cotrain_uc_multiplier_interpolation` |
-| Matched Standard DP | `sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier` |
+| Action Flow | `arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation` |
+| Matched Standard DP | `arc_sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier` |
 
 Use normal per-source image processing, retaining 32 U-Socket plus 32
 ChainGripper samples per optimizer update. ChainGripper manual4919 contains

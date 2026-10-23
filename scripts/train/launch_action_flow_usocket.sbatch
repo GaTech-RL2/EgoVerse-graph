@@ -64,12 +64,12 @@ done
 # Select only an existing current recipe in the exact bound source checkout.
 # Parent templates and historical recipes are not fresh-launch entry points.
 case "$AF_EXPERIMENT" in
-  sim/pusht/parents/*|pusht_historical/*) die "select a current PushT recipe, not a parent or historical config" ;;
-  pusht/*|libero/*|libero_historical/*|oat/*) die "retired experiment selector; use the sim/ menu for new launches" ;;
+  arc_sim/pusht/parents/*|pusht_historical/*) die "select a current PushT recipe, not a parent or historical config" ;;
+  arc_sim/*|pusht/*|libero/*|libero_historical/*|oat/*) die "retired experiment selector; use the arc_sim/ menu for new launches" ;;
   *..*|/*) die "invalid experiment selector" ;;
 esac
 case "$AF_EXPERIMENT" in
-  sim/pusht/*) test -f "$AF_REPO/egomimic/hydra_configs/experiment/$AF_EXPERIMENT.yaml" || die "recipe is absent or retired in the selected source: $AF_EXPERIMENT" ;;
+  arc_sim/pusht/*) test -f "$AF_REPO/egomimic/hydra_configs/experiment/$AF_EXPERIMENT.yaml" || die "recipe is absent or retired in the selected source: $AF_EXPERIMENT" ;;
 esac
 
 AF_LAUNCH_MODE=${AF_LAUNCH_MODE:-preflight}
@@ -127,7 +127,7 @@ if test "$AF_LAUNCH_MODE" = run; then
   required AF_EXPECTED_TIME_LIMIT
 fi
 # Explicit unequal-width joint route reuses the maintained phase/child adapters.
-if [[ "$AF_EXPERIMENT" = sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42 || "$AF_EXPERIMENT" = sim/libero/action_flow_libero_spatial_sharpa_mot_s42 ]]; then
+if [[ "$AF_EXPERIMENT" = arc_sim/libero/action_flow_libero_spatial_sharpa_gripper_keypoints_s42 || "$AF_EXPERIMENT" = arc_sim/libero/action_flow_libero_spatial_sharpa_mot_s42 ]]; then
   test "$AF_LAUNCH_MODE" != schema || die "joint route uses typed preflight, not historical native schema"
   test -z "${AF_INITIAL_CHECKPOINT:-}" || die "joint fresh launch cannot use historical resume adapter"
   if test -z "${SLURM_STEP_ID:-}" || test "$SLURM_STEP_ID" = batch; then
@@ -183,17 +183,17 @@ AF_H696_EULER=false
 AF_NATIVE_LIBERO=false
 AF_NATIVE_RECIPE_BASE=$AF_EXPERIMENT
 case "$AF_EXPERIMENT" in
-  sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42|sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42|sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42|sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42)
+  arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_av0_s42|arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_av0_s42|arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_av0_s42|arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_av0_s42)
     AF_NATIVE_RECIPE_BASE=${AF_EXPERIMENT/_80k_av0_/_80k_}
     ;;
 esac
 case "$AF_NATIVE_RECIPE_BASE" in
-  sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42|sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42|sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42|sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
+  arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42|arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42|arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42|arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
     AF_NATIVE_LIBERO=true
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
-    AF_EXPECTED_CONFIG_NAME=${AF_EXPERIMENT#sim/libero_historical/}
+    AF_EXPECTED_CONFIG_NAME=${AF_EXPERIMENT#arc_sim/libero_historical/}
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     AF_FULL_MAX_STEPS=80000
     AF_FULL_VALIDATE_EVERY=15000
@@ -217,7 +217,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     done
     case "$AF_NATIVE_PHASE" in preflight|smoke|full) ;; *) die "invalid native phase" ;; esac
     case "$AF_NATIVE_RECIPE_BASE:$AF_SEED" in
-      sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:42|sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:43|sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42:42|sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42:43|sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42:42|sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42:42) ;;
+      arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:42|arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42:43|arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42:42|arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42:43|arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42:42|arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42:42) ;;
       *) die "unsupported native suite/training seed" ;;
     esac
     AF_DATASET_VALIDATOR=$AF_NATIVE_DATASET_VALIDATOR
@@ -226,7 +226,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_SMOKE_VERIFIER=$AF_NATIVE_SMOKE_VERIFIER
     ;;
 
-  sim/pusht/action_flow_chain_native4_points6_manual4919_h384_150k_s42)
+  arc_sim/pusht/action_flow_chain_native4_points6_manual4919_h384_150k_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -246,7 +246,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_PAIRED_CHAIN_MANUAL4919=true
     AF_WANDB_TAGS="[pushshapes,chain-gripper,native4,points6,manual4919,cotrain,action-flow,private-codecs,shared-field,h384d12h12,h16,z8x16,k14,dopri5,cfg4,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42)
+  arc_sim/pusht/action_flow_cotrain_usocket_chain_obstacle_unite_arch_denoiser90m_sum14_adamw_lr1e5_s42)
     AF_METHOD=latent_fm_stopgrad_cotrain
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -261,7 +261,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_SECOND_SOURCE=pushshapes_sim_chain_gripper
     AF_WANDB_TAGS="[pushshapes,u-socket,chain-gripper,obstacle,cotrain,action-flow,route-local-codecs,shared-field,h16,z8x16,k14,adamw,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
+  arc_sim/pusht/action_flow_chain_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -277,7 +277,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=97956613
     AF_WANDB_TAGS="[pushshapes,chain-gripper,action-flow,unite-h384,sum14,cfg4,val8x32,h16,z8x16,k14,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42)
+  arc_sim/pusht/action_flow_usocket_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -291,7 +291,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=155626932
     AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-denoiser90m,codec-h384,sum14,cfg4,smoke-val1x32,full-no-val,h16,z8x16,k14,no-checkpointing,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_cfg4_adamw_lr1e5_finalval1_s42)
+  arc_sim/pusht/action_flow_usocket_latent_fm_sg_unite_arch_denoiser90m_sum14_cfg4_adamw_lr1e5_finalval1_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -305,7 +305,7 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=155626932
     AF_WANDB_TAGS="[pushshapes,u-socket,action-flow,unite-architecture-only,unite-denoiser90m,codec-h384,adamw-lr1e-5,sum14,cfg4,smoke-val1x32,full-no-val,h16,z8x16,k14,no-checkpointing,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_chain_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42)
+  arc_sim/pusht/action_flow_chain_latent_fm_sg_unite_denoiser90m_sum14_cfg4_finalval1_s42)
     AF_METHOD=latent_fm_stopgrad_unite
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
@@ -321,28 +321,28 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_PARAMETER_COUNT=155627445
     AF_WANDB_TAGS="[pushshapes,chain-gripper,action-flow,unite-denoiser90m,codec-h384,sum14,cfg4,smoke-val1x32,full-no-val,ckpt20k,h16,z8x16,k14,no-checkpointing,single-gpu,$AF_RUN_KIND]"
     ;;
-  sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42)
+  arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42)
     AF_METHOD=latent_fm_stopgrad
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42)
+  arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42)
     AF_METHOD=latent_fm_stopgrad
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42)
+  arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42)
     AF_METHOD=latent_fm_stopgrad
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42)
+  arc_sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42)
     AF_METHOD=gaussian_bridge_likelihood
     # Transport placeholders only; no FM/reconstruction flags enter this model.
     AF_RECONSTRUCTION_WEIGHT=0
@@ -350,32 +350,32 @@ case "$AF_NATIVE_RECIPE_BASE" in
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_bridge_likelihood_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_graph_section_s42)
+  arc_sim/pusht/action_flow_bc_usocket_graph_section_s42)
     AF_METHOD=graph_section_diagnostic
     AF_RECONSTRUCTION_WEIGHT=0
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_graph_section_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_recon1_s42)
+  arc_sim/pusht/action_flow_bc_usocket_recon1_s42)
     AF_RECONSTRUCTION_WEIGHT=1
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon1_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_recon10_s42)
+  arc_sim/pusht/action_flow_bc_usocket_recon10_s42)
     AF_RECONSTRUCTION_WEIGHT=10
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=0
     ;;
-  sim/pusht/action_flow_bc_usocket_recon10_warmup10k_s42)
+  arc_sim/pusht/action_flow_bc_usocket_recon10_warmup10k_s42)
     AF_RECONSTRUCTION_WEIGHT=10
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon10_warmup10k_s42
     AF_FULL_RECONSTRUCTION_ONLY_WARMUP_STEPS=10000
     ;;
-  sim/pusht/action_flow_bc_usocket_recon100_s42)
+  arc_sim/pusht/action_flow_bc_usocket_recon100_s42)
     AF_RECONSTRUCTION_WEIGHT=100
     AF_FLOW_WEIGHT=1
     AF_EXPECTED_CONFIG_NAME=action_flow_bc_usocket_recon100_s42
@@ -437,10 +437,10 @@ fi
 
 if test "$AF_METHOD" != action_flow_joint || [[ "$AF_EXPERIMENT" = *warmup10k* ]]; then
   AF_COMPARISON_EXPERIMENT=
-elif test "$AF_EXPERIMENT" = sim/pusht/action_flow_bc_usocket_recon1_s42; then
-  AF_COMPARISON_EXPERIMENT=sim/pusht/action_flow_bc_usocket_recon10_s42
+elif test "$AF_EXPERIMENT" = arc_sim/pusht/action_flow_bc_usocket_recon1_s42; then
+  AF_COMPARISON_EXPERIMENT=arc_sim/pusht/action_flow_bc_usocket_recon10_s42
 else
-  AF_COMPARISON_EXPERIMENT=sim/pusht/action_flow_bc_usocket_recon1_s42
+  AF_COMPARISON_EXPERIMENT=arc_sim/pusht/action_flow_bc_usocket_recon1_s42
 fi
 
 [[ "$AF_EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]] || \
@@ -456,16 +456,16 @@ fi
 if test "$AF_NATIVE_LIBERO" = true; then
   # Suite corpus identities are immutable; destination receipt paths may differ.
   case "$AF_NATIVE_RECIPE_BASE" in
-    sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42)
+    arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42)
       native_logical_sha=3ed2b86cf97eaa27045af81e6d6c4834c8659d15eda69a2394d835e602014e1d
       native_historical_split_sha=c588c831ef0deab61a59a21840ea9e11dafe92a170d9023a87e0acee831df236 ;;
-    sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42)
+    arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42)
       native_logical_sha=ee28d02e8c6cd28fb0a235fab2ccc649b662e6f3e10eb096d89be082d2871860
       native_historical_split_sha=15640eada8102c7071dcfcd153ef438cb98c61835474a2fb2c3c9415cf6d714e ;;
-    sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42)
+    arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42)
       native_logical_sha=c190385dfc8a7d05b966a4b5f94651826b8a906b1e63d8b348edc70df52c1f60
       native_historical_split_sha=207c24115104bf0545e7f165abb91cf052eb99f6568446f11e835f9a3e4c6af8 ;;
-    sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
+    arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42)
       native_logical_sha=40b5e3ccf4febcbae470690755adc8aa6a39471a4fcb7fa585a9bdb8e59c325d
       native_historical_split_sha=5ade2a86fad7552457e093944fd60efec8b51fbe9dfd20831f627d1c56e9b5d7 ;;
     *) die "unsupported native corpus identity profile" ;;
@@ -659,10 +659,10 @@ export ICE_EXPECTED_RUN_ID=$AF_WANDB_RUN_ID
 export ICE_EXPECTED_SPLIT_SHA256=$AF_EXPECTED_SPLIT_MANIFEST_SHA256
 if test "$AF_NATIVE_LIBERO" = true; then
   case "$AF_NATIVE_RECIPE_BASE" in
-    sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42) export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR ;;
-    sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42) export LIBERO_SPATIAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
-    sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42) export LIBERO_GOAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
-    sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42) export LIBERO_OBJECT_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42) export LIBERO10_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    arc_sim/libero_historical/action_flow_libero_spatial_h240_euler50_dithalf_80k_s42) export LIBERO_SPATIAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    arc_sim/libero_historical/action_flow_libero_goal_h240_euler50_dithalf_80k_s42) export LIBERO_GOAL_REPLAY_ROOT=$AF_DATASET_DIR ;;
+    arc_sim/libero_historical/action_flow_libero_object_h240_euler50_dithalf_80k_s42) export LIBERO_OBJECT_REPLAY_ROOT=$AF_DATASET_DIR ;;
     *) die "unsupported native replay environment" ;;
   esac
 elif test "$AF_SOURCE" = pushshapes_sim_u_socket; then
@@ -801,7 +801,7 @@ else
   )
 fi
 
-if test "$AF_EXPERIMENT" = sim/pusht/action_flow_cotrain_uc_multiplier_interpolation; then
+if test "$AF_EXPERIMENT" = arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation; then
   BASE_OVERRIDES+=(model.pipeline.stages.6.inference_method=euler model.pipeline.stages.6.num_inference_steps=50 ++run_provenance.validation_inference_sampler=euler ++run_provenance.validation_inference_steps=50)
 fi
 if test "$AF_SPEED_DIAGNOSTIC" = true; then

@@ -1,8 +1,0 @@
-# @package _global_
-defaults: [/experiment/sim/oat/libero_base, _self_]
-benchmark:
-  arc_mode: dur
-  arc_action_dim: 12
-  arc_waypoints: 32
-  arc_max_translation: 0.8
-  arc_max_rotation_degrees: 384

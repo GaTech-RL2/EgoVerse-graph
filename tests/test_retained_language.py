@@ -47,10 +47,10 @@ def test_language_optimizer_and_actual_annotation_overlay(
         config = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                f"model=hpt_bc_pickplace_qwen_{variant}",
+                f"model=hpt/bc_pickplace_qwen_{variant}",
                 "data=bc_pickplace_eva_qwen",
-                "evaluator=eval_hpt",
-                "evaluator/viz@evaluator.viz_func=cotrain_lang",
+                "evaluator=eval_cartesian_camera",
+                "evaluator/viz@evaluator.viz_func=cartesian_annotations",
             ],
         )
     for index in range(3):

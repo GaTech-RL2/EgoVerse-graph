@@ -105,9 +105,9 @@ case "$ICE_LAUNCH_MODE" in
   *) die "ICE_LAUNCH_MODE must be preflight, dry-run, or run" ;;
 esac
 case "$ICE_EXPERIMENT" in
-  pusht/planar_v2_usocket_direct_bc|pusht/planar_v2_usocket_arc_bc|\
-  pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc|\
-  pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg) ;;
+  arc_sim/pusht/planar_v2_usocket_direct_bc|arc_sim/pusht/planar_v2_usocket_arc_bc|\
+  arc_sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc|\
+  arc_sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg) ;;
   *) die "ICE_EXPERIMENT must select a supported U-Socket BC config" ;;
 esac
 case "$ICE_VALIDATION_DEFERRED" in
@@ -319,10 +319,10 @@ else:
     assert float(cfg.trainer.limit_val_batches) > 0
 assert cfg.name.startswith("planar_v2_usocket_")
 assert experiment in {
-    "sim/pusht/planar_v2_usocket_direct_bc",
-    "sim/pusht/planar_v2_usocket_arc_bc",
-    "sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
-    "sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
+    "arc_sim/pusht/planar_v2_usocket_direct_bc",
+    "arc_sim/pusht/planar_v2_usocket_arc_bc",
+    "arc_sim/pusht/planar_v2_usocket_arc_hybrid_D40_M16_R24deg_bc",
+    "arc_sim/pusht/planar_v2_usocket_arc_paper_uniform_D40_M16_R24deg",
 }
 PY
 

@@ -1,0 +1,16 @@
+# @package _global_
+# Model hyperparameters only; task, dataset and trainer choices stay experiment-owned.
+hpt:
+  embed_dim: 256
+  num_blocks: 16
+  num_heads: 8
+  action_horizon: 100
+  action_dim: 14
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 8
+      crossattn_dim_head: 64
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}

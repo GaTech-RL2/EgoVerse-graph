@@ -13,7 +13,21 @@ Its model, data, and evaluator defaults are intentionally null: every run must
 select a complete experiment instead of inheriting a historical policy by
 accident.
 
-A direct composition has this shape:
+Prefer a task-first experiment. Each public real recipe links all components
+needed by the training entry point:
+
+```bash
+python egomimic/trainHydra.py \
+  +experiment=arc_real/stationary_velocity --cfg job --resolve
+```
+
+This prints the configuration without training. Substitute `stationary_duration`
+or `stationary_time`, or select a task from the
+[experiment menu](egomimic/hydra_configs/experiment/README.md).
+See [CONFIGURATION.md](docs/CONFIGURATION.md) for shared parents, model families
+and behavior-named evaluators.
+
+For advanced component selection, a direct composition has this shape:
 
 ```bash
 python egomimic/trainHydra.py \
@@ -62,6 +76,20 @@ not inferred, with `train_only` or its mirror `inference_only`.
 
 ## Action tokenization
 
+### Cartesian bimanual ARC
+
+Real ARC experiments select `abc.arc_clock_mode=velocity|duration` and
+`abc.arc_streams=full_separation|translation_rotation|translation|projection`.
+Velocity stores start delay followed by incoming per-waypoint rates; duration
+stores absolute waypoint seconds, including start delay in row zero. Shapes
+are M×20, M×18 or M×16 according to stream separation. The tokenizer and
+first-moving-stream decoder share this contract. See
+[ARC_CLOCK_CONTRACT.md](docs/ARC_CLOCK_CONTRACT.md) for geometry, timing,
+holds and checkpoint compatibility.
+
+### Planar ARC
+
+The following is the separate planar codec, not the Cartesian clock API above.
 Arc-length tokenization can run either in the loader's `transform_list` or as
 graph nodes. The node form makes the boundary visible and lintable:
 
@@ -99,8 +127,8 @@ episode's 30 Hz frames and the tokenizer, and `arc_dt` is the true capture
 period. A loader-side arc path that resamples before tokenizing would understate
 arc length and make that constant wrong.
 
-Compare `experiment/sim/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
-with `experiment/sim/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
+Compare `experiment/arc_sim/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
+with `experiment/arc_sim/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
 graph). Both are valid; only the second shows the tokenizer in `gt`-style graph
 output and in `tools/config_graph.py`.
 
@@ -123,14 +151,16 @@ They support annotation and embedding utilities and do not select a policy.
 
 ## Slurm
 
-After a configuration composes and passes its required smoke test, add `-m` to
-use the configured Submitit launcher:
+After a configuration composes and passes its required smoke test, select the
+reviewed Submitit launcher explicitly and add `-m`, even for one run:
 
 ```bash
-python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
-  model=<pipeline-model-config> data=<dataset-config> \
-  evaluator=<evaluator-config> -m
+python egomimic/trainHydra.py -m \
+  +experiment=arc_real/stationary_velocity \
+  hydra/launcher=<approved-submitit-config>
 ```
 
-Always inspect the fully resolved config saved with the run before treating a
-launch as reproducible.
+This command submits a job; run it only after launch authorization and
+cluster-specific preflight. Verify GPU/task layout and effective global batch
+in the resolved launcher configuration. Always retain the fully resolved
+config, source commit and normalization identity with the run.

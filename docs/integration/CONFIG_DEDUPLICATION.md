@@ -1,5 +1,11 @@
 # Model configuration consolidation: first local layer
 
+> Historical October 1 audit, not the current config inventory. Its alias
+> names, counts and review status describe that source snapshot. Current
+> family folders, shared bases and task entry points are documented in
+> [CONFIGURATION.md](../CONFIGURATION.md). Preserve this report as evidence;
+> do not use its old selectors for new runs.
+
 This is a partial implementation of the October 1 consolidation handoff.
 The complete A/#197, B/#159 and C/#160 integration has **not** been assembled,
 reviewed, pushed or merged. Main and the published source branches are unchanged.
@@ -28,11 +34,11 @@ available, while 1,356 duplicated YAML lines are removed.
 
 | Compatibility name (`model=`) | Canonical definition (`model=`) |
 | --- | --- |
-| `hpt_bc_flow_aria` | `hpt_bc_flow_human` |
-| `hpt_cotrain_scale_flow_shared_head` | `hpt_cotrain_mecka_flow_shared_head` |
-| `pi0.5_bc_scale` | `pi0.5_bc_mecka` |
-| `pi0.5_cotrain_mecka_scale` | `pi0.5_bc_mecka` |
-| `pi05/pi0.5_ft_abc_eva_6d` | `pi05/pi0.5_bc_abc_eva_6d` |
+| `hpt/bc_flow_human` | `hpt/bc_flow_human` |
+| `hpt/cotrain_mecka_flow_shared_head` | `hpt/cotrain_mecka_flow_shared_head` |
+| `pi/bc_mecka_legacy` | `pi/bc_mecka_legacy` |
+| `pi/bc_mecka_legacy` | `pi/bc_mecka_legacy` |
+| `pi/bc_abc_eva_6d` | `pi/bc_abc_eva_6d` |
 
 Live launch and normalization scripts use the canonical names. Dataset
 selection stays explicit; choosing a shared model does not change the selected

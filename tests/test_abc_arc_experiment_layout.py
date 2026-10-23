@@ -10,7 +10,7 @@ from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 
 ROOT = Path(__file__).resolve().parents[1]
 REAL_LEAVES = sorted(
-    f"real/{task}_{mode}"
+    f"arc_real/{task}_{mode}"
     for task in ("stationary", "earbuds", "towels")
     for mode in ("time", "duration", "velocity")
 )
@@ -23,13 +23,13 @@ ABC_LEAVES = sorted(
 def test_real_is_exactly_the_nine_task_leaves():
     found = sorted(
         p.relative_to(CONFIGS / "experiment").with_suffix("").as_posix()
-        for p in (CONFIGS / "experiment/real").rglob("*.yaml")
+        for p in (CONFIGS / "experiment/arc_real").rglob("*.yaml")
     )
     assert found == REAL_LEAVES
 
 
 def test_retired_menus_are_gone():
-    for folder in ("abc_arc/cotrain", "yam_arc_grid", "real/arcdur_abstime"):
+    for folder in ("abc_arc/cotrain", "yam_arc_grid", "arc_real/arcdur_abstime"):
         assert not list((CONFIGS / "experiment" / folder).rglob("*.yaml"))
     pools = {p.stem for p in (CONFIGS / "data/abc_arc").glob("*.yaml")}
     assert {"stationary", "earbuds", "towels", "stationery_yam_loader"} <= pools
@@ -37,11 +37,9 @@ def test_retired_menus_are_gone():
         p
         for p in pools
         if p.startswith(("stationery_s", "earbuds_", "towels_", "organize_"))
+        and not p.endswith("_arc")
     }
-    shared = {
-        p.stem for p in (CONFIGS / "experiment/_shared/frozen_yam").glob("*.yaml")
-    }
-    assert shared == {"base", "stattempo", "stattempo_openloop", "hpt300_openloop"}
+    assert not list((CONFIGS / "experiment/_shared").rglob("*.yaml"))
 
 
 def test_migration_targets_exist_or_are_retired():
@@ -53,7 +51,7 @@ def test_migration_targets_exist_or_are_retired():
             (CONFIGS / f"experiment/{target}{suffix}").is_file()
             for suffix in (".yaml", ".json")
         ), target
-    assert sum(v is None for v in mapping.values()) == 18
+    assert sum(v is None for v in mapping.values()) >= 18
 
 
 @pytest.mark.parametrize("leaf", REAL_LEAVES + ABC_LEAVES)

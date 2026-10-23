@@ -384,13 +384,17 @@ EEF pose at inference time. `model_frame` instead uses the configured calibratio
 Predictions are unnormalized once before decoding/frame reversion. A generated
 ARC artifact contains the schema-2 model declaration and immutable binding
 hashes; it is generated, not hand-written. Select the matching
-`experiment/real/<task>/arc_vel` or `arc_dur` recipe. Its model contract declares
+`experiment/arc_real/<task>/arc_vel` or `arc_dur` recipe. Its model contract declares
 the decoder, clock mode, stream separation, waypoint cap and runtime controls.
 Changing a YAML cannot migrate weights trained with another representation.
 
-The current codec supports per-waypoint velocity or log interval duration,
-with full separation (M×20) or translation/rotation separation (M×18).
-Row zero encodes the leading delay. Retired codecs require their original
+The current codec supports incoming per-waypoint velocity or absolute waypoint
+seconds. Stream layouts are `full_separation` (M×20), `translation_rotation`
+(M×18), `translation` (M×16) and `projection` (M×16). In the last two, rotation
+and gripper use their arm's translation clock; projection measures progress
+at an offset point on the end effector. Row zero encodes the leading delay.
+See the [clock contract](ARC_CLOCK_CONTRACT.md) and
+[configuration guide](CONFIGURATION.md). Retired codecs require their original
 source revision; they are not runtime alternatives in this stack.
 
 A `decoder_attribute` control binds only to an explicitly configured decoder.
@@ -408,7 +412,7 @@ codec's own clocks; no checkpoint-era tokenizer copies are carried.
 
 Use the exported model contract's `first_stream`, `execute_percent` and
 sampling budget rather than imposing a station-wide default. The frozen time
-contract (`model_contract/frozen_yam_wrists.yaml`) declares `TimeChunkRetimer`
+contract (`model_contract/yam_wrists.yaml`) declares `TimeChunkRetimer`
 and replay/hold tempo controls; 100% preserves the original chunk. Replay tempo
 and termination use decode-only helpers and do not alter training targets.
 

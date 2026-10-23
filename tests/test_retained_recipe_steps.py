@@ -25,7 +25,12 @@ CONFIGS = Path(__file__).parents[1] / "egomimic/hydra_configs"
 
 
 def recipe(vendor, family):
-    model = f"hpt_bc_flow_{vendor}" if family == "hpt" else f"pi0.5_bc_{vendor}"
+    if family == "hpt":
+        source = "human" if vendor == "aria" else vendor
+        model = f"hpt/bc_flow_{source}"
+    else:
+        source = "mecka" if vendor == "scale" else vendor
+        model = f"pi/bc_{source}_legacy"
     with initialize_config_dir(version_base=None, config_dir=str(CONFIGS)):
         return compose(
             config_name="train_zarr_cartesian",

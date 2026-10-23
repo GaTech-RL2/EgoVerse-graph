@@ -56,6 +56,74 @@ class Transform:
 # ---------------------------------------------------------------------------
 
 
+class StoreBimanualMetricFrame(Transform):
+    """Preserve raw wrist-to-world anchors before action/proprio conversion.
+
+    Metadata, not a normalized model input. Moving human cameras must not
+    change the coordinate frame used for a whole-episode trajectory metric.
+    """
+
+    def __init__(
+        self,
+        left_pose_key: str,
+        right_pose_key: str,
+        output_key: str = "evaluation.eef_to_world",
+    ):
+        self.pose_keys = (left_pose_key, right_pose_key)
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        poses = [
+            np.asarray(batch[key], dtype=np.float64).reshape(-1, 7)
+            for key in self.pose_keys
+        ]
+        if any(len(pose) != 1 for pose in poses):
+            raise ValueError(
+                "Episode metric anchors require one observation pose per arm"
+            )
+        batch[self.output_key] = np.stack(
+            [_xyzwxyz_to_matrix(pose)[0] for pose in poses]
+        ).astype(np.float32)
+        return batch
+
+
+class StoreArcCurrentAction(Transform):
+    """Keep the measured time-zero state in the native ARC action frame.
+
+    This metadata is not a prediction target or a normalized proprio input.
+    EEF-relative geometry starts at identity, but its gripper value remains the
+    measured aperture rather than a fabricated zero or the first command.
+    """
+
+    def __init__(
+        self,
+        observation_key: str = "observations.state.ee_pose",
+        output_key: str = "arc.current_action",
+        coord_frame: str = "eef_frame",
+    ):
+        if coord_frame not in ("eef_frame", "world", "camframe"):
+            raise ValueError(f"Unsupported ARC anchor coordinate frame {coord_frame!r}")
+        self.observation_key = observation_key
+        self.output_key = output_key
+        self.coord_frame = coord_frame
+
+    def transform(self, batch: dict) -> dict:
+        value = batch[self.observation_key]
+        if torch.is_tensor(value):
+            value = value.detach().cpu().numpy()
+        anchor = np.asarray(value, dtype=np.float32)
+        if anchor.size != 14 or not np.isfinite(anchor).all():
+            raise ValueError(
+                "ARC current state requires one finite 14D xyz/ypr/grip observation"
+            )
+        anchor = anchor.reshape(14).copy()
+        if self.coord_frame == "eef_frame":
+            anchor[:6] = 0.0
+            anchor[7:13] = 0.0
+        batch[self.output_key] = anchor
+        return batch
+
+
 def _interpolation_source(actions, new_chunk_length, stride):
     """Select source rows once for both pose and scalar interpolation.
 

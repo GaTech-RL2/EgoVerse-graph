@@ -1,5 +1,9 @@
 # Data and visualization tools
 
+Historical test commands below refer to their recorded source revisions.
+The current checkout keeps checks outside the repository; see the
+[verification policy](../VERIFICATION_POLICY.md).
+
 Owner: graph integration. These tools use recorded data and do not load a model,
 download pretrained weights, fit normalization statistics, or alter episodes.
 
@@ -35,8 +39,9 @@ The old scripts depended on absent `rldb.utils` and `egomimicUtils` imports at
 the audit baseline; copying them would not preserve a runnable workflow.
 
 For wrist-frame targets, configure the renderer's `transform_list` explicitly.
-Prediction-renderer selections such as `pi_cartesian_lang_wrist` remain usable
-with `evaluator=eval_hpt_wrist`; keypoints use `eval_keypoints_wrist`. These
+Prediction-renderer selections such as `evaluator/viz/cartesian_prompt` remain
+usable with `evaluator=eval_cartesian_wrist`; keypoints use
+`eval_keypoints_wrist`. These
 renderer selections expect the evaluator to perform coordinate reversion,
 as in the original runtime. They do not independently apply it a second time.
 
@@ -80,9 +85,6 @@ coordinate transforms belong in loader YAML. Local conversion imports do not
 require SQL, cloud packages or a policy backend.
 
 ## Evidence and remaining gates
-
-The following regression evidence is historical; test sources are no longer
-shipped. See [the verification policy](../VERIFICATION_POLICY.md).
 
 `tests/test_data_tool_parity.py` converts an actual HDF5 fixture, checks unchanged
 source bytes and overwrite rejection, imports with cloud/model modules blocked,

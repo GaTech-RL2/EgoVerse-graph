@@ -1,5 +1,9 @@
 # Shared Eva and Yam robot runtime
 
+Historical test commands below refer to their recorded source revisions.
+The current checkout keeps checks outside the repository; see the
+[verification policy](VERIFICATION_POLICY.md).
+
 Collection and rollout live in `egomimic/robot/`, outside embodiment directories.
 `interface.py` defines their common contract; the existing Eva `ARXInterface`
 and the new `yam/interface.py::YamInterface` implement it. Eva remains supported,
@@ -274,6 +278,32 @@ X, home, quit and exceptions. These files remain available for inspection.
 
 ## Local graph rollout
 
+Check the complete checkpoint load on CPU before opening station devices:
+
+```bash
+python -m egomimic.robot.rollout \
+  --config egomimic/hydra_configs/robot/yam_rl2_towels_hpt300_rollout.yaml \
+  --check-model
+python -m egomimic.robot.rollout \
+  --config egomimic/hydra_configs/robot/yam_rl2_earbuds_hpt300_rollout.yaml \
+  --check-model
+```
+
+`--check-model` forces CPU in memory, restores the bound graph and strict
+checkpoint weights, prints a JSON result, and exits before creating any robot,
+CAN, camera, or dashboard. It leaves the YAML unchanged. `--check-config`
+validates settings only; it does not test checkpoint compatibility.
+
+The RL2 HPT300 profiles select the 180k-step towel and earbud bundles from
+2026-10-12; the default `yam_rl2_hptflow_rollout.yaml` selects towels. Their
+schema-2 inference sidecars require the matching bound-inference runtime.
+The older tokenshapes/IK runtime fails constructing `FlowDenoiserStage` with
+`unexpected keyword argument 'clip_sample_range'`. Use the matching runtime;
+removing the keyword alone leaves further graph/schema incompatibilities.
+Keep each bundle's config, data context, normalizer and inference sidecar
+together. These profiles retain the existing IK controls: MuJoCo by default,
+optional TRAC-IK, and pose relaxation disabled by default.
+
 ```bash
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/yam_rollout.yaml
 python -m egomimic.robot.rollout --config egomimic/hydra_configs/robot/eva_rollout.yaml
@@ -292,6 +322,15 @@ bundle. Rollout discovers either that generic name or the immutable
 the exact resolved `model.pipeline`, inference declaration and data context;
 station
 camera maps, calibration, prompt, and safety limits stay in the rollout YAML.
+Do not put `inference_graph`, inferred family profiles or sampler defaults in
+the station policy. The loader rejects these obsolete settings rather than
+silently ignoring them. The checkpoint picker prefers `data-context.json`
+(including run-prefixed names); a historical `norm_stats.json` filename does
+not exempt its contents from the full-context and checkpoint-binding checks.
+The RL2 template requires explicit bundle paths through
+`YAM_HPTFLOW_TRAINING_CONFIG`, `YAM_HPTFLOW_CHECKPOINT`, and
+`YAM_HPTFLOW_NORMALIZER` (the full data-context file, despite the legacy variable
+name). There is no fallback to an old unbound checkpoint.
 To verify and re-export a sidecar for an already-bound checkpoint:
 
 ```bash
@@ -314,15 +353,15 @@ inference mode is `graph`.
 The rollout loop has one model-independent boundary: it passes the current
 camera/proprio observation to `policy.predict()` and receives a canonical
 Cartesian action trajectory. The selected model's `inference-config.yaml` owns
-the rest of inference: optional observation history, checkpoint-stage matching,
+the rest of inference: optional observation history, stable stage identifiers,
 sampler settings, native output shape, ARC decoding, and the final output
 contract. A model with history keeps and resets that history inside the policy;
 the rollout loop does not branch on model family. Profiles fail closed unless
-exactly one checkpoint-declared stage/variant match is found. This keeps Flow,
+exactly one model-declared deployment profile resolves to its stable stage ID. This keeps Flow,
 ARC-velocity, ARC-duration, and diffusion checkpoints behind the same robot
 interface while preventing a Flow sampler override from being applied to a
-diffusion stage. `policy.inference_graph` remains only as a legacy fallback for
-checkpoint bundles created before the model-owned artifact.
+diffusion stage. Old inferred profiles are not a deployment fallback; retain the
+original runtime or perform a verified migration for unbound bundles.
 
 Each matched profile may expose a bounded `overrides` mapping. Those declarations
 are the sole source of runtime controls shown by the dashboard: the UI does not
@@ -347,66 +386,222 @@ when those frames actually coincide.
 `action_frame: eef_frame` anchors every predicted pose in a chunk to the measured
 EEF pose at inference time. `model_frame` instead uses the configured calibration.
 Predictions are unnormalized once before decoding/frame reversion. A generated
-ARC artifact contains a matching `inference_graph.profiles` entry, for example:
+ARC artifact contains the schema-2 model declaration and immutable binding
+hashes; it is generated, not hand-written. Select the matching
+`experiment/arc_real/<task>/arc_vel` or `arc_dur` recipe. Its model contract declares
+the decoder, clock mode, stream separation, waypoint cap and runtime controls.
+Changing a YAML cannot migrate weights trained with another representation.
+
+The current codec supports incoming per-waypoint velocity or absolute waypoint
+seconds. Stream layouts are `full_separation` (M×20), `translation_rotation`
+(M×18), `translation` (M×16) and `projection` (M×16). In the last two, rotation
+and gripper use their arm's translation clock; projection measures progress
+at an offset point on the end effector. Row zero encodes the leading delay.
+See the [clock contract](ARC_CLOCK_CONTRACT.md) and
+[configuration guide](CONFIGURATION.md). Retired codecs require their original
+source revision; they are not runtime alternatives in this stack.
+
+A `decoder_attribute` control binds only to an explicitly configured decoder.
+Generic inference consumes the decoder's optional `execution_steps()`
+capability; otherwise `replan_every` remains authoritative. Decoding precedes
+IK, and both arms must pass joint-step guards before either command is sent.
+Camera loss pauses commands and discards the plan. Quit with q/Escape or Ctrl-C.
+
+### One codec: the training tokenizer
+
+`FirstStreamArcDecoder` executes multistream tokens from `arc_length_tokenizer`
+until the first moving stream reaches its configured waypoint prefix cap.
+`BimanualIntervalArcDecoder` decodes the whole token. Both use the training
+codec's own clocks; no checkpoint-era tokenizer copies are carried.
+
+Use the exported model contract's `first_stream`, `execute_percent` and
+sampling budget rather than imposing a station-wide default. The frozen time
+contract (`model_contract/yam_wrists.yaml`) declares `TimeChunkRetimer`
+and replay/hold tempo controls; 100% preserves the original chunk. Replay tempo
+and termination use decode-only helpers and do not alter training targets.
+
+### Rollout capture and active time
+
+The dashboard's **Record episode (d)** control captures the same top-level HDF5
+observations/actions/cameras as GELLO collection. It also records policy plans,
+per-row timestamps and inference settings under `rollout/`. Save a take as
+success, failure or unlabeled; discard removes only that take. **Recorded
+episodes** lists finalized takes. MP4 capture remains available independently.
+
+The background writer uses a bounded queue. Slow disk, a full queue or low free
+space ends capture as incomplete without adding robot commands or blocking the
+control loop. Startup/save metadata still requires small filesystem operations;
+continuous image writes and finalization run on the writer thread. The RL2
+profile sets a 20 GB free-space floor. Plan records distinguish the selected
+executable prefix from actual commands; per-row commands are the execution
+evidence. Restart saves an active take as unlabeled; camera/model changes and
+abnormal exit preserve it as incomplete. Never overwrite existing data.
+
+**Rollout time** is active session time since Continue: explicit pause and
+camera/model-load holds freeze it; browser reconnect preserves it; Restart
+resets to zero. This is not a per-action motion-time measurement and does not
+subtract inference latency or safety decision wait time.
+
+After a failed checkpoint selection, execution remains locked until a valid
+model loads. The old loaded model is never resumed implicitly.
+
+### Reset guides
+
+The **Reset guide** menu above the live cameras on both dashboards offers
+**Off** (default) and saved placement templates. The RL2 earbuds template shows
+adjacent left-earbud, case and right-earbud regions projected onto the table in
+`front_img_1`. It is a visual annotation, not surveyed calibration or an
+automatic reset: recheck placement if the camera or table moves. Guides are SVG
+browser annotations only; raw camera pixels, recorded videos and episodes,
+policy inputs and robot commands are unchanged. They hide when disconnected,
+awaiting frames or on an incompatible image aspect ratio, track the image's
+letterboxing, and survive a websocket reconnect until the page is refreshed.
+
+Template geometry lives in `egomimic/hydra_configs/robot/reset_overlay_templates.yaml`.
+To add or change a template run `python -m egomimic.scripts.build_reset_guides`
+and commit both generated dashboard catalogs and the rollout renderer;
+`--check` detects a stale catalog or renderer drift. The renderer is
+task-agnostic (its canonical block lives in `teleop_dashboard_static/app.js`;
+the builder synchronizes rollout's copy); keep template coordinates out of
+JavaScript. Refresh the browser to load these static-only changes; no
+collection or robot session restart is needed.
+
+### Rollout gripper force limit
+
+Rollouts start with `robot.gripper_force_limit: 20.0` N (the YAM driver's maximum
+is 50 N; GELLO collection stays at 50). When the robot can change it live
+(`YamInterface.set_gripper_force_limit`), the rollout dashboard shows one
+**Gripper force limit** slider per arm (1-50 N). A change is applied by the
+rollout thread on its next control tick and the dashboard shows the limit the
+driver reports; a driver that refuses keeps its limit and says so in the status.
+
+### Optional rollout IK pose relaxation
+
+`ik_relaxation.enabled` defaults to `false`. On YAM Cartesian rollouts the
+**Allow small IK pose errors** dashboard checkbox changes it on the control
+thread, discards the queued chunk and requests a fresh plan. It is independent
+of checkpoint inference settings and persists across model changes and Restart
+within the process; a process restart restores the YAML value. The checkbox
+shows the applied state and the configured bounds.
 
 ```yaml
-kind: egomimic.graph-inference
-schema_version: 1
-status: ready
-model_pipeline_sha256: <sha256>
-inference_contract_sha256: <sha256>
-inference_graph_sha256: <sha256>
-inference_graph:
-    input:
-      history_length: 1
-    output:
-      representation: cartesian
-      shape: [100, 14]
-    profiles:
-      flow_arcdur:
-        match:
-          stage_target: egomimic.pipeline.stages_flow.FlowDenoiserStage
-          variant: arcdur
-        native_shape: [100, 16]
-        overrides:
-          inference_steps:
-            label: Euler integration steps
-            description: Number of Flow solver steps used for each prediction.
-            type: integer
-            min: 1
-            max: 100
-            step: 1
-            default: 10
-            target:
-              kind: stage_attribute
-              attribute_path: num_inference_steps
-          replan_every:
-            label: Repredict every
-            description: Execute this many actions before requesting a fresh prediction.
-            type: integer
-            min: 1
-            max: 100
-            step: 1
-            default: 30
-            target:
-              kind: policy_attribute
-              attribute_path: replan_every
-        adapter:
-          decoder:
-            _target_: egomimic.robot.arc_decoder.BimanualArcDecoder
-            token_layout: e1_dur
-            min_distance_unit: 0.4
-            resampled_vector_length: 100
-            dt: 0.03333333333333333
-            action_horizon: 100
+ik_relaxation:
+  enabled: false
+  position_tolerance_m: 0.005
+  rotation_tolerance_deg: 3.0
 ```
 
-Use the codec and numbers from training. Supported layouts are `lab`, `e1_dur`,
-`e1_logdur` and `e1_profile`. Decoding precedes IK. The inference policy returns
-the profile-selected executable prefix; the rollout loop has no model-specific
-replanning parameter. Both arms' commands must pass the joint step limit before
-either command is sent. Camera loss pauses commands and discards the old plan.
-Quit with q/Escape or Ctrl-C.
+Strict endpoint IK is always tried first. Only after it fails does a bounded
+retry use tolerance-scaled position and orientation errors. A candidate must
+satisfy **both** FK error bounds relative to the original target; a low summed
+cost alone is insufficient. The normal paired joint-step guard still applies.
+The fallback does not change the target gripper opening, the pinned Quest
+solver, or joint replay. Configuration is validated without devices, including
+while disabled: position tolerance must be in (0, 0.02] meters and rotation in
+(0, 15] degrees. These are absolute envelopes, not increments to strict limits.
+The defaults are experimental and require physical validation on the task.
+This relaxes all orientation axes equally; it does not plan around an
+unreachable fold apex or guarantee recovery from a singularity.
+
+### Differential IK recovery
+
+`yam_rl2_hptflow_rollout.yaml` and the two HPT300 profiles enable
+`ik_recovery`; other profiles default to disabled. Normal successful endpoint
+IK is unchanged. When either arm's strict solve fails, both arms use local,
+posture-regularized differential steps toward the same queued Cartesian row.
+The pinned Quest `streaming_ik.py` and teleop settings are unchanged.
+
+```yaml
+ik_recovery:
+  enabled: true
+  max_joint_velocity: 1.0
+  position_scale_m: 0.05
+  rotation_scale_rad: 0.5
+  damping: 0.01
+  posture_weight: 0.05
+  max_ticks_per_target: 30
+```
+
+Each solve is a six-joint bounded least-squares problem with posture continuity,
+extra regularization on joints 2-4, scaled Cartesian residuals and stronger
+damping near singularity. Its bounds intersect the model joint limits with
+one tick of motion around BOTH measured joints and the last sent command.
+The rate is the smaller of the recovery rate and the rollout rate, with the
+actual configured rollout period. A bounded nonlinear backtracking check
+requires Cartesian error reduction; solver failure, incompatible bounds or
+no progress commands neither arm and discards the plan.
+
+The row remains queued during partial progress. Both grippers retain their
+last commanded opening until both commanded endpoints reach the strict IK
+tolerances, then the original row's gripper targets apply. No later row can
+execute during recovery. Pause, restart, camera loss and new-model events
+still clear the queue. After `max_ticks_per_target` commanded recovery steps,
+the plan is discarded and the policy replans; this is not a session-wide
+stall timeout. A permanently infeasible target may still require operator
+intervention. Recovery changes timing and may affect inter-hand geometry;
+it does not enforce a cloth constraint or provide collision avoidance.
+Checkpoint plan metadata records the recovery settings. Set
+`ik_recovery.enabled: false` to restore the endpoint-only rollout behavior.
+
+### Optional TRAC-IK endpoint solver
+
+The dashboard **Endpoint IK** selector and the YAML choose the endpoint solver:
+
+```yaml
+ik_solver:
+  backend: mujoco  # default; select pytracik to opt in
+  timeout_s: 0.005  # per arm, (0, 0.02] seconds
+  solver_type: Distance  # also Speed, Manip1, Manip2
+```
+
+Install the optional dependency in the station environment with
+`python -m pip install pytracik==0.0.3` (or the `yam-tracik` project extra).
+`--check-config` verifies that it imports when selected in YAML. A missing
+library or failed chain check is reported explicitly; a failed dashboard switch
+keeps the previous backend. Settings persist across Restart and checkpoint
+changes in that process; a new process uses YAML again.
+
+TRAC-IK replaces strict endpoint solving. The adapter generates a serial URDF
+from the **loaded** MuJoCo model's joints, limits and TCP, then checks TRAC-IK FK
+against MuJoCo on 13 configurations before selection. Every returned endpoint is
+checked for finite joints, joint limits, and the same independent Cartesian
+acceptance bounds (normally 2 mm and 0.02 rad). Both arms must still pass the
+rollout's joint-step guard. MuJoCo remains responsible for FK, optional bounded
+pose relaxation and bounded differential recovery. Backend changes run on the
+rollout thread, prepare both arms before switching, discard queued waypoints,
+and resume from a fresh observation. The selected solver settings are recorded
+with each plan.
+
+A reproducible CPU comparison, with no robot-driver imports:
+
+```bash
+python -m egomimic.robot.yam.benchmark_ik \
+  --xml-path /path/to/the/station/yam_linear_4310_d405.xml \
+  --count 100 --repeats 3 --seed 20261011 \
+  --solver-type Distance --timeout-s 0.005 --max-step 0.4 \
+  --output /tmp/yam-ik-comparison.json
+```
+
+Station CPU result (2026-10-11, pytracik 0.0.3, MuJoCo 3.4.0; valid endpoints /
+endpoints within the 0.4-rad command step, out of 300 per group): TRAC-IK
+solved 300 / 300 high-TCP targets against MuJoCo's 273 / 273 and rescued 72
+failed reachable attempts while missing three on its time budget; typical
+reachable-case medians were 5.5 ms per arm for TRAC-IK versus 0.6-1.8 ms for
+MuJoCo. MuJoCo stays the default; the comparison is synthetic and does not
+establish physical fold success.
+
+### Station monitors and checkers
+
+- `egomimic/robot/camera_align/` watches the front D405 for camera or desk
+  motion against a saved reference (SIFT roll / tilt / pan, ArUco poses) and
+  serves a loopback page on port 8090. `run.sh` opens the camera directly
+  (`--source realsense`, so no rollout dashboard is needed; stop it before a
+  rollout or `collect_gello` starts), `SOURCE=stream ./run.sh` reads the rollout
+  dashboard's websocket instead. See its README.
+- `python -m egomimic.robot.hdf5_tempo <episodes dir>` buckets recorded GELLO
+  episodes by tempo and skips an unusable file instead of aborting the scan.
+- `python -m egomimic.robot.rollout --config <profile> --check-model` strictly
+  restores the selected bundle on CPU and exits before any device opens.
 
 ## Zarr replay and upload
 
@@ -437,9 +632,6 @@ them. Inspect interrupted files (`complete=False`) before selecting an upload
 directory. `--list` performs no upload and needs no AWS credentials.
 
 ## Validation scope
-
-The regression sources referenced below are historical and no longer shipped;
-see [the verification policy](VERIFICATION_POLICY.md). Keep new checks local.
 
 `tests/test_robot_runtime.py` checks collection, format compatibility, world-frame
 clutch control, stale tracking/cameras, previews, Eva/Yam interfaces, cleanup and

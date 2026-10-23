@@ -61,7 +61,7 @@ selected emitted configs remain separate immutable task artifacts.
 
 ## PushShapes: explicit multiplier versus historical physical speed
 
-AF selects `pusht/action_flow_cotrain_uc_multiplier_interpolation`; its typed
+AF selects `arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation`; its typed
 route requires fresh initialization, scalar raw dimensionless multiplier, no
 physical-speed reference, Euler50, batches32+32 and fixed EMA0.9978. The latest
 explicit PushT preference uses normal native per-source image processing, not

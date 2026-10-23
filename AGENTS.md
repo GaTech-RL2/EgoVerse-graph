@@ -1,7 +1,7 @@
 # Repo Agent Rules
 
-See [the verification policy](docs/VERIFICATION_POLICY.md): keep tests and
-verification fixtures outside this repository; never commit them.
+See [the verification policy](docs/VERIFICATION_POLICY.md): do not commit tests,
+fixtures or local verification scripts.
 
 ## Shell / Command Execution
 To run commands in the interactive shell, source `emimic/bin/activate` when it
@@ -39,6 +39,14 @@ whole scratch/project root. Candidate inventory alone does not authorize deletio
 Publish source with Graphite `gt submit` using the user's authorized GitHub account,
 preserving branch parents. Do not merge without an explicit user request.
 
+## Aidan stationery source
+
+For current ARC work, use the feature-sized rebuild rooted on main.
+See [docs/ARC_REBUILD.md](docs/ARC_REBUILD.md); #263–#279 remain reference history.
+Read [docs/STATTEMPO.md](docs/STATTEMPO.md) and the experiment README for the
+retained task recipes and source-preservation rules. Older branches are
+historical run sources. Preserve existing jobs' recorded commits.
+
 ## Current PushT recipes
 
 Read the current selection section in `docs/cluster-pipeline.md` before choosing
@@ -68,10 +76,10 @@ not imply a separate runtime for that task or model.
 | Shared Lightning training and validation hooks | [pl_utils/pl_model.py](egomimic/pl_utils/pl_model.py), [pl_utils/pl_data_utils.py](egomimic/pl_utils/pl_data_utils.py) |
 | Episode loading, metadata, normalization, bounds and sampling | [rldb/zarr/zarr_dataset_multi.py](egomimic/rldb/zarr/zarr_dataset_multi.py) |
 | Embodiment keymaps and coordinate frames | `egomimic/rldb/embodiment/{human,eva,yam}.py`; see [data guide](egomimic/rldb/AGENTS.md) |
-| Generic bimanual ARC inputs used by E1 | [embodiment/bimanual_arc.py](egomimic/rldb/embodiment/bimanual_arc.py) |
+| Generic bimanual time/ARC inputs | [embodiment/bimanual_arc.py](egomimic/rldb/embodiment/bimanual_arc.py) |
 | Pose transforms and action encodings | [zarr/action_chunk_transforms.py](egomimic/rldb/zarr/action_chunk_transforms.py), [utils/pose_utils.py](egomimic/utils/pose_utils.py), [utils/action_encoding.py](egomimic/utils/action_encoding.py) |
 | Shared HPT/PI robot metrics and videos | [eval/bimanual_cartesian_eval.py](egomimic/eval/bimanual_cartesian_eval.py), [eval/video.py](egomimic/eval/video.py); see [evaluation guide](egomimic/eval/AGENTS.md) |
-| ARC and tempo evaluation | `egomimic/eval/{arc_bimanual_cartesian_eval,bimanual_tempo_eval,arc_metrics,e1_metrics}.py` |
+| ARC evaluation | `egomimic/eval/{arc_bimanual_cartesian_eval,open_loop_sim,arc_metrics}.py`; [clock contract](docs/ARC_CLOCK_CONTRACT.md) |
 | Dataset filters, task prompts, camera/frame choices and experiment parameters | `egomimic/hydra_configs/`; calibration matrices in `hydra_configs/calibration/` |
 | Shared Eva/Yam collection, local graph rollout, Zarr replay and upload | [robot/AGENTS.md](egomimic/robot/AGENTS.md), [docs/YAM_RUNTIME.md](docs/YAM_RUNTIME.md) |
 | Offline normalization export for any model | [scripts/data/precompute_norm_stats.py](scripts/data/precompute_norm_stats.py), or `trainHydra.py norm_stats_only=true` |
@@ -100,14 +108,12 @@ rg -n 'class BimanualCartesianEval|class PI05Stage|class MultiDataset' egomimic
 - Evaluators expose `data_requirements()` and `trainer_overrides()`. Complete
   episode requests must reject partial loaders or validation-loop limits before
   model construction. See [the integration contract](docs/GENERIC_PIPELINE_CONTRACT.md).
-- `egomimic/campaigns/pi05/`, `e1_fold.py`, and `pi05_graph_eval.py` retain old
+- `egomimic/campaigns/pi05/` and `pi05_graph_eval.py` retain old
   import names. Their implementations now live at the canonical paths above.
   Use current YAML examples when migrating older serialized configuration APIs.
-- Do not commit tests, test fixtures, or local verification scripts. Keep any
-  regression checks outside the repository and report their results in the PR.
-  Verify normalization, pose conventions and checkpoint loading with local CPU
-  checks before a cluster run; hardware and pretrained-model validation remain
-  separate. Historical test sources remain available in Git history.
+- Keep regression checks and fixtures outside the repository; never commit tests.
+  Verify geometry, normalization and checkpoint behavior locally and report results.
+  Hardware and pretrained-model validation remain separate.
 
 ## Preserve work and verify the target
 

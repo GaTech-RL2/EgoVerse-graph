@@ -24,22 +24,32 @@ verification and separate Yam hardware environment.
 
 ## Select a complete recipe
 
-The general `train_zarr_cartesian` entry point requires explicit model, data and
-evaluator choices. For example, after configuring credentials and dataset paths:
+Prefer a complete task entry point; its defaults explicitly select model, data,
+evaluator, trainer, callbacks and logging. Inspect without launching:
+
+```bash
+python egomimic/trainHydra.py \
+  +experiment=arc_real/stationary_velocity --cfg job --resolve
+```
+
+See [the configuration guide](../CONFIGURATION.md) for the arc_real/arc_sim menus,
+family-organized model configs and behavior-named evaluators. The general
+`train_zarr_cartesian` entry point also supports explicit component selection.
+For example, after configuring credentials and dataset paths:
 
 ```bash
 python -m egomimic.trainHydra --config-name=train_zarr_cartesian \
-  model=hpt_bc_flow_eva data=eva evaluator=eval_hpt
+  model=hpt/bc_flow_eva data=eva evaluator=eval_cartesian_camera
 ```
 
 The PI convenience entry point retains its concrete ABC/6D/wrist-frame default
-and requires an explicit pretrained weight path. Root retained recipes can be
+and requires an explicit pretrained weight path. Retained legacy recipes can be
 selected on the general entry point too:
 
 ```bash
 export EGOVERSE_PI05_WEIGHTS=/absolute/path/to/pi05_base_pytorch
 python -m egomimic.trainHydra --config-name=train_zarr_cartesian \
-  model=pi0.5_bc_eva data=eva_pi evaluator=eval_pi
+  model=pi/bc_eva_legacy data=eva_pi evaluator=eval_cartesian_camera_prompt
 ```
 
 PI weights/tokenizers must be available at the selected model's configured
@@ -52,8 +62,9 @@ it contradicts that contract. The nested PI recipes expose
 `model.coordinate_frame=camframe|eef_frame`; it must match the data selection
 and the evaluator's frame reversion. The model declaration also chooses the
 deployment frame, so a station cannot silently reinterpret wrist-relative
-actions as camera-frame actions. E1's `e1.policy_domain` is explicit experiment
-metadata and binds its source identity and data contract.
+actions as camera-frame actions. Contracts bind the selected model and data
+semantics without inferring them from folder names. Removed E1 recipes must
+use their original source; they are not current launch choices.
 
 The keypoint wrist entry point shares the retained keypoint architecture but
 selects a wrist-frame model contract. Nested Yam/ARC models declare padded

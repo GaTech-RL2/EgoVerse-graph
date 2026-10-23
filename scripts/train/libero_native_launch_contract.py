@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PROFILE = "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
+PROFILE = "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42"
 
 
 def sha(path):
@@ -890,7 +890,7 @@ def main():
         )
 
         profile_name = inputs.get("profile_name", SPATIAL_HAND_JOINT_PROFILE.name)
-        if os.environ.get("AF_EXPERIMENT") != "libero/" + profile_name:
+        if os.environ.get("AF_EXPERIMENT") != "arc_sim/libero/" + profile_name:
             raise ValueError("joint exact factory experiment/environment mismatch")
         for key, envkey in {
             "source_root": "AF_REPO",

@@ -118,10 +118,10 @@ case "$ICE_GPU_CONTRACT" in
   *) die "ICE_GPU_CONTRACT must be H100_OR_H200, L40S, or A100" ;;
 esac
 case "$ICE_EXPERIMENT:$ICE_MODEL" in
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
-  pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
-  pusht/action_latent_vfm_usocket_val01_h16:bf/us_action_latent_vfm_nt16_d8_h512_s42)
+  arc_sim/pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_s42) ;;
+  arc_sim/pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt8_flow42_s42) ;;
+  arc_sim/pusht/unite_usocket_register_sweep_val01_h16:bf/us_unite_register_shared_nt16_s42) ;;
+  arc_sim/pusht/action_latent_vfm_usocket_val01_h16:bf/us_action_latent_vfm_nt16_d8_h512_s42)
     ICE_FAMILY=action_latent_vfm
     ICE_UNITE_DIAGNOSTICS=true
     ;;
@@ -372,10 +372,10 @@ assert cfg.run_provenance.split_manifest_sha256 == split_manifest_sha256
 assert int(cfg.data.train_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(train_batch_size)
 assert int(cfg.data.valid_dataloader_params.pushshapes_sim_u_socket.batch_size) == int(valid_batch_size)
 if family == "paper_dp":
-    assert experiment == "pusht/planar_v2_usocket_dp_paper"
+    assert experiment == "arc_sim/pusht/planar_v2_usocket_dp_paper"
     assert cfg.name == "planar_v2_usocket_dp_paper_h16"
 elif family == "unite":
-    assert experiment == "pusht/unite_usocket_register_sweep_val01_h16"
+    assert experiment == "arc_sim/pusht/unite_usocket_register_sweep_val01_h16"
     assert cfg.name == "unite_usocket_register_sweep_h16"
     assert int(cfg.evaluator.energy_score_max_batches_per_rank) == 1
     assert int(cfg.evaluator.energy_score_validation_view.world_size) == world_size
@@ -401,7 +401,7 @@ elif family == "unite":
     else:
         assert bool(cfg.evaluator.unite_diagnostics.enabled) is False
 elif family == "action_latent_vfm":
-    assert experiment == "pusht/action_latent_vfm_usocket_val01_h16"
+    assert experiment == "arc_sim/pusht/action_latent_vfm_usocket_val01_h16"
     assert cfg.name == "action_latent_vfm_usocket_h16"
     assert cfg.model._target_ == "egomimic.pl_utils.pl_model.ModelWrapper"
     assert cfg.model.training_behavior._target_.endswith(

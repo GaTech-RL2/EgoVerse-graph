@@ -29,13 +29,11 @@ EXPERIMENT_CONTEXTS = {
     "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
     "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
     "model/e1/hpt_flow_wrists": "e1/abcs_time",
-    "data/abc_arc/abc_fstshirt_arc_bc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model/abc_arc/yam_bimanual_dp_arc_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
     "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
     "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
-    "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_arc_bc",
+    "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_bc",
     "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
     "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
     "evaluator/e1/yam_action_flow": "e1/yam_stationary_action_flow_h816_s42",
@@ -133,7 +131,7 @@ def audit_context(path):
     elif group in {"model", "data"} and entry.startswith(("abc/", "abc_arc/")):
         experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
         if "arc_D" in entry or "arcD" in entry or "arc_cotrain" in entry:
-            experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_arcD40M100"
+            experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

@@ -10,15 +10,9 @@ from egomimic.rldb.embodiment.human import (
     _build_human_cartesian_eef_frame_transform_list,
     _pad_human_cartesian_gripper,
 )
-from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr.cartesian_baseline_support import CopyKeyRows
 
-VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur")
-VELOCITY_MODES = {
-    "arcmean": "mean",
-    "arcvel": "profile",
-    "arclogdur": "logdur",
-    "arcdur": "dur",
-}
+VARIANTS = ("time",)
 
 
 def get_keymap(
@@ -67,7 +61,9 @@ def get_transform_list(
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
     if variant not in VARIANTS:
-        raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
+        raise ValueError(
+            "Legacy Cartesian ARC is withdrawn at this review level; use a time-domain baseline or the later explicit ARC integration level. Historical checkpoints must retain their original source."
+        )
     if embodiment == "human":
         tl = _build_human_cartesian_eef_frame_transform_list(
             stride=int(stride),
@@ -88,19 +84,4 @@ def get_transform_list(
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
-    if variant != "time":
-        tl.append(
-            TokenizeBimanualArcLengthE1(
-                action_key="actions_cartesian",
-                output_action_key="actions_cartesian",
-                min_distance_unit=float(min_distance_unit),
-                resampled_vector_length=int(resampled_vector_length),
-                dt=float(stride) / source_fps,
-                velocity_norm=velocity_norm,
-                velocity_mode=VELOCITY_MODES[variant],
-                speed_smooth_frames=int(speed_smooth_frames),
-                progress_smooth_hz=progress_smooth_hz,
-                fixed_spacing=bool(fixed_spacing),
-            )
-        )
     return tl

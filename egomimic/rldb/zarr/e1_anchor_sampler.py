@@ -29,7 +29,7 @@ import torch
 import zarr
 from torch.utils.data import WeightedRandomSampler
 
-from egomimic.rldb.zarr.e1_arc_tokenizer import lowpass_positions
+from egomimic.rldb.zarr.cartesian_baseline_support import lowpass_positions
 
 logger = logging.getLogger(__name__)
 HANDS = ("left", "right")

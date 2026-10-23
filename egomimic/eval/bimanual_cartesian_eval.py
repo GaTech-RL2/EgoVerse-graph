@@ -311,7 +311,9 @@ class BimanualCartesianEval(EvalVideo):
         index = np.linspace(0, chunk.shape[-2] - 1, rows).round().astype(int)
         return chunk[..., index, :]
 
-    def _arc_pred_time_indexed(self, prediction: torch.Tensor, embodiment_id: int):
+    def _arc_pred_time_indexed(
+        self, prediction: torch.Tensor, embodiment_id: int, *, source_batch=None
+    ):
         """Prediction as a time-indexed (B, T, 14) numpy chunk.
 
         Baseline: unnormalized pose chunk at tokenizer resolution (no
@@ -343,6 +345,8 @@ class BimanualCartesianEval(EvalVideo):
         prediction: torch.Tensor,
         ground_truth: np.ndarray,
         embodiment_id: int,
+        *,
+        source_batch=None,
     ):
         """Prediction geometry for shared-D arcmatch.
 
@@ -350,7 +354,9 @@ class BimanualCartesianEval(EvalVideo):
         Arc subclass returns token waypoints unless any arm has ``L_gt < D``.
         """
         del ground_truth
-        return self._arc_pred_time_indexed(prediction, embodiment_id)
+        return self._arc_pred_time_indexed(
+            prediction, embodiment_id, source_batch=source_batch
+        )
 
     def _extra_metrics(
         self,
@@ -375,7 +381,7 @@ class BimanualCartesianEval(EvalVideo):
         if ground_truth is None or len(ground_truth) == 0:
             return {}
         arcmatch_pred = self._arc_pred_for_arcmatch(
-            prediction, ground_truth, embodiment_id
+            prediction, ground_truth, embodiment_id, source_batch=source_batch
         )
         if isinstance(arcmatch_pred, list):
             predictions = arcmatch_pred
@@ -394,7 +400,9 @@ class BimanualCartesianEval(EvalVideo):
                 min_distance_unit=self.arcmatch_distance,
             )
         )
-        decoded = self._arc_pred_time_indexed(prediction, embodiment_id)
+        decoded = self._arc_pred_time_indexed(
+            prediction, embodiment_id, source_batch=source_batch
+        )
         ti_pred = [sample for sample in decoded]
         values.update(dtw_metrics(ti_pred, truth, max_samples=self.dtw_max_samples))
         rows = min(decoded.shape[-2], ground_truth.shape[-2])
@@ -417,13 +425,15 @@ class BimanualCartesianEval(EvalVideo):
             for name, value in values.items()
         }
 
-    def _viz_source(self, actions: torch.Tensor, embodiment_id: int) -> torch.Tensor:
+    def _viz_source(
+        self, actions: torch.Tensor, embodiment_id: int, *, source_batch=None
+    ) -> torch.Tensor:
         """Rows to hand the revert transforms. Identity for a time-indexed run.
 
         A subclass whose action space is NOT a stack of poses must override
         this. The revert transforms rotate AND translate every row they are
-        given, so any row that is not a pose comes out as a position -- see
-        ArcBimanualCartesianEval, where row M is a velocity.
+        given. A representation with additional clock channels must decode into
+        physical poses first, with its source-specific measured anchor.
         """
         del embodiment_id
         return actions
@@ -491,8 +501,12 @@ class BimanualCartesianEval(EvalVideo):
         pred_native = self._native(pred_normalized, embodiment_id).detach().cpu()
         gt_native = self._native(gt_normalized, embodiment_id).detach().cpu()
         # Everything downstream treats these rows as poses, so convert first.
-        pred_native = self._viz_source(pred_native, embodiment_id)
-        gt_native = self._viz_source(gt_native, embodiment_id)
+        pred_native = self._viz_source(
+            pred_native, embodiment_id, source_batch=source_batch
+        )
+        gt_native = self._viz_source(
+            gt_native, embodiment_id, source_batch=source_batch
+        )
 
         # Unnormalize the obs pose and drop an optional T_obs=1 axis. The revert
         # transforms expect per-sample obs of shape (D,), not (T_obs, D).

@@ -19,7 +19,7 @@ from omegaconf import OmegaConf
 
 SCHEMA_VERSION = 1
 EXPERIMENTS = {
-    "pusht/action_flow_cotrain_uc_multiplier_interpolation": {
+    "arc_sim/pusht/action_flow_cotrain_uc_multiplier_interpolation": {
         "config_name": "action_flow_cotrain_uc_multiplier_interpolation",
         "parameter_count": 471_549_402,
         "sources": {

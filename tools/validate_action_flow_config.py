@@ -120,18 +120,18 @@ SCALED_200M_CONFIG_NAMES = {SCALED_MUON_CONFIG_NAME, SCALED_ADAMW_CONFIG_NAME}
 # Serialized checkpoint identities, not a menu of selectable training recipes.
 CHECKPOINT_METHOD_CONTRACTS = {
     "pusht/" + HISTORICAL_COMPAT_CONFIG_NAME: STOPGRAD_UNITE_METHOD,
-    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_s42": STOPGRAD_METHOD,
     "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_codec98k_s42": STOPGRAD_METHOD,
-    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
-    "pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_muon_lr1e5_s42": STOPGRAD_METHOD,
+    "arc_sim/pusht/action_flow_bc_usocket_latent_fm_sg_recon1_200m_adamw_lr1e5_s42": STOPGRAD_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h384_sum14_cfg4_val8_deterministic_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_usocket_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_chain_points6_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
     "pusht/action_flow_cotrain_uc_latent_fm_sg_unite_h512d14h16_sum14_cfg4_val10k_s42": STOPGRAD_UNITE_METHOD,
-    "pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
-    "pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
+    "arc_sim/pusht/action_flow_bc_usocket_bridge_likelihood_s42": LIKELIHOOD_METHOD,
+    "arc_sim/pusht/action_flow_bc_usocket_graph_section_s42": GRAPH_METHOD,
 }
 LIKELIHOOD_STAGE_TARGETS = EXPECTED_STAGE_TARGETS[:3] + tuple(
     f"egomimic.pipeline.stages_action_flow_likelihood.{name}"
@@ -492,7 +492,7 @@ def compose_experiment(
         "invalid experiment selector",
     )
     _require(
-        not experiment.startswith(("pusht/parents/", "pusht_historical/")),
+        not experiment.startswith(("arc_sim/pusht/parents/", "pusht_historical/")),
         "parent/historical PushT configs are not fresh training entry points; use the checkpoint's recorded source",
     )
     _require(

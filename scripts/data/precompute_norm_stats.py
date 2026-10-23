@@ -14,7 +14,7 @@ Output: <out>/norm_stats/norm_stats.json — point training at it with:
 
 Usage (CPU node, repo root, emimic venv):
     python scripts/pi05/precompute_norm_stats.py \
-        --data pi05/mecka_all_pi_6d --model pi05/pi0.5_bc_mecka_6d \
+        --data pi05/mecka_all_pi_6d --model pi/bc_mecka_6d \
         --sample-frac 0.1 --num-workers 30 \
         --out /storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6d
 """

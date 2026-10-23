@@ -1,0 +1,17 @@
+# @package _global_
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  action_dim: 14
+  action_horizon: 100
+  flow_blocks: 6
+  flow_hidden_dim: 320
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: ${hpt.num_heads}
+      crossattn_dim_head: 84
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: ${hpt.embed_dim}

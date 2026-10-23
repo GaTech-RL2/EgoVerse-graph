@@ -1,0 +1,32 @@
+# Concrete model recipe; shared graph/contract fields are inherited.
+defaults:
+- /model/base/pi_human_legacy@_here_
+- _self_
+inference_domains:
+  human_bimanual:
+    native_output:
+      timing:
+        dt: 0.00909090909090909
+        last_source_frame: 27
+    output:
+      shape:
+      - 28
+      - 12
+    profiles:
+      default:
+        adapter:
+          shape:
+          - 28
+          - 12
+          decoder:
+            native_dt: 0.00909090909090909
+            output_horizon: 28
+        overrides:
+          replan_every:
+            max: 28
+            default: 28
+data_requirements:
+  preprocessing:
+    '3':
+      transforms:
+        stride: 3

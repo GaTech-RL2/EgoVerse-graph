@@ -8,4 +8,4 @@ abc:
   arc_clock_mode: velocity
 logger:
   wandb:
-    tags: [rl2, towels, since0924plus93, hpt300, arcvel, interval_speed, translation, m200_d033, open_loop]
+    tags: [rl2, towels, since0924plus130, hpt300, arcvel, interval_speed, translation, m200_d033, open_loop]

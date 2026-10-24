@@ -10,4 +10,4 @@ abc:
   arc_distance: 0.33
 logger:
   wandb:
-    tags: [rl2, towels, since0924plus93, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d033, open_loop]
+    tags: [rl2, towels, since0924plus130, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d033, open_loop]

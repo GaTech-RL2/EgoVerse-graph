@@ -1,5 +1,5 @@
 # rl2 fold_towels pool, pointed at the SQL task (2026-10-22): every lab=rl2 yam_bimanual episode under task fold_towels.
-# That task now holds exactly since0924plus74 + Aidan's 19 takes of 10-21 (462 train / 17 val); the 329 pre-09-24 takes
+# That task now holds exactly since0924plus74 + Aidan's 19 takes of 10-21 + his 37 of 10-24 (499 train / 17 val); the 329 pre-09-24 takes
 # (incl. 30 soft-deleted) were moved to fold_towels_retired. Validation is the frozen 17 listed below; the counts and
 # SHA-256 pins guard the membership.
 defaults:
@@ -17,8 +17,8 @@ train_datasets:
         == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and
         row[''num_frames''] > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']
         and row[''episode_hash''] not in V'
-    expected_train_episode_count: 462
-    expected_train_episode_names_sha256: 77dd0e6fc55a4eb8de616328988ea4d7fc22d449314516cbeb048322db0ce39c
+    expected_train_episode_count: 499
+    expected_train_episode_names_sha256: a633b17ea0f20a616c97afacd65a9dbc4c9e2d73bd7b443aaff9b11c5fcad23f
     expected_valid_episode_count: 0
     expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 valid_datasets:

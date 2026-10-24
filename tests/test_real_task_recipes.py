@@ -13,7 +13,7 @@ from scripts.audit_hydra_configs import CONFIGS, compose_for_audit
 REAL = CONFIGS / "experiment/real"
 TASKS = {"stationary": 0.22, "earbuds": 0.22, "towels": 0.33}
 MODES = ("time", "duration", "velocity")
-POOLS = {"stationary": (417, 24), "earbuds": (339, 15), "towels": (462, 17)}
+POOLS = {"stationary": (417, 24), "earbuds": (339, 15), "towels": (499, 17)}
 ARC = [(f"{task}_{mode}", task, mode) for task in TASKS for mode in MODES[1:]]
 
 
@@ -157,7 +157,7 @@ def test_stream_override_widens_the_token_everywhere():
     [
         ("stationary", "organize_stationary", (417, 24)),
         ("earbuds", "wireless_earbuds", (339, 15)),
-        ("towels", "fold_towels", (462, 17)),
+        ("towels", "fold_towels", (499, 17)),
     ],
 )
 def test_pools_point_at_their_sql_task_with_a_frozen_validation_list(

@@ -19,30 +19,29 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
-    "experiment/_shared/clock_settings": "real/multitask/arc_vel",
-    "experiment/_shared/frozen_yam_arc": "real/wireless_earbuds/arc_vel",
-    "experiment/_shared/frozen_yam/base": "real/wireless_earbuds/baseline",
-    "evaluator/frozen_yam_time": "real/wireless_earbuds/baseline",
-    "model/abc_arc/frozen_yam_hpt_flow": "real/wireless_earbuds/baseline",
-    "model/abc_arc/frozen_yam_hpt300_time": "real/wireless_earbuds/baseline",
-    "model_contract/frozen_yam_wrists": "real/wireless_earbuds/baseline",
+    "experiment/_shared/clock_settings": "real/stationary_velocity",
+    "experiment/_shared/frozen_yam_arc": "real/earbuds_velocity",
+    "experiment/_shared/arc_single_clock": "real/earbuds_duration",
+    "experiment/_shared/frozen_yam/hpt300_openloop": "real/earbuds_time",
+    "experiment/_shared/frozen_yam/base": "real/earbuds_time",
+    "evaluator/frozen_yam_time": "real/earbuds_time",
+    "model/abc_arc/frozen_yam_hpt_flow": "real/earbuds_time",
+    "model/abc_arc/frozen_yam_hpt300_time": "real/earbuds_time",
+    "model_contract/frozen_yam_wrists": "real/earbuds_time",
     "data/pusht/planar_chain_manual4919_standard_retimed": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
     "data/pusht/parents/standard_dp_uc_h16": "sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
     "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
     "model/libero/oat_dp_matched": "sim/libero_historical/dp_libero10_oat_dp_matched_s42",
     "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
     "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model_contract/abc_visual": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_yam_visual": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "model/abc_arc/hpt_bimanual_visual": "real/organize_stationary/baseline",
-    "model/abc_arc/abc_dit_yam_visual": "real/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
-    "data/abc_arc/abc_visual": "real/fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
-    "data/abc_arc/stationery_rl2_hpt_baseline": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_baseline_openloop",
-    "data/abc_arc/stationery_rl2_hpt_arc_hybrid_D40_M100_R24deg": "real/organize_stationary/variants/stationery_rl2_hpt300_visual_hybrid_openloop",
+    "model_contract/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/abc_arc/hpt_yam_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/abc_arc/hpt_bimanual_visual": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
+    "model/abc_arc/abc_dit_yam_visual": "abc_arc/robot_bc/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
+    "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_baseline_openloop",
     "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/human_bc/mecka_fold_clothes_40h_human_visual_hybrid_openloop",
-    "data/abc_arc/organize_rl2_elmo_cotrain": "real/organize_stationary/baseline",
-    "experiment/_shared/visual_hpt300": "real/fold_and_stack_towels/variants/abc_towels_hpt180_baseline_visual_openloop",
+    "experiment/_shared/visual_hpt300": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
     "model/bf/bf_planar_v2_arc_graph_tok": "sim/pusht/planar_v2_usocket_arc_graph_tok",
     "model/bf/us_action_flow_latent_fm_sg_unite_h384": "sim/pusht/parents/action_flow_usocket_h384",
     "data/libero/action_flow_libero10_val01_h16": "sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
@@ -149,11 +148,11 @@ def audit_context(path):
         experiment = "abc/yam_fstshirt_dp"
     # Stationery fragments require the same FT sizes, source frames and fixed
     # ranges supplied by their real inheriting recipes, never invented values.
-    if name.startswith("data/abc_arc/stationery_"):
-        experiment = "real/wireless_earbuds/baseline"
-    if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
-        # Frozen YAM pools select their codec through the HPT300 recipe.
-        experiment = "real/fold_and_stack_towels/baseline"
+    # Frozen rl2 YAM pools (and their loader) take their FT sizes, source frames
+    # and codec from the task's time recipe, never invented values.
+    for pool in ("stationary", "earbuds", "towels"):
+        if name in (f"data/abc_arc/{pool}", "data/abc_arc/stationery_yam_loader"):
+            experiment = f"real/{pool}_time"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
     config_name = name if not entry else "train_zarr_cartesian"

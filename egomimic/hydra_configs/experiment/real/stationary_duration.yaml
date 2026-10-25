@@ -1,0 +1,13 @@
+# @package _global_
+# Absolute-duration single-clock ARC (M 200, D 0.22 m, 100-frame window, speed-bounded isotonic decode) on the
+# stationary_time pool and graph.
+defaults:
+  - /experiment/real/stationary_time
+  - /experiment/_shared/arc_single_clock
+  - _self_
+name: stationary_duration
+abc:
+  arc_distance: 0.22
+logger:
+  wandb:
+    tags: [rl2, stationery, sp366e51, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, m200_d022, open_loop]

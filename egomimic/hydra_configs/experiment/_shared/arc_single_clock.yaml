@@ -1,0 +1,25 @@
+# @package _global_
+# Aidan's single-clock ARC protocol (vault note "ARC Abstime And Interval Arcvel Run Protocol 10-20") on the
+# shared frozen-YAM ARC plumbing: one clock per arm (rotation and gripper ride the translation supports),
+# absolute waypoint seconds decoded by speed-bounded isotonic regression, M 200 waypoints, a 100-frame native
+# source window (not the 400-frame default), 25 % open-loop scoring prefix and a 50 % deployed waypoint prefix.
+# The *_duration leaves use this as is; the *_velocity leaves switch abc.arc_clock_mode to velocity (interval
+# arcvel). Task leaves set D (abc.arc_distance).
+defaults:
+  - /experiment/_shared/frozen_yam_arc
+  - _self_
+abc:
+  arc_clock_mode: duration
+  arc_streams: translation
+  arc_waypoints: 200
+  arc_source_buffer_frames: 100
+evaluator:
+  execute_fraction: 0.25
+model:
+  inference_contracts:
+    hybrid_arc_tokenizer_cartesian:
+      profiles:
+        default:
+          adapter:
+            decoder:
+              execute_percent: 50

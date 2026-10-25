@@ -1,4 +1,4 @@
-"""ABC-DiT graph: both multitask recipes compose, and a tiny model trains/samples."""
+"""ABC-DiT graph: both ABC multitask recipes compose, and a tiny model trains/samples."""
 
 from pathlib import Path
 
@@ -10,12 +10,12 @@ from hydra import compose, initialize_config_dir
 from egomimic.pipeline.stages_flow import FlowDenoiserStage
 
 _CONFIGS = Path(__file__).resolve().parents[1] / "egomimic/hydra_configs"
-_BASELINE = "real/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop"
-_HYBRID = "real/multitask/variants/abc_multitask4_abcdit_hybrid_visual_openloop"
-_TOWEL_BASELINE = (
-    "real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_baseline_visual_openloop"
+_BASELINE = (
+    "abc_arc/robot_bc/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop"
 )
-_TOWEL_ARC = "real/fold_and_stack_towels/variants/abc_rl2_towels_abcdit_multistream_visual_openloop"
+_HYBRID = (
+    "abc_arc/robot_bc/multitask/variants/abc_multitask4_abcdit_hybrid_visual_openloop"
+)
 # Keeps the DiT tiny; the ViT-B/16 backbone shape is fixed by the checkpoint.
 _TINY = [
     "abc_dit.hidden_size=64",
@@ -40,8 +40,6 @@ def _cfg(experiment, extra=()):
         (_BASELINE, 100, 14, "cartesian"),
         # Canonical six-stream ARC: 14 geometry columns + six clocks.
         (_HYBRID, 100, 20, "hybrid_arc_tokenizer_cartesian"),
-        (_TOWEL_BASELINE, 100, 14, "cartesian"),
-        (_TOWEL_ARC, 100, 20, "hybrid_arc_tokenizer_cartesian"),
     ],
 )
 def test_recipes_compose_with_the_right_action_contract(
@@ -104,29 +102,6 @@ def test_a_tiny_hybrid_graph_trains_and_samples():
 
     sampled = algo.pipeline.execute(dict(obs), mode="inference")
     assert sampled["pred_action"].shape == (2, horizon, dim)
-
-
-def test_towel_recipe_pins_multistream_budgets_data_and_task_text():
-    cfg = _cfg(_TOWEL_ARC)
-    assert cfg.abc.arc_chunking_mode == "multistream"
-    assert cfg.evaluator.arc_chunking_mode == "multistream"
-    assert cfg.abc.arc_distance == cfg.evaluator.min_distance_unit == 0.7143
-    assert (
-        cfg.abc.arc_rotation_distance == cfg.evaluator.rotation_distance_unit == 2.0997
-    )
-    data = cfg.data.train_datasets.yam_bimanual
-    assert data.resolver.key_map.task_zarr_key == "task_name"
-    (rule,) = data.filters.filter_lambdas
-    keep = eval(rule)
-    row = dict(embodiment="yam_bimanual", zarr_processed_path="x", is_deleted=False)
-    assert keep({**row, "lab": "abc", "task": "fold and stack the towels"})
-    assert keep({**row, "lab": "rl2", "task": "fold_towels"})
-    assert not keep({**row, "lab": "rl2", "task": "fold and stack the towels"})
-    assert not keep(
-        {**row, "lab": "abc", "task": "sort the stationery into containers"}
-    )
-    valid = cfg.data.valid_datasets.yam_bimanual
-    assert list(valid.filters.filter_lambdas) == [rule]
 
 
 def test_the_task_prompt_is_read_from_episode_metadata_but_not_normalized():

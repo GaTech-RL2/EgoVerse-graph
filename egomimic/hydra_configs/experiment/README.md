@@ -45,7 +45,7 @@ python egomimic/trainHydra.py -m \
 | Task | Frozen pool (train / val), `data/abc_arc/<task>` | D |
 | --- | --- | --- |
 | stationary | slow-pace 366 + the 51 organize_stationary episodes Elmo recorded on 2026-10-19/20 (417 / 24) | 0.22 m |
-| earbuds | `wireless_earbuds_updated` + Elmo's 49 takes of 2026-10-20 and 20 of 2026-10-21 (339 / 15) | 0.22 m |
+| earbuds | `wireless_earbuds_updated` + Elmo's 49 takes of 2026-10-20, 20 of 2026-10-21 and 48 of 2026-10-25 (387 / 15) | 0.22 m |
 | towels | `since0924plus74` + Aidan's 19 fold_towels takes of 2026-10-21 and 37 of 2026-10-24 (499 / 17) | 0.33 m |
 
 The pools point at their SQL tasks (lab `rl2`, `yam_bimanual`): on 2026-10-22 the

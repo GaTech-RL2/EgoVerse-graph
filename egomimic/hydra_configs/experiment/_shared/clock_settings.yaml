@@ -7,6 +7,7 @@ abc:
     full_separation: 20
     translation_rotation: 18
     translation: 16
+    projection: 16
   # Duration rows are absolute seconds from the anchor; velocity rows are incoming rates.
   arc_timing_layouts:
     velocity: first_delay_incoming_v1

@@ -1122,22 +1122,26 @@ def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None):
 
 
 CLOCK_MODES = ("velocity", "duration")
-STREAM_MODES = ("full_separation", "translation_rotation", "translation")
-# translation: one clock per arm; rotation and gripper ride its supports.
+STREAM_MODES = ("full_separation", "translation_rotation", "translation", "projection")
+# translation / projection: one clock per arm; rotation and gripper ride its supports.
 STREAM_NAMES = {
     "full_separation": ("translation", "rotation", "gripper"),
     "translation_rotation": ("translation", "rotation"),
     "translation": ("translation",),
+    "projection": ("translation",),
 }
 STREAM_DIMS = {
     "full_separation": 20,
     "translation_rotation": 18,
     "translation": 16,
+    "projection": 16,
 }
 # Timing columns always follow geometry; four- and two-stream order is the same prefix.
 SIX_CLOCK_COLUMNS = (0, 7, 3, 10, 6, 13)
 CLOCK_COLUMNS = (0, 7, 3, 10)
 SINGLE_CLOCK_COLUMNS = (0, 7)
+# ARC Projection: progress is measured at p + R @ offset, 2 cm along each local axis.
+PROJECTION_OFFSET_M = (0.02, 0.02, 0.02)
 # Max speed of an absolute translation clock, m/s. There is no min speed: a slow arm
 # also times the rotation and gripper riding its clock, and a floor replays them fast.
 MAX_SPEED = 5.0
@@ -1166,10 +1170,14 @@ def bimanual_arc_token_shape(
     return m, STREAM_DIMS[streams]
 
 
-def stream_distances(waypoints, off, stream):
+def stream_distances(waypoints, off, stream, streams, offset=PROJECTION_OFFSET_M):
     """Per-segment distance one arm's stream covers between emitted waypoints."""
     if stream == "translation":
-        return np.linalg.norm(np.diff(waypoints[:, off : off + 3], axis=0), axis=1)
+        xyz = waypoints[:, off : off + 3]
+        if streams == "projection":
+            ypr = waypoints[:, off + 3 : off + 6]
+            xyz = xyz + R.from_euler("ZYX", ypr).apply(np.asarray(offset, dtype=float))
+        return np.linalg.norm(np.diff(xyz, axis=0), axis=1)
     if stream == "rotation":
         return np.diff(cumulative_rotation_length(waypoints[:, off + 3 : off + 6]))
     return np.abs(np.diff(waypoints[:, off + 6]))
@@ -1197,7 +1205,7 @@ def absolute_times_to_seconds(times, distances, max_speed=None):
     return np.r_[clock[0], np.diff(clock)]
 
 
-def clock_token_seconds(token, clock_mode, streams=None):
+def clock_token_seconds(token, clock_mode, streams=None, offset=PROJECTION_OFFSET_M):
     """Timing rows as seconds: start delay, then incoming intervals.
 
     Velocity row zero is already seconds. Duration rows are absolute seconds from
@@ -1223,7 +1231,7 @@ def clock_token_seconds(token, clock_mode, streams=None):
                     col = 14 + 2 * index + arm
                     row[:, col] = absolute_times_to_seconds(
                         row[:, col],
-                        stream_distances(row, off, name),
+                        stream_distances(row, off, name, streams, offset),
                         MAX_SPEED if name == "translation" else None,
                     )
         value = rows.reshape(value.shape)
@@ -1250,8 +1258,9 @@ class TokenizeBimanualArcLengthCartesian:
     Velocity: seconds in row zero, emitted segment distance/second thereafter.
     Duration: absolute seconds from the chunk anchor in every timing row (row
     zero is the start delay), decoded by speed-bounded isotonic regression.
-    ``translation`` gives each arm one clock; rotation and the gripper ride its
-    supports.
+    ``translation`` and ``projection`` give each arm one clock; rotation and the
+    gripper ride its supports. ``projection`` measures that clock at the point
+    ``p + R @ projection_offset_m``.
     There is no automatic interpretation of historical checkpoint layouts.
     """
 
@@ -1271,11 +1280,19 @@ class TokenizeBimanualArcLengthCartesian:
         preserve_action_rows=None,
         clock_mode="velocity",
         streams="full_separation",
+        projection_offset_m=PROJECTION_OFFSET_M,
     ):
         from types import SimpleNamespace
 
         self.clock_mode = validate_clock_mode(clock_mode)
         self.streams = validate_streams(streams)
+        self.projection_offset_m = np.asarray(projection_offset_m, dtype=np.float64)
+        if (
+            self.projection_offset_m.shape != (3,)
+            or not np.isfinite(self.projection_offset_m).all()
+            or not self.projection_offset_m.any()
+        ):
+            raise ValueError("projection_offset_m must be a finite nonzero 3-vector")
         self.action_key, self.output_action_key = action_key, output_action_key
         self.preserve_action_key, self.preserve_action_rows = (
             preserve_action_key,
@@ -1361,7 +1378,7 @@ class TokenizeBimanualArcLengthCartesian:
     def _hybrid_source_coordinates(self, raw):
         translation, rotation = [], []
         for off in (0, 7):
-            cum = cumulative_arc_length(raw[:, off : off + 3])
+            cum = cumulative_arc_length(self._progress(raw, off))
             end = min(float(cum[-1]), self.tokenizer.config.min_distance_unit)
             hold = len(raw) - 1 if cum[-1] < self.zero_dist_epsilon else None
             translation.append((cum, np.linspace(0, end, self.M), hold))
@@ -1375,6 +1392,14 @@ class TokenizeBimanualArcLengthCartesian:
                 )
             )
         return translation, rotation
+
+    def _progress(self, values, off):
+        """Points whose arc length is the translation stream's progress."""
+        xyz = values[:, off : off + 3]
+        if self.streams != "projection":
+            return xyz
+        ypr = values[:, off + 3 : off + 6]
+        return xyz + R.from_euler("ZYX", ypr).apply(self.projection_offset_m)
 
     def _translation_values_at_targets(self, values, cumulative, targets):
         i, a = _first_crossing_brackets(cumulative, targets)
@@ -1431,7 +1456,9 @@ class TokenizeBimanualArcLengthCartesian:
         )
 
     def _distances(self, waypoints, off, stream):
-        return stream_distances(waypoints, off, stream)
+        return stream_distances(
+            waypoints, off, stream, self.streams, self.projection_offset_m
+        )
 
     def _native(self, token, clocks_in_seconds=False):
         value = np.asarray(token, dtype=np.float64)
@@ -1444,7 +1471,9 @@ class TokenizeBimanualArcLengthCartesian:
         return (
             value.copy()
             if clocks_in_seconds
-            else clock_token_seconds(value, self.clock_mode, self.streams)
+            else clock_token_seconds(
+                value, self.clock_mode, self.streams, self.projection_offset_m
+            )
         )
 
     def _intervals(self, delta, stored, horizon):

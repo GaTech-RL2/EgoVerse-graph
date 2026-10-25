@@ -13,7 +13,7 @@ for models, frozen data pools, budgets, retained variants and migration.
 ```yaml
 _target_: egomimic.rldb.zarr.arc_length_tokenizer.TokenizeBimanualArcLengthCartesian
 clock_mode: velocity                 # velocity | duration
-streams: full_separation              # full_separation | translation_rotation | translation
+streams: full_separation              # full_separation | translation_rotation | translation | projection
 resampled_vector_length: 100
 min_distance_unit: 0.42               # meters, per arm
 rotation_distance_unit: 1.7453292519943295  # radians, per arm (100 degrees)
@@ -33,6 +33,7 @@ Geometry always occupies the first 14 columns:
 | full_separation | M × 20 | T-left, T-right, R-left, R-right, G-left, G-right |
 | translation_rotation | M × 18 | T-left, T-right, R-left, R-right |
 | translation | M × 16 | T-left, T-right (rotation and gripper ride the translation supports) |
+| projection | M × 16 | as translation, with progress measured at `p + R @ projection_offset_m` (2 cm per local axis) |
 
 Each arm and stream spends its own spatial budget. Supports from different
 streams in the same row are not necessarily simultaneous.

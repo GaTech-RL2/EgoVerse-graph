@@ -8,4 +8,4 @@ abc:
   arc_clock_mode: velocity
 logger:
   wandb:
-    tags: [rl2, earbuds, plus69, hpt300, arcvel, interval_speed, translation, m200_d022, open_loop]
+    tags: [rl2, earbuds, plus117, hpt300, arcvel, interval_speed, translation, m200_d022, open_loop]

@@ -1,6 +1,7 @@
 # rl2 wireless_earbuds pool, pointed at the SQL task (2026-10-22): every lab=rl2 yam_bimanual episode under task
 # wireless_earbuds. That task now holds exactly the former wireless_earbuds_updated pool (earbuds_updated 270 + Elmo's
 # 49 of 10-20 and 20 of 10-21: 339 train / 15 val); the 92 old wireless_earbuds takes were moved to wireless_earbuds_retired.
+# Plus Elmo's 48 takes of 2026-10-25 (387 train / 15 val).
 # Validation is the frozen 15 listed below; the counts and SHA-256 pins guard the membership.
 defaults:
 - /data/abc_arc/stationery_yam_loader@_here_
@@ -17,8 +18,8 @@ train_datasets:
         == ''yam_bimanual'' and not row[''is_deleted''] and not row[''is_eval''] and
         row[''num_frames''] > 0 and bool(row[''zarr_processed_path'']) and not row[''zarr_processing_error'']
         and row[''episode_hash''] not in V'
-    expected_train_episode_count: 339
-    expected_train_episode_names_sha256: e5da7166e3a3d16310683a4b7fc78854475b5656f5d3c326c7629b2079be1039
+    expected_train_episode_count: 387
+    expected_train_episode_names_sha256: 7c2f573c1214104833ccada884abb81ef32001ee496fe1d927db7b84186f1901
     expected_valid_episode_count: 0
     expected_valid_episode_names_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 valid_datasets:

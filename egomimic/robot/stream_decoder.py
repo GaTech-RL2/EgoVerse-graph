@@ -63,9 +63,8 @@ class ChunkTermination:
 
 
 class ReplayTempo:
-    """speed / hold_speed state and the time-chunk retimer's clock warp.
-
-    ARC decoders do not inherit this optional baseline tempo control.
+    """speed / hold_speed state and the clock warp shared by the time-chunk
+    retimer and the first-stream ARC decoder (rollout-only, never trained).
     Subclasses set dt, action_horizon,
     hold_threshold and ``holds`` (whether hold_speed can act on their output)."""
 
@@ -112,15 +111,16 @@ class ReplayTempo:
     def hold_speed_percent(self, value):
         self.set_speed(self.speed, value / 100)
 
-    def _warp(self, clocks, cums, end=np.inf):
+    def _warp(self, clocks, cums, end=np.inf, start=0):
         """Token-clock time to read each of the H control ticks at, and the share of
         the decoded span that was a hold. rate = d(clock) / d(wall). ``end`` is the
         clock time at which the token's path runs out: nothing after it is a hold,
-        it is just the endpoint being repeated, so it is left out of the share."""
-        wall = self.dt * np.arange(self.action_horizon, dtype=np.float64)
+        it is just the endpoint being repeated, so it is left out of the share.
+        ``start`` is the first tick (1 for next-frame ARC rows)."""
+        wall = self.dt * np.arange(start, start + self.action_horizon, dtype=np.float64)
         top = max(self.speed, self.hold_speed)
         n = (
-            int(np.ceil(self.action_horizon * top * _WARP_OVERSAMPLE))
+            int(np.ceil((start + self.action_horizon) * top * _WARP_OVERSAMPLE))
             + _WARP_OVERSAMPLE
             + 1
         )
@@ -291,25 +291,62 @@ class BimanualIntervalArcDecoder:
         )
 
 
-class FirstStreamArcDecoder(BimanualIntervalArcDecoder, ChunkTermination):
-    """Keep a waypoint prefix; replan when the first moving stream ends."""
+class FirstStreamArcDecoder(BimanualIntervalArcDecoder, ChunkTermination, ReplayTempo):
+    """Keep a waypoint prefix; replan when the first moving stream ends.
 
-    def __init__(self, *, execute_percent=30, first_stream=1, **kwargs):
+    speed / hold_speed replay the token's translation clock faster or slower
+    (moving vs held, as TimeChunkRetimer); 1.0 / 1.0 is the plain decode."""
+
+    holds = True
+
+    def __init__(
+        self,
+        *,
+        execute_percent=30,
+        first_stream=1,
+        speed=1.0,
+        hold_speed=1.0,
+        hold_threshold=0.05,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.execute_percent, self.first_stream = execute_percent, first_stream
+        self._init_tempo(speed, hold_speed, hold_threshold)
 
     def _decode(self, row, initial_action):
         token = (
             row[: self.M * self.execute_percent // 100] if self.first_stream else row
         )
-        steps = (
-            self.codec.control_steps(
-                token, initial_action=initial_action, max_steps=self.action_horizon
+        h, times, hold_fraction = self.action_horizon, None, None
+        if self.speed != 1.0 or self.hold_speed != 1.0:
+            clocks, cums = [], []
+            for clock, cum in self.codec.stream_clocks(
+                token, initial_action=initial_action
+            ):
+                finite = np.isfinite(clock)  # a stalled velocity stream ends there
+                clocks.append(clock[finite])
+                cums.append(cum[finite])
+            end = max(clock[-1] for clock in clocks)
+            times, hold_fraction = self._warp(clocks, cums, end, start=1)
+        if not self.first_stream:
+            steps = h
+        elif times is None:
+            steps = self.codec.control_steps(
+                token, initial_action=initial_action, max_steps=h
             )
-            if self.first_stream
-            else self.action_horizon
+        else:
+            end = self.codec.control_duration(token, initial_action=initial_action)
+            steps = (
+                h
+                if end is None
+                else min(h, int(np.searchsorted(times, end - 1e-9)) + 1)
+            )
+        decoded = self.codec.detokenize(
+            token,
+            steps,
+            initial_action=initial_action,
+            times=None if times is None else times[:steps],
         )
-        decoded = self.codec.detokenize(token, steps, initial_action=initial_action)
         if steps < self.action_horizon:
             decoded = np.concatenate(
                 (decoded, np.repeat(decoded[-1:], self.action_horizon - steps, axis=0))
@@ -318,5 +355,8 @@ class FirstStreamArcDecoder(BimanualIntervalArcDecoder, ChunkTermination):
             "replan_steps": steps if self.first_stream else None,  # 0: replan_every
             "horizon": self.action_horizon,
             "execute_waypoints": len(token),
+            "speed": self.speed,
+            "hold_speed": self.hold_speed,
+            "hold_fraction": hold_fraction,
         }
         return decoded

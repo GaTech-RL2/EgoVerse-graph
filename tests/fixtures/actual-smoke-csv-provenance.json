@@ -1,0 +1,7 @@
+{
+  "source_path": "/Users/elmopa/Documents/Codex/2026-10-17/the-exact-code-used-by-all-2/work/elmo-large-continuous-20261026-v1/smoke-preparation-v5/verified-output-20261026T085105Z/files/output/elmo-large314m-continuous-plain-smoke-v5/log-mirror/csv/version_0/metrics.csv",
+  "source_sha256": "87ce76d6a64358d7c3602fea432fc2a104baa4946b09550f528683d4fc85834a",
+  "selection": "Header and actual rows whose step is 0,1,2,3; no value changes",
+  "fixture_sha256": "ef17d625a1dac31f6f81de930eb2b81b614ee6a46d53947456e97ffec02b28f5",
+  "actual_recovery_proof": false
+}

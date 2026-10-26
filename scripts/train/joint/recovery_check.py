@@ -295,6 +295,10 @@ def finish_proof(request_path, q, original, admission, training_job_id, repaired
 def main():
     request_path = Path(sys.argv[1])
     q = json.loads(request_path.read_text())
+    if q.get("schema") == "native-elmo-production-recovery-request-v1":
+        need(len(sys.argv) == 2, "Production recovery does not support legacy postflight repair")
+        from scripts.train.joint.production_recovery import main as production_recovery_main
+        return production_recovery_main(request_path)
     need(q["schema"] == "joint-recovery-check-v1", "Wrong recovery request")
     original = bound(q["smoke_request"])
     verify_allocation_relocation(q, original, q["smoke_request"]["sha256"])

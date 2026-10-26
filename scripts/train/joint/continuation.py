@@ -26,6 +26,11 @@ STABLE_FIELDS = (
 
 def allocation_steps(request):
     """No continuation is inferred from a directory or W&B's status."""
+    need(not (request.get("interruption") and request.get("continuation")),
+         "Cannot treat an interruption as scheduled boundary completion")
+    if request.get("interruption") is not None:
+        from scripts.train.joint.interruption_admission import admission
+        return admission(request)
     target = request["target_steps"]
     stop = request.get("allocation_stop_step", target)
     start = 0
@@ -90,7 +95,7 @@ def configure_allocation(cfg, request, start, stop):
         cfg.logger.csv.save_dir = request["local_logs"]
         cfg.logger.csv.version = f"step{start:09d}"
         if start:
-            cfg.ckpt_path = request["continuation"]["checkpoint"]["path"]
+            cfg.ckpt_path = (request.get("interruption") or request["continuation"])["checkpoint"]["path"]
             cfg.logger.wandb.resume = "must"
         if stop < request["target_steps"]:
             cfg.callbacks.allocation_boundary = dict(
@@ -103,6 +108,9 @@ def configure_allocation(cfg, request, start, stop):
 
 def log_segments(request):
     """Keep each allocation's CSV events; reject cycles and repeated log roots."""
+    from scripts.train.joint.production_history import has_interruption, segments
+    if has_interruption(request):
+        return [row["csv"] for row in segments(request, request.get("allocation_stop_step", request["target_steps"]))]
     result, seen = [], set()
     for _ in range(16):
         log = request["local_logs"]

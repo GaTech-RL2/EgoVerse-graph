@@ -190,8 +190,11 @@ def sample_both_embodiments(module, network, output):
     return rows
 
 
-def summarize_native_phases(phases):
+def summarize_native_phases(phases, *, start_step=50, production=False):
     """Validate all-rank conditional evidence for the actual2+4 diagnostic."""
+    need(type(start_step) is int and ((production is False and start_step == 50)
+         or (production is True and start_step > 0 and start_step % 20000 == 0)),
+         "Wrong explicit smoke/production diagnostic origin")
     expected_streams = {"eva_bimanual": ["image", "proprio", "action", "camera"],
                         "human_bimanual": ["image", "proprio", "camera"]}
     expected = {f"val/{emb}/{kind}/{('action_command_mse' if s == 'action' else s + '_normalized_mse')}"
@@ -199,7 +202,7 @@ def summarize_native_phases(phases):
                 for kind in ("forecast", "completion") for s in streams}
     need(len(phases) == 2 and len(phases[0]) == len(phases[1]) in (2, 4),
          "Native recovery requires both diagnostic phases and all ranks")
-    for phase, (start, stop) in zip(phases, ((50, 52), (52, 56))):
+    for phase, (start, stop) in zip(phases, ((start_step, start_step + 2), (start_step + 2, start_step + 6))):
         first = phase[0]
         for row in phase:
             need(row.get("multimodal") is True
@@ -253,4 +256,4 @@ def summarize_native_phases(phases):
     return dict(native_multimodal=True, private_bank_optimizer_steps_verified=True,
                 actual_all_rank_rng_restore_observed=True, both_embodiments_optimized=True,
                 both_embodiments_hidden_nan_20step_sample=True,
-                diagnostic_scope="scheduled-smoke-checkpoint-only")
+                diagnostic_scope=("production-checkpoint-only" if production else "scheduled-smoke-checkpoint-only"))

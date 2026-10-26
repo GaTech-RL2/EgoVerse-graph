@@ -34,6 +34,9 @@ def main():
     from egomimic.pipeline.construction import checkpoint_construction
     from egomimic.pl_utils.pl_model import ModelWrapper
 
+    from scripts.train.joint.production_history import has_interruption, retained_milestones, scheduled_validation
+    interrupted_history = has_interruption(request)
+    retained_history = validation_history = None
     milestones = {}
     directory = output / "checkpoints"
     for path in directory.glob("*.ckpt"):
@@ -47,6 +50,8 @@ def main():
         step = int(match[1])
         need(step not in milestones, "Duplicate checkpoint step")
         milestones[step] = path
+    if interrupted_history:
+        milestones, retained_history = retained_milestones(request, target)
     expected = set(range(20000, target + 1, 20000))
     need(set(milestones) <= expected and target in milestones, "Unexpected milestones or missing local recovery")
     from scripts.train.joint.retention import archived_milestones
@@ -189,24 +194,30 @@ def main():
         if sampled == expected_embodiments:
             break
     need(sampled == expected_embodiments, "Missing terminal sample embodiment")
-    validation = {}
-    from scripts.train.joint.continuation import log_segments
+    if interrupted_history:
+        metric_names = {f"val/{emb}/{kind}/{('action_command_mse' if stream == 'action' else stream + '_normalized_mse')}"
+                        for emb in expected_embodiments for kind in ("forecast", "completion")
+                        for stream in streams if stream != "action" or emb in request["interfaces"]["action_dims"]}
+        validation, validation_history = scheduled_validation(request, target, metric_names)
+    else:
+        validation = {}
+        from scripts.train.joint.continuation import log_segments
 
-    for csv_path in log_segments(request):
-        segment = {}
-        with csv_path.open() as stream:
-            for row in csv.DictReader(stream):
-                metrics = {
-                    k: float(v)
-                    for k, v in row.items()
-                    if any(k.startswith("val/" + e + "/") for e in expected_embodiments) and v
-                }
-                if metrics:
-                    step = int(float(row["step"]))
-                    need(all(math.isfinite(v) for v in metrics.values()), "Nonfinite validation history")
-                    segment.setdefault(step, {}).update(metrics)
-        need(not validation.keys() & segment.keys(), "Repeated validation across allocations")
-        validation.update(segment)
+        for csv_path in log_segments(request):
+            segment = {}
+            with csv_path.open() as stream:
+                for row in csv.DictReader(stream):
+                    metrics = {
+                        k: float(v)
+                        for k, v in row.items()
+                        if any(k.startswith("val/" + e + "/") for e in expected_embodiments) and v
+                    }
+                    if metrics:
+                        step = int(float(row["step"]))
+                        need(all(math.isfinite(v) for v in metrics.values()), "Nonfinite validation history")
+                        segment.setdefault(step, {}).update(metrics)
+            need(not validation.keys() & segment.keys(), "Repeated validation across allocations")
+            validation.update(segment)
     need(
         len(validation) == count
         and all(len(v) == (sum(2 * (len(streams) - (0 if e in request["interfaces"]["action_dims"] else 1))
@@ -237,6 +248,8 @@ def main():
             validation_events=count,
             checkpoint=str(selected),
             archive_inventory=archive_proof,
+            **(dict(retained_attempt_history=retained_history, committed_validation_history=validation_history)
+               if interrupted_history else {}),
         ),
     )
 

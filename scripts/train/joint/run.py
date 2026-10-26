@@ -150,6 +150,12 @@ def main():
         from scripts.train.joint.continuation import allocation_steps
 
         start, stop = allocation_steps(request)
+        if request.get("interruption") is not None:
+            from scripts.train.joint.interruption_admission import live_admission
+            current_recovery = live_admission(request, path)
+            write_once(path.with_suffix(".interruption-live-admission.json"), dict(
+                status="CURRENT_INTENT_CLAIMS_QUEUE_STORAGE_PASS", job_id=os.environ["SLURM_JOB_ID"],
+                request_sha256=sha(path), **current_recovery))
         check_storage(request, completion)
         from scripts.train.joint.verify_temporal_pair import admission_mode
 
@@ -268,10 +274,11 @@ def main():
         need(shutil.disk_usage(root).free > request["reserved_checkpoint_bytes"],
              "Insufficient smoke retention space")
     output = Path(request["output"])
+    fresh_output = not start or request.get("interruption") is not None
     need(
         str(cfg.paths.output_dir) == str(output)
-        and output.exists() == bool(start)
-        and (not start or (output / ".training-admitted").is_file()),
+        and output.exists() == (not fresh_output)
+        and (fresh_output or (output / ".training-admitted").is_file()),
         "Output collision/mismatch",
     )
     provenance = dict(
@@ -333,7 +340,7 @@ def main():
         else:
             from scripts.world_model.check_joint_capacity import check_capacity
             check_capacity(cfg, data, path.with_suffix(".capacity.json"))
-    if not start:
+    if fresh_output:
         output.mkdir(parents=True)
         (output / ".training-admitted").write_text(sha(path) + "\n")
     extra = (

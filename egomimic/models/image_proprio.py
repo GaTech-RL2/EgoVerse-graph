@@ -55,6 +55,7 @@ from egomimic.models.pixel_diffusion import (
     PlainPixelMSE,
 )
 from egomimic.models.world_model import MoTBlock
+from egomimic.models.mot_components import RMSNorm
 
 MODALITIES = ("image", "proprio")
 
@@ -118,6 +119,10 @@ class ImageProprioModel(nn.Module):
         rope_axis_dims=None,
         spatial_grid_size=None,
         require_observed_context=True,
+        qk_norm=False,
+        use_rmsnorm=False,
+        use_swiglu=False,
+        swiglu_multiple_of=64,
     ):
         super().__init__()
         if type(require_observed_context) is not bool:
@@ -125,6 +130,13 @@ class ImageProprioModel(nn.Module):
         if not require_observed_context and objective == "direct_action":
             raise ValueError("Direct action BC requires observed context")
         self.require_observed_context = require_observed_context
+        for name, value in (("qk_norm", qk_norm), ("use_rmsnorm", use_rmsnorm), ("use_swiglu", use_swiglu)):
+            if type(value) is not bool:
+                raise ValueError(f"{name} must be boolean")
+        if type(swiglu_multiple_of) is not int or swiglu_multiple_of < 1:
+            raise ValueError("swiglu_multiple_of must be a positive integer")
+        self.qk_norm, self.use_rmsnorm, self.use_swiglu = qk_norm, use_rmsnorm, use_swiglu
+        self.swiglu_multiple_of = swiglu_multiple_of
         if type(strict_fp32) is not bool:
             raise ValueError("strict_fp32 must be a boolean")
         if strict_fp32 and attention_dtype != "native":
@@ -304,16 +316,21 @@ class ImageProprioModel(nn.Module):
                 attention_backend=attention_backend,
                 attention_dtype=attention_dtype,
                 image_adaln=noise_conditioning == "adaln_zero",
+                qk_norm=qk_norm, use_rmsnorm=use_rmsnorm, use_swiglu=use_swiglu,
+                swiglu_multiple_of=swiglu_multiple_of,
             )
             for _ in range(depth)
         )
         self.norm = nn.ModuleList([
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-            if noise_conditioning == "adaln_zero" else nn.LayerNorm(width)
+            (RMSNorm(width, elementwise_affine=noise_conditioning != "adaln_zero")
+             if use_rmsnorm else
+             nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+             if noise_conditioning == "adaln_zero" else nn.LayerNorm(width))
         ])
         if self.has_proprio_branch:
             self.norm.append(
-                nn.Identity() if objective == "visual_only" else nn.LayerNorm(width)
+                nn.Identity() if objective == "visual_only" else
+                RMSNorm(width) if use_rmsnorm else nn.LayerNorm(width)
             )
         if noise_conditioning == "adaln_zero":
             self.final_adaln = nn.Sequential(nn.SiLU(), nn.Linear(width, 2 * width))

@@ -22,6 +22,7 @@ from egomimic.models.pixel_diffusion import (
     LinearGaussianImageNoising,
 )
 from egomimic.models.world_model import MoTBlock
+from egomimic.models.mot_components import RMSNorm, SwiGLU
 
 ACTIVE_STREAMS = (("image",), ("image", "proprio"),
                   ("image", "action"), ("image", "proprio", "action"))
@@ -160,14 +161,19 @@ class _ProprioBlock(nn.Module):
         super().__init__()
         self.heads, self.head_dim = image_block.heads, image_block.head_dim
         attention_width = self.heads * self.head_dim
-        self.norm1 = nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-        self.norm2 = nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+        self.qk_norm = image_block.qk_norm
+        norm = RMSNorm if image_block.use_rmsnorm else nn.LayerNorm
+        self.norm1 = norm(width, elementwise_affine=False, eps=1e-6)
+        self.norm2 = norm(width, elementwise_affine=False, eps=1e-6)
         self.qkv = nn.Linear(width, 3 * attention_width)
         self.out = nn.Linear(attention_width, width)
-        self.ffn = nn.Sequential(
-            nn.Linear(width, width * mlp_ratio), nn.GELU(),
-            nn.Linear(width * mlp_ratio, width),
-        )
+        self.ffn = (SwiGLU(width, mlp_ratio, image_block.swiglu_multiple_of)
+                    if image_block.use_swiglu else nn.Sequential(
+                        nn.Linear(width, width * mlp_ratio), nn.GELU(),
+                        nn.Linear(width * mlp_ratio, width),
+                    ))
+        if self.qk_norm:
+            self.q_norm, self.k_norm = RMSNorm(self.head_dim), RMSNorm(self.head_dim)
         self.adaln = nn.Sequential(nn.SiLU(), nn.Linear(width, 6 * width))
         nn.init.zeros_(self.adaln[-1].weight)
         nn.init.zeros_(self.adaln[-1].bias)
@@ -185,6 +191,8 @@ class _ProprioBlock(nn.Module):
         q, k, v = self.qkv(normalized).reshape(
             *x.shape[:2], 3, self.heads, self.head_dim
         ).permute(2, 0, 3, 1, 4)
+        if self.qk_norm:
+            q, k = self.q_norm(q), self.k_norm(k)
         return apply_temporal_rope(q, rope), apply_temporal_rope(k, rope), v
 
     def finish(self, x, attended, valid, mods, groups):
@@ -202,7 +210,8 @@ class _ProprioExpert(nn.Module):
         self.inputs = nn.ModuleDict({k: nn.Linear(d, width) for k, d in pose_dims.items()})
         self.outputs = nn.ModuleDict({k: nn.Linear(width, d) for k, d in pose_dims.items()})
         self.noise = nn.Sequential(nn.Linear(256, width), nn.SiLU(), nn.Linear(width, width))
-        self.norm = nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+        norm = RMSNorm if image_model.use_rmsnorm else nn.LayerNorm
+        self.norm = norm(width, elementwise_affine=False, eps=1e-6)
         self.final_adaln = nn.Sequential(nn.SiLU(), nn.Linear(width, 2 * width))
         compilation = dict(mode=image_model.compile_mode, dynamic=image_model.compile_dynamic,
                            backend=image_model.compile_backend,

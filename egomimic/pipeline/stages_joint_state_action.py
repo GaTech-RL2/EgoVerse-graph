@@ -67,7 +67,7 @@ class JointLossStage(Stage):
         "joint/metadata",
     )
 
-    def __init__(self, stream, loss, weight=1.0, optional=False):
+    def __init__(self, stream, loss, weight=1.0, optional=False, log_objective=False):
         super().__init__()
         if (
             stream not in ("image", "proprio", "action", "camera")
@@ -79,6 +79,13 @@ class JointLossStage(Stage):
             )
         self.stream, self.loss, self.weight = stream, loss, weight
         self.optional = optional
+        if type(log_objective) is not bool:
+            raise ValueError("log_objective must be an explicit boolean")
+        if log_objective and not callable(getattr(loss, "loss_and_metrics", None)):
+            raise ValueError("Objective logging requires loss_and_metrics")
+        if getattr(loss, "requires_objective_metrics", False) and not log_objective:
+            raise ValueError("Weighted objective requires separate unweighted metrics")
+        self.log_objective = log_objective
         self.writes = ("loss/" + stream,)
 
     def execute(self, batch, *, mode):
@@ -90,15 +97,25 @@ class JointLossStage(Stage):
             loss = batch["joint/prediction"]["image"].sum() * 0
             batch[self.writes[0]] = loss
             return batch
-        loss = self.loss(
+        evaluate = self.loss.loss_and_metrics if self.log_objective else self.loss
+        result = evaluate(
             batch["joint/prediction"][k],
             batch["joint/targets"][k],
             batch["joint/masks"][k],
             noise_levels=batch["joint/levels"][k],
             metadata=batch["joint/metadata"][k],
         )
+        if self.log_objective:
+            loss, metrics = result
+            if "mse" not in metrics:
+                raise ValueError("Objective logging requires an unweighted MSE metric")
+            batch["log/joint_" + k + "_objective"] = loss.detach()
+            for name, value in metrics.items():
+                batch["log/joint_" + k + "_" + name] = value.detach()
+        else:
+            loss = result
+            batch["log/joint_" + k + "_mse"] = loss.detach()
         batch[self.writes[0]] = loss * self.weight
-        batch["log/joint_" + k + "_mse"] = loss.detach()
         return batch
 
 

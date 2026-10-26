@@ -12,6 +12,7 @@ import json
 import re
 from contextlib import ExitStack
 from egomimic.rldb.pixel_subtasks import load_subtask_manifest
+from egomimic.rldb.boundary_sampling import sample_boundary_pair, validate_boundary_sampling
 from egomimic.rldb.camera_pose import relative_camera_pose
 from dataclasses import dataclass
 from itertools import islice
@@ -559,6 +560,7 @@ class PreparedPixelProprioDataset(Dataset):
         subtask_manifest_sha256=None,
         camera_pose=False,
         action_embodiments=None,
+        boundary_sampling=None,
     ):
         validate_language_feature_options(language_features_path, language_features_sha256)
         if task not in (
@@ -784,6 +786,18 @@ class PreparedPixelProprioDataset(Dataset):
             raise ValueError(
                 "Completion gap curriculum requires continuous full-episode training"
             )
+        self.boundary_sampling = validate_boundary_sampling(boundary_sampling)
+        if self.boundary_sampling is not None:
+            if (split != "train" or mode != "continuous"
+                or sampling_strategy != "full_episode_uniform"
+                or training_conditioning != "independent_frame_noise"
+                or task == "direct_action" or self.subtasks is None
+                or self.temporal_gap_schedule is not None
+                or self.completion_gap_schedule is not None or max_frames > 64):
+                raise ValueError("Boundary uncertainty requires reviewed-subtask independent-noise continuous K2..64 training only")
+            # Small physical-clock arrays only; prepared artifacts are already
+            # immutable/hash verified. No image/state cache or global RNG state.
+            self._boundary_time_cache = {}
         self.forecasting_probability = forecasting_probability
         self.sampling = dict(min_frames=min_frames, max_frames=max_frames)
         self.sampling_strategy = sampling_strategy
@@ -928,10 +942,35 @@ class PreparedPixelProprioDataset(Dataset):
             :, None
         ]
 
+    def _select_frame_chunks(self, episode, unit, anchor, rng, draw, full_time=None):
+        """One selection for actual reads and checkpointed work preview.
+
+        Disabled behavior calls only the exact legacy sampler. The opt-in may
+        read/cache the small immutable physical clock, never RGB or pose data.
+        """
+        chunks = self._sample_frame_chunks(unit["end_idx"] - unit["start_idx"], anchor, rng) + unit["start_idx"]
+        if self.boundary_sampling is None:
+            return chunks, None
+        if full_time is None:
+            key = (episode["embodiment"], episode["episode_id"])
+            if key not in self._boundary_time_cache:
+                with open_prepared_episode(self.path.parent / episode["rgb_path"]) as data:
+                    clock = np.array(data["time"][:], dtype=np.float64, copy=True)
+                _physical_times(clock, episode["frames"])
+                clock.setflags(write=False)
+                self._boundary_time_cache[key] = clock
+            full_time = self._boundary_time_cache[key]
+        return sample_boundary_pair(
+            chunks, full_time=full_time, episode=episode, unit=unit,
+            all_units=self.subtasks[(episode["embodiment"], episode["episode_id"])],
+            seed=self.seed, draw=draw, policy=self.boundary_sampling,
+        )
+
     def predicted_token_work(self, index, draw):
         """Pure preview of image-attention work for the exact checkpointed draw.
 
-        The preview reads manifest metadata only and never advances a worker's
+        The disabled preview reads manifest metadata only. Explicit boundary
+        sampling may cache the small physical clock; neither advances a worker's
         RNG. Squared image-token count estimates attention cost; it is not a
         measured GPU time or a reason to change the selected frames.
         """
@@ -943,7 +982,8 @@ class PreparedPixelProprioDataset(Dataset):
             raise ValueError("Work preview requires a training cursor/global-slot draw")
         episode, unit, anchor = self._unit_anchor(index)
         rng = np.random.default_rng(np.random.SeedSequence([self.seed, *draw]))
-        frames = len(self._sample_frame_chunks(unit["end_idx"] - unit["start_idx"], anchor, rng))
+        chunks, _ = self._select_frame_chunks(episode, unit, anchor, rng, tuple(draw))
+        frames = len(chunks)
         return (frames * len(episode["cameras"]) * self.grid[0] * self.grid[1]) ** 2
 
     def __getitem__(self, index):
@@ -998,7 +1038,7 @@ class PreparedPixelProprioDataset(Dataset):
                     "Native RGB shape/dtype differs from declared pixel geometry/cameras"
                 )
             start, end = unit["start_idx"], unit["end_idx"]
-            chunk_indices = self._sample_frame_chunks(end - start, anchor, rng) + start
+            chunk_indices, boundary_metadata = self._select_frame_chunks(ep, unit, anchor, rng, draw, full_time)
             indices = chunk_indices[:, 0]
             f = len(indices)
             origin = 0 if self.task == "direct_action" else int(rng.integers(f))
@@ -1166,6 +1206,12 @@ class PreparedPixelProprioDataset(Dataset):
                 annotation_provenance=unit["annotation_provenance"],
                 interval_semantics="half_open",
             )
+        if boundary_metadata is not None:
+            sample["pixel_metadata"]["boundary_sampling"] = boundary_metadata
+            if "action" in streams:
+                sample["pixel_metadata"]["action_frame_indices"] = chunk_indices.tolist()
+            if "camera" in streams:
+                sample["pixel_metadata"]["camera_frame_indices"] = chunk_indices.tolist()
         if self.training_conditioning == "independent_frame_noise":
             sample["pixel_metadata"]["training_conditioning"] = self.training_conditioning
         if gap_cap is not None:

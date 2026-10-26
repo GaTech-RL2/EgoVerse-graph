@@ -11,6 +11,7 @@ import torch
 from lightning.pytorch.callbacks import Callback
 from omegaconf import OmegaConf
 from scripts.train.joint.lr_policy import from_config, update_lr, verify_scheduler
+from egomimic.rldb.boundary_sampling import validate_boundary_record, validate_boundary_sampling
 
 
 def require(condition, message):
@@ -183,7 +184,8 @@ class ConditionalOptimizerUsage(Callback):
         checkpoint['native_conditional_optimizer_usage']=record
 
 
-def _check_multimodal_sample(sample):
+def _check_multimodal_sample(sample, *, boundary_policy=None):
+    boundary_policy=validate_boundary_sampling(boundary_policy)
     features=sample.get('language_features')
     require(torch.is_tensor(features) and features.ndim==2 and features.shape[1]==1024
             and torch.isfinite(features).all(),'Missing finite actual Qwen language condition')
@@ -199,8 +201,34 @@ def _check_multimodal_sample(sample):
         for key in ('action_frame_indices','camera_frame_indices'):
             if key in record:
                 for item in record[key]:indices.extend(item if isinstance(item,list) else [item])
-        require(indices and all(unit['start_idx']<=v<unit['end_idx'] for v in indices),
-                'Native sample crosses reviewed subtask boundary')
+        if boundary_policy is None:
+            require('boundary_sampling' not in record,'Legacy/held-out smoke cannot admit boundary uncertainty metadata')
+        else:
+            require(record.get('boundary_sampling',{}).get('policy')==boundary_policy,
+                    'Boundary sample differs from explicit expected training policy')
+        if 'boundary_sampling' in record:
+            packet=validate_boundary_record(record,unit,indices)
+            require(type(sample.get('sampling_cursor')) is int
+                    and packet['rng_identity']['cursor']==sample['sampling_cursor']-1,
+                    'Boundary RNG cursor differs from checkpointed sample draw')
+            require(record['chunk_size']==1 and chunks==[[v] for v in frames],
+                    'Boundary image/state selection must share native timestamps')
+            for name in ('action','camera'):
+                if name in sample['world']:
+                    require(record.get(name+'_frame_indices')==[[v] for v in frames],
+                            'Boundary action/camera selection must share native timestamps')
+            physical=torch.tensor(record['timestamps_seconds'],dtype=torch.float64)
+            relative=(physical-float(record['time_origin_seconds'])).float()
+            repeats={'image':len(record['camera_names'])*(record['image_size'][0]//record['patch_size'])*(record['image_size'][1]//record['patch_size']),
+                     'proprio':1,'action':1,'camera':len(record['camera_names'])}
+            for name,stream in sample['world'].items():
+                expected=relative.repeat_interleave(repeats[name])
+                actual=stream['time'][i,:len(expected)].detach().cpu()
+                require(actual.shape==expected.shape and torch.equal(actual,expected),
+                        'Boundary stream timestamp differs from shared recorded selection')
+        else:
+            require(indices and all(unit['start_idx']<=v<unit['end_idx'] for v in indices),
+                    'Native sample crosses reviewed subtask boundary')
         require(sample['task_id'][i]==unit['task_id'] and sample['language_instruction'][i]==unit['instruction'],
                 'Actual language condition differs from reviewed subtask')
         require(record.get('camera_reference_policy')=='first_selected_native_frame_per_camera'
@@ -213,6 +241,23 @@ def _check_multimodal_sample(sample):
             'Actual measured camera targets must be finite and nonempty')
 
 
+def _boundary_sample_counts(sample):
+    """Count actual checked training realizations; never a corpus census."""
+    counts=dict(samples=0,requested_boundary=0,realized_boundary=0,fallback=0,legacy_uniform=0,
+                outward_samples=0,start_inward=0,start_outward=0,end_inward=0,end_outward=0)
+    for record in sample['pixel_metadata']:
+        packet=record.get('boundary_sampling')
+        require(packet is not None,'Opt-in smoke requires boundary provenance on every training record')
+        counts['samples']+=1
+        for key,value in packet['mixture_counters'].items():counts[key]+=value
+        counts['outward_samples']+=int(bool(packet['selected_outside_original']))
+        if packet['pair_indices'] is not None:
+            start,end=packet['pair_offsets_frames']
+            counts['start_inward']+=int(start>0);counts['start_outward']+=int(start<0)
+            counts['end_inward']+=int(end<0);counts['end_outward']+=int(end>0)
+    return counts
+
+
 class JointSmokeProof(Callback):
     def __init__(self, output, world_size, expected_steps=50, warmup_steps=10, multimodal=False):
         require(world_size in (2, 4), "Joint pilots use two/four dedicated GPUs")
@@ -220,6 +265,7 @@ class JointSmokeProof(Callback):
         self.output, self.world_size = Path(output), world_size
         self.expected_steps, self.warmup_steps = expected_steps, warmup_steps
         self.multimodal = bool(multimodal)
+        self.boundary_policy = None
 
     def on_fit_start(self, trainer, pl_module):
         require(
@@ -259,6 +305,9 @@ class JointSmokeProof(Callback):
             self.parameter_usage={name:0 for name,_ in pl_module.named_parameters()}
             self.embodiment_batches={emb:0 for emb in self.network.pose_dims}
             self.current_embodiment=None
+            self.boundary_policy=validate_boundary_sampling(trainer.datamodule.settings.get('boundary_sampling'))
+            if self.boundary_policy is not None:
+                self.boundary_counts={emb:_boundary_sample_counts({'pixel_metadata':[]}) for emb in self.network.pose_dims}
             require(len(trainer.datamodule.val_dataloader())>=100//self.world_size,
                     'Held-out loader cannot provide100 global validation batches')
             require(trainer.limit_val_batches==100//self.world_size,
@@ -301,7 +350,17 @@ class JointSmokeProof(Callback):
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
         if self.multimodal:
             require(len(batch)==1,'Native training batches must be homogeneous by embodiment')
-            for sample in batch.values():_check_multimodal_sample(sample)
+            for emb,sample in batch.items():
+                _check_multimodal_sample(sample,boundary_policy=self.boundary_policy)
+                if self.boundary_policy is not None:
+                    for record in sample['pixel_metadata']:
+                        require(record.get('boundary_sampling',{}).get('policy')==self.boundary_policy,
+                                'Actual boundary policy differs from context-bound opt-in')
+                    counts=_boundary_sample_counts(sample)
+                    for key,value in counts.items():self.boundary_counts[emb][key]+=value
+                else:
+                    require(all('boundary_sampling' not in record for record in sample['pixel_metadata']),
+                            'Legacy smoke cannot silently admit boundary uncertainty')
 
     def on_before_backward(self, trainer, pl_module, loss):
         require(
@@ -521,6 +580,23 @@ class JointSmokeProof(Callback):
                 gpu_name=torch.cuda.get_device_properties(pl_module.device).name,
                 gpu_capability=list(torch.cuda.get_device_capability(pl_module.device)),
                 attention_backend='flash4',token_execution='packed_valid')
+        if self.boundary_policy is not None:
+            all_counts=[None]*self.world_size
+            torch.distributed.all_gather_object(all_counts,self.boundary_counts)
+            totals={emb:{key:sum(rank_counts[emb][key] for rank_counts in all_counts)
+                         for key in self.boundary_counts[emb]} for emb in self.boundary_counts}
+            require(all(counts['samples']>0 for counts in totals.values())
+                    and sum(counts['outward_samples'] for counts in totals.values())>0,
+                    'Changed sampling smoke must exercise both embodiments and actual bounded outward frames')
+            # Explicitly false: this arm does not claim every target is within
+            # the original reviewed interval. New admission must read the policy.
+            record.update(subtask_boundaries_verified=False,
+                original_subtask_annotation_identity_verified=True,
+                subtask_boundary_verification_policy='annotation_boundary_uncertainty',
+                boundary_uncertainty=dict(schema='boundary-uncertainty-smoke-realizations-v1',
+                    policy=self.boundary_policy,all_rank_counts=all_counts,global_counts_by_embodiment=totals,
+                    synchronized_native_streams_verified=True,original_instruction_retained=True,
+                    neighbor_instruction_equivalence_asserted=False,validation_sampling_unchanged=True))
         write_once(self.output / f"fit-rank{trainer.global_rank}.json", record)
 
 
@@ -807,7 +883,7 @@ def validate_multimodal_capacity(config_path, output, *, source_manifest_sha256,
         offset+=count
     require(sample is not None,'No eligible actual64-frame three-camera robot subtask')
     emb=next(iter(sample));item=sample[emb]
-    _check_multimodal_sample(item)
+    _check_multimodal_sample(item,boundary_policy=settings.get('boundary_sampling'))
     require(all(len(m['frame_indices'])==frames and len(m['camera_names'])==3
                 and m['image_size']==[160,160] and m['patch_size']==16 for m in item['pixel_metadata']),
             'Capacity sample is not actual64x3x160x160 native RGB')

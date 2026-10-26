@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from egomimic.pl_utils.data_context import DataContext
+from egomimic.rldb.boundary_sampling import validate_boundary_sampling
 from egomimic.rldb.pixel_language import validate_language_feature_options
 from egomimic.rldb.pixel_proprio import (
     DistributedPixelTrainingBatchSampler,
@@ -60,6 +61,7 @@ class PixelProprioDataModule(WorldModelDataModule):
         subtask_manifest_sha256=None,
         camera_pose=False,
         action_embodiments=None,
+        boundary_sampling=None,
     ):
         validate_language_feature_options(language_features_path, language_features_sha256)
         self.language_features_path = language_features_path
@@ -174,6 +176,16 @@ class PixelProprioDataModule(WorldModelDataModule):
                     "Completion gap curriculum requires checkpointable continuous sampling"
                 )
             self.settings["completion_gap_schedule"] = gap_schedule
+        boundary_policy = validate_boundary_sampling(boundary_sampling)
+        if boundary_policy is not None:
+            if (not checkpointable_sampling or mode != "continuous"
+                or sampling_strategy != "full_episode_uniform"
+                or training_conditioning != "independent_frame_noise"
+                or task == "direct_action" or subtask_manifest_path is None
+                or temporal_schedule is not None or gap_schedule is not None
+                or not 2 <= min_frames <= max_frames <= 64):
+                raise ValueError("Boundary uncertainty requires checkpointed reviewed-subtask independent-noise continuous K2..64 training")
+            self.settings["boundary_sampling"] = boundary_policy
         # Preserve historical conditioned checkpoint contexts when disabled.
         if image_only:
             self.settings["image_only"] = True
@@ -202,6 +214,9 @@ class PixelProprioDataModule(WorldModelDataModule):
             self.validation_settings["training_conditioning"] = "mixed_context"
         if temporal_schedule is not None:
             self.validation_settings["temporal_gap_schedule"] = None
+        if boundary_policy is not None:
+            # Held-out anchor selection and query masks stay exactly comparable.
+            self.validation_settings["boundary_sampling"] = None
 
     def setup(self, stage=None):
         if not self.datasets:

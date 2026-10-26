@@ -301,20 +301,27 @@ def capture(request_path):
          and accepted["request_sha256"] == q["parent_request"]["sha256"],
          "Actual launch claim does not identify parent request")
     native_identity(accepted["native"], expected, "RUNNING")
-    raw = command(["/usr/local/bin/scontrol", "show", "job", str(job), "-o", "-dd"])
+    from scripts.train.joint.original_observer import query, resolve_terminal, step_argv, validate_steps
+    output = Path(q["output"])
+    output.mkdir()  # preserve a consumed observation even if provenance rejects
+    terminal_query = query(["/usr/local/bin/scontrol", "show", "job", str(job), "-o", "-dd"])
+    write_once(output / "parent-native-query.json", terminal_query)
+    raw, terminal_provenance = resolve_terminal(q, terminal_query)
     terminal = fields(raw)
     need(terminal.get("JobState") in TERMINAL, "Parent is not terminal")
     native_identity(raw, expected, terminal["JobState"])
-    steps = command(["/usr/local/bin/squeue", "--steps", "--noheader", "--jobs", str(job), "--format=%i|%T"])
-    check_steps(steps, job)
+    # A complete owned inventory remains queryable after a parent ID is purged.
+    # Missing controller history is never itself resource-release evidence.
+    steps_query = query(step_argv("paphiwetsa3"))
+    write_once(output / "parent-step-query.json", steps_query)
+    steps = validate_steps(steps_query, job)
     tails = {key: read_tail(value) for key, value in q["worker_logs"].items()}
     need(tails, "Preserved bounded stdout/stderr evidence required")
     sources, snapshots = loss_snapshot(parent)
-    output = Path(q["output"])
-    output.mkdir()  # an existing or partial capture is immutable, never retried
     csv_evidence = {"loss-" + name + "-" + part + ".txt": text for name, snap in snapshots.items()
                     for part, text in snap.items()}
     for name, text in {"parent-native.txt": raw, "parent-live-steps.txt": steps,
+                       "parent-terminal-provenance.json": json.dumps(terminal_provenance, sort_keys=True),
                        "producer-running-native.txt": producer, **csv_evidence,
                        **{k + ".tail64.txt": v for k, v in tails.items()}}.items():
         need(Path(name).name == name, "Capture filename escaped evidence directory")
@@ -338,6 +345,7 @@ def capture(request_path):
         run_id=parent["run_id"], terminal_state=terminal["JobState"], terminal_exit=terminal["ExitCode"],
         terminal_end=terminal["EndTime"], reason=reason, producer_job_id=os.environ["SLURM_JOB_ID"],
         captured_at=datetime.now(timezone.utc).isoformat(),
+        parent_terminal_source=terminal_provenance["source"],
         newest_numeric_loss=loss, loss_sources=sources,
         evidence={p.name: dict(path=str(p), sha256=sha(p)) for p in output.iterdir()},
         parent_running_admission=q["parent_running_admission"], parent_native=expected,

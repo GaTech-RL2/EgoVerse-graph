@@ -45,13 +45,34 @@ def compatible(parent, child):
 
 
 def completed_producer(bundle, result_schema, status):
-    q, result = bound(bundle["request"]), bound(bundle["result"])
+    """Successful new recovery phases need complete service-verified observers."""
+    from scripts.train.joint.phase_observer_proof import verify_observer, MODES, bound as proof_bound, read_json, text
+    admitted = {
+        "native-elmo-interruption-evidence-v1": ("capture", "CAPTURED_REQUIRES_NATIVE_PRODUCER_COMPLETION"),
+        "native-elmo-checkpoint-inspection-result-v1": ("inspect", "INSPECTED_REQUIRES_NATIVE_PRODUCER_COMPLETION"),
+        "native-elmo-production-recovery-diagnostic-v1": ("diagnostic", "DIAGNOSTIC_COMPLETE_REQUIRES_HOST_AND_NATIVE_SUCCESS"),
+        "native-elmo-interruption-finalized-v1": ("finalize", "FINALIZED_REQUIRES_HOST_AND_NATIVE_SUCCESS"),
+    }
+    need(result_schema in admitted and status == admitted[result_schema][1], "Unknown recovery producer result/status contract")
+    mode = admitted[result_schema][0]
+    q, result = read_json(proof_bound(bundle["request"])), read_json(proof_bound(bundle["result"]))
+    need(q["schema"] == MODES[mode][0], "Recovery producer request/result phase differs")
+    filenames = dict(capture="interruption-capture.json", inspect="checkpoint-inspection.json",
+                     diagnostic="production-recovery-diagnostic.json", finalize="interruption-finalized.json")
+    need(bundle["result"]["path"] == str(Path(q["output"]) / filenames[mode]),
+         "Producer result escaped its canonical allocated output")
     expected = q["producer_native"]
-    native = native_identity(bound(bundle["native"], False), expected, "COMPLETED")
-    need(native["ExitCode"] == "0:0" and bound(bundle["host_exit"], False).strip() == "0",
-         "Producer did not actually exit host0/nativeCOMPLETED0:0")
-    job = result.get("job_id", result.get("producer_job_id"))
-    need(job == expected["JobId"] and result["request_sha256"] == bundle["request"]["sha256"]
+    proof = verify_observer(bundle["observer"], producer_request=bundle["request"],
+                            producer_native=expected, terminal_native=bundle["native"])
+    need(proof["spec"]["mode"] == mode and proof["request"] == q
+         and proof["running_admission_status"] == "VALIDATED", "Successful phase lacks actual matching RUNNING provenance")
+    native = native_identity(text(proof_bound(bundle["native"])), expected, "COMPLETED")
+    host_path = proof["root"] / "status" / (mode + "-" + expected["JobId"] + ".exit")
+    need(bundle["host_exit"]["path"] == str(host_path) and native["ExitCode"] == "0:0"
+         and text(proof_bound(bundle["host_exit"])).strip() == "0", "Producer did not actually exit canonical host0/nativeCOMPLETED0:0")
+    jobs = [result[k] for k in ("job_id", "producer_job_id") if k in result]
+    need(jobs and all(job == expected["JobId"] for job in jobs)
+         and result["request_sha256"] == bundle["request"]["sha256"]
          and result["schema"] == result_schema and result["status"] == status,
          "Completed native producer does not bind the exact request/result")
     return q, result
@@ -77,6 +98,12 @@ def quiescence(spec, run_id, *, current_job=None, current_request_sha=None):
          and spec["scientific_name_prefixes"], "Complete campaign claim/queue scope required")
     need(all(len(p) >= 16 for p in spec["scientific_name_prefixes"]), "Scientific writer prefix too broad")
     queue = command(["/usr/local/bin/squeue", "--noheader", "--user", spec["user"], "--format=%i|%j|%T|%k"])
+    # Do not target old IDs: Slurm may have purged them after our genuine native
+    # observer retained their terminal records. Still query the complete live
+    # owner step inventory and reject every surviving step of each prior writer.
+    steps = command(["/usr/local/bin/squeue", "--steps", "--noheader", "--user", spec["user"], "--format=%i|%T"])
+    from scripts.train.joint.original_observer import strict_step_rows
+    strict_step_rows(steps)
     for line in queue.splitlines():
         if not line.strip():
             continue
@@ -86,42 +113,31 @@ def quiescence(spec, run_id, *, current_job=None, current_request_sha=None):
         owned = name in spec["scientific_job_names"] or any(name.startswith(p) for p in spec["scientific_name_prefixes"]) or comment == run_id
         if owned:
             need(job == current_job and state == "RUNNING", "Other pending/active scientific writer: " + job)
+    from scripts.train.joint.phase_observer_proof import read_json, text, physical, check_owned_steps
     seen, evidence = set(), []
     for item in spec["claim_roots"]:
-        root = Path(item["path"])
+        root = physical(item["path"])
         need(root.is_absolute() and root.is_dir() and not root.is_symlink(), "Registered claim directory unavailable")
         for claim in sorted(root.iterdir()):
             need(claim.is_dir() and not claim.is_symlink() and re.fullmatch(r"[0-9a-f]{64}", claim.name),
                  "Unrecognized claim entry requires exact inspection")
-            prepared = json.loads((claim / "PREPARED.json").read_text())
+            prepared = read_json(claim / "PREPARED.json")
             need(prepared["request_sha256"] == claim.name, "Claim/request identity mismatch")
-            job = (claim / "PARENT_JOB_ID").read_text().strip()
+            job = text(claim / "PARENT_JOB_ID").strip()
             need(job.isdecimal() and job not in seen, "Unknown/duplicate native submission acceptance")
             seen.add(job)
             if job == current_job:
                 need(claim.name == current_request_sha, "Current native writer belongs to another request claim")
                 evidence.append(dict(path=str(claim), job_id=job, current=True))
                 continue
-            running_path = claim / "RUNNING_ADMISSION.json"
-            need(running_path.is_file(), "Accepted claim lacks actual RUNNING provenance")
-            running = json.loads(running_path.read_text())
-            need(running["job_id"] == job and running["request_sha256"] == claim.name,
-                 "Claim's actual RUNNING admission differs")
-            f = fields(running["native"])
-            expected = {k: f.get(k, "") for k in (*NATIVE_KEYS, "NodeList", "TresPerNode")}
-            native_identity(running["native"], expected, "RUNNING")
-            terminal_path = Path(item["terminal_directory"]) / ("native-" + job + ".txt")
-            raw = terminal_path.read_text()
-            state = fields(raw).get("JobState")
-            need(state in {"COMPLETED", "FAILED", "TIMEOUT", "NODE_FAIL", "PREEMPTED", "CANCELLED", "OUT_OF_MEMORY"},
-                 "Prior accepted claim lacks authoritative terminal state")
-            native_identity(raw, expected, state)
-            check_steps(command(["/usr/local/bin/squeue", "--steps", "--noheader", "--jobs", job,
-                                 "--format=%i|%T"]), job)
-            evidence.append(dict(path=str(claim), job_id=job, terminal_native_sha256=sha(terminal_path)))
+            from scripts.train.joint.phase_observer_proof import verify_claim_terminal
+            terminal_proof = verify_claim_terminal(claim, item["terminal_directory"], run_id)
+            need(terminal_proof["job_id"] == job, "Terminal observer belongs to another accepted claim")
+            check_owned_steps(steps, job)
+            evidence.append(dict(path=str(claim), **terminal_proof))
     if current_job is not None:
         need(current_job in seen, "Current allocation is not registered in the complete claim census")
-    return dict(queue=queue, claims=evidence, checked_at=datetime.now(timezone.utc).isoformat())
+    return dict(queue=queue, owned_steps=steps, claims=evidence, checked_at=datetime.now(timezone.utc).isoformat())
 
 
 def validate_failure(bundle, parent_binding):
@@ -130,13 +146,18 @@ def validate_failure(bundle, parent_binding):
     need(q["parent_request"] == result["parent_request"] == parent_binding,
          "Failure evidence belongs to another production parent")
     raw = bound(result["evidence"]["parent-native.txt"], False)
+    from scripts.train.joint.original_observer import resolve_terminal, validate_steps
+    resolved_raw, provenance = resolve_terminal(q, bound(result["evidence"]["parent-native-query.json"]))
+    need(resolved_raw == raw and provenance == bound(result["evidence"]["parent-terminal-provenance.json"])
+         and provenance["source"] == result["parent_terminal_source"], "Terminal provenance changed after capture")
     state = fields(raw).get("JobState")
     terminal = native_identity(raw, q["parent_native"], state)
     running = bound(q["parent_running_admission"])
     need(running["job_id"] == q["parent_job_id"] and running["request_sha256"] == parent_binding["sha256"],
          "Parent actual RUNNING claim differs")
     native_identity(running["native"], q["parent_native"], "RUNNING")
-    check_steps(bound(result["evidence"]["parent-live-steps.txt"], False), q["parent_job_id"])
+    steps = validate_steps(bound(result["evidence"]["parent-step-query.json"]), q["parent_job_id"])
+    need(steps == bound(result["evidence"]["parent-live-steps.txt"], False), "Preserved complete step evidence differs")
     tails = "\n".join(bound(value, False) for name, value in result["evidence"].items() if name.endswith(".tail64.txt"))
     need(tails and classify_failure(terminal, tails) == result["reason"], "Actual failure classification differs")
     from scripts.train.joint.native_interruption import parent_csv_paths, newest_loss

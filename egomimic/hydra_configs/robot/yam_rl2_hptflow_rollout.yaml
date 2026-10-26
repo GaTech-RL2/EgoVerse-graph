@@ -115,8 +115,73 @@ policy:
   # HPT-Flow is stochastic. Reject an invalid whole plan and resample rather
   # than clamping an individual gripper; abort before robot commands if all fail.
   max_valid_samples: 8
+  # Station start values for the model's own controls (skipped when not exposed):
+  # sampling steps at the trained/validated 50 (ARC contracts open at 10).
+  inference_defaults:
+    inference_steps: 50
+  # Station-owned rollout knobs, shown on the dashboard for any model that does
+  # not declare a control of the same name; decoder knobs only when the loaded
+  # decoder has the attribute (ARC first-stream decoder; the time retimer
+  # declares its own speed controls). None of them changes what was trained.
+  station_controls:
+    replan_every:
+      label: Actions before replanning
+      description: Execute this prefix before predicting again (used when fastest-stream termination is 0).
+      type: integer
+      min: 1
+      max: 100
+      step: 1
+      default: 30
+      target:
+        kind: policy_attribute
+        attribute_path: replan_every
+    multistream_fastest_stream:
+      label: Fastest-stream termination
+      description: 1 ends the chunk when the first moving stream reaches its waypoint cap; 0 executes the fixed prefix of Actions before replanning.
+      type: integer
+      min: 0
+      max: 1
+      step: 1
+      default: 1
+      target:
+        kind: decoder_attribute
+        attribute_path: first_stream
+    execute_waypoint_percent:
+      label: Execute first % of waypoints
+      description: Waypoint cap while fastest-stream termination is on; must be a whole prefix of the token's waypoints.
+      type: integer
+      min: 2
+      max: 100
+      step: 1
+      default: 50
+      target:
+        kind: decoder_attribute
+        attribute_path: execute_percent
+    arc_speed_percent:
+      label: Replay speed (%)
+      description: Decoder replay tempo of the moving phases, not a learned speed condition.
+      type: integer
+      min: 25
+      max: 400
+      step: 5
+      default: 100
+      target:
+        kind: decoder_attribute
+        attribute_path: speed_percent
+    arc_hold_speed_percent:
+      label: Hold speed (%)
+      description: Replay tempo of holds (grasp dwell, placement); 100 preserves the demonstrated hold time while the moving phases change tempo.
+      type: integer
+      min: 25
+      max: 400
+      step: 5
+      default: 100
+      target:
+        kind: decoder_attribute
+        attribute_path: hold_speed_percent
   # History, shapes, decoder and typed sampler/replanning controls belong to
-  # the selected checkpoint's model-owned, bound inference-config.yaml.
+  # the selected checkpoint's model-owned, bound inference-config.yaml;
+  # station_controls above only fill in rollout knobs a model does not declare.
   adapter:
     _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
     embodiment_id: 7

@@ -128,12 +128,29 @@ class _InferenceControlBinding:
         }
 
 
-def configure_profile_controls(graph, training, inference_profiles, *, decoder=None):
-    """Bind declared settings by stable stage ID, with atomic preflight."""
+def configure_profile_controls(
+    graph, training, inference_profiles, *, decoder=None, station_controls=None
+):
+    """Bind declared settings by stable stage ID, with atomic preflight.
+
+    ``station_controls`` are rollout-only settings declared by the station YAML.
+    Each is added only when the model declares no control of that name and, for
+    a decoder target, the bound decoder has that attribute; the checkpoint-bound
+    model declaration itself is never changed.
+    """
     _, profile, _ = resolve_inference_profile(training, inference_profiles)
     stage_ids = OmegaConf.select(training, "model.pipeline.stage_ids", default={})
+    overrides = dict(profile.get("overrides", {}))
+    for name, spec in (station_controls or {}).items():
+        target = spec.get("target", {}) if isinstance(spec, Mapping) else {}
+        if name in overrides or (
+            target.get("kind") == "decoder_attribute"
+            and not hasattr(decoder, str(target.get("attribute_path")))
+        ):
+            continue
+        overrides[name] = spec
     bindings = []
-    for name, spec in profile.get("overrides", {}).items():
+    for name, spec in overrides.items():
         validate_control(name, spec, stage_ids=stage_ids)
         target = spec["target"]
         kind, path = target["kind"], target["attribute_path"]

@@ -71,6 +71,14 @@ def allocation_steps(request):
              and proof["actual_updates"] == 6 and proof["all_rank_full_state_restored"]
              and proof["model_data_unchanged"] and proof["no_extra_validation"],
              "Actual matching BF16/DDP allocation recovery is not proven")
+        from scripts.train.joint.native_subtasks import selected
+        if selected(request):
+            need(all(proof.get(key) is True for key in (
+                "native_multimodal", "private_bank_optimizer_steps_verified",
+                "actual_all_rank_rng_restore_observed", "both_embodiments_optimized",
+                "both_embodiments_hidden_nan_20step_sample"))
+                and proof.get("diagnostic_scope") == "scheduled-smoke-checkpoint-only",
+                "Native scheduled continuation requires actual conditional recovery proof")
     return start, stop
 
 

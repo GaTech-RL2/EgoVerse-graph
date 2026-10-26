@@ -24,6 +24,7 @@ from egomimic.models.attention_execution import (
     prepare_attention_layout,
 )
 from egomimic.models.compilation import compile_region
+from egomimic.models.mot_components import RMSNorm, SwiGLU
 
 MODALITIES = ("image", "track", "proprio")
 
@@ -82,6 +83,10 @@ class MoTBlock(nn.Module):
         attention_backend="sdpa",
         attention_dtype="native",
         image_adaln=False,
+        qk_norm=False,
+        use_rmsnorm=False,
+        use_swiglu=False,
+        swiglu_multiple_of=64,
     ):
         super().__init__()
         if width % heads or (width // heads) % 2:
@@ -102,19 +107,31 @@ class MoTBlock(nn.Module):
         if type(image_adaln) is not bool:
             raise ValueError("image_adaln must be bool")
         self.image_adaln = image_adaln
+        for name, value in (("qk_norm", qk_norm), ("use_rmsnorm", use_rmsnorm), ("use_swiglu", use_swiglu)):
+            if type(value) is not bool:
+                raise ValueError(f"{name} must be boolean")
+        if type(swiglu_multiple_of) is not int or swiglu_multiple_of < 1:
+            raise ValueError("swiglu_multiple_of must be a positive integer")
+        self.qk_norm, self.use_rmsnorm, self.use_swiglu = qk_norm, use_rmsnorm, use_swiglu
+        self.swiglu_multiple_of = swiglu_multiple_of
         self.norm1 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-            if image_adaln and i == 0 else nn.LayerNorm(width)
+            (RMSNorm(width, elementwise_affine=not (image_adaln and i == 0))
+             if use_rmsnorm else
+             nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+             if image_adaln and i == 0 else nn.LayerNorm(width))
             for i, _ in enumerate(modalities)
         )
         self.qkv = nn.ModuleList(nn.Linear(width, 3 * width) for _ in modalities)
         self.out = nn.ModuleList(nn.Linear(width, width) for _ in modalities)
         self.norm2 = nn.ModuleList(
-            nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
-            if image_adaln and i == 0 else nn.LayerNorm(width)
+            (RMSNorm(width, elementwise_affine=not (image_adaln and i == 0))
+             if use_rmsnorm else
+             nn.LayerNorm(width, elementwise_affine=False, eps=1e-6)
+             if image_adaln and i == 0 else nn.LayerNorm(width))
             for i, _ in enumerate(modalities)
         )
         self.ffn = nn.ModuleList(
+            SwiGLU(width, mlp_ratio, swiglu_multiple_of) if use_swiglu else
             nn.Sequential(
                 nn.Linear(width, width * mlp_ratio),
                 nn.GELU(),
@@ -122,6 +139,9 @@ class MoTBlock(nn.Module):
             )
             for _ in modalities
         )
+        if qk_norm:
+            self.q_norm = nn.ModuleList(RMSNorm(self.head_dim) for _ in modalities)
+            self.k_norm = nn.ModuleList(RMSNorm(self.head_dim) for _ in modalities)
         if image_adaln:
             self.adaln_image = nn.Sequential(nn.SiLU(), nn.Linear(width, 6 * width))
             nn.init.zeros_(self.adaln_image[-1].weight)
@@ -162,6 +182,8 @@ class MoTBlock(nn.Module):
                 .reshape(b, n, 3, self.heads, d // self.heads)
                 .permute(2, 0, 3, 1, 4)
             )
+            if self.qk_norm:
+                q, k = self.q_norm[i](q), self.k_norm[i](k)
             qs.append(temporal_rope(q, times[i]) if rope is None else apply_temporal_rope(q, rope[i]))
             ks.append(temporal_rope(k, times[i]) if rope is None else apply_temporal_rope(k, rope[i]))
             vs.append(v)

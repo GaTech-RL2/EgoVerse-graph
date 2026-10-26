@@ -1,0 +1,90 @@
+{
+  "build_flags": {
+    "FLASHATTENTION_DISABLE_APPENDKV": true,
+    "FLASHATTENTION_DISABLE_BACKWARD": false,
+    "FLASHATTENTION_DISABLE_CLUSTER": false,
+    "FLASHATTENTION_DISABLE_FP16": true,
+    "FLASHATTENTION_DISABLE_FP8": true,
+    "FLASHATTENTION_DISABLE_HDIM128": false,
+    "FLASHATTENTION_DISABLE_HDIM192": true,
+    "FLASHATTENTION_DISABLE_HDIM256": true,
+    "FLASHATTENTION_DISABLE_HDIM64": true,
+    "FLASHATTENTION_DISABLE_HDIM96": true,
+    "FLASHATTENTION_DISABLE_LOCAL": true,
+    "FLASHATTENTION_DISABLE_PACKGQA": true,
+    "FLASHATTENTION_DISABLE_PAGEDKV": true,
+    "FLASHATTENTION_DISABLE_SM8x": true,
+    "FLASHATTENTION_DISABLE_SOFTCAP": true,
+    "FLASHATTENTION_DISABLE_SPLIT": true,
+    "FLASHATTENTION_DISABLE_VARLEN": false,
+    "FLASHATTENTION_ENABLE_VCOLMAJOR": false,
+    "FLASH_ATTENTION_DISABLE_HDIMDIFF192": true,
+    "FLASH_ATTENTION_DISABLE_HDIMDIFF64": true
+  },
+  "evidence_sha256": {
+    "evidence/fa3-source-build/binary-build-paths.txt": "2256c6cdbd481ffda8494dd3225c39629778a40489fba245ff164d37165a9931",
+    "evidence/fa3-source-build/fa3-build-411351.err": "d78a09b06b4457c937a66373fc3817f8cd51b27560d780912019b48efadba161",
+    "evidence/fa3-source-build/fa3-build-411351.out": "f274035b51e41df0a91918734bdd908e41afbaab21e537dab080263b3defb480",
+    "evidence/fa3-source-build/installed-sha256.txt": "b070608e6e03ea0f39f92bbe281b26808723fd1d47577b2cadfd29d234c493d5"
+  },
+  "file_sha256": {
+    "flash_attn_3-3.0.1.dist-info/METADATA": "a12ff5f3e6d15eff14fdaeb987e0398d3f93289e3552fd54bc7d9112921413b1",
+    "flash_attn_3-3.0.1.dist-info/RECORD": "38b95b864644497a000c9a50020e1e4a6938683548fd683294c2b38a9bdf8173",
+    "flash_attn_3-3.0.1.dist-info/direct_url.json": "c6a43d33aeaa0fb199d8bd290eed679b892e08f2553e21fc9137a7f35552001f",
+    "flash_attn_3/_C.abi3.so": "0f978aee4dde000b10a7fda072469253caa2244c30a27e7275e3dab4bf8497d2",
+    "flash_attn_3/__init__.py": "362bca1d0502eca70a2d051eea4ad27b5ea8ec94132df156d61ff4326e6aaa23",
+    "flash_attn_3/flash_attn_config.py": "255bbac5b1c027fc5862396753e81cf66ffbc7e3c40ee3b5d1a098efc842be00",
+    "flash_attn_3/flash_attn_interface.py": "39f173452b4906d0ba7371e4c21947be7c7156d06825ec058364fd3fa4b0de49",
+    "flash_attn_config.py": "bbd989bb61127bbc9cfa6cd401ec788efc3239559845e03e69b34cae442d556b",
+    "flash_attn_interface.py": "887eb85ea5380707a78cd15dc04169e654f4dee58f9bddab49a2ce71f1680e35"
+  },
+  "root": "/workspace/users/paphiwetsa3/tasks/pixel-video-gripper-optimization-20261017-v1/runtime/fa3",
+  "schema": "fa3-runtime-binding-v1",
+  "source": {
+    "subdirectory": "hopper",
+    "url": "https://github.com/Dao-AILab/flash-attention.git",
+    "vcs_info": {
+      "commit_id": "965c9212e6be33c821ee9f2b461564c5c91a2503",
+      "requested_revision": "965c9212e6be33c821ee9f2b461564c5c91a2503",
+      "vcs": "git"
+    }
+  },
+  "source_build_proof": {
+    "embedded_paths": [
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/algorithm",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/arch",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/atom",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/container",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/numeric",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cute/util",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cutlass",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cutlass/arch",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cutlass/detail",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cutlass/pipeline",
+      "/tmp/pip-req-build-nfojukf_/csrc/cutlass/include/cutlass/platform",
+      "/tmp/pip-req-build-nfojukf_/hopper",
+      "/tmp/pip-req-build-nfojukf_/hopper/build/temp.linux-x86_64-cpython-312",
+      "/tmp/pip-req-build-nfojukf_/hopper/flash_api_stable.cpp",
+      "/tmp/pip-req-build-nfojukf_/hopper/flash_bwd_launch_template.h",
+      "/tmp/pip-req-build-nfojukf_/hopper/flash_fwd_launch_template.h",
+      "/tmp/pip-req-build-nfojukf_/hopper/flash_prepare_scheduler.cu",
+      "/tmp/pip-req-build-nfojukf_/hopper/instantiations/flash_bwd_hdim128_bf16_sm90.cu",
+      "/tmp/pip-req-build-nfojukf_/hopper/instantiations/flash_fwd_hdim128_bf16_sm90.cu"
+    ],
+    "method": "installed_binary_embeds_unique_build_checkout_paths",
+    "node": "gpu19",
+    "pip_build_directory": "/tmp/pip-req-build-nfojukf_",
+    "result": "SOURCE_COMPILED",
+    "slurm_job_id": 411351
+  },
+  "verification_scope": "Read-only installed artifact identity and source-build provenance; CUDA correctness and throughput are separate gates.",
+  "versions": {
+    "flash-attn-3": "3.0.1"
+  },
+  "wheel": {
+    "filename": "flash_attn_3-3.0.1-cp310-abi3-linux_x86_64.whl",
+    "sha256": "2811ee540413366dcefadadda16369bee7c84f56fd51d4e167b74670cbbad0c9",
+    "size_bytes": 2082988
+  }
+}

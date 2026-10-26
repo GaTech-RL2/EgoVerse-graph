@@ -541,10 +541,14 @@ def load_graph_policy(config):
     inference_controls = ()
     if inference_profiles is not None:
         inference_controls = configure_profile_controls(
-            graph, training, inference_profiles, decoder=adapter.decoder
+            graph,
+            training,
+            inference_profiles,
+            decoder=adapter.decoder,
+            station_controls=config.get("station_controls"),
         )
     graph.nets.eval()
-    return GraphRobotPolicy(
+    policy = GraphRobotPolicy(
         graph,
         context.normalizer,
         adapter,
@@ -552,3 +556,13 @@ def load_graph_policy(config):
         inference_graph=inference_graph,
         inference_controls=inference_controls,
     )
+    # Station start values for exposed controls (e.g. sampling steps at the
+    # trained 50 where a model declaration opens at 10); unexposed names are skipped.
+    defaults = {
+        name: value
+        for name, value in (config.get("inference_defaults") or {}).items()
+        if name in policy.inference_controls()
+    }
+    if defaults:
+        policy.apply_inference_overrides(defaults)
+    return policy

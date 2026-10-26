@@ -23,7 +23,10 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
-import gpu_ownership
+try:
+    from . import gpu_ownership
+except ImportError:
+    import gpu_ownership
 
 SCHEMA = "pace-podman-boundary-v2"
 GIB = 1024**3
@@ -774,6 +777,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", required=True)
     parser.add_argument("--request-sha256", required=True)
+    parser.add_argument("--check-request-only", action="store_true",
+                        help="Verify request/helper hashes and namespace before GPU submission; no runtime or GPU claim")
     arguments = parser.parse_args()
     request_path = verified_file(
         {"path": arguments.request, "sha256": arguments.request_sha256}
@@ -797,6 +802,10 @@ def main():
         "Boundary helper is outside the reviewed directory",
     )
     require(bool(NAME.fullmatch(request["namespace"])), "Invalid job namespace")
+    if arguments.check_request_only:
+        print(json.dumps(dict(status="BOUND_REQUEST_STATIC_PASS",namespace=request["namespace"],
+                              request_sha256=arguments.request_sha256,bound_helpers=len(bound_helpers))))
+        return 0
     job_id = os.environ.get("SLURM_JOB_ID", "")
     require(
         job_id.isdigit() and os.environ.get("SLURMD_NODENAME"),
@@ -984,7 +993,7 @@ def main():
             "attestation": {
                 "job_id": job_id,
                 "node": os.environ["SLURMD_NODENAME"],
-                "world_size": 4,
+                "world_size": len(ownership["gpus"]),
                 "ownership": ownership,
                 "cluster": ownership["cluster"],
                 "payload_workspace": str(local / "payload" / "workspace"),

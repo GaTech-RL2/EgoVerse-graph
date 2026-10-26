@@ -99,6 +99,8 @@ def worker(control):
     import torch.distributed as distributed
 
     rank = int(os.environ["LOCAL_RANK"])
+    world = len(control["expected_uuids"])
+    require(world in (2, 4), "Need two or four assigned GPUs")
     require(
         torch.__version__ == control["expected_torch"],
         "Scientific Torch version changed",
@@ -114,7 +116,7 @@ def worker(control):
         "Frozen disabled-TF32 policy was not applied",
     )
     require(
-        torch.cuda.device_count() == 4,
+        torch.cuda.device_count() == world,
         "Container does not expose exactly four CUDA GPUs",
     )
     require(torch.cuda.is_available(), "CUDA unavailable")
@@ -148,7 +150,7 @@ def worker(control):
     distributed.init_process_group("nccl", timeout=timedelta(seconds=120))
     value = torch.tensor([float(rank + 1)], device="cuda")
     distributed.all_reduce(value)
-    require(value.item() == 10.0, "Four-rank NCCL reduction failed")
+    require(value.item() == world*(world+1)/2, "Four-rank NCCL reduction failed")
     distributed.barrier()
     torch.cuda.synchronize()
     distributed.destroy_process_group()
@@ -157,35 +159,36 @@ def worker(control):
         {
             "status": "PASS",
             "rank": rank,
-            "world_size": 4,
+            "world_size": world,
             "uuid": actual_uuid,
             "name": properties.name,
             "compute_capability": [properties.major, properties.minor],
             "torch": torch.__version__,
             "torch_file": torch.__file__,
             "bf16": True,
-            "nccl_all_reduce": 10.0,
+            "nccl_all_reduce": world*(world+1)/2,
         },
     )
 
 
 def controller(control):
     base = validate_base(control)
-    require(len(control["expected_uuids"]) == 4, "Four assigned UUIDs required")
+    world = len(control["expected_uuids"])
+    require(world in (2, 4), "Need two or four assigned UUIDs")
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     children = []
     started = time.monotonic()
     try:
-        for rank in range(4):
+        for rank in range(world):
             environment = dict(os.environ)
             environment.update(
                 {
                     "RANK": str(rank),
                     "LOCAL_RANK": str(rank),
-                    "WORLD_SIZE": "4",
-                    "LOCAL_WORLD_SIZE": "4",
+                    "WORLD_SIZE": str(world),
+                    "LOCAL_WORLD_SIZE": str(world),
                     "MASTER_ADDR": "127.0.0.1",
                     "MASTER_PORT": str(port),
                     "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
@@ -222,7 +225,7 @@ def controller(control):
         json.loads(
             (Path(control["receipt_directory"]) / f"gpu-rank-{rank}.json").read_text()
         )
-        for rank in range(4)
+        for rank in range(world)
     ]
     require(
         [receipt["uuid"].lower() for receipt in receipts]

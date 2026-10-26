@@ -1,0 +1,115 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+enable_grad_norm: false
+train_log_on_step: true
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-06
+  weight_decay: 0.01
+scheduler:
+  _target_: egomimic.utils.schedulers.linear_warmup_constant_scheduler
+  warmup_steps: 3000
+scheduler_interval: step
+scheduler_frequency: 1
+training_behavior:
+  _target_: egomimic.pl_utils.world_model_behavior.WorldModelTrainingBehavior
+  distributed_noise_seed: ${seed}
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    joint_noising: 0
+    joint_denoiser: 1
+    image_loss: 2
+    joint_sampler: 3
+  stages:
+  - _target_: egomimic.pipeline.stages_joint_state_action.JointNoisingStage
+    noising:
+      _target_: egomimic.models.joint_image_proprio.CoupledImageProprioNoising
+      maximum: 1.0
+      active_streams:
+      - image
+      - proprio
+      - action
+      - camera
+  - _target_: egomimic.pipeline.stages_joint_state_action.JointDenoiserStage
+    language_key: language_features
+    model:
+      _target_: egomimic.models.joint_image_proprio.JointImageProprioModel
+      image_model:
+        _target_: egomimic.models.image_proprio.ImageProprioModel
+        objective: visual_only
+        require_observed_context: false
+        phase_a_condition_on_proprio: false
+        pose_dims: null
+        action_dims: null
+        image_dim: 768
+        width: 1024
+        depth: 8
+        heads: 8
+        mlp_ratio: 4
+        max_cameras: 3
+        use_camera_embedding: true
+        use_modality_embedding: false
+        use_embodiment_embedding: false
+        use_phase_embedding: false
+        noise_conditioning: adaln_zero
+        position_encoding: spatiotemporal_rope
+        rope_axis_dims:
+        - 64
+        - 32
+        - 32
+        spatial_grid_size:
+        - 10
+        - 10
+        max_tokens: 19520
+        time_mode: continuous
+        attention_backend: ${oc.select:world_model_attention.backend,flash4}
+        attention_dtype: ${oc.select:world_model_attention.dtype,bfloat16}
+        strict_fp32: ${oc.select:runtime.strict_fp32,false}
+        attention_query_chunk_size: 0
+        activation_checkpointing: false
+        allow_patch_compression: false
+        loss_reduction: mean_per_example
+        token_execution: packed_valid
+        compile_mode: ${oc.select:world_model_execution.compile_mode,default}
+        compile_dynamic: true
+        compile_backend: inductor
+        compile_recompile_limit: 64
+        compile_accumulated_recompile_limit: 256
+        qk_norm: true
+        use_rmsnorm: true
+        use_swiglu: true
+        swiglu_multiple_of: 64
+      pose_dims:
+        eva_bimanual: 20
+        human_bimanual: 126
+      proprio_width: 512
+      mlp_ratio: 4
+      active_streams:
+      - image
+      - proprio
+      - action
+      - camera
+      action_dims:
+        eva_bimanual: 20
+      action_width: 384
+      separate_proprio_experts: true
+      language_feature_dim: 1024
+      language_width: 128
+      camera_dims:
+        eva_bimanual: 9
+        human_bimanual: 9
+      camera_width: 384
+      camera_max_count: 3
+  - _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+    stream: image
+    weight: 1.0
+    loss:
+      _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+      reduction: mean_per_example
+  - _target_: egomimic.pipeline.stages_joint_state_action.JointSamplerStage
+    language_key: language_features
+    sampler:
+      _target_: egomimic.models.joint_image_proprio.JointImageProprioSampler
+      state_steps: 20
+      action_steps: 20

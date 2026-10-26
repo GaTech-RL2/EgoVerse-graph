@@ -1,4 +1,6 @@
-"""Held-out prediction metrics, kept separate for states and action commands."""
+"""Held-out prediction metrics and explicit single-image generation validation."""
+
+from collections.abc import Mapping
 
 import torch
 
@@ -16,10 +18,13 @@ class ImageProprioEval(Eval):
             "visual_proprio",
             "visual_state_action",
             "direct_action",
+            "image_generation",
         ):
             raise ValueError("Unknown image/proprio evaluation objective")
         self.objective, self.sample_seed = objective, int(sample_seed)
         self.active_streams_from_data = bool(active_streams_from_data)
+        if objective == "image_generation" and self.active_streams_from_data:
+            raise ValueError("Image generation requires exactly the image stream")
         self.totals = {}
         self._completed_validation_step = None
         self._validation_step = None
@@ -43,8 +48,10 @@ class ImageProprioEval(Eval):
 
     def data_requirements(self):
         keys = ("world", "embodiment", "task_kind")
-        if self.pixel_diagnostics is not None:
+        if self.pixel_diagnostics is not None or self.objective == "image_generation":
             keys += ("pixel_metadata",)
+        if self.objective == "image_generation":
+            keys += ("language_features",)
         return EvaluationDataRequirements(required_keys=keys)
 
     def trainer_overrides(self):
@@ -95,7 +102,118 @@ class ImageProprioEval(Eval):
             raise ValueError("A validation batch must share one global batch identity")
         return indices[0]
 
+    @staticmethod
+    def _validate_image_generation(batch, output=None):
+        """Validate the declared T1 RGB contract before sampling or display.
+
+        Targets remain references for a paired MSE diagnostic, never observed
+        context. Camera and time zero are explicit single-image coordinates.
+        """
+        from egomimic.eval.pixel_diagnostics import pixel_frame_records
+
+        if not isinstance(batch, Mapping) or not batch:
+            raise ValueError("Image generation requires a nonempty source batch")
+        if output is not None and (
+            not isinstance(output, Mapping) or set(output) != set(batch)
+        ):
+            raise ValueError("Image generation output sources must match the batch")
+        for source, item in batch.items():
+            world = item["world"]
+            if not isinstance(world, Mapping) or set(world) != {"image"}:
+                raise ValueError("Image generation requires exactly the image world")
+            image = world["image"]
+            value = image["value"]
+            if (
+                not torch.is_tensor(value)
+                or not value.is_floating_point()
+                or value.ndim != 3
+                or value.shape[0] < 1
+                or value.shape[1:] != (100, 768)
+                or not torch.isfinite(value).all()
+                or (value.abs() > 1.00001).any()
+            ):
+                raise ValueError("Generation targets require finite B x 100 x 768 RGB in [-1,1]")
+            count = value.shape[0]
+            for key, expected in (("valid", True), ("target_valid", True), ("observed", False)):
+                mask = image[key]
+                if (
+                    not torch.is_tensor(mask)
+                    or mask.shape != value.shape[:2]
+                    or mask.dtype != torch.bool
+                    or not (mask == expected).all()
+                ):
+                    raise ValueError("Generation requires fully valid targets and no observed pixels")
+            for key in ("time", "index", "camera"):
+                coordinate = image[key]
+                if (
+                    not torch.is_tensor(coordinate)
+                    or coordinate.shape != value.shape[:2]
+                    or coordinate.dtype == torch.bool
+                    or coordinate.is_complex()
+                    or not torch.isfinite(coordinate).all()
+                    or (coordinate != 0).any()
+                    or key == "camera" and coordinate.dtype != torch.long
+                    or key == "time" and not coordinate.is_floating_point()
+                ):
+                    raise ValueError("Generation requires T1 time/index/camera zero")
+            xy = image["xy"]
+            if (
+                not torch.is_tensor(xy)
+                or xy.shape != (*value.shape[:2], 2)
+                or not xy.is_floating_point()
+                or not torch.isfinite(xy).all()
+            ):
+                raise ValueError("Generation requires a finite complete spatial patch grid")
+            kinds = item["task_kind"]
+            if not isinstance(kinds, (list, tuple)) or len(kinds) != count or any(
+                kind != "image_generation" for kind in kinds
+            ):
+                raise ValueError("Generation requires only image_generation task kinds")
+            language = item["language_features"]
+            if (
+                not torch.is_tensor(language)
+                or language.shape != (count, 1024)
+                or not language.is_floating_point()
+                or not torch.isfinite(language).all()
+            ):
+                raise ValueError("Generation requires finite B x 1024 language features")
+            metadata = item["pixel_metadata"]
+            if not isinstance(metadata, (list, tuple)) or len(metadata) != count:
+                raise ValueError("Every generated image requires its own pixel metadata")
+            prediction = None
+            if output is not None:
+                predicted = output[source][ImageProprioEval.prediction_key]
+                if not isinstance(predicted, Mapping) or set(predicted) != {"image"}:
+                    raise ValueError("Generation predictions require exactly the image stream")
+                prediction = predicted["image"]
+                if (
+                    not torch.is_tensor(prediction)
+                    or not prediction.is_floating_point()
+                    or prediction.shape != value.shape
+                    or not torch.isfinite(prediction).all()
+                ):
+                    raise ValueError("Generation requires finite predictions for every RGB pixel")
+            for row, details in enumerate(metadata):
+                if (
+                    not isinstance(details, Mapping)
+                    or details.get("image_size") != [160, 160]
+                    or details.get("patch_size") != 16
+                    or details.get("timestamps_seconds") != [0.0]
+                    or details.get("frame_indices") != [0]
+                    or details.get("time_origin_seconds") != 0.0
+                    or not isinstance(details.get("camera_names"), (list, tuple))
+                    or len(details.get("camera_names", ())) != 1
+                ):
+                    raise ValueError("Generation diagnostics require one 160 x 160 P16 image at time/camera zero")
+                # Shared diagnostics validate normalization, exact patch-grid
+                # coverage and ordering, coordinate binding and every target
+                # cell. Predictions are checked above; the shared metric loop
+                # checks squared-error overflow before any artifact is written.
+                pixel_frame_records(image, None, details, row)
+
     def _evaluate_batch(self, batch, batch_idx, dataloader_idx=0):
+        if self.objective == "image_generation":
+            self._validate_image_generation(batch)
         devices = (
             [self.model.device.index or 0] if self.model.device.type == "cuda" else []
         )
@@ -105,11 +223,14 @@ class ImageProprioEval(Eval):
                 + 100000 * dataloader_idx
             )
             output = self.model.forward_eval(batch)
+        if self.objective == "image_generation":
+            self._validate_image_generation(batch, output)
         names = {
             "visual_only": ("image",),
             "visual_proprio": ("image", "proprio"),
             "visual_state_action": ("image", "proprio", "action"),
             "direct_action": ("action",),
+            "image_generation": ("image",),
         }[self.objective]
         for source, item in batch.items():
             kinds = item["task_kind"]
@@ -142,7 +263,9 @@ class ImageProprioEval(Eval):
                 if len(kinds) != error.shape[0]:
                     raise ValueError("One task kind is required per validation sample")
                 for kind in sorted(set(kinds)):
-                    if kind not in ("forecast", "completion", "direct_action"):
+                    allowed_kinds = (("image_generation",) if self.objective == "image_generation"
+                                     else ("forecast", "completion", "direct_action"))
+                    if kind not in allowed_kinds:
                         raise ValueError(f"Unknown validation task kind: {kind}")
                     rows = torch.tensor(
                         [value == kind for value in kinds], device=mask.device

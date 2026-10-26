@@ -277,7 +277,14 @@ def eligibility(request,manifest,index,reader):
     need(files.get('request.json')==request_sha and files.get('spec.json')==spec_sha
          and all(files.get(name)==wanted for name,wanted in spec.get('code',{}).items()),
          'Shared producer FILES does not bind exact request/spec/code closure')
-    resources=dict(node=request['lambda_runtime']['node'],cpus=4,memory_gib=24,time_limit='00:45:00',gpus=0)
+    # The CPU census certifies portable, hash-bound TRAIN metadata, not the
+    # future training node. Bind its own producer node throughout request/spec,
+    # held acceptance, running record and terminal proof. The target node keeps
+    # its separate actual runtime/cache admission.
+    census_node=producer.get('node')
+    need(isinstance(census_node,str) and re.fullmatch(r'gpu[0-9]{2}',census_node),
+         'Explicit actual census producer node required')
+    resources=dict(node=census_node,cpus=4,memory_gib=24,time_limit='00:45:00',gpus=0)
     need(producer.get('schema')=='train-calibration-and-boundary-census-request-v1'
          and producer.get('spec')==bindings['producer_spec']
          and producer.get('binding_state')=='BOUND_READY_FOR_ROOT_REVIEW' and producer.get('root_review')=='PASS'

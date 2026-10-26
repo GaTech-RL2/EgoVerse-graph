@@ -507,7 +507,7 @@ class HomogeneousWorldBatchSampler:
         self.consumed_batches = 0
         self.ranges = {}
         start = 0
-        for ep, count in zip(dataset.episodes, dataset.counts):
+        for ep, count in zip(getattr(dataset, "sampling_episodes", dataset.episodes), dataset.counts):
             self.ranges.setdefault(ep["embodiment"], []).append(
                 np.arange(start, start + count)
             )

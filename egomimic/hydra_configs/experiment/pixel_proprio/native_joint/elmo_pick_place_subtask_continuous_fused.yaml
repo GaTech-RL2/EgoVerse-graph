@@ -1,0 +1,32 @@
+# @package _global_
+# UNAPPLIED CANDIDATE: source publication, scale decision and actual smoke pending.
+defaults:
+- /experiment/pixel_proprio/native_joint/elmo_pick_place_subtask_continuous
+- _self_
+name: native_mot_continuous_subtask_language_time_fused_snr
+fused_objective:
+  cap: 5.0
+  tau_seconds: 1.0
+  # Raw capped objective. Final experiment scale requires an explicit decision;
+  # any calibrated constant must come from the actual TRAIN sampling population.
+  fixed_scale: 1.0
+  loss:
+    _target_: egomimic.models.time_fused_snr.TimeAwareFusedSNRMSE
+    cap: ${fused_objective.cap}
+    tau_seconds: ${fused_objective.tau_seconds}
+    fixed_scale: ${fused_objective.fixed_scale}
+    reduction: mean_per_example
+modality_ablation:
+  nodes:
+    image_loss:
+      log_objective: true
+      loss: ${fused_objective.loss}
+    proprio_loss:
+      log_objective: true
+      loss: ${fused_objective.loss}
+    action_loss:
+      log_objective: true
+      loss: ${fused_objective.loss}
+    camera_loss:
+      log_objective: true
+      loss: ${fused_objective.loss}

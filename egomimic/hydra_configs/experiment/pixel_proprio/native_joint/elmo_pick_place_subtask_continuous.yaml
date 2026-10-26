@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/native_joint/subtask_language_continuous
+- _self_
+name: native_mot_elmo_pick_place_subtask_continuous
+joint:
+  pose_dims: {eva_bimanual: 20, human_bimanual: 126}
+  action_dims: {eva_bimanual: 20}
+  camera_dims: {eva_bimanual: 9, human_bimanual: 9}
+  max_tokens: 19520
+pixel_video:
+  max_cameras: 3
+# Multiple private experts plus grad/no-grad validation need bounded decode
+# specializations. Mandatory fullgraph compilation remains active, never eager.
+world_model_execution:
+  recompile_limit: 64
+  accumulated_recompile_limit: 256
+evaluator:
+  active_streams_from_data: true

@@ -4,7 +4,3 @@ defaults:
   - _self_
 name: pixel_proprio_video_continuous_pilot
 description: gripper_pixel160_patch16_continuous_full_episode_s42
-trainer:
-  max_steps: 300000
-data:
-  max_frames: 64 # Uniform timestamp selection still spans the full episode.

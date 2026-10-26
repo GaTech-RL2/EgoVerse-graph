@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/native_joint/common
+- _self_
+name: native_mot_continuous_image_proprio_s42_300k
+description: Historical image core with minimal joint state extension, historical compilation preserved
+modality_ablation:
+  active_streams: [image, proprio]
+  stage_ids: {joint_noising: 0, joint_denoiser: 1, image_loss: 2, proprio_loss: 3, joint_sampler: 4}
+  graph:
+  - ${modality_ablation.nodes.joint_noising}
+  - ${modality_ablation.nodes.joint_denoiser}
+  - ${modality_ablation.nodes.image_loss}
+  - ${modality_ablation.nodes.proprio_loss}
+  - ${modality_ablation.nodes.joint_sampler}
+evaluator:
+  objective: visual_proprio

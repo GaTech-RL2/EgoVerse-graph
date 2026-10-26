@@ -6,11 +6,14 @@ import torch
 from torch.utils.data import DataLoader
 
 from egomimic.pl_utils.data_context import DataContext
+from egomimic.rldb.boundary_sampling import validate_boundary_sampling
+from egomimic.rldb.pixel_language import validate_language_feature_options
 from egomimic.rldb.pixel_proprio import (
     DistributedPixelTrainingBatchSampler,
     DistributedPixelValidationBatchSampler,
     EvenlySpacedEpisodeBatchSampler,
     PreparedPixelProprioDataset,
+    validate_completion_gap_schedule,
     collate_pixel_proprio,
 )
 from egomimic.rldb.world_model import HomogeneousWorldBatchSampler
@@ -49,7 +52,22 @@ class PixelProprioDataModule(WorldModelDataModule):
         prefetch_factor=None,
         balance_training_work=False,
         couple_state_observations=False,
+        completion_gap_schedule=None,
+        training_conditioning="mixed_context",
+        temporal_gap_schedule=None,
+        language_features_path=None,
+        language_features_sha256=None,
+        subtask_manifest_path=None,
+        subtask_manifest_sha256=None,
+        camera_pose=False,
+        action_embodiments=None,
+        boundary_sampling=None,
     ):
+        validate_language_feature_options(language_features_path, language_features_sha256)
+        self.language_features_path = language_features_path
+        self.subtask_manifest_path = subtask_manifest_path
+        if (subtask_manifest_path is None) != (subtask_manifest_sha256 is None):
+            raise ValueError("Subtask path and SHA256 require both or neither")
         if type(batch_size) is not int or batch_size < 1:
             raise ValueError("batch_size must be a positive integer")
         if type(num_workers) is not int or num_workers < 0:
@@ -127,6 +145,47 @@ class PixelProprioDataModule(WorldModelDataModule):
             batch_size if validation_batch_size is None else validation_batch_size
         )
         self.settings.update(task=task, sampling_strategy=sampling_strategy)
+        if camera_pose:
+            self.settings["camera_pose"] = camera_pose
+        if action_embodiments is not None:
+            self.settings["action_embodiments"] = action_embodiments
+        if language_features_path is not None:
+            self.settings["language_features_sha256"] = language_features_sha256
+        if subtask_manifest_path is not None:
+            self.settings["subtask_manifest_sha256"] = subtask_manifest_sha256
+        if training_conditioning not in ("mixed_context", "independent_frame_noise"):
+            raise ValueError("Unknown training conditioning profile")
+        if training_conditioning == "independent_frame_noise":
+            if task == "direct_action" or completion_gap_schedule is not None:
+                raise ValueError("Independent frame noise excludes clean-context completion masks")
+            self.settings["training_conditioning"] = training_conditioning
+        temporal_schedule = validate_completion_gap_schedule(temporal_gap_schedule)
+        if temporal_schedule is not None:
+            if (training_conditioning != "independent_frame_noise" or not checkpointable_sampling
+                or mode != "continuous" or sampling_strategy != "full_episode_uniform"):
+                raise ValueError("Temporal gap schedule requires checkpointable independent-noise continuous sampling")
+            self.settings["temporal_gap_schedule"] = temporal_schedule
+        gap_schedule = validate_completion_gap_schedule(completion_gap_schedule)
+        if gap_schedule is not None:
+            if (
+                not checkpointable_sampling
+                or mode != "continuous"
+                or sampling_strategy != "full_episode_uniform"
+            ):
+                raise ValueError(
+                    "Completion gap curriculum requires checkpointable continuous sampling"
+                )
+            self.settings["completion_gap_schedule"] = gap_schedule
+        boundary_policy = validate_boundary_sampling(boundary_sampling)
+        if boundary_policy is not None:
+            if (not checkpointable_sampling or mode != "continuous"
+                or sampling_strategy != "full_episode_uniform"
+                or training_conditioning != "independent_frame_noise"
+                or task == "direct_action" or subtask_manifest_path is None
+                or temporal_schedule is not None or gap_schedule is not None
+                or not 2 <= min_frames <= max_frames <= 64):
+                raise ValueError("Boundary uncertainty requires checkpointed reviewed-subtask independent-noise continuous K2..64 training")
+            self.settings["boundary_sampling"] = boundary_policy
         # Preserve historical conditioned checkpoint contexts when disabled.
         if image_only:
             self.settings["image_only"] = True
@@ -147,39 +206,17 @@ class PixelProprioDataModule(WorldModelDataModule):
             if value is not None
         }
 
-    def preflight_configuration(self):
-        """Check both declared pixel samplers without reading a prepared cache."""
-        result = super().preflight_configuration()
-        for split, settings in (
-            ("train", self.settings),
-            ("val", self.settings | self.validation_settings),
-        ):
-            strategy = settings["sampling_strategy"]
-            if (
-                (strategy, settings["mode"])
-                not in (
-                    ("full_episode_uniform", "continuous"),
-                    ("discrete_window", "continuous"),
-                    ("discrete_window", "discrete"),
-                )
-                or settings.get("max_past_seconds") is not None
-                or settings.get("max_future_seconds") is not None
-            ):
-                raise ValueError(f"Invalid {split} pixel sampling strategy/time bounds")
-            for key, minimum in (("discrete_frames", 2), ("stride", 1)):
-                value = settings[key]
-                if type(value) is not int or value < minimum:
-                    raise ValueError(f"{split} {key} must be an integer >= {minimum}")
-            if (
-                settings["task"] == "direct_action"
-                and strategy != "full_episode_uniform"
-            ):
-                raise ValueError("Direct action requires full_episode_uniform sampling")
-        return result | {
-            "validation_sampling": dict(self.validation_settings),
-            "distributed_world_size": self.distributed_world_size,
-            "validation_batch_size": self.validation_batch_size,
-        }
+        if gap_schedule is not None:
+            self.validation_settings["completion_gap_schedule"] = None
+        if training_conditioning == "independent_frame_noise":
+            # Fixed held-out forecasting/completion metrics remain comparable;
+            # these masks are evaluation queries, never the training recipe.
+            self.validation_settings["training_conditioning"] = "mixed_context"
+        if temporal_schedule is not None:
+            self.validation_settings["temporal_gap_schedule"] = None
+        if boundary_policy is not None:
+            # Held-out anchor selection and query masks stay exactly comparable.
+            self.validation_settings["boundary_sampling"] = None
 
     def setup(self, stage=None):
         if not self.datasets:
@@ -189,6 +226,8 @@ class PixelProprioDataModule(WorldModelDataModule):
                     self.manifest_path,
                     split=split,
                     verification_memo=verifier,
+                    language_features_path=self.language_features_path,
+                    subtask_manifest_path=self.subtask_manifest_path,
                     **(
                         self.settings
                         | (self.validation_settings if split == "val" else {})
@@ -198,12 +237,15 @@ class PixelProprioDataModule(WorldModelDataModule):
             }
 
     def configure_evaluation(self, requirements):
-        if requirements.complete_episodes or set(requirements.required_keys) - {
+        allowed = {
             "world",
             "embodiment",
             "task_kind",
             "pixel_metadata",
-        }:
+        }
+        if self.language_features_path is not None:
+            allowed.update(("language_features", "language_instruction", "task_id"))
+        if requirements.complete_episodes or set(requirements.required_keys) - allowed:
             raise ValueError("Unsupported pixel/proprio evaluation requirements")
 
     def prepare_context(self, *, mode, normalization, normalizer, restored_state=None):
@@ -223,6 +265,8 @@ class PixelProprioDataModule(WorldModelDataModule):
             sampling=self.settings,
             validation_overrides=self.validation_settings,
         )
+        if dataset.language_features is not None:
+            state["language_features"] = dataset.language_features.context_identity()
         if self.checkpointable_sampling:
             state["sampling_resume"] = {
                 "schema": "mot-sampling-state-v1",
@@ -261,6 +305,16 @@ class PixelProprioDataModule(WorldModelDataModule):
         )
 
     def _loader(self, split):
+        if (
+            split == "train"
+            and (self.settings.get("completion_gap_schedule") is not None
+                 or self.settings.get("temporal_gap_schedule") is not None)
+            and self.trainer is not None
+            and self.trainer.accumulate_grad_batches != 1
+        ):
+            raise ValueError(
+                "Completion gap optimizer-step schedule requires one update per global batch"
+            )
         self.setup()
         rank = 0
         if self.trainer is not None:
@@ -328,9 +382,9 @@ class PixelProprioDataModule(WorldModelDataModule):
     def state_dict(self):
         state = super().state_dict()
         if state:
-            state["validation_anchors_per_episode"] = (
-                self.validation_anchors_per_episode
-            )
+            state[
+                "validation_anchors_per_episode"
+            ] = self.validation_anchors_per_episode
             state["validation_overrides"] = self.validation_settings
             if self.distributed_world_size > 1:
                 state["distributed_sampling"] = self._distributed_sampling_identity()

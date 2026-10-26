@@ -20,7 +20,8 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def indices(value):
+def indices(value, world=4):
+    require(world in (2, 4), "Need two or four owned GPUs")
     result = []
     for token in value.split(","):
         token = token.strip()
@@ -35,7 +36,7 @@ def indices(value):
             )
             result.append(token)
     require(
-        len(result) == len(set(result)) == 4,
+        len(result) == len(set(result)) == world,
         "Need exactly four distinct Slurm assignments",
     )
     require(
@@ -51,6 +52,8 @@ def bdf(value):
 
 
 def verify(evidence, expected):
+    world = expected.get("world_size", 4)
+    require(world in (2, 4), "Need two or four owned GPUs")
     cluster_lines = re.findall(
         r"^\s*ClusterName\s*=\s*(\S+)\s*$", evidence["scheduler_config"], re.M
     )
@@ -83,12 +86,12 @@ def verify(evidence, expected):
         fields.get("Restarts") == "0" and env.get("SLURM_RESTART_COUNT", "0") == "0",
         "Fresh allocation required",
     )
-    allocations = indices(env.get("SLURM_JOB_GPUS", ""))
+    allocations = indices(env.get("SLURM_JOB_GPUS", ""), world)
     native = re.findall(
-        r"GRES=gpu:(?:h100|h200):4\(IDX:([0-9,-]+)\)", evidence["native"]
+        rf"GRES=gpu(?::h100|:h200)?:{world}\(IDX:([0-9,-]+)\)", evidence["native"]
     )
     require(len(native) == 1, "Need one native four-Hopper GRES allocation")
-    native_ids = indices(native[0])
+    native_ids = indices(native[0], world)
     require(all(x.isdigit() for x in native_ids), "Native IDX malformed")
     if allocations[0].isdigit():
         require(set(native_ids) == set(allocations), "Slurm env and native IDX differ")
@@ -134,8 +137,8 @@ def verify(evidence, expected):
         len(inventory)
         == len({r["uuid"] for r in inventory})
         == len({r["index"] for r in inventory})
-        == 4,
-        "Require four bijective filtered NVML GPUs",
+        == world,
+        "Require the exact bijective filtered NVML GPUs",
     )
     physical = {}
     for path, text in evidence["proc"].items():
@@ -151,7 +154,7 @@ def verify(evidence, expected):
             "Ambiguous /proc GPU identity",
         )
         physical[uuid] = dict(minor=minor, bdf=bus)
-    require(len(physical) >= 4, "Incomplete physical /proc inventory")
+    require(len(physical) >= world, "Incomplete physical /proc inventory")
     devices = evidence["devices"]
     require(
         len(devices) == len({r["minor"] for r in devices}) == len(physical),
@@ -166,7 +169,7 @@ def verify(evidence, expected):
         "Invalid GPU character device",
     )
     allowed = {r["minor"] for r in devices if r["read_open_permitted"]}
-    require(len(allowed) == 4, "Kernel must grant exactly four physical GPU minors")
+    require(len(allowed) == world, "Kernel must grant exactly four physical GPU minors")
     uuids = {r["uuid"] for r in inventory}
     require(
         {u for u, p in physical.items() if p["minor"] in allowed} == uuids,
@@ -180,7 +183,7 @@ def verify(evidence, expected):
     xml = ET.fromstring(evidence["xml"])
     xml_nodes = xml.findall("gpu")
     require(
-        len(xml_nodes) == 4 and {n.findtext("uuid") for n in xml_nodes} == uuids,
+        len(xml_nodes) == world and {n.findtext("uuid") for n in xml_nodes} == uuids,
         "XML/NVML UUID inventories differ",
     )
     for n in xml_nodes:

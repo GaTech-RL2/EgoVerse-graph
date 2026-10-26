@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/native_joint/elmo_pick_place_subtask_continuous
+- _self_
+name: native_mot_elmo_continuous_subtask_boundary_uncertainty
+# The held-out loader disables this policy and retains the original annotations.
+# Training still uses independent frame noise and the original plain MSE.
+data:
+  boundary_sampling:
+    schema: annotation-boundary-uncertainty-sampling-v1
+    policy: annotation_boundary_uncertainty
+    boundary_probability: 0.5
+    maximum_radius_seconds: 0.25
+    duration_fraction: 0.1
+    rng_namespace: 1112425561

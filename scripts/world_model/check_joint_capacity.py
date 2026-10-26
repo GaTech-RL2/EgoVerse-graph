@@ -70,7 +70,8 @@ def check_capacity(cfg, data, destination):
         )
         optimization_lr = optimizer.param_groups[0]["lr"]
         optimizer.step()
-        scheduler.step()
+        if scheduler is not None:
+            scheduler.step()
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
         peak = torch.cuda.max_memory_allocated()

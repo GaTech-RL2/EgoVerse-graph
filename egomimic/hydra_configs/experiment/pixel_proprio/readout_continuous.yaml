@@ -20,14 +20,6 @@ pixel_readout:
 data:
   image_only: false
   task: visual_state_action
-  max_frames: 128 # Preserve deferred stage2 sampling independently of stage1.
-trainer:
-  max_steps: 1000 # Deferred readout keeps its original pilot budget.
-  val_check_interval: 250
-callbacks:
-  model_checkpoint:
-    every_n_train_steps: 250
-    save_last: true
 evaluator:
   objective: visual_state_action
 logger:

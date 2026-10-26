@@ -1,0 +1,69 @@
+# @package _global_
+# Shared subtask profile; physical data/coordinates/dimensions must be bound by
+# a verified preparation manifest. No LIBERO dimensions are inherited silently.
+defaults:
+- /experiment/pixel_proprio/native_joint/discrete_image_proprio_action
+- _self_
+name: native_mot_subtask_language
+description: Independent per-frame noise with reviewed subtask-only language conditioning
+joint:
+  # Null explicitly clears inherited LIBERO maps before dataset leaves merge.
+  pose_dims: null
+  action_dims: null
+  camera_dims: null
+  max_tokens: ???
+pixel_video:
+  require_observed_context: false
+  max_cameras: ???
+modality_ablation:
+  active_streams: [image, proprio, action, camera]
+  nodes:
+    joint_denoiser:
+      language_key: language_features
+      model:
+        separate_proprio_experts: true
+        language_feature_dim: 1024
+        language_width: 128
+        camera_dims: ${joint.camera_dims}
+        camera_width: 256
+        camera_max_count: ${pixel_video.max_cameras}
+    joint_sampler:
+      language_key: language_features
+    action_loss:
+      optional: true
+    camera_loss:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: camera
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+  graph:
+  - ${modality_ablation.nodes.joint_noising}
+  - ${modality_ablation.nodes.joint_denoiser}
+  - ${modality_ablation.nodes.image_loss}
+  - ${modality_ablation.nodes.proprio_loss}
+  - ${modality_ablation.nodes.action_loss}
+  - ${modality_ablation.nodes.camera_loss}
+  - ${modality_ablation.nodes.joint_sampler}
+  stage_ids: {joint_noising: 0, joint_denoiser: 1, image_loss: 2, proprio_loss: 3, action_loss: 4, camera_loss: 5, joint_sampler: 6}
+data:
+  training_conditioning: independent_frame_noise
+  camera_pose: true
+  action_embodiments: [eva_bimanual]
+  language_features_path: ???
+  language_features_sha256: ???
+  subtask_manifest_path: ???
+  subtask_manifest_sha256: ???
+logger:
+  wandb:
+    tags: [native-image-proprio-action, independent-frame-noise, subtask-language]
+# Homogeneous robot/human batches leave private banks inactive on each draw.
+# Reuse the maintained conditional-BC DDP route; do not fabricate human actions
+# or attach zero-valued dummy paths just to satisfy the reducer.
+trainer:
+  strategy: ddp_find_unused_parameters_true
+# Track actual updates of optional private banks in every retained checkpoint.
+callbacks:
+  conditional_optimizer_usage:
+    _target_: egomimic.pl_utils.joint_smoke.ConditionalOptimizerUsage

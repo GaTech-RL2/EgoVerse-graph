@@ -74,6 +74,7 @@ class Qwen3TextEmbedding(ZarrKeyTransform):
         device: str | torch.device = "cuda",
         chunk_timesteps: int = 100,
         dtype: torch.dtype = torch.float16,
+        revision: str | None = None,
     ):
         if output_keys is not None and len(input_keys) != len(output_keys):
             raise ValueError(
@@ -89,6 +90,7 @@ class Qwen3TextEmbedding(ZarrKeyTransform):
             chunk_timesteps=chunk_timesteps,
         )
         self.model_name = model_name
+        self.revision = revision
         self.max_length = max_length
         self.dtype = dtype
         self.tokenizer = None
@@ -100,9 +102,9 @@ class Qwen3TextEmbedding(ZarrKeyTransform):
 
         logger.info("Loading Qwen3 embedding model: %s", self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name, padding_side="left"
+            self.model_name, padding_side="left", revision=self.revision
         )
-        self.model = AutoModel.from_pretrained(self.model_name, torch_dtype=self.dtype)
+        self.model = AutoModel.from_pretrained(self.model_name, torch_dtype=self.dtype, revision=self.revision)
         self.model.to(self.device).eval()
         self._embed_dim = int(self.model.config.hidden_size)
 

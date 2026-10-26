@@ -9,11 +9,7 @@ class ImageProprioEval(Eval):
     prediction_key = "image_proprio_prediction"
 
     def __init__(
-        self,
-        objective="visual_proprio",
-        sample_seed=42,
-        pixel_diagnostics=None,
-        prediction_streams=None,
+        self, objective="visual_proprio", sample_seed=42, pixel_diagnostics=None, active_streams_from_data=False
     ):
         if objective not in (
             "visual_only",
@@ -23,16 +19,7 @@ class ImageProprioEval(Eval):
         ):
             raise ValueError("Unknown image/proprio evaluation objective")
         self.objective, self.sample_seed = objective, int(sample_seed)
-        self.prediction_streams = (
-            None if prediction_streams is None else tuple(prediction_streams)
-        )
-        if self.prediction_streams is not None and (
-            not self.prediction_streams
-            or len(set(self.prediction_streams)) != len(self.prediction_streams)
-            or set(self.prediction_streams) - {"image", "proprio", "action"}
-            or (objective != "direct_action" and self.prediction_streams[0] != "image")
-        ):
-            raise ValueError("Declare unique supported prediction_streams")
+        self.active_streams_from_data = bool(active_streams_from_data)
         self.totals = {}
         self._completed_validation_step = None
         self._validation_step = None
@@ -96,21 +83,13 @@ class ImageProprioEval(Eval):
         if all(value is None for value in indexed):
             return int(batch_idx)
         if any(value is None for value in indexed):
-            raise ValueError(
-                "Global validation batch identities must cover every source"
-            )
+            raise ValueError("Global validation batch identities must cover every source")
         indices = []
         for item, values in zip(batch.values(), indexed):
-            if not isinstance(values, (tuple, list)) or len(values) != len(
-                item["task_kind"]
-            ):
-                raise ValueError(
-                    "One global validation batch identity is required per sample"
-                )
+            if not isinstance(values, (tuple, list)) or len(values) != len(item["task_kind"]):
+                raise ValueError("One global validation batch identity is required per sample")
             if any(type(value) is not int or value < 0 for value in values):
-                raise ValueError(
-                    "Global validation batch identities must be nonnegative integers"
-                )
+                raise ValueError("Global validation batch identities must be nonnegative integers")
             indices.extend(values)
         if len(set(indices)) != 1:
             raise ValueError("A validation batch must share one global batch identity")
@@ -122,29 +101,26 @@ class ImageProprioEval(Eval):
         )
         with torch.random.fork_rng(devices=devices):
             torch.manual_seed(
-                self.sample_seed
-                + self._sampling_index(batch, batch_idx)
+                self.sample_seed + self._sampling_index(batch, batch_idx)
                 + 100000 * dataloader_idx
             )
             output = self.model.forward_eval(batch)
-        names = (
-            self.prediction_streams
-            or {
-                "visual_only": ("image",),
-                "visual_proprio": ("image", "proprio"),
-                "visual_state_action": ("image", "proprio", "action"),
-                "direct_action": ("action",),
-            }[self.objective]
-        )
+        names = {
+            "visual_only": ("image",),
+            "visual_proprio": ("image", "proprio"),
+            "visual_state_action": ("image", "proprio", "action"),
+            "direct_action": ("action",),
+        }[self.objective]
         for source, item in batch.items():
-            if self.prediction_streams is not None and set(
-                output[source][self.prediction_key]
-            ) != set(names):
-                raise ValueError(
-                    "Evaluator prediction_streams differ from model output"
-                )
             kinds = item["task_kind"]
-            for name in names:
+            selected_names = names
+            if self.active_streams_from_data:
+                selected_names = tuple(item['world'])
+                if (not {'image','proprio','camera'} <= set(selected_names)
+                        or not set(selected_names) <= {'image','proprio','camera','action'}
+                        or set(output[source][self.prediction_key]) != set(selected_names)):
+                    raise ValueError('Actual multimodal prediction keys must match native world streams')
+            for name in selected_names:
                 stream = item["world"][name]
                 mask = (
                     stream["valid"]
@@ -194,16 +170,12 @@ class ImageProprioEval(Eval):
     def _reduce_validation_totals(self):
         """Sum target-weighted errors, including keys absent on some ranks."""
         self.global_validation_batches = self._validation_batches
-        if not (
-            torch.distributed.is_available() and torch.distributed.is_initialized()
-        ):
+        if not (torch.distributed.is_available() and torch.distributed.is_initialized()):
             return self.totals
         keys_by_rank = [None] * torch.distributed.get_world_size()
         torch.distributed.all_gather_object(keys_by_rank, sorted(self.totals))
         keys = sorted({key for rank_keys in keys_by_rank for key in rank_keys})
-        totals = torch.zeros(
-            len(keys), 2, dtype=torch.float64, device=self.model.device
-        )
+        totals = torch.zeros(len(keys), 2, dtype=torch.float64, device=self.model.device)
         for index, key in enumerate(keys):
             if key in self.totals:
                 numerator, denominator = self.totals[key]
@@ -212,19 +184,13 @@ class ImageProprioEval(Eval):
         valid = (torch.isfinite(totals).all() & (totals >= 0).all()).to(torch.int64)
         torch.distributed.all_reduce(valid, op=torch.distributed.ReduceOp.MIN)
         if not valid.item():
-            raise ValueError(
-                "Invalid accumulated validation metric on a distributed rank"
-            )
+            raise ValueError("Invalid accumulated validation metric on a distributed rank")
         if keys:
             torch.distributed.all_reduce(totals, op=torch.distributed.ReduceOp.SUM)
-        batches = torch.tensor(
-            self._validation_batches, dtype=torch.int64, device=self.model.device
-        )
+        batches = torch.tensor(self._validation_batches, dtype=torch.int64, device=self.model.device)
         torch.distributed.all_reduce(batches, op=torch.distributed.ReduceOp.SUM)
         self.global_validation_batches = int(batches.item())
-        return {
-            key: (totals[index, 0], totals[index, 1]) for index, key in enumerate(keys)
-        }
+        return {key: (totals[index, 0], totals[index, 1]) for index, key in enumerate(keys)}
 
     def log_epoch_metrics(self):
         self._metrics_logged = False
@@ -278,9 +244,7 @@ class ImageProprioEval(Eval):
             and any(denominator > 0 for _, denominator in self._global_totals.values())
         )
         if torch.distributed.is_available() and torch.distributed.is_initialized():
-            success = torch.tensor(
-                int(complete), dtype=torch.int64, device=self.model.device
-            )
+            success = torch.tensor(int(complete), dtype=torch.int64, device=self.model.device)
             torch.distributed.all_reduce(success, op=torch.distributed.ReduceOp.MIN)
             complete = bool(success.item())
         if publication_error is not None:

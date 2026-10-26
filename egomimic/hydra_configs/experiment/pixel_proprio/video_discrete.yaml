@@ -5,8 +5,6 @@ defaults:
 
 name: pixel_proprio_video_discrete_pilot
 description: gripper_pixel160_patch16_discrete16_stride4_s42
-trainer:
-  max_steps: 300000
 data:
   mode: discrete
   sampling_strategy: discrete_window

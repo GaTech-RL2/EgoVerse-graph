@@ -1,0 +1,41 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/native_joint/discrete_image_proprio
+- _self_
+name: native_mot_discrete_image_proprio_action_s42_300k
+description: Historical shared image-state core with an optional real-command expert
+joint:
+  action_dims: {libero_gripper: 28}
+  max_tokens: 3232
+modality_ablation:
+  active_streams: [image, proprio, action]
+  nodes:
+    joint_denoiser:
+      model:
+        action_dims: ${joint.action_dims}
+        action_width: 256
+    action_loss:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: action
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    joint_sampler:
+      sampler:
+        action_steps: 20
+  stage_ids: {joint_noising: 0, joint_denoiser: 1, image_loss: 2, proprio_loss: 3, action_loss: 4, joint_sampler: 5}
+  graph:
+  - ${modality_ablation.nodes.joint_noising}
+  - ${modality_ablation.nodes.joint_denoiser}
+  - ${modality_ablation.nodes.image_loss}
+  - ${modality_ablation.nodes.proprio_loss}
+  - ${modality_ablation.nodes.action_loss}
+  - ${modality_ablation.nodes.joint_sampler}
+data:
+  task: visual_state_action
+evaluator:
+  objective: visual_state_action
+logger:
+  wandb:
+    tags: [historical-image-core, native-compiled, joint-image-proprio-action, paired-initialization]

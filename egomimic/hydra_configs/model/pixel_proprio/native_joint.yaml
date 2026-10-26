@@ -1,0 +1,15 @@
+defaults:
+- /model/pixel_proprio/video@_here_
+- _self_
+optimizer:
+  lr: 0.000005
+scheduler:
+  _target_: egomimic.utils.schedulers.linear_warmup_constant_scheduler
+  warmup_steps: 3000
+scheduler_interval: step
+scheduler_frequency: 1
+training_behavior:
+  distributed_noise_seed: ${seed}
+pipeline:
+  stage_ids: ${modality_ablation.stage_ids}
+  stages: ${modality_ablation.graph}

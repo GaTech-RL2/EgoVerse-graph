@@ -7,9 +7,12 @@ does not resize images, average patches, or consume encoder features or tracks.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from contextlib import ExitStack
+from egomimic.rldb.pixel_subtasks import load_subtask_manifest
+from egomimic.rldb.camera_pose import relative_camera_pose
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
@@ -18,6 +21,11 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from egomimic.rldb.pixel_language import (
+    collate_pixel_language,
+    load_pixel_task_language_features,
+    validate_language_feature_options,
+)
 from egomimic.rldb.world_model import (
     HomogeneousWorldBatchSampler,
     _physical_times,
@@ -34,7 +42,7 @@ def collate_pixel_proprio(samples):
     if not samples or len({s["embodiment"] for s in samples}) != 1:
         raise ValueError("Batch must be nonempty and homogeneous in embodiment")
     names = set(samples[0]["world"])
-    if names not in ({"image"}, {"image", "proprio"}, {"image", "proprio", "action"}):
+    if names - {"camera"} not in ({"image"}, {"image", "proprio"}, {"image", "proprio", "action"}):
         raise ValueError("Expected image stream with optional proprio/action labels")
     if any(set(s["world"]) != names for s in samples):
         raise ValueError("Cannot mix objectives in a batch")
@@ -54,13 +62,14 @@ def collate_pixel_proprio(samples):
                 values.append(target)
             result[name][key] = torch.stack(values)
     kinds = [s.get("task_kind") for s in samples]
-    allowed = {"forecast", "completion", "direct_action"}
+    allowed = {"forecast", "completion", "direct_action", "diffusion_forcing"}
     if any(kind not in allowed for kind in kinds):
         raise ValueError(
             "Every sample requires its explicit observation-mask task kind"
         )
     embodiment = samples[0]["embodiment"]
     item = dict(embodiment=embodiment, world=result, task_kind=kinds)
+    item.update(collate_pixel_language(samples))
     if any("pixel_metadata" in s for s in samples):
         if not all("pixel_metadata" in s for s in samples):
             raise ValueError(
@@ -216,7 +225,7 @@ class EvenlySpacedEpisodeBatchSampler:
             raise ValueError("Positive integer anchor and batch counts required")
         self.groups, self.batch_size = {}, batch_size
         offset = 0
-        for ep, count in zip(dataset.episodes, dataset.counts):
+        for ep, count in zip(getattr(dataset, "sampling_episodes", dataset.episodes), dataset.counts):
             selected = np.linspace(
                 0, count - 1, min(anchors_per_episode, count), dtype=np.int64
             )
@@ -258,6 +267,128 @@ def sample_full_episode_times(length, rng, min_frames=2, max_frames=128, anchor=
     candidates = np.arange(length)
     other = rng.choice(candidates[candidates != anchor], count - 1, replace=False)
     return np.sort(np.r_[anchor, other]).astype(np.int64)
+
+
+def validate_completion_gap_schedule(schedule):
+    """Normalize an opt-in optimizer-step curriculum; keep legacy identity absent."""
+    if schedule is None:
+        return None
+    result = []
+    for item in schedule:
+        if set(item) != {"start_step", "max_gap_seconds"}:
+            raise ValueError("Completion gap stages require start_step/max_gap_seconds")
+        step, gap = item["start_step"], item["max_gap_seconds"]
+        if (
+            type(step) is not int
+            or step < 0
+            or isinstance(gap, (bool, np.bool_))
+            or not isinstance(gap, (int, float, np.integer, np.floating))
+            or not np.isfinite(gap)
+            or gap <= 0
+        ):
+            raise ValueError(
+                "Completion gap stages require nonnegative steps/positive seconds"
+            )
+        if result and (
+            step <= result[-1]["start_step"] or gap < result[-1]["max_gap_seconds"]
+        ):
+            raise ValueError(
+                "Completion gap stage steps must increase and caps cannot decrease"
+            )
+        result.append({"start_step": step, "max_gap_seconds": float(gap)})
+    if not result or result[0]["start_step"] != 0:
+        raise ValueError("Completion gap curriculum must start at optimizer step zero")
+    return result
+
+
+def completion_gap_cap(schedule, optimizer_step):
+    if type(optimizer_step) is not int or optimizer_step < 0:
+        raise ValueError("Completion gap requires a nonnegative optimizer step")
+    return next(
+        stage["max_gap_seconds"]
+        for stage in reversed(schedule)
+        if optimizer_step >= stage["start_step"]
+    )
+
+
+def sample_gap_bounded_times(timestamps, rng, count, anchor, max_gap_seconds):
+    """Grow a recorded-frame set around the retained anchor, with bounded gaps.
+
+    The next draw is uniform among unselected frames inside the selected span
+    or within the cap of either endpoint. Inserting an interior frame preserves
+    the bound. This is local growth, not a uniform draw over all feasible sets.
+    Counts, the anchor, actual timestamps, and episode identity are preserved;
+    no interpolated frames or independent whole-window bound are introduced.
+    """
+    raw = np.asarray(timestamps, dtype=np.float64)
+    times = _physical_times(raw, len(raw))
+    if (
+        type(count) is not int
+        or not 2 <= count <= len(times)
+        or type(anchor) is not int
+        or not 0 <= anchor < len(times)
+        or isinstance(max_gap_seconds, (bool, np.bool_))
+        or not np.isfinite(max_gap_seconds)
+        or max_gap_seconds <= 0
+    ):
+        raise ValueError("Invalid completion gap sample")
+    # Account only for representational error in large absolute timestamps.
+    tolerance = max(1e-10, 4 * abs(float(np.spacing(np.max(np.abs(raw))))))
+    disconnected = np.flatnonzero(np.diff(times) > max_gap_seconds + tolerance)
+    lo = max((int(i) + 1 for i in disconnected if i < anchor), default=0)
+    hi = min((int(i) + 1 for i in disconnected if i >= anchor), default=len(times))
+    if hi - lo < count:
+        raise ValueError("Too few connected recorded frames for completion gap/count")
+    selected = np.zeros(len(times), bool)
+    selected[anchor] = True
+    left = right = anchor
+    for _ in range(count - 1):
+        first = max(
+            lo,
+            int(
+                np.searchsorted(
+                    times, times[left] - max_gap_seconds - tolerance, side="left"
+                )
+            ),
+        )
+        last = min(
+            hi,
+            int(
+                np.searchsorted(
+                    times, times[right] + max_gap_seconds + tolerance, side="right"
+                )
+            ),
+        )
+        candidates = np.flatnonzero(~selected[first:last]) + first
+        if not len(candidates):
+            raise ValueError("No feasible next recorded completion frame")
+        chosen = int(rng.choice(candidates))
+        selected[chosen] = True
+        left, right = min(left, chosen), max(right, chosen)
+    result = np.flatnonzero(selected).astype(np.int64)
+    if np.any(np.diff(times[result]) > max_gap_seconds + tolerance):
+        raise ValueError("Completion frame gap invariant failed")
+    return result
+
+
+def sample_pixel_observation_roles(task, f, rng, forecasting_probability):
+    """Historical task/mask RNG contract, shared with metadata-only checks."""
+    if task == "direct_action":
+        return "direct_action", {
+            name: np.ones(f, bool) for name in ("image", "proprio")
+        }
+    if rng.random() < forecasting_probability:
+        known = np.arange(f) < int(rng.integers(1, f))
+        return "forecast", {
+            "image": known.copy(),
+            "proprio": known & (rng.random(f) < 0.8),
+        }
+    observed = {name: rng.random(f) < 0.5 for name in ("image", "proprio")}
+    if not observed["image"].any():
+        observed["image"][rng.integers(f)] = True
+    if observed["image"].all():
+        observed["image"][rng.integers(f)] = False
+    return "completion", observed
 
 
 def sample_discrete_window(length, rng, frames, stride, anchor):
@@ -338,12 +469,15 @@ def patchify_rgb(rgb, patch_size):
         channels,
     )
     patches = patches.transpose(0, 1, 2, 4, 3, 5, 6).reshape(
-        frames, cameras, height // patch_size * (width // patch_size), 3 * patch_size**2
+        frames,
+        cameras,
+        height // patch_size * (width // patch_size),
+        3 * patch_size**2,
     )
     return patches.astype(np.float32) / np.float32(127.5) - np.float32(1)
 
 
-def load_pose_normalization(manifest, root, verifier):
+def load_pose_normalization(manifest, root, verifier, camera_pose=False):
     contract = manifest.get("normalization", {})
     if (
         contract.get("scope") != "train_only"
@@ -358,6 +492,8 @@ def load_pose_normalization(manifest, root, verifier):
     verifier.verify(path, contract["sha256"])
     saved = json.loads(path.read_text())
     required = {f"pose/{emb}" for emb in manifest["pose_schemas"]}
+    if camera_pose:
+        required |= {f"camera/{emb}" for emb in manifest["camera_pose_schemas"]}
     if (
         saved.get("schema") != "pixel-proprio-normalization-v1"
         or saved.get("scope") != "train_only"
@@ -373,7 +509,9 @@ def load_pose_normalization(manifest, root, verifier):
             np.asarray(item["mean"], np.float32),
             np.asarray(item["std"], np.float32),
         )
-        dim = manifest["pose_schemas"][key[5:]]["dimension"]
+        kind, embodiment = key.split("/", 1)
+        schemas = manifest["pose_schemas"] if kind == "pose" else manifest["camera_pose_schemas"]
+        dim = schemas[embodiment]["dimension"]
         if (
             mean.shape != (dim,)
             or std.shape != (dim,)
@@ -412,7 +550,17 @@ class PreparedPixelProprioDataset(Dataset):
         sampling_strategy="full_episode_uniform",
         image_only=False,
         couple_state_observations=False,
+        completion_gap_schedule=None,
+        training_conditioning="mixed_context",
+        temporal_gap_schedule=None,
+        language_features_path=None,
+        language_features_sha256=None,
+        subtask_manifest_path=None,
+        subtask_manifest_sha256=None,
+        camera_pose=False,
+        action_embodiments=None,
     ):
+        validate_language_feature_options(language_features_path, language_features_sha256)
         if task not in (
             "visual_diffusion",
             "visual_state_action",
@@ -427,6 +575,15 @@ class PreparedPixelProprioDataset(Dataset):
         if type(image_only) is not bool or (image_only and task != "visual_diffusion"):
             raise ValueError("image_only requires visual_diffusion and a boolean flag")
         self.image_only = image_only
+        if type(camera_pose) is not bool or (camera_pose and image_only):
+            raise ValueError("Camera pose requires explicit image/proprio data")
+        self.camera_pose = camera_pose
+        if action_embodiments is not None and (
+                not isinstance(action_embodiments, (list, tuple)) or not action_embodiments
+                or any(not isinstance(x, str) or not x for x in action_embodiments)
+                or len(set(action_embodiments)) != len(action_embodiments)):
+            raise ValueError("Require explicit unique action-bearing embodiment IDs")
+        self.action_embodiments = action_embodiments
         if type(couple_state_observations) is not bool or (
             couple_state_observations and image_only
         ):
@@ -441,10 +598,43 @@ class PreparedPixelProprioDataset(Dataset):
             seed,
             mode,
         )
-        self.manifest = json.loads(self.path.read_text())
+        manifest_bytes = self.path.read_bytes()
+        self.manifest = json.loads(manifest_bytes)
         manifest = self.manifest
         if manifest.get("schema") != "pixel-proprio-prepared-v1":
             raise ValueError("Unsupported pixel/proprio prepared schema")
+        manifest_sha256 = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        self.subtasks = load_subtask_manifest(
+            subtask_manifest_path, subtask_manifest_sha256, self.manifest, manifest_sha256
+        )
+        language_manifest = self.manifest
+        if self.subtasks is not None:
+            if language_features_path is None:
+                raise ValueError("Subtask-only sampling requires language conditioning")
+            language_manifest = dict(self.manifest, episodes=[
+                dict(ep, task_id=unit["task_id"])
+                for ep in self.manifest["episodes"]
+                for unit in self.subtasks[(ep["embodiment"], ep["episode_id"])]] )
+        self.language_features = load_pixel_task_language_features(
+            language_features_path, language_features_sha256,
+            language_manifest, manifest_sha256,
+        )
+        if self.subtasks is not None:
+            for units in self.subtasks.values():
+                for unit in units:
+                    if self.language_features.instructions[unit["task_id"]] != unit["instruction"]:
+                        raise ValueError("Subtask instruction differs from bound language feature")
+        if camera_pose:
+            schemas = manifest.get("camera_pose_schemas", {})
+            if set(schemas) != {ep["embodiment"] for ep in manifest["episodes"]}:
+                raise ValueError("Every embodiment requires an explicit camera pose schema")
+            for schema in schemas.values():
+                _coordinate_schema(schema, "Camera pose schema")
+                if schema.get("dimension") != 9 or schema.get("representation") != "xyz_rotation6d":
+                    raise ValueError("Camera pose requires native 9D xyz+rotation6D")
+        if action_embodiments is not None and not set(action_embodiments) <= {
+                ep["embodiment"] for ep in manifest["episodes"]}:
+            raise ValueError("Unknown action-bearing embodiment ID")
         identity = manifest.get("pixel_identity", {})
         size, patch = identity.get("image_size"), identity.get("patch_size")
         if (
@@ -507,8 +697,12 @@ class PreparedPixelProprioDataset(Dataset):
                 paths.add(path)
                 if (
                     ep["embodiment"] not in manifest["pose_schemas"]
-                    or ep.get("frame") != "fixed_reference"
-                    or ep.get("pose_kind") != "measured_pose"
+                    or not (ep.get("frame") == "fixed_reference" or (
+                        ep["embodiment"] == "human_bimanual"
+                        and ep.get("frame") == "per_frame_rgb_camera"
+                        and ep.get("pose_kind") == "measured_keypoints"
+                        and manifest["pose_schemas"][ep["embodiment"]].get("coordinate_reference") == "each_frame_RGBcamera"))
+                    or ep.get("pose_kind") not in ("measured_pose", "measured_keypoints")
                     or not _sha(ep.get("sha256"))
                 ):
                     raise ValueError("Require exact measured-pose identity and frame")
@@ -522,12 +716,12 @@ class PreparedPixelProprioDataset(Dataset):
                 ep["rgb_sha256"],
                 trusted_fingerprint=ep.get("rgb_verified_fingerprint"),
             )
-            if task in ("direct_action", "visual_state_action"):
+            if self._has_actions(ep):
                 self._validate_actions(ep)
         self.normalization = (
             {}
             if image_only
-            else load_pose_normalization(manifest, self.path.parent, self.verifier)
+            else load_pose_normalization(manifest, self.path.parent, self.verifier, camera_pose)
         )
         self.episodes = [ep for ep in manifest["episodes"] if ep["split"] == split]
         if not self.episodes:
@@ -565,32 +759,63 @@ class PreparedPixelProprioDataset(Dataset):
             raise ValueError(
                 "Direct action baseline requires single-frame continuous observations"
             )
+        if training_conditioning not in ("mixed_context", "independent_frame_noise"):
+            raise ValueError("Unknown training conditioning profile")
+        if training_conditioning == "independent_frame_noise" and (
+            split != "train" or task == "direct_action" or completion_gap_schedule is not None
+        ):
+            raise ValueError("Independent frame noise requires training without completion masks")
+        self.training_conditioning = training_conditioning
+        self.temporal_gap_schedule = validate_completion_gap_schedule(temporal_gap_schedule)
+        if self.temporal_gap_schedule is not None and (
+            training_conditioning != "independent_frame_noise"
+            or mode != "continuous" or sampling_strategy != "full_episode_uniform"
+        ):
+            raise ValueError("Temporal gap schedule requires independent-noise continuous training")
+        self.completion_gap_schedule = validate_completion_gap_schedule(
+            completion_gap_schedule
+        )
+        if self.completion_gap_schedule is not None and (
+            split != "train"
+            or mode != "continuous"
+            or sampling_strategy != "full_episode_uniform"
+            or task == "direct_action"
+        ):
+            raise ValueError(
+                "Completion gap curriculum requires continuous full-episode training"
+            )
         self.forecasting_probability = forecasting_probability
         self.sampling = dict(min_frames=min_frames, max_frames=max_frames)
         self.sampling_strategy = sampling_strategy
         self.discrete_frames, self.stride = discrete_frames, stride
         self.chunk_size = stride if mode == "discrete" else 1
-        self.anchor_indices = []
+        self.anchor_indices, self.sample_units = [], []
+        minimum = (discrete_frames * stride if sampling_strategy == "discrete_window"
+                   else min_frames) if task != "direct_action" else 1
+        self.excluded_short_subtasks = []
         for ep in self.episodes:
-            if task == "direct_action":
-                anchors = np.arange(ep["frames"])
-            else:
-                anchors = (
-                    np.arange(ep["frames"])
-                    if ep["frames"]
-                    >= (
-                        discrete_frames * stride
-                        if sampling_strategy == "discrete_window"
-                        else min_frames
-                    )
-                    else np.array([], np.int64)
-                )
-            self.anchor_indices.append(anchors)
+            units = ([dict(start_idx=0, end_idx=ep["frames"], task_id=ep.get("task_id"))]
+                     if self.subtasks is None else
+                     self.subtasks[(ep["embodiment"], ep["episode_id"])])
+            for unit in units:
+                length = unit["end_idx"] - unit["start_idx"]
+                if length < minimum:
+                    if self.subtasks is None:
+                        raise ValueError("Episode too short for temporal recipe")
+                    self.excluded_short_subtasks.append(dict(episode_id=ep["episode_id"], **unit))
+                    continue
+                self.sample_units.append((ep, unit))
+                self.anchor_indices.append(np.arange(length))
+        self.sampling_episodes = [ep for ep, _ in self.sample_units]
         self.counts = [len(indices) for indices in self.anchor_indices]
-        if any(c < 1 for c in self.counts):
-            raise ValueError("Episode too short for temporal recipe")
+        if not self.counts:
+            raise ValueError("No subtasks/episodes long enough for temporal recipe")
         self.ends = np.cumsum(self.counts)
         self.rng = self.worker_seed = None
+
+    def _has_actions(self, ep):
+        return self.task in ("direct_action", "visual_state_action") and (
+            self.action_embodiments is None or ep["embodiment"] in self.action_embodiments)
 
     def _validate_actions(self, ep):
         schema = self.manifest.get("action_schemas", {}).get(ep["embodiment"])
@@ -678,12 +903,17 @@ class PreparedPixelProprioDataset(Dataset):
     def __len__(self):
         return int(self.ends[-1])
 
-    def _episode_anchor(self, index):
+    def _unit_anchor(self, index):
         if not 0 <= index < len(self):
             raise IndexError(index)
         ei = int(np.searchsorted(self.ends, index, side="right"))
         offset = 0 if ei == 0 else int(self.ends[ei - 1])
-        return self.episodes[ei], int(self.anchor_indices[ei][index - offset])
+        ep, unit = self.sample_units[ei]
+        return ep, unit, int(self.anchor_indices[ei][index - offset])
+
+    def _episode_anchor(self, index):
+        ep, unit, anchor = self._unit_anchor(index)
+        return ep, unit["start_idx"] + anchor
 
     def _sample_frame_chunks(self, length, anchor, rng):
         """One RNG contract shared by actual data reads and metadata-only work preview."""
@@ -711,9 +941,9 @@ class PreparedPixelProprioDataset(Dataset):
             or any(type(value) is not int or value < 0 for value in draw)
         ):
             raise ValueError("Work preview requires a training cursor/global-slot draw")
-        episode, anchor = self._episode_anchor(index)
+        episode, unit, anchor = self._unit_anchor(index)
         rng = np.random.default_rng(np.random.SeedSequence([self.seed, *draw]))
-        frames = len(self._sample_frame_chunks(episode["frames"], anchor, rng))
+        frames = len(self._sample_frame_chunks(unit["end_idx"] - unit["start_idx"], anchor, rng))
         return (frames * len(episode["cameras"]) * self.grid[0] * self.grid[1]) ** 2
 
     def __getitem__(self, index):
@@ -726,7 +956,7 @@ class PreparedPixelProprioDataset(Dataset):
         if isinstance(index, tuple):
             index, cursor, slot = index
             draw = int(cursor), int(slot)
-        ep, anchor = self._episode_anchor(index)
+        ep, unit, anchor = self._unit_anchor(index)
         worker_seed = torch.initial_seed()
         if self.rng is None or self.worker_seed != worker_seed:
             self.rng = np.random.default_rng((worker_seed + self.seed) % 2**63)
@@ -767,11 +997,44 @@ class PreparedPixelProprioDataset(Dataset):
                 raise ValueError(
                     "Native RGB shape/dtype differs from declared pixel geometry/cameras"
                 )
-            chunk_indices = self._sample_frame_chunks(ep["frames"], anchor, rng)
+            start, end = unit["start_idx"], unit["end_idx"]
+            chunk_indices = self._sample_frame_chunks(end - start, anchor, rng) + start
             indices = chunk_indices[:, 0]
+            f = len(indices)
+            origin = 0 if self.task == "direct_action" else int(rng.integers(f))
+            # Reads/normalization below consume no RNG. Choosing roles here keeps
+            # the historical frame/origin/task/mask draw order exactly intact.
+            if self.training_conditioning == "independent_frame_noise":
+                # No clean-context role selection: the noiser draws a fresh
+                # independent strength at every valid timestamp. Every stream
+                # remains a supervised denoising target, including past actions.
+                task_kind = "diffusion_forcing"
+                observed = {name: np.zeros(f, bool) for name in ("image", "proprio")}
+            else:
+                task_kind, observed = sample_pixel_observation_roles(
+                    self.task, f, rng, self.forecasting_probability
+                )
+            gap_cap = None
+            gap_schedule = self.temporal_gap_schedule or self.completion_gap_schedule
+            if gap_schedule is not None:
+                if draw is None:
+                    raise ValueError(
+                        "Completion gap curriculum requires checkpointed draw keys"
+                    )
+                if self.temporal_gap_schedule is not None or task_kind == "completion":
+                    # Cursor is zero-based and equals the next optimizer step
+                    # when each global batch performs exactly one update.
+                    gap_cap = completion_gap_cap(gap_schedule, draw[0])
+                    gap_rng = np.random.default_rng(
+                        np.random.SeedSequence([self.seed, *draw, 0x474150])
+                    )
+                    indices = sample_gap_bounded_times(
+                        full_time[start:end], gap_rng, f, anchor, gap_cap
+                    )
+                    indices = indices + start
+                    chunk_indices = indices[:, None]
             raw_indices = chunk_indices.reshape(-1)
             time = np.asarray(full_time[indices], np.float64)
-            origin = 0 if self.task == "direct_action" else int(rng.integers(len(time)))
             physical_times = time.tolist()
             physical_origin = float(time[origin])
             time = (time - time[origin]).astype(np.float32)
@@ -803,27 +1066,6 @@ class PreparedPixelProprioDataset(Dataset):
                 pose[~pose_valid] = 0
                 pose = pose.reshape(f, self.chunk_size * dim)
                 pose_valid = pose_valid.reshape(f, self.chunk_size).all(axis=1)
-            # Preserve the established RNG consumption even when proprio is
-            # omitted: completion's image-mask repairs and later draws must
-            # select identical RGB frames/masks across conditioning variants.
-            if self.task == "direct_action":
-                task_kind = "direct_action"
-                observed = {name: np.ones(f, bool) for name in ("image", "proprio")}
-            elif rng.random() < self.forecasting_probability:
-                task_kind = "forecast"
-                known = np.arange(f) < int(rng.integers(1, f))
-                observed = {
-                    "image": known.copy(),
-                    "proprio": known & (rng.random(f) < 0.8),
-                }
-            else:
-                task_kind = "completion"
-                observed = {name: rng.random(f) < 0.5 for name in ("image", "proprio")}
-                if not observed["image"].any():
-                    observed["image"][rng.integers(f)] = True
-                if observed["image"].all():
-                    observed["image"][rng.integers(f)] = False
-
             if self.couple_state_observations:
                 if not pose_valid.all():
                     raise ValueError(
@@ -851,7 +1093,29 @@ class PreparedPixelProprioDataset(Dataset):
                 streams["proprio"] = base(pose, 1, observed["proprio"])
                 streams["proprio"]["target_valid"] = pose_valid
                 streams["proprio"]["observed"] &= pose_valid
-            if self.task in ("direct_action", "visual_state_action"):
+            if self.camera_pose:
+                if ("camera_world_pose" not in data or "camera_pose_valid" not in data
+                        or data["camera_world_pose"].shape != (ep["frames"], cameras, 4, 4)
+                        or data["camera_pose_valid"].shape != (ep["frames"], cameras)):
+                    raise ValueError("Require per-frame/per-camera calibrated relative pose arrays")
+                raw_camera = np.asarray(data["camera_world_pose"][raw_indices], np.float64)
+                cv = np.asarray(data["camera_pose_valid"][raw_indices])
+                cp, cv = relative_camera_pose(raw_camera, cv, 0)
+                if not cv.any():
+                    raise ValueError("Selected window has no measured camera reference at its first frame")
+                if cv.dtype != np.bool_ or not np.isfinite(cp[cv]).all():
+                    raise ValueError("Invalid calibrated camera pose values/validity")
+                mean, std = self.normalization[f"camera/{ep['embodiment']}"]
+                cp = (cp - mean) / std
+                cp[~cv] = 0
+                cp = cp.reshape(f, self.chunk_size, cameras, 9).transpose(0,2,1,3)
+                cv = cv.reshape(f,self.chunk_size,cameras).all(axis=1).reshape(-1)
+                streams["camera"] = base(cp, cameras, observed["image"])
+                streams["camera"].update(
+                    camera=np.tile(np.arange(cameras), f), valid=cv,
+                    target_valid=cv.copy(), observed=np.repeat(observed["image"],cameras)&cv,
+                )
+            if self._has_actions(ep):
                 action = np.asarray(data["action"][raw_indices], np.float32).reshape(
                     f, -1
                 )
@@ -890,6 +1154,28 @@ class PreparedPixelProprioDataset(Dataset):
                 proprio_frame_indices=chunk_indices.tolist(),
                 proprio_timestamps_seconds=full_time[chunk_indices].tolist(),
             )
+        if self.language_features is not None:
+            sample.update(self.language_features.sample(unit["task_id"]))
+        if self.camera_pose:
+            sample["pixel_metadata"]["camera_reference_frame_index"] = int(raw_indices[0])
+            sample["pixel_metadata"]["camera_reference_policy"] = "first_selected_native_frame_per_camera"
+        if self.subtasks is not None:
+            sample["pixel_metadata"]["subtask"] = dict(
+                start_idx=start, end_idx=end, task_id=unit["task_id"],
+                instruction=unit["instruction"],
+                annotation_provenance=unit["annotation_provenance"],
+                interval_semantics="half_open",
+            )
+        if self.training_conditioning == "independent_frame_noise":
+            sample["pixel_metadata"]["training_conditioning"] = self.training_conditioning
+        if gap_cap is not None:
+            key = "temporal_gap_curriculum" if self.temporal_gap_schedule is not None else "completion_gap_curriculum"
+            sample["pixel_metadata"][key] = {
+                "optimizer_step": draw[0],
+                "max_gap_seconds": gap_cap,
+                "largest_selected_gap_seconds": float(np.diff(physical_times).max()),
+                "sampling": "anchor_retaining_local_growth_v1",
+            }
         if draw is not None:
             sample["sampling_cursor"] = draw[0] + 1
         if validation_batch_index is not None:

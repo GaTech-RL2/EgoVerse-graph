@@ -1,0 +1,98 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/video_continuous
+- /model/pixel_proprio/video@native_joint.reference
+- override /model: pixel_proprio/native_joint
+- _self_
+# Reference the historical image constructor; do not reconstruct its defaults.
+joint:
+  pose_dims: {libero_gripper: 9}
+  max_tokens: 12864
+  compile_mode: default
+world_model_execution:
+  compile_mode: ${joint.compile_mode}
+  compile_dynamic: true
+  compile_backend: inductor
+  token_execution: packed_valid
+  loss_reduction: mean_per_example
+pixel_video:
+  max_tokens: ${joint.max_tokens}
+modality_ablation:
+  active_streams: null
+  nodes:
+    joint_noising:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointNoisingStage
+      noising:
+        _target_: egomimic.models.joint_image_proprio.CoupledImageProprioNoising
+        maximum: 1.0
+        active_streams: ${modality_ablation.active_streams}
+    joint_denoiser:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointDenoiserStage
+      model:
+        _target_: egomimic.models.joint_image_proprio.JointImageProprioModel
+        image_model: ${native_joint.reference.pipeline.stages.1.model}
+        pose_dims: ${joint.pose_dims}
+        proprio_width: 256
+        mlp_ratio: 4
+        active_streams: ${modality_ablation.active_streams}
+    image_loss:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: image
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    proprio_loss:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointLossStage
+      stream: proprio
+      weight: 1.0
+      loss:
+        _target_: egomimic.models.pixel_diffusion.PlainPixelMSE
+        reduction: mean_per_example
+    joint_sampler:
+      _target_: egomimic.pipeline.stages_joint_state_action.JointSamplerStage
+      sampler:
+        _target_: egomimic.models.joint_image_proprio.JointImageProprioSampler
+        state_steps: 20
+  stage_ids: null
+  graph: null
+  initialization: Native image construction first; vector initialization preserves CPU RNG
+  training_noise: Native image draws unchanged; optional tied proprio draws preserve image RNG
+  screening_budget_updates: 300000
+data:
+  image_only: false
+  task: visual_diffusion
+  couple_state_observations: true
+  max_frames: 64
+  batch_size: 8
+  distributed_world_size: 4
+  validation_batch_size: 1
+  validation_anchors_per_episode: 2
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  balance_training_work: true
+trainer:
+  strategy: ddp
+  devices: 4
+  num_nodes: 1
+  accumulate_grad_batches: 1
+  use_distributed_sampler: false
+  max_steps: 300000
+  val_check_interval: 20000
+callbacks:
+  model_checkpoint:
+    every_n_train_steps: 20000
+    save_top_k: -1
+  learning_rate_monitor:
+    _target_: lightning.pytorch.callbacks.LearningRateMonitor
+    logging_interval: step
+runtime:
+  cluster_environment: torch_elastic
+  slurm_requeue_owner: none
+logger:
+  wandb:
+    group: native-image-joint-state
+    resume: never
+    tags: [historical-image-core, native-compiled, no-action, paired-initialization]

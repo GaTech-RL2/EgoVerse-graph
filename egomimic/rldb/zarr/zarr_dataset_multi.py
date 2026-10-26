@@ -94,7 +94,8 @@ def _validate_episode_name_pin(
 
 def decode_jpeg_payload(payload) -> np.ndarray:
     """Decode either one JPEG or a temporal sequence without dropping time."""
-    if isinstance(payload, np.ndarray) and payload.ndim == 0:
+    # Zarr v3 variable-length codecs may nest scalar object wrappers.
+    while isinstance(payload, np.ndarray) and payload.ndim == 0:
         payload = payload.item()
     if isinstance(payload, (bytes, bytearray, memoryview)):
         image = simplejpeg.decode_jpeg(bytes(payload), colorspace="RGB")

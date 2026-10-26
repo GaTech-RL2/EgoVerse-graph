@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+- /experiment/pixel_proprio/native_joint/subtask_language
+- _self_
+name: native_mot_continuous_subtask_language
+data:
+  mode: continuous
+  sampling_strategy: full_episode_uniform
+  min_frames: 2
+  max_frames: 64
+  # New subtask evaluation uses the declared continuous sampling contract.
+  validation_sampling_strategy: null
+  validation_discrete_frames: null
+  validation_stride: null

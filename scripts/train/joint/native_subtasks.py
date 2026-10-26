@@ -58,6 +58,8 @@ def verify_model_execution(request, cfg):
         _need(core[key] == policy[key], "Changed effective execution: " + key)
     for key in ("recompile_limit", "accumulated_recompile_limit"):
         _need(core["compile_" + key] == policy[key], "Changed bounded compilation budget")
+    from scripts.train.joint import boundary_uncertainty
+    boundary_uncertainty.request_config(request,cfg)
     data = cfg["data"]
     _need(data["training_conditioning"] == "independent_frame_noise"
           and data["camera_pose"] is True and data["task"] == "visual_state_action"
@@ -171,6 +173,8 @@ def verify_dataset(request):
     _need(type(batches) is int and batches == 100
           and policy["validation_batches_per_embodiment"] == 50,
           "Need exactly50 robot plus50 human held-out global batches")
+    from scripts.train.joint import boundary_uncertainty
+    boundary_uncertainty.eligibility(request,manifest,index,bound)
     return counts, batches
 
 
@@ -187,7 +191,7 @@ def _rank_capability(row):
 def verify_completion(request, smoke, completion, preflight, capacity):
     from scripts.train.joint.contract import bound, canonical_uuid
     from scripts.train.joint.lr_policy import update_lr
-    for key in ("kind", "interfaces", "subtask_contract", "dataset_contract"):
+    for key in ("kind", "interfaces", "subtask_contract", "dataset_contract", "boundary_sampling_contract"):
         _need(request.get(key) == smoke.get(key), "Production differs from multimodal smoke: " + key)
     _need(completion.get("schema") == "joint-multimodal-smoke-v1"
           and completion.get("status") == "PASS"
@@ -197,8 +201,10 @@ def verify_completion(request, smoke, completion, preflight, capacity):
     for key in ("strict_full_wrapper_reload", "optimizer_sampler_all_rank_rng_verified",
                 "lr_scheduler_strictly_restored", "all_rank_weights_agree", "sample_finite",
                 "private_bank_optimizer_steps_verified", "human_action_absent",
-                "subtask_boundaries_verified", "language_conditioning_verified", "camera_targets_verified"):
+                "language_conditioning_verified", "camera_targets_verified"):
         _need(completion.get(key) is True, "Missing actual multimodal proof: " + key)
+    from scripts.train.joint import boundary_uncertainty
+    boundary_uncertainty.completion(request,smoke,completion,preflight)
     _need(completion["active_streams"] == request["active_streams"]
           and completion["expert_parameters"] == request["expert_parameters"], "Smoke expert identity changed")
     ranks = completion["ranks"]
@@ -234,6 +240,9 @@ def verify_completion(request, smoke, completion, preflight, capacity):
 
 
 def compare_configs(production, smoke, request, legacy):
+    from scripts.train.joint import boundary_uncertainty
+    boundary_uncertainty.request_config(request,production)
+    boundary_uncertainty.request_config(request,smoke)
     _need(production["trainer"].get("limit_val_batches", 1.0) == 1.0
           and type(smoke["trainer"]["limit_val_batches"]) is int
           and smoke["trainer"]["limit_val_batches"] == 100 // request["world_size"],

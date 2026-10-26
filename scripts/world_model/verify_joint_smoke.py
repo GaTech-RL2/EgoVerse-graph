@@ -29,6 +29,7 @@ from egomimic.pl_utils.joint_smoke import (
 )
 from egomimic.pl_utils.pl_model import ModelWrapper
 from scripts.train.joint.lr_policy import from_config, update_lr, verify_scheduler
+from scripts.train.joint import boundary_uncertainty
 
 
 def main():
@@ -207,6 +208,15 @@ def main():
         context.fingerprint() == ranks[0]["data_context_sha256"],
         "Restored data context changed",
     )
+    boundary_uncertainty.context(cfg,checkpoint['data_context'],sampler)
+    boundary_proof=None
+    if args.multimodal:
+        boundary_proof=boundary_uncertainty.fit_rows(ranks,
+            selected=boundary_uncertainty.sampling_config(cfg),world=world,
+            per_rank_batch=cfg.data.batch_size,embodiments=cfg.joint.pose_dims,
+            context_sha256=context.fingerprint())
+    else:
+        require(cfg.data.get('boundary_sampling') is None,'Boundary uncertainty requires actual multimodal smoke')
     validate_checkpoint_binding(checkpoint, model_config, context)
     with checkpoint_construction():
         wrapper = (
@@ -237,7 +247,7 @@ def main():
         require(set(usage)==set(dict(wrapper.named_parameters())),'Optimizer parameter identity differs')
         _check_pilot_adam_usage(restored_optimizer,wrapper.named_parameters(),usage)
         require(all(r.get('private_bank_optimizer_steps_verified') and r.get('human_action_absent')
-                    and all(r.get(key) for key in ('subtask_boundaries_verified','language_conditioning_verified','camera_targets_verified'))
+                    and all(r.get(key) for key in ('language_conditioning_verified','camera_targets_verified'))
                     and r.get('attention_backend')=='flash4' and r.get('token_execution')=='packed_valid'
                     and 'H100' in r.get('gpu_name','') and r.get('gpu_capability',[0])[0]>=9 for r in ranks),
                 'Missing actual H100/multimodal optimizer proof')
@@ -263,6 +273,7 @@ def main():
     if args.multimodal:
         samples={emb:torch.load(root/f'sample-input-{emb}.pt',map_location='cpu',weights_only=False)
                  for emb in network.pose_dims}
+        if boundary_proof is not None:boundary_uncertainty.strict_validation_samples(samples)
         require(all(r['active_streams_by_embodiment']=={e:list(network.active_streams(e)) for e in network.pose_dims}
                     for r in ranks),'Actual embodiment streams differ')
     else:
@@ -340,6 +351,13 @@ def main():
             active_streams_by_embodiment={e:list(network.active_streams(e)) for e in network.pose_dims},
             attention_backend='flash4',token_execution='packed_valid',
             data_context_sha256=context.fingerprint())
+    if boundary_proof is not None:
+        receipt.update(subtask_boundaries_verified=False,
+            original_subtask_annotation_identity_verified=True,
+            subtask_boundary_verification_policy=boundary_uncertainty.POLICY['policy'],
+            boundary_uncertainty=boundary_proof,
+            boundary_policy_sha256=boundary_uncertainty.digest(boundary_uncertainty.POLICY),
+            boundary_objective_sha256=boundary_uncertainty.digest(boundary_uncertainty.OBJECTIVE))
     write_once(root / "smoke-completion.json", receipt)
     print(
         json.dumps({"status": "PASS", "receipt": str(root / "smoke-completion.json")})

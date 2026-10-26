@@ -245,6 +245,13 @@ def main():
     context = data.prepare_context(
         mode="train", normalization="prepared", normalizer=None
     )
+    from scripts.train.joint import boundary_uncertainty
+    boundary_uncertainty.context(resolved,context.snapshot(),data.state_dict())
+    boundary_contract=request.get('boundary_sampling_contract')
+    if boundary_contract is not None:
+        census=bound(boundary_contract['eligibility']['report'])
+        need(census.get('data_context_sha256')==context.fingerprint(),
+             'Actual training context differs from allocated boundary census')
     if preflight is not None:
         need(
             context.fingerprint() == preflight["provenance"]["data_context_sha256"],
@@ -273,6 +280,10 @@ def main():
         data_manifest_sha256=request["data_manifest_sha256"],
         data_context_sha256=context.fingerprint(),
     )
+    if boundary_contract is not None:
+        provenance.update(boundary_policy_sha256=boundary_uncertainty.digest(boundary_uncertainty.POLICY),
+            boundary_objective_sha256=boundary_uncertainty.digest(boundary_uncertainty.OBJECTIVE),
+            boundary_eligibility_report_sha256=boundary_contract['eligibility']['report']['sha256'])
     if not smoke:
         provenance["run_id"] = request["run_id"]
     if allocation is None:

@@ -11,6 +11,8 @@ import subprocess
 
 from scripts.train.joint.contract import bound, need
 
+from scripts.train.joint.qk_recovery_profile import RUN_ID as QK_RUN_ID, PROFILE as QK_PROFILE
+
 ORIGINAL_OBSERVERS = {'mot-elmo-pickplace-continuous-large314m-boundary-robot-human-camera-subtask-s42-300k-20261026-v1': {'capture_script_sha256': 'be8ca57b2e5c09503ec312c9d84c91451d932d4d9a168c484f22439ccf521b57',
                                                                                                       'files_sha256': 'fbce43e2cf1ad9c090563bc7e5492c654f00db7e84890ef83d039e66cc9aea5f',
                                                                                                       'has_smoke_identity': True,
@@ -47,6 +49,8 @@ ORIGINAL_OBSERVERS = {'mot-elmo-pickplace-continuous-large314m-boundary-robot-hu
                                                                                                    'request_sha256': '936e9acd30fa517f6f38311c0bcfd2b88544da8d476bd41125c4008de2845073',
                                                                                                    'root': '/workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/baseline-full-preparation-v1',
                                                                                                    'submitter_sha256': '94c077facd7836fb55708199dab988fb5902db5348ce449daa861a888d95901f'}}
+ORIGINAL_OBSERVERS[QK_RUN_ID] = QK_PROFILE
+
 
 PURGED_STDERR = "slurm_load_jobs error: Invalid job id specified"
 
@@ -55,6 +59,7 @@ def read_binding(binding, json_value=True):
     path = Path(binding["path"])
     need(path.is_absolute() and path.is_file() and not path.is_symlink()
          and path.resolve(strict=True) == path, "Observer proof must be a physical regular file")
+    need(path.stat().st_size <= 4 * 1024 * 1024, "Observer metadata exceeds4MiB pre-read bound")
     return bound(binding, json_value)
 
 
@@ -79,6 +84,9 @@ def validate_original(q, reader=read_binding):
     from scripts.train.joint.native_interruption import fields, native_identity, TERMINAL
 
     parent = reader(q["parent_request"])
+    if parent.get("run_id") == QK_RUN_ID:
+        from scripts.train.joint.qk_original_observer import validate
+        return validate(q, reader)
     profile = ORIGINAL_OBSERVERS.get(parent.get("run_id"))
     need(profile is not None, "No reviewed original observer for this identity")
     root = Path(profile["root"]); pid, oid = profile["parent_id"], profile["observer_id"]

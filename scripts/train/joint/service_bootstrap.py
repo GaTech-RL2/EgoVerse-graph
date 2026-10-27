@@ -33,6 +33,11 @@ def service_files(root):
              (root / "scripts/train/joint").iterdir()
              if p.is_file() and p.suffix in (".py", ".sbatch", ".sh")}
     names |= DEPENDENCIES
+    # Only this reviewed service-owned package is recursive. Historical Python
+    # evidence is data and is never exported/imported as executable service code.
+    package = root / 'scripts/train/joint/qk_prelaunch_history_readers'
+    if package.exists():
+        names |= {str(p.relative_to(root)) for p in package.rglob('*.py') if p.is_file()}
     for name in names:
         if not (root / name).is_file() or (root / name).is_symlink():
             raise ValueError("Missing operational dependency: " + name)
@@ -70,7 +75,7 @@ def activate(request):
         package = importlib.import_module(name)
         local = str(root.joinpath(*name.split(".")))
         package.__path__ = [local] + [str(p) for p in package.__path__ if str(p) != local]
-    owned_modules = {str(Path(n).with_suffix("")).replace("/", ".") for n in names
+    owned_modules = {str(Path(n).with_suffix("")).removesuffix('/__init__').replace("/", ".") for n in names
                      if n.endswith(".py")}
     for name, module in list(sys.modules.items()):
         if name in owned_modules:

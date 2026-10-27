@@ -12,6 +12,7 @@ import re
 
 from scripts.train.joint.native_interruption import fields, native_identity, NATIVE_KEYS, TERMINAL
 from scripts.train.joint.original_observer import ORIGINAL_OBSERVERS, strict_step_rows
+from scripts.train.joint.qk_recovery_profile import profile_run_id, supported_parameters, is_qk
 
 MODES = {
     'capture': ('native-elmo-interruption-capture-v1','2','1G','00:10:00',''),
@@ -157,19 +158,19 @@ def execution(ex):
     need(set(ex)=={'path','sha256','mode','ops_manifest_sha256'} and ex['mode'] in MODES,'Wrong exact phase execution binding')
     path=bound({'path':ex['path'],'sha256':ex['sha256']});spec=read_json(path);root=physical(spec['root']);mode=ex['mode']
     need(spec['schema']=='native-elmo-execution-spec-v1' and spec['mode']==mode and path.parent==root/'execution'
-         and spec['arm'] in {'plain','fused','boundary'},'Execution schema/root/arm differs')
+         and spec['arm'] in {'plain','fused','boundary','qk'},'Execution schema/root/arm differs')
     ops={'path':str(root/'FILES.sha256'),'sha256':ex['ops_manifest_sha256']}
     need(spec['ops_manifest']==ops,'Execution/observer operations manifest differs')
     names=manifest(root,ops)
     need({'execution_spec.py','allocated.sbatch','host_guard.py','phase_observer.py','observe-phase.sbatch'}<=names
          and all(Path(n).parts[0] not in {'execution','execution-claims','requests','scientific-claims','producer-claims','observer-specs','observer-claims','status','logs'} for n in names),
          'Missing ops role closure or circular dynamic manifest')
-    parent=read_json(bound(spec['parent_request']));run_id='mot-elmo-pickplace-continuous-large314m-'+spec['arm']+'-robot-human-camera-subtask-s42-300k-20261026-v1'
+    parent=read_json(bound(spec['parent_request']));run_id=profile_run_id(spec['arm'])
     profile=ORIGINAL_OBSERVERS.get(run_id)
     need(profile is not None and spec['parent_request']=={'path':profile['request_path'],'sha256':profile['request_sha256']}
          and str(spec['original_parent_job_id'])==profile['parent_id'] and parent['run_id']==run_id
          and parent['schema']=='joint-training-v2' and parent['kind']=='native-subtask-world-model-v1' and parent['phase']=='full'
-         and parent['target_steps']==300000 and parent['parameters']==314187064 and parent['world_size']==4,'Exact original scientific parent differs')
+         and parent['target_steps']==300000 and parent['parameters']==supported_parameters(parent) and parent['world_size']==4,'Exact original scientific parent differs')
     service(spec['operational_service'])
     template_path=bound(spec['request_template']);need(template_path.parent==root/'templates','Template escaped immutable namespace')
     template=read_json(template_path);schema,cpus,memory,limit,gres=MODES[mode]
@@ -383,9 +384,14 @@ def verify_observer(observer_binding,*,producer_request=None,producer_native=Non
     return ctx
 
 
-def verify_claim_terminal(claim,terminal_directory,run_id):
-    """Exact old-original route or complete new spec-bound phase observer."""
+def verify_claim_terminal(claim,terminal_directory,run_id,*,prelaunch_census=None):
+    """Typed reviewed prelauncher history, original, or new phase observer."""
     claim=physical(claim);terminal_directory=physical(terminal_directory)
+    from scripts.train.joint.qk_prelaunch_history import claim_disposition
+    historical=claim_disposition(prelaunch_census,claim,run_id)
+    if historical is not None:
+        need(terminal_directory==claim.parent.parent,'Historical terminal directory moved')
+        return historical
     prepared=read_json(claim/'PREPARED.json');job=text(claim/'PARENT_JOB_ID').strip()
     need(job.isdecimal() and prepared['request_sha256']==claim.name,'Unknown/incorrect accepted request claim')
     profile=ORIGINAL_OBSERVERS.get(run_id)
@@ -400,8 +406,13 @@ def verify_claim_terminal(claim,terminal_directory,run_id):
             parent_id=claim/'PARENT_JOB_ID',observer_id=claim/'CAPTURE_JOB_ID',pending_native=claim/'CAPTURE_PENDING_NATIVE.txt',
             running_admission=claim/'RUNNING_ADMISSION.json',terminal_native=root/('native-'+job+'.txt'),
             query_exit=root/('native-'+job+'.exit'),query_stderr=root/('native-'+job+'.stderr'))
-        if profile['has_smoke_identity']:paths['smoke_identity']=root/'smoke-identity.json'
-        proof=dict(schema='native-elmo-original-observer-v1',**{k:binding(v) for k,v in paths.items()})
+        if profile.get('protocol') == 'qk-full-v5-early-authenticated-v1':
+            from scripts.train.joint.qk_original_observer import proof_paths, SCHEMA
+            paths=proof_paths();schema=SCHEMA
+        else:
+            if profile['has_smoke_identity']:paths['smoke_identity']=root/'smoke-identity.json'
+            schema='native-elmo-original-observer-v1'
+        proof=dict(schema=schema,**{k:binding(v) for k,v in paths.items()})
         q=dict(parent_request={'path':profile['request_path'],'sha256':profile['request_sha256']},parent_job_id=job,
             parent_native=expected,parent_running_admission=running_binding,original_observer=proof)
         from scripts.train.joint.original_observer import validate_original

@@ -1,0 +1,274 @@
+{
+  "active_streams": [
+    "image",
+    "proprio",
+    "action",
+    "camera"
+  ],
+  "allocation": null,
+  "allocation_boundaries": [
+    300000
+  ],
+  "allocation_stop_step": 300000,
+  "archive_policy": null,
+  "arm": "continuous",
+  "continuation": null,
+  "data_cache": {
+    "job_id": "412709",
+    "kind": "prepared-pixel-v1",
+    "native_receipt": "/workspace/users/paphiwetsa3/tasks/elmo-pick-place-image-state-action-20261024/bindings/cache-gpu21.native.txt",
+    "native_receipt_sha256": "d3935b6b49bf77260ddf680a4e7f24e275b7a12a14aaade8938536eecc00117f",
+    "node": "gpu21",
+    "producer_name": "elmo-cache-gpu21",
+    "producer_node": "gpu21",
+    "receipt": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/cache-receipt.json",
+    "receipt_sha256": "4eb6df03c97b51bf6c1615f4f3942e0a23fd5294e23232df24536684b0775364",
+    "root": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared",
+    "uid": 41003,
+    "user": "paphiwetsa3"
+  },
+  "data_manifest": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/manifest.json",
+  "data_manifest_sha256": "2c83822ac3cff50f9534fe9c1ae7a1e12b9328a69fcd4b5b12efd9c429e0a418",
+  "dataset_contract": {
+    "episodes": 213,
+    "normalization_sha256": "6ac3b3a20e7d0f46c6924bed89bae609dd0679bffc899ad3f7880a3866d304e6",
+    "schema": "native-subtask-dataset-v1",
+    "splits": {
+      "train": 191,
+      "val": 22
+    },
+    "validation_batches": 100,
+    "validation_batches_per_embodiment": 50
+  },
+  "draft": {
+    "executable": true,
+    "state": "ROOT_REVIEW_DEPLOYMENT_REQUIRED"
+  },
+  "experiment": "image_proprio_action_camera_subtask",
+  "expert_parameters": {
+    "action": 30068372,
+    "camera": 30068370,
+    "image": 158875392,
+    "language_shared": 131200,
+    "proprio": 95083666
+  },
+  "expert_widths": [
+    1024,
+    512,
+    384,
+    384
+  ],
+  "global_batch": 32,
+  "interfaces": {
+    "action_dims": {
+      "eva_bimanual": 20
+    },
+    "camera_dims": {
+      "eva_bimanual": 9,
+      "human_bimanual": 9
+    },
+    "language_feature_dim": 1024,
+    "max_cameras": 3,
+    "pose_dims": {
+      "eva_bimanual": 20,
+      "human_bimanual": 126
+    }
+  },
+  "job_name": "elmo-large314m-qknorm-swiglu-rmsnorm-full-v5",
+  "kind": "native-subtask-world-model-v1",
+  "lambda_runtime": {
+    "actual_python": "/workspace/users/paphiwetsa3/tasks/yam-arc400-lambda-20260921/runtime/venv-pinned/bin/python",
+    "bootstrap_python": "/workspace/users/paphiwetsa3/tasks/arc-global-basis-training-20260924/runtime-r6a/bin/python",
+    "container_image": "nvcr.io#nvidia/pytorch:25.06-py3",
+    "extra_pythonpath": "/workspace/users/paphiwetsa3/tasks/continuous-time-mot-world-model-20261016/preparation/runtime-overlays/dino4571/site-packages",
+    "fa3_root": "/workspace/users/paphiwetsa3/tasks/pixel-video-gripper-optimization-20261017-v1/runtime/fa3",
+    "fa4_root": "/workspace/users/paphiwetsa3/tasks/continuous-time-mot-world-model-20261016/preparation/training-runtime/profile/flash-attention",
+    "minimum_free_scratch_bytes": 10000000000,
+    "mounts": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/cpu-preflight-v4/inputs/gpu21-private-runtime-mounts.csv",
+      "sha256": "88ada54728d5288b6098dff6f7ea276778d24b58e41299d9f31dba5f248ee87a"
+    },
+    "node": "gpu21",
+    "runtime_task": "/workspace/users/paphiwetsa3/tasks/pixel-video-gripper-optimization-20261017-v1",
+    "schema": "joint-lambda-runtime-v1",
+    "scratch_root": "/ephemeral/enroot/paphiwetsa3/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1",
+    "temporary_root": "/ephemeral/enroot/41003"
+  },
+  "local_logs": "/ephemeral/enroot/paphiwetsa3/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/logs/mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1-attempt-v5",
+  "lr_policy": {
+    "peak_lr": 5e-06,
+    "schedule": "linear_warmup_then_constant",
+    "warmup_optimizer_steps": 3000
+  },
+  "model_execution": {
+    "accumulated_recompile_limit": 256,
+    "attention_backend": "flash4",
+    "compile_backend": "inductor",
+    "compile_dynamic": true,
+    "compile_mode": "default",
+    "implementation": "native_subtask_joint",
+    "recompile_limit": 64,
+    "token_execution": "packed_valid"
+  },
+  "operational_service": {
+    "manifest": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/ops/service/FILES.sha256",
+    "manifest_sha256": "adf45524de3c2e6dba186572e7151d48bfca0b3adc8e6cf9defd686b47744c87",
+    "published_commit": "abbb00499096faabf7035fde23bf4b1eba984377",
+    "root": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/ops/service"
+  },
+  "output": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/runs/mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1",
+  "overrides": [
+    "+experiment=pixel_proprio/native_joint/elmo_pick_place_subtask_continuous",
+    "hydra/launcher=basic",
+    "seed=42",
+    "data.manifest_path=/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/manifest.json",
+    "paths.work_dir=/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/source-82f65498e25f41b87c954717722dcf7360e5bde8",
+    "paths.output_dir=/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/runs/mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1",
+    "hydra.run.dir=/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/runs/mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1",
+    "hydra.job.chdir=false",
+    "+trainer.enable_progress_bar=false",
+    "+trainer.enable_model_summary=false",
+    "model.optimizer.lr=5e-6",
+    "model.scheduler._target_=egomimic.utils.schedulers.linear_warmup_constant_scheduler",
+    "model.scheduler.warmup_steps=3000",
+    "model.scheduler_interval=step",
+    "model.scheduler_frequency=1",
+    "trainer.max_steps=300000",
+    "trainer.val_check_interval=20000",
+    "callbacks.model_checkpoint.every_n_train_steps=20000",
+    "callbacks.model_checkpoint.save_top_k=-1",
+    "callbacks.model_checkpoint.save_last=link",
+    "logger=[wandb,csv]",
+    "logger.wandb.id=mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1",
+    "logger.wandb.resume=never",
+    "logger.csv.name=csv",
+    "logger.csv.flush_logs_every_n_steps=1",
+    "logger.csv.save_dir=/ephemeral/enroot/paphiwetsa3/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/logs/mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1-attempt-v5",
+    "evaluator.pixel_diagnostics.log_wandb=true",
+    "modality_ablation.screening_budget_updates=300000",
+    "trainer.devices=4",
+    "data.distributed_world_size=4",
+    "data.batch_size=8",
+    "data.validation_anchors_per_episode=null",
+    "data.validation_batches_per_embodiment=50",
+    "data.validation_batch_size=1",
+    "trainer.limit_val_batches=1.0",
+    "data.subtask_manifest_path=/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/subtasks.json",
+    "data.subtask_manifest_sha256=609589275d9718e54d8e5ab4d7d42604eb8fa66d7156e2f3e106a41c2ff065d4",
+    "data.language_features_path=/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/language.json",
+    "data.language_features_sha256=114a748b05466bea09441830bc33aa29d3fd5062be9f53441f4ef302568a3949",
+    "+data._convert_=all",
+    "native_joint.reference.pipeline.stages.1.model.width=1024",
+    "native_joint.reference.pipeline.stages.1.model.heads=8",
+    "modality_ablation.nodes.joint_denoiser.model.proprio_width=512",
+    "modality_ablation.nodes.joint_denoiser.model.action_width=384",
+    "modality_ablation.nodes.joint_denoiser.model.camera_width=384",
+    "+native_joint.reference.pipeline.stages.1.model.qk_norm=true",
+    "+native_joint.reference.pipeline.stages.1.model.use_rmsnorm=true",
+    "+native_joint.reference.pipeline.stages.1.model.use_swiglu=true",
+    "+native_joint.reference.pipeline.stages.1.model.swiglu_multiple_of=64"
+  ],
+  "parameters": 314227000,
+  "per_rank_batch": 8,
+  "phase": "full",
+  "preservation_plan": {
+    "allocation_boundaries": [
+      300000
+    ],
+    "archive_policy": null,
+    "boundary_rule": "Single fresh allocation to total300000; no intermediate allocation recovery phase required.",
+    "full_allocation_target": 300000,
+    "last_checkpoint_policy": "symlink",
+    "maintained_storage_required_bytes": 57597952330,
+    "observed_smoke_checkpoint_bytes": 3773196822,
+    "persistent_mirror": "Maintained node-local CSV-to-shared logmirror; no separate checkpointarchive deployment claimed.",
+    "primary": "Fresh shared /workspace run directory. All 15 scheduled checkpoints retained. Actual size from this architecture smoke and current filesystem probe required before full binding.",
+    "primary_reserved_bytes": 80000000000,
+    "retain_all_scheduled_checkpoints": true,
+    "save_top_k": -1,
+    "scheduled_checkpoint_bytes_estimate": 56597952330,
+    "scheduled_checkpoint_count": 15,
+    "scheduled_milestones": [
+      20000,
+      40000,
+      60000,
+      80000,
+      100000,
+      120000,
+      140000,
+      160000,
+      180000,
+      200000,
+      220000,
+      240000,
+      260000,
+      280000,
+      300000
+    ]
+  },
+  "quota": {
+    "kind": "filesystem",
+    "mount": "/workspace",
+    "node": "gpu21",
+    "uid": 41003,
+    "user": "paphiwetsa3"
+  },
+  "reserved_checkpoint_bytes": 80000000000,
+  "run_id": "mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1",
+  "schema": "joint-training-v2",
+  "smoke": {
+    "capacity": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/ops/requests/elmo-large314m-qknorm-swiglu-rmsnorm-smoke-v2.capacity.json",
+      "sha256": "6a3d44715fe0590a29509470813c1b29f664b7e78d24bf6fb44645a9d309cbfe"
+    },
+    "completion": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/output/elmo-large314m-qknorm-swiglu-rmsnorm-smoke-v2/smoke-completion.json",
+      "sha256": "e43c5fc3c730ad2788c88238ee90ed11c8f53a297619f6831a8f1170126639af"
+    },
+    "host_exit": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/host-exit-412821.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "job_id": "412821",
+    "native": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/native-412821.txt",
+      "sha256": "bfcfdb674d8ae9a05ff295490097e11a3b91cb6295d010b81e43994045690c9a"
+    },
+    "native_format": "scontrol-v1",
+    "preflight": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/ops/requests/elmo-large314m-qknorm-swiglu-rmsnorm-smoke-v2.preflight.json",
+      "sha256": "d6add5f6e5ece49ee87963cf14f835a03d07e7e1fa0bbe7e517585857c3a7282"
+    },
+    "request": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/ops/requests/elmo-large314m-qknorm-swiglu-rmsnorm-smoke-v2.json",
+      "sha256": "0e49649eb5158c6f13d4b467a8f8b9fc1e234af8f5b12c401f5cdb41270b5569"
+    },
+    "resolved": {
+      "path": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/full-v5/proofs/smoke/ops/requests/elmo-large314m-qknorm-swiglu-rmsnorm-smoke-v2.resolved.yaml",
+      "sha256": "387d96775c7cebfdab121f6b454430f290ec668985e32ef9f815785d5a0c7409"
+    }
+  },
+  "source": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/source-82f65498e25f41b87c954717722dcf7360e5bde8",
+  "source_archive": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/cpu-preflight-v4/inputs/source.tar.gz",
+  "source_archive_sha256": "c0404c93e8665504e85c58aab0af499dda74d7b4b7aa1a70858b62f6f21ef797",
+  "source_manifest": "/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/cpu-preflight-v4/inputs/source.files.sha256",
+  "source_manifest_sha256": "b5e8e898b82ea15b42e84e22a749c668c13e0c958ecba122fb10d99c3df39331",
+  "source_revision": "82f65498e25f41b87c954717722dcf7360e5bde8",
+  "subtask_contract": {
+    "language_features": {
+      "path": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/language.json",
+      "sha256": "114a748b05466bea09441830bc33aa29d3fd5062be9f53441f4ef302568a3949"
+    },
+    "selection": {
+      "path": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/selection.json",
+      "sha256": "50e0d88c6934ea3743ec8a8b305a3ca5849d2e53d1a5fcfda882cbbe544aff74"
+    },
+    "subtask_manifest": {
+      "path": "/ephemeral/enroot/paphiwetsa3/elmo-pick-place-image-state-action-20261024/production-scale-only/prepared/subtasks.json",
+      "sha256": "609589275d9718e54d8e5ab4d7d42604eb8fa66d7156e2f3e106a41c2ff065d4"
+    }
+  },
+  "target_steps": 300000,
+  "vector_expert_parameter_budget": 100000000,
+  "world_size": 4
+}

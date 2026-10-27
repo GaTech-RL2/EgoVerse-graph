@@ -50,11 +50,13 @@ def quota_free_bytes(text, mount):
 
 class ResumeOptimizerProof(JointSmokeProof):
     """Reuse smoke precision/LR/gradient hooks, checking restored native state."""
-    def __init__(self, *, output, world_size, start_step, stop_step, checkpoint, multimodal=False):
+    def __init__(self, *, output, world_size, start_step, stop_step, checkpoint, multimodal=False, qk_architecture=False):
         super().__init__(output, world_size, expected_steps=stop_step, warmup_steps=start_step,
                          multimodal=multimodal)
         self.start_step, self.checkpoint = start_step, checkpoint
         self.rng_cleanup = None
+        self.qk_architecture = qk_architecture
+        need(not qk_architecture or multimodal, "QK proof requires native multimodal restore")
 
     def on_fit_start(self, trainer, pl_module):
         # Lightning restores optimizer/loop state after on_fit_start.
@@ -110,6 +112,10 @@ class ResumeOptimizerProof(JointSmokeProof):
                  "Native recovery needs100 global validation anchors")
             self.parameter_usage, self.usage_callback = restored_conditional_counts(trainer, pl_module, saved)
             self.initial_parameter_usage = dict(self.parameter_usage)
+            if self.qk_architecture:
+                from scripts.train.joint.qk_recovery_usage import expected_all_parameters, snapshot_private
+                need(set(expected_all_parameters()) == set(self.parameter_usage), "Wrong restored QK/SwiGLU parameter inventory")
+                self.qk_private_before = snapshot_private(pl_module, trainer.optimizers[0])
             self.embodiment_batches = {emb: 0 for emb in self.network.pose_dims}
             self.current_embodiment = None
             self.rng_observation, self.rng_cleanup = install_rng_observer(
@@ -184,6 +190,11 @@ class ResumeOptimizerProof(JointSmokeProof):
                          actual_rank_rng_restore=self.rng_observation,
                          hidden_label_samples=sample_proof,
                          private_bank_optimizer_steps_verified=True, human_action_absent=True)
+            if self.qk_architecture:
+                from scripts.train.joint.qk_recovery_usage import snapshot_private, verify_row, expected_private_names
+                extra["qk_private_state"] = dict(schema="qk-private-state-preservation-v2", parameter_names=expected_private_names(),
+                    before=self.qk_private_before, after=snapshot_private(pl_module, trainer.optimizers[0]))
+                verify_row(dict(start_step=self.start_step, global_step=self.expected_steps, **extra))
         else:
             need(all(float(s["step"]) == self.expected_steps for s in trainer.optimizers[0].state.values()),
                  "Optimizer restarted instead of continuing")

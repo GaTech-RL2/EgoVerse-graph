@@ -190,7 +190,7 @@ def sample_both_embodiments(module, network, output):
     return rows
 
 
-def summarize_native_phases(phases, *, start_step=50, production=False):
+def summarize_native_phases(phases, *, start_step=50, production=False, require_both_embodiments=True):
     """Validate all-rank conditional evidence for the actual2+4 diagnostic."""
     need(type(start_step) is int and ((production is False and start_step == 50)
          or (production is True and start_step > 0 and start_step % 20000 == 0)),
@@ -251,9 +251,9 @@ def summarize_native_phases(phases, *, start_step=50, production=False):
     for a, b in zip(phases[0], phases[1]):
         need(a["conditional_optimizer_record"]["parameter_update_counts"] == b["initial_parameter_usage"],
              "Second process did not restore conditional optimizer counts")
-    need(all(sum(phase[0]["embodiment_optimizer_batches"][emb] for phase in phases) > 0
-             for emb in expected_streams), "Actual2+4 recovery did not exercise both embodiments")
+    both = all(sum(phase[0]["embodiment_optimizer_batches"][emb] for phase in phases) > 0 for emb in expected_streams)
+    need(not require_both_embodiments or both, "Actual2+4 recovery did not exercise both embodiments")
     return dict(native_multimodal=True, private_bank_optimizer_steps_verified=True,
-                actual_all_rank_rng_restore_observed=True, both_embodiments_optimized=True,
+                actual_all_rank_rng_restore_observed=True, both_embodiments_optimized=both,
                 both_embodiments_hidden_nan_20step_sample=True,
                 diagnostic_scope=("production-checkpoint-only" if production else "scheduled-smoke-checkpoint-only"))

@@ -22,7 +22,7 @@ def phases(start, target):
     return ((start, start + 2), (start + 2, start + 6))
 
 
-def phase_config(original, *, output, checkpoint, origin, start, stop, target, world, proof):
+def phase_config(original, *, output, checkpoint, origin, start, stop, target, world, proof, qk_architecture=False):
     from omegaconf import OmegaConf, open_dict
 
     need((start, stop) in phases(origin, target) and world == 4,
@@ -54,7 +54,7 @@ def phase_config(original, *, output, checkpoint, origin, start, stop, target, w
         cfg.callbacks.resume_proof = dict(
             _target_="scripts.train.joint.recovery_check.ResumeOptimizerProof",
             output=str(proof), world_size=world, start_step=start, stop_step=stop,
-            checkpoint=str(checkpoint), multimodal=True)
+            checkpoint=str(checkpoint), multimodal=True, qk_architecture=qk_architecture)
         if stop == origin + 2:
             cfg.callbacks.allocation_boundary = dict(
                 _target_="scripts.train.joint.allocation_boundary.ScheduledAllocationBoundary",
@@ -88,11 +88,17 @@ def read_phase_proofs(output, start, target, world, job_id):
     return rows
 
 
-def validate_phase_proofs(rows, selected, admission=None):
+def validate_phase_proofs(rows, selected, admission=None, original=None):
     from scripts.train.joint.native_recovery import summarize_native_phases, state_digest
 
     start = selected["global_step"]
-    flags = summarize_native_phases(rows, start_step=start, production=True)
+    from scripts.train.joint.qk_recovery_profile import is_qk, validate_parent
+    qk = original is not None and is_qk(original)
+    if qk: validate_parent(original)
+    flags = summarize_native_phases(rows, start_step=start, production=True, require_both_embodiments=not qk)
+    if qk:
+        from scripts.train.joint.qk_recovery_usage import verify_phases
+        flags.update(verify_phases(rows))
     need(all(row["initial_weights_sha256"] == selected["proof"]["model_state_sha256"]
              for row in rows[0]), "Diagnostic did not initialize from inspected production weights")
     for rank, row in enumerate(rows[0]):
@@ -123,7 +129,7 @@ def summarize(request_path, q, original, admission, selected):
     output, start, world = Path(q["output"]), selected["global_step"], original["world_size"]
     proof = output / "proof"
     rows = read_phase_proofs(output, start, original["target_steps"], world, os.environ["SLURM_JOB_ID"])
-    flags = validate_phase_proofs(rows, selected, admission)
+    flags = validate_phase_proofs(rows, selected, admission, original)
     boundary = json.loads((proof / f"allocation-step{start + 2:09d}.json").read_text())
     need(boundary["status"] == "PASS" and boundary["checkpoint_saved_after_validation"] is True
          and boundary["start_step"] == start and boundary["global_step"] == start + 2
@@ -169,8 +175,10 @@ def main(request_path):
          "Actual producer prerequisite/claim admission differs")
     native_identity(prerequisite["native"], native, "RUNNING")
     original = bound(q["parent_request"])
+    from scripts.train.joint.qk_recovery_profile import supported_parameters
+    expected_parameters = supported_parameters(original)
     need(original["phase"] == "full" and original["kind"] == "native-subtask-world-model-v1"
-         and original["world_size"] == 4 and original["parameters"] == 314187064,
+         and original["world_size"] == 4 and original["parameters"] == expected_parameters,
          "Exact native Elmo314M parent required")
     from scripts.train.joint.checkpoint_inspection import verify_source_binding
     from scripts.train.joint.interruption_admission import recovery_phase_admission, completed_producer
@@ -214,7 +222,7 @@ def main(request_path):
     for start, stop in phases(origin, original["target_steps"]):
         phase = phase_config(cfg, output=output, checkpoint=checkpoint, origin=origin,
                              start=start, stop=stop, target=original["target_steps"], world=4,
-                             proof=output / "proof")
+                             proof=output / "proof", qk_architecture=original["parameters"] == 314227000)
         path = output / "configs" / f"resume-{start}-{stop}.yaml"
         with path.open("x") as stream:
             stream.write(OmegaConf.to_yaml(phase, resolve=True))

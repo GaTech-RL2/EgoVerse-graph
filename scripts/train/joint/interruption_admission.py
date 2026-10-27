@@ -30,10 +30,12 @@ def fingerprint(request):
 
 
 def compatible(parent, child):
+    from scripts.train.joint.qk_recovery_profile import supported_parameters
+    expected_parameters = supported_parameters(parent)
     need(parent["schema"] == child["schema"] == "joint-training-v2"
          and parent["phase"] == child["phase"] == "full"
          and parent["kind"] == child["kind"] == "native-subtask-world-model-v1"
-         and child["parameters"] == 314187064 and child["world_size"] == 4,
+         and child["parameters"] == expected_parameters and child["world_size"] == 4,
          "Exact production native Elmo314M identity required")
     need({k: v for k, v in parent.items() if k not in CHANGING_ATTEMPT_FIELDS}
          == {k: v for k, v in child.items() if k not in CHANGING_ATTEMPT_FIELDS},
@@ -114,6 +116,8 @@ def quiescence(spec, run_id, *, current_job=None, current_request_sha=None):
         if owned:
             need(job == current_job and state == "RUNNING", "Other pending/active scientific writer: " + job)
     from scripts.train.joint.phase_observer_proof import read_json, text, physical, check_owned_steps
+    from scripts.train.joint.qk_prelaunch_history import census as prelaunch_history_census
+    prelaunch = prelaunch_history_census(spec, run_id, current_job=current_job, require_node=True)
     seen, evidence = set(), []
     for item in spec["claim_roots"]:
         root = physical(item["path"])
@@ -131,13 +135,15 @@ def quiescence(spec, run_id, *, current_job=None, current_request_sha=None):
                 evidence.append(dict(path=str(claim), job_id=job, current=True))
                 continue
             from scripts.train.joint.phase_observer_proof import verify_claim_terminal
-            terminal_proof = verify_claim_terminal(claim, item["terminal_directory"], run_id)
+            terminal_proof = verify_claim_terminal(claim, item["terminal_directory"], run_id,
+                                                    prelaunch_census=prelaunch)
             need(terminal_proof["job_id"] == job, "Terminal observer belongs to another accepted claim")
             check_owned_steps(steps, job)
             evidence.append(dict(path=str(claim), **terminal_proof))
     if current_job is not None:
         need(current_job in seen, "Current allocation is not registered in the complete claim census")
-    return dict(queue=queue, owned_steps=steps, claims=evidence, checked_at=datetime.now(timezone.utc).isoformat())
+    return dict(queue=queue, owned_steps=steps, claims=evidence, prelaunch_history=prelaunch,
+                checked_at=datetime.now(timezone.utc).isoformat())
 
 
 def validate_failure(bundle, parent_binding):
@@ -260,7 +266,7 @@ def finalize(request_path):
 
     start = selected["global_step"]
     rows = read_phase_proofs(diagnostic_q["output"], start, parent["target_steps"], 4, diagnostic["job_id"])
-    flags = validate_phase_proofs(rows, selected, diagnostic.get("allocation_attestation"))
+    flags = validate_phase_proofs(rows, selected, diagnostic.get("allocation_attestation"), parent)
     for phase in rows:
         for row in phase:
             need(row["optimizer_update_lrs"] == [update_lr(parent["lr_policy"], i)

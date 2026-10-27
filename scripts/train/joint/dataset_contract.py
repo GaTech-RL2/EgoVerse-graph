@@ -6,7 +6,9 @@ from scripts.train.joint.contract import need, sha
 
 
 def verify_dataset(request):
-    from scripts.train.joint import native_subtasks
+    from scripts.train.joint import imagenet, native_subtasks
+    if imagenet.selected(request):
+        return imagenet.verify_dataset(request)
     if native_subtasks.selected(request):
         return native_subtasks.verify_dataset(request)
     policy = request.get("dataset_contract")

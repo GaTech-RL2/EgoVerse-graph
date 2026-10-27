@@ -18,7 +18,9 @@ def need(condition, message):
 
 def verify_model_execution(request, cfg):
     """Bind native historical image/state execution without changing legacy admission."""
-    from scripts.train.joint import native_subtasks
+    from scripts.train.joint import imagenet, native_subtasks
+    if imagenet.selected(request):
+        return imagenet.verify_model_execution(request, cfg)
     if native_subtasks.selected(request):
         return native_subtasks.verify_model_execution(request, cfg)
     stages = cfg["model"]["pipeline"]["stages"]
@@ -111,7 +113,9 @@ def verify_model_execution(request, cfg):
 
 def verify_capacity_profile(request, cfg):
     """Admit the explicit wider image expert without weakening legacy counts."""
-    from scripts.train.joint import native_subtasks
+    from scripts.train.joint import imagenet, native_subtasks
+    if imagenet.selected(request):
+        return request["expert_parameters"]["image"]
     if native_subtasks.selected(request):
         return request["expert_parameters"]["image"]
     profile = request.get("capacity_profile")
@@ -331,6 +335,9 @@ def verify_evidence(request):
         "Wrong request schema",
     )
     evidence = request["smoke"]
+    from scripts.train.joint import imagenet
+    if imagenet.selected(request):
+        imagenet.precheck_evidence(evidence)
     smoke = bound(evidence["request"])
     need(
         smoke["schema"] == "joint-training-v2" and smoke["phase"] == "smoke",
@@ -422,7 +429,9 @@ def verify_evidence(request):
     )
     for key in ("source_revision", "source_manifest_sha256", "data_manifest_sha256"):
         need(preflight["provenance"][key] == request[key], "Unbound provenance: " + key)
-    from scripts.train.joint import native_subtasks
+    from scripts.train.joint import imagenet, native_subtasks
+    if imagenet.selected(request):
+        return imagenet.verify_completion(request, smoke, completion, preflight, capacity)
     if native_subtasks.selected(request):
         return native_subtasks.verify_completion(request, smoke, completion, preflight, capacity)
     need(
@@ -949,7 +958,9 @@ def verify_modality_extension(request, completion):
 
 
 def compare_configs(production, smoke, request):
-    from scripts.train.joint import native_subtasks
+    from scripts.train.joint import imagenet, native_subtasks
+    if imagenet.selected(request):
+        return imagenet.compare_configs(production, smoke, request)
     if native_subtasks.selected(request):
         return native_subtasks.compare_configs(production, smoke, request, _compare_configs_legacy)
     return _compare_configs_legacy(production, smoke, request)

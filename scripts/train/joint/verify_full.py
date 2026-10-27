@@ -15,6 +15,9 @@ from scripts.train.joint.contract import need, sha, verify_evidence, write_once
 def main():
     request_path = Path(sys.argv[1])
     request = json.loads(request_path.read_text())
+    from scripts.train.joint import imagenet
+    if imagenet.selected(request):
+        return imagenet.verify_full(request_path, request)
     _, preflight = verify_evidence(request)
     output = Path(request["output"])
     from scripts.train.joint.continuation import allocation_steps

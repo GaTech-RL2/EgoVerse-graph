@@ -6,7 +6,7 @@ mode=${2:?capture inspect diagnostic finalize full}
 spec=${3:?Exact execution specification}
 spec_sha=${4:?Exact specification SHA256}
 files_sha=${5:?Exact operations manifest SHA256}
-[[ "$root" == /workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/* ]]
+[[ "$root" == /workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/* || "$root" == /workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/* ]]
 [[ "$mode" == capture || "$mode" == inspect || "$mode" == diagnostic || "$mode" == finalize || "$mode" == full ]]
 [[ "$spec" == "$root"/execution/*.json && "$spec_sha" =~ ^[0-9a-f]{64}$ && "$files_sha" =~ ^[0-9a-f]{64}$ ]]
 [[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ && "${SLURM_RESTART_COUNT:-0}" == 0 ]]

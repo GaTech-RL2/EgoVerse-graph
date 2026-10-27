@@ -8,6 +8,7 @@ FIXTURES=Path(__file__).resolve().parent/'fixtures'
 sys.path[:0]=[str(SERVICE),str(SERVICE/'scripts/train/joint/native_elmo_ops')]
 from scripts.train.joint import qk_recovery_profile as p,qk_original_observer as o,qk_recovery_usage as u
 from scripts.train.joint import original_observer,phase_observer_proof,interruption_admission,production_recovery
+import execution_spec,wrapper_common,controller
 ORIGINAL=FIXTURES/'original-full-v5';Q=json.loads((ORIGINAL/'ops/requests/elmo-large314m-qknorm-swiglu-rmsnorm-full-v5.json').read_text())
 
 def encoded(x):return json.dumps(x,sort_keys=True)+'\n'
@@ -76,6 +77,12 @@ class Profile(unittest.TestCase):
   base=FIXTURES/'original_observer_before_qk.py'
   old=next(ast.literal_eval(n.value) for n in ast.parse(base.read_text()).body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='ORIGINAL_OBSERVERS' for t in n.targets))
   self.assertEqual({k:v for k,v in original_observer.ORIGINAL_OBSERVERS.items() if k!=p.RUN_ID},old)
+ def test_ops_profile_is_byte_identical(self):
+  self.assertEqual((SERVICE/'scripts/train/joint/qk_recovery_profile.py').read_bytes(),(SERVICE/'scripts/train/joint/native_elmo_ops/qk_recovery_profile.py').read_bytes())
+ def test_old_pins_preserved_qk_actual_published_service(self):
+  for module in (execution_spec,wrapper_common):
+   self.assertEqual(module.service_pins({'arm':'plain'}),('abbb00499096faabf7035fde23bf4b1eba984377','adf45524de3c2e6dba186572e7151d48bfca0b3adc8e6cf9defd686b47744c87',35))
+   self.assertEqual(module.service_pins({'arm':'qk'}),('5fad76e080d04c82346e3363041edafad815dcb5','3350d6279e60acd18e19c00f4625784468f398fdf0f2fce2b1438e2bd30284ef',54))
  def test_new_attempt_keeps_science_and_total(self):
   q=copy.deepcopy(Q);q.update(output=Q['output']+'-resume',local_logs=Q['local_logs']+'-resume',job_name='new-qk-full',operational_service={'new':'unbound'})
   interruption_admission.compatible(Q,q)

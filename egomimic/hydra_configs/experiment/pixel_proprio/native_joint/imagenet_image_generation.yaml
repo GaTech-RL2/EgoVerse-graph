@@ -49,6 +49,9 @@ trainer:
   use_distributed_sampler: false
   gradient_clip_val: null
 callbacks:
+  wandb_profiler: null
+  conditional_optimizer_usage:
+    _target_: egomimic.pl_utils.joint_smoke.ConditionalOptimizerUsage
   model_checkpoint:
     filename: epoch_{epoch:04d}-step_{step:09d}
     every_n_epochs: 0

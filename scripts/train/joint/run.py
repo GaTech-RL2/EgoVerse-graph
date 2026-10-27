@@ -47,6 +47,12 @@ def validate_resolved_request(request, cfg):
     """
     from omegaconf import OmegaConf
 
+    from scripts.train.joint import imagenet
+    if imagenet.selected(request):
+        need(request["schema"] == "joint-training-v2", "Wrong ImageNet training request")
+        resolved = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+        imagenet.verify_model_execution(request, resolved)
+        return resolved
     need(request["schema"] == "joint-training-v2" and request["phase"] in ("smoke", "full"),
          "Wrong training request")
     smoke = request["phase"] == "smoke"
@@ -112,6 +118,9 @@ def validate_resolved_request(request, cfg):
 def main():
     path = Path(sys.argv[1])
     request = json.loads(path.read_text())
+    from scripts.train.joint import imagenet
+    if imagenet.selected(request):
+        return imagenet.run(path, request)
     root, source = path.parent.parent, Path(request["source"])
     need(
         request["schema"] == "joint-training-v2"

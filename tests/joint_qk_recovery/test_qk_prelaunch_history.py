@@ -275,6 +275,42 @@ class PhysicalAndScope(unittest.TestCase):
             wrong=dict(fields,Command='/tmp/foreign/allocated.sbatch')
             with self.assertRaisesRegex(ValueError,'outside'):h.verify_host_csv_context(wrong,job,identity,'CONTAINER_GATE')
 
+    def test_real_dispatcher_can_import_service_owned_history_and_reach_hook(self):
+        from scripts.train.joint import service_bootstrap
+        names=service_bootstrap.service_files(SERVICE)
+        self.assertIn('scripts/train/joint/qk_prelaunch_history_readers/__init__.py',names)
+        with tempfile.TemporaryDirectory() as tmp:
+            dst=Path(tmp).resolve()/'service';dst.mkdir()
+            for name in names:
+                target=dst/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(SERVICE/name,target)
+            manifest=dst/'FILES.sha256'
+            manifest.write_text(''.join(hashlib.sha256((dst/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in names))
+            digest=hashlib.sha256(manifest.read_bytes()).hexdigest()
+            ops=SERVICE/'scripts/train/joint/native_elmo_ops'
+            code='''import sys
+sys.path.insert(0,sys.argv[1])
+import wrapper_common as w
+assert w.service_pins({'arm':'qk'})==('5fad76e080d04c82346e3363041edafad815dcb5',sys.argv[3],int(sys.argv[4]))
+s=dict(root=sys.argv[1],arm='qk',operational_service=dict(root=sys.argv[2],manifest=sys.argv[2]+'/FILES.sha256',manifest_sha256=sys.argv[3]))
+m=w.service(s,'qk_prelaunch_history')
+assert m.__file__.startswith(sys.argv[2])
+import host_guard as g
+o=w.service(s,'original_observer')
+g.command=lambda argv:''
+def query(argv):
+ from datetime import datetime,timezone
+ return dict(schema='native-elmo-terminal-query-v1',argv=argv,returncode=0,stdout='',stderr='',observed_at_utc=datetime.now(timezone.utc).isoformat())
+o.query=query
+def reached(*a,**k):raise RuntimeError('REAL_QK_CENSUS_HOOK_REACHED')
+m.census=reached
+scope=dict(user='paphiwetsa3',claim_roots=[dict(path='/tmp/fixture',terminal_directory='/tmp/fixture')],scientific_job_names=['fixture'],scientific_name_prefixes=['long-fixture-prefix'])
+try:g.quiescence(s,scope,m.RUN_ID)
+except RuntimeError as e:assert str(e)=='REAL_QK_CENSUS_HOOK_REACHED'
+else:raise AssertionError('QK hook omitted')
+print('REAL_SERVICE_DISPATCH_AND_CENSUS_HOOK_PASS')
+'''
+            p=subprocess.run([sys.executable,'-I','-B','-c',code,str(ops),str(dst),digest,str(len(names))],cwd='/tmp',capture_output=True,text=True)
+            self.assertEqual(p.returncode,0,p.stderr);self.assertIn('HOOK_PASS',p.stdout)
 
 
 if __name__=='__main__':unittest.main()

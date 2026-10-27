@@ -5,7 +5,7 @@ root=${1:?Operations root}
 spec=${2:?Controller specification}
 spec_sha=${3:?Controller SHA256}
 files_sha=${4:?Operations manifest SHA256}
-[[ "$root" == /workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/* ]]
+[[ "$root" == /workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/* || "$root" == /workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1/* ]]
 [[ "$spec" == "$root"/controller-specs/*.json ]]
 [[ "$spec_sha" =~ ^[0-9a-f]{64}$ && "$files_sha" =~ ^[0-9a-f]{64}$ ]]
 [[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ && "${SLURM_RESTART_COUNT:-0}" == 0 ]]

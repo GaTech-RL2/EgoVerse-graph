@@ -149,6 +149,10 @@ def main(argv=None):
     spec, path, q, job, claim = load_execution(args.spec, args.spec_sha, args.mode, args.manifest_sha)
     parent = bound(spec['parent_request']); attempt = attempt_path(spec, job)
     auth = native_auth(spec, path, q, job)
+    # The reviewed entrypoint, rather than request metadata, sets this boundary.
+    os.environ['ELMO_HISTORY_LOCATION'] = {'host':'ALLOCATED_HOST', 'inside':'CONTAINER_GATE',
+                                          'dispatch':'CONTAINER_DISPATCH'}[args.stage]
+    os.environ['ELMO_HISTORY_ATTEMPT'] = str(attempt)
     gate = admit_before_submission(spec, q, job, sha(path), running=True)
     prerequisite_path(spec, q)
     if args.stage == 'host':

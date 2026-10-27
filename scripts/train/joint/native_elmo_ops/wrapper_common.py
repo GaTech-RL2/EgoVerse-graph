@@ -12,6 +12,18 @@ import subprocess
 SERVICE_COMMIT = "abbb00499096faabf7035fde23bf4b1eba984377"  # Verified upstream service publication.
 SERVICE_SHA = "adf45524de3c2e6dba186572e7151d48bfca0b3adc8e6cf9defd686b47744c87"
 SERVICE_FILE_COUNT = 35
+QK_SERVICE_COMMIT = "5fad76e080d04c82346e3363041edafad815dcb5"  # Actual published PR325 head/export.
+QK_SERVICE_SHA = "3350d6279e60acd18e19c00f4625784468f398fdf0f2fce2b1438e2bd30284ef"
+QK_SERVICE_FILE_COUNT = 54
+
+def service_pins(spec):
+    if spec.get('arm') != 'qk': return SERVICE_COMMIT, SERVICE_SHA, SERVICE_FILE_COUNT
+    need(isinstance(QK_SERVICE_COMMIT, str) and re.fullmatch('[0-9a-f]{40}', QK_SERVICE_COMMIT)
+         and isinstance(QK_SERVICE_SHA, str) and re.fullmatch('[0-9a-f]{64}', QK_SERVICE_SHA)
+         and type(QK_SERVICE_FILE_COUNT) is int and QK_SERVICE_FILE_COUNT >= 38,
+         'QK interruption service is UNPUBLISHED/UNBOUND')
+    return QK_SERVICE_COMMIT, QK_SERVICE_SHA, QK_SERVICE_FILE_COUNT
+
 MODES = {'capture': 'native_interruption', 'inspect': 'checkpoint_inspection',
          'diagnostic': 'production_recovery', 'finalize': 'interruption_admission', 'full': 'run'}
 
@@ -82,13 +94,24 @@ def fields(raw):
     return dict(pairs)
 
 
+def install_host_hash_compat(spec):
+    """Exact previously reviewed Python3.10 host shim; native newer function wins."""
+    path=physical(Path(spec['root'])/'host_hashlib_compat.py')
+    need(sha(path)=='257df596faafd7d3855547d5417d8f2cdd465a413e92af602643e89744561efe',
+         'Host hash compatibility helper differs from reviewed bytes')
+    loader=importlib.util.spec_from_file_location('_elmo_host_hash_compat',path)
+    module=importlib.util.module_from_spec(loader);loader.loader.exec_module(module)
+    module.install()
+
+
 def service(spec, name):
-    need(isinstance(SERVICE_COMMIT, str) and re.fullmatch('[0-9a-f]{40}', SERVICE_COMMIT),
+    service_commit, service_sha, service_count = service_pins(spec)
+    need(isinstance(service_commit, str) and re.fullmatch('[0-9a-f]{40}', service_commit),
          'Adapter service is unpublished; explicit reviewed publication binding required')
-    need(name in {'native_interruption', 'interruption_admission', 'checkpoint_inspection', 'original_observer', 'phase_observer_proof'},
+    need(name in {'native_interruption', 'interruption_admission', 'checkpoint_inspection', 'original_observer', 'phase_observer_proof', 'qk_prelaunch_history'},
          'Unapproved pre-Torch service import')
     binding = spec['operational_service']
-    need(binding['manifest_sha256'] == SERVICE_SHA and sha(binding['manifest']) == SERVICE_SHA,
+    need(binding['manifest_sha256'] == service_sha and sha(binding['manifest']) == service_sha,
          'Exact published recovery service required')
     root = physical(binding['root'])
     need(Path(binding['manifest']) == root / 'FILES.sha256', 'Service manifest escaped root')
@@ -102,7 +125,8 @@ def service(spec, name):
              'Unsafe or duplicate operational service member')
         names.add(name_in_manifest)
         need(sha(physical(root / relative)) == digest, 'Operational service member changed')
-    need(len(names) == SERVICE_FILE_COUNT, 'Incomplete exact adapter service')
+    need(len(names) == service_count, 'Incomplete exact adapter service')
+    install_host_hash_compat(spec)
     loader = importlib.util.spec_from_file_location('_elmo_wrapper_service', root / 'scripts/train/joint/service_bootstrap.py')
     module = importlib.util.module_from_spec(loader); loader.loader.exec_module(module)
     module.activate({'operational_service': binding})

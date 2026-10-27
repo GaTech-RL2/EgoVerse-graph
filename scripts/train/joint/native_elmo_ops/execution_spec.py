@@ -22,11 +22,27 @@ RELEASE_OBSERVER_REQUIRED = True
 SERVICE_COMMIT = "abbb00499096faabf7035fde23bf4b1eba984377"  # Verified upstream service publication.
 SERVICE_SHA = "adf45524de3c2e6dba186572e7151d48bfca0b3adc8e6cf9defd686b47744c87"
 SERVICE_FILE_COUNT = 35
+QK_SERVICE_COMMIT = "5fad76e080d04c82346e3363041edafad815dcb5"  # Actual published PR325 head/export.
+QK_SERVICE_SHA = "3350d6279e60acd18e19c00f4625784468f398fdf0f2fce2b1438e2bd30284ef"
+QK_SERVICE_FILE_COUNT = 54
+
+def service_pins(spec):
+    if spec.get('arm') != 'qk': return SERVICE_COMMIT, SERVICE_SHA, SERVICE_FILE_COUNT
+    need(isinstance(QK_SERVICE_COMMIT, str) and re.fullmatch('[0-9a-f]{40}', QK_SERVICE_COMMIT)
+         and isinstance(QK_SERVICE_SHA, str) and re.fullmatch('[0-9a-f]{64}', QK_SERVICE_SHA)
+         and type(QK_SERVICE_FILE_COUNT) is int and QK_SERVICE_FILE_COUNT >= 38,
+         'QK interruption service is UNPUBLISHED/UNBOUND')
+    return QK_SERVICE_COMMIT, QK_SERVICE_SHA, QK_SERVICE_FILE_COUNT
+
+from qk_recovery_profile import (PARENT_ID as QK_PARENT_ID, NODE as QK_NODE, REQUEST_SHA as QK_REQUEST_SHA,
+    TASK_ROOT as QK_TASK_ROOT, profile_run_id, supported_parameters)
+
 PINS = {
     "plain": ("412789", "gpu11", "936e9acd30fa517f6f38311c0bcfd2b88544da8d476bd41125c4008de2845073"),
     "fused": ("412798", "gpu11", "e34190bfef155942fe216a1e5e81317cfa31b65d4c98ccb025a579c874fd3876"),
     "boundary": ("412800", "gpu03", "210e6f73c8a1a396716fab2f1e7e17f3b9d0663b099971eb05807181f9f00684"),
 }
+PINS['qk'] = (QK_PARENT_ID, QK_NODE, QK_REQUEST_SHA)
 MODES = {
     "capture": ("native-elmo-interruption-capture-v1", "2", "1G", "00:10:00", "", "native_interruption"),
     "inspect": ("native-elmo-checkpoint-inspection-v1", "4", "24G", "00:20:00", "", "checkpoint_inspection"),
@@ -148,7 +164,10 @@ def read_spec(spec_path, spec_sha, mode, manifest_sha):
     spec = read_json(p)
     need(spec["schema"] == "native-elmo-execution-spec-v1" and spec["mode"] == mode and mode in MODES,
          "Wrong execution schema/mode")
+    service_commit, service_sha, service_count = service_pins(spec)
     root = absolute(spec["root"])
+    if spec["arm"] == "qk":
+        need(str(root).startswith(QK_TASK_ROOT + "/"), "QK execution escaped exact campaign")
     need(p.parent == root / "execution" and spec["arm"] in PINS, "Spec root/arm differs")
     claim_roots = spec["execution_claim_roots"]
     need(isinstance(claim_roots, list) and claim_roots
@@ -160,7 +179,7 @@ def read_spec(spec_path, spec_sha, mode, manifest_sha):
              "Execution claim/terminal directory unavailable")
     need(spec["ops_manifest"] == dict(path=str(root / "FILES.sha256"), sha256=manifest_sha), "Ops manifest binding differs")
     files = manifest(root, spec["ops_manifest"])
-    need({"execution_spec.py", "allocated.sbatch", "host_guard.py", "wrapper_common.py", "phase_observer.py", "observe-phase.sbatch"} <= files
+    need({"execution_spec.py", "allocated.sbatch", "host_guard.py", "wrapper_common.py", "phase_observer.py", "observe-phase.sbatch", "qk_recovery_profile.py", "host_hashlib_compat.py"} <= files
          and all(Path(name).parts[0] not in {"execution", "templates", "execution-claims", "requests", "scientific-claims", "producer-claims", "status", "logs", "observer-specs", "observer-claims", "controller-specs"} for name in files),
          "Ops manifest missing executable guards or includes circular runtime artifacts")
     need(sha(root / "execution_spec.py") == sha(__file__), "Execution implementation drift")
@@ -171,14 +190,14 @@ def read_spec(spec_path, spec_sha, mode, manifest_sha):
     need(str(spec["original_parent_job_id"]) == parent_id and spec["parent_request"]["sha256"] == parent_sha,
          "Only the exact three original production parents are supported")
     parent = read_json(bound(spec["parent_request"]))
-    run_id = "mot-elmo-pickplace-continuous-large314m-" + spec["arm"] + "-robot-human-camera-subtask-s42-300k-20261026-v1"
+    run_id = profile_run_id(spec["arm"])
     need(parent["run_id"] == run_id and parent["kind"] == "native-subtask-world-model-v1"
          and parent["phase"] == "full" and parent["target_steps"] == 300000
-         and parent["parameters"] == 314187064 and parent["world_size"] == 4, "Parent scientific identity differs")
+         and parent["parameters"] == supported_parameters(parent) and parent["world_size"] == 4, "Parent scientific identity differs")
     service = spec["operational_service"]
-    need(service["manifest_sha256"] == SERVICE_SHA, "Wrong published recovery service")
-    service_names = manifest(service["root"], dict(path=service["manifest"], sha256=SERVICE_SHA))
-    need(len(service_names) == SERVICE_FILE_COUNT, "Incomplete adapter recovery service")
+    need(service["manifest_sha256"] == service_sha, "Wrong published recovery service")
+    service_names = manifest(service["root"], dict(path=service["manifest"], sha256=service_sha))
+    need(len(service_names) == service_count, "Incomplete adapter recovery service")
     template_path = bound(spec["request_template"])
     need(template_path.parent == root / "templates", "Template outside immutable template directory")
     template = read_json(template_path)
@@ -341,15 +360,18 @@ def read_binding(spec_path, spec_sha, mode, manifest_sha):
 
 def service_module(spec, name):
     """Activate only the verified published service before importing its stdlib guards."""
-    need(isinstance(SERVICE_COMMIT, str) and re.fullmatch(r"[0-9a-f]{40}", SERVICE_COMMIT),
+    service_commit, service_sha, service_count = service_pins(spec)
+    need(isinstance(service_commit, str) and re.fullmatch(r"[0-9a-f]{40}", service_commit),
          "Adapter service is unpublished; explicit reviewed publication binding required")
     need(name in {"native_interruption", "interruption_admission", "original_observer", "phase_observer_proof"},
          "Unapproved pre-Torch service import")
     binding = spec["operational_service"]
-    need(binding["manifest_sha256"] == SERVICE_SHA, "Wrong published recovery service")
+    need(binding["manifest_sha256"] == service_sha, "Wrong published recovery service")
     root = absolute(binding["root"])
-    names = manifest(root, dict(path=binding["manifest"], sha256=SERVICE_SHA))
-    need(len(names) == SERVICE_FILE_COUNT, "Incomplete adapter recovery service")
+    names = manifest(root, dict(path=binding["manifest"], sha256=service_sha))
+    need(len(names) == service_count, "Incomplete adapter recovery service")
+    from wrapper_common import install_host_hash_compat
+    install_host_hash_compat(spec)
     path = root / "scripts/train/joint/service_bootstrap.py"
     import_spec = importlib.util.spec_from_file_location("_elmo_bound_bootstrap", path)
     module = importlib.util.module_from_spec(import_spec)
@@ -443,6 +465,8 @@ def operations_module(spec, name):
     """Load fixed operations code only after the caller's entire immutable closure."""
     need(name in {"host_guard", "wrapper_common", "phase_observer"}, "Unapproved operations module")
     root = absolute(spec["root"])
+    if spec["arm"] == "qk":
+        need(str(root).startswith(QK_TASK_ROOT + "/"), "QK execution escaped exact campaign")
     names = manifest(root, spec["ops_manifest"])
     need("execution_spec.py" in names and sha(root / "execution_spec.py") == sha(__file__),
          "Operations caller implementation drift")

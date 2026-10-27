@@ -37,5 +37,36 @@ class CPUHelper(unittest.TestCase):
   phase=phase_config(cfg,output=Path('/tmp/diagnostic'),checkpoint='/tmp/production20000.ckpt',origin=20000,start=20002,stop=20006,target=300000,world=4,proof=Path('/tmp/proof'))
   self.assertFalse(phase.callbacks.resume_proof.qk_architecture)
 
+class HostEntry(unittest.TestCase):
+ def test_isolated_controller_cli_has_no_unadmitted_import(self):
+  path=SERVICE/'scripts/train/joint/native_elmo_ops/controller.py'
+  result=subprocess.run([sys.executable,'-I','-B',str(path),'--help'],cwd='/tmp',capture_output=True,text=True)
+  self.assertEqual(result.returncode,0,result.stderr)
+ def test_real_service_import_after_missing_host_hashlib(self):
+  ops=SERVICE/'scripts/train/joint/native_elmo_ops';service=FIXTURES/'plain-service35'
+  code='''import sys,hashlib,json,tempfile,pathlib
+sys.path.insert(0,sys.argv[1])
+if hasattr(hashlib,'file_digest'):del hashlib.file_digest
+import wrapper_common
+s=dict(root=sys.argv[1],arm='plain',operational_service=dict(root=sys.argv[2],manifest=sys.argv[2]+'/FILES.sha256',manifest_sha256=wrapper_common.SERVICE_SHA))
+m=wrapper_common.service(s,'interruption_admission')
+with tempfile.NamedTemporaryFile() as f:
+ f.write(b'actual narrow host hashing fixture');f.flush()
+ assert m.sha(f.name)==hashlib.sha256(b'actual narrow host hashing fixture').hexdigest()
+assert 'torch' not in sys.modules
+print('PASS_REAL_SERVICE_MISSING_FILE_DIGEST')
+'''
+  result=subprocess.run([sys.executable,'-I','-B','-c',code,str(ops),str(service)],cwd='/tmp',capture_output=True,text=True)
+  self.assertEqual(result.returncode,0,result.stderr);self.assertIn('PASS_REAL_SERVICE',result.stdout)
+ def test_native_hashlib_function_not_replaced(self):
+  ops=SERVICE/'scripts/train/joint/native_elmo_ops'
+  code='''import sys,hashlib
+sys.path.insert(0,sys.argv[1]);import wrapper_common
+before=hashlib.file_digest
+wrapper_common.install_host_hash_compat({'root':sys.argv[1]})
+assert hashlib.file_digest is before
+'''
+  result=subprocess.run([sys.executable,'-I','-B','-c',code,str(ops)],cwd='/tmp',capture_output=True,text=True)
+  self.assertEqual(result.returncode,0,result.stderr)
 
 if __name__=='__main__':unittest.main()

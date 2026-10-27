@@ -17,7 +17,9 @@ _LOADED_IMPLEMENTATION_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexd
 
 def context(spec, q):
     parent = bound(spec['parent_request'])
-    need(parent['parameters'] == 314187064 and parent['world_size'] == 4
+    from qk_recovery_profile import supported_parameters
+    expected_parameters = supported_parameters(parent)
+    need(parent['parameters'] == expected_parameters and parent['world_size'] == 4
          and parent['kind'] == 'native-subtask-world-model-v1' and parent['target_steps'] == 300000,
          'Exact frozen native campaign parent required')
     runtime = spec['runtime']
@@ -158,6 +160,10 @@ def quiescence(spec, scope, run_id, current_job=None, current_request_sha=None, 
             need(job == current_job and state == ('RUNNING' if running else 'PENDING'),
                  'Other pending/active scientific writer: ' + job)
     seen = set(); evidence = []; own_seen = False
+    from qk_recovery_profile import RUN_ID as qk_run_id
+    historical = service(spec, 'qk_prelaunch_history') if run_id == qk_run_id else None
+    prelaunch = historical.census(scope, run_id, current_job=current_job,
+        current_state='RUNNING' if running else 'PENDING', require_node=running) if historical else None
     for item in scope['claim_roots']:
         root = physical(item['path']); need(root.is_dir(), 'Claim root unavailable')
         for claim in sorted(root.iterdir()):
@@ -170,7 +176,11 @@ def quiescence(spec, scope, run_id, current_job=None, current_request_sha=None, 
             if claim == own:
                 need(job == current_job and claim.name == current_request_sha, 'Own claim identity changed')
                 own_seen = True; continue
-            if job == str(spec['original_parent_job_id']):
+            prior_prelauncher = historical.claim_disposition(prelaunch, claim, run_id) if historical else None
+            if prior_prelauncher is not None:
+                need(prior_prelauncher['job_id'] == job, 'Historical claim acceptance identity changed')
+                proof = prior_prelauncher
+            elif job == str(spec['original_parent_job_id']):
                 need(claim.name == spec['parent_request']['sha256'] and original_terminal is not None,
                      'Original parent needs separately validated original observer/failure evidence')
                 actual = read_json(claim / 'RUNNING_ADMISSION.json')
@@ -197,7 +207,7 @@ def quiescence(spec, scope, run_id, current_job=None, current_request_sha=None, 
     if current_job is not None and spec['mode'] in {'diagnostic', 'full'}:
         need(own_seen, 'Current scientific claim omitted from complete scope')
     return {'queue': queue, 'step_query': step_query, 'prior_claims': evidence,
-            'own_current_claim': str(own) if own else None}
+            'prelaunch_history': prelaunch, 'own_current_claim': str(own) if own else None}
 
 
 def storage_and_node(spec, q, parent):

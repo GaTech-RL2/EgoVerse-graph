@@ -17,11 +17,20 @@ import sys
 from datetime import datetime, timezone
 
 PREFIX = '/workspace/users/paphiwetsa3/tasks/elmo-large-continuous-20261026-v1/'
+# Keep -I bootstrap stdlib-only: profile semantics are checked against these
+# exact constants before any validated-root imports, never through PYTHONPATH.
+QK_TASK_ROOT = '/workspace/users/paphiwetsa3/tasks/elmo-qknorm-swiglu-rmsnorm-imagenet-20261026-v1'
+QK_PARENT_ID, QK_NODE = '412831', 'gpu21'
+QK_REQUEST_SHA = '8760409ca77b6888fe700b4741d93da654c99c6ed9f3fa328194693ef5aa6592'
+QK_CANONICAL_SHA = '5fe43f09dc0daef914ea809c923b5f14ab37a92d27f3a8d8488a1408899c8fd1'
+QK_RUN_ID = 'mot-elmo-pickplace-continuous-large314m-qknorm-swiglu-rmsnorm-robot-human-camera-subtask-s42-300k-20261026-v1'
+
 PINS = {
     'plain': ('412789', 'gpu11', '936e9acd30fa517f6f38311c0bcfd2b88544da8d476bd41125c4008de2845073'),
     'fused': ('412798', 'gpu11', 'e34190bfef155942fe216a1e5e81317cfa31b65d4c98ccb025a579c874fd3876'),
     'boundary': ('412800', 'gpu03', '210e6f73c8a1a396716fab2f1e7e17f3b9d0663b099971eb05807181f9f00684'),
 }
+PINS['qk'] = (QK_PARENT_ID, QK_NODE, QK_REQUEST_SHA)
 MODES = {'capture', 'inspect', 'diagnostic', 'finalize', 'full'}
 FAILURE_STATES = {'FAILED', 'TIMEOUT', 'PREEMPTED', 'NODE_FAIL', 'BOOT_FAIL', 'CANCELLED'}
 MAX_FILE = 4 << 20
@@ -53,7 +62,7 @@ def parse(value):
 
 def path(value):
     p = PurePosixPath(value)
-    need(isinstance(value, str) and value.startswith(PREFIX) and '..' not in p.parts
+    need(isinstance(value, str) and value.startswith((PREFIX, QK_TASK_ROOT + '/')) and '..' not in p.parts
          and str(p) == value and re.fullmatch(r'[A-Za-z0-9_./=-]+', value), 'Unsafe/noncanonical campaign path')
     return p
 
@@ -149,20 +158,23 @@ def validate(reader, spec_path, spec_sha, ops_sha):
     spec = reader.bound({'path': spec_path, 'sha256': spec_sha})
     need(spec['schema'] == 'native-elmo-allocated-controller-v1' and spec['arm'] in PINS, 'Controller schema/arm differs')
     root = str(path(spec['root']))
+    need(root.startswith((QK_TASK_ROOT+'/' if spec['arm']=='qk' else PREFIX)), 'Controller arm/root namespace differs')
     need(str(path(spec_path).parent) == root + '/controller-specs', 'Controller spec escaped root')
     need(spec['ops_manifest'] == {'path': root + '/FILES.sha256', 'sha256': ops_sha}, 'Operations manifest differs')
-    need(spec['controller_claim_root']==PREFIX+'recovery-controller-claims/'+spec['arm'],
+    need(spec['controller_claim_root']==(QK_TASK_ROOT+'/' if spec['arm']=='qk' else PREFIX)+'recovery-controller-claims/'+spec['arm'],
          'Canonical same-arm controller claim root required across operations packets')
     names = reader.manifest(root, spec['ops_manifest'])
-    need({'controller.py', 'controller.sbatch', 'execution_spec.py', 'host_guard.py', 'phase_observer.py', 'observe-phase.sbatch'} <= names,
+    need({'controller.py', 'controller.sbatch', 'execution_spec.py', 'host_guard.py', 'phase_observer.py', 'observe-phase.sbatch', 'qk_recovery_profile.py', 'host_hashlib_compat.py'} <= names,
          'Controller/producer/observer immutable closure incomplete')
     need(not any(PurePosixPath(n).parts[0] in {'controller-specs','controller-claims','execution','templates','requests','observer-specs','observer-claims','status','logs','scientific-claims','producer-claims','execution-claims'} for n in names),
          'Dynamic records must not enter immutable executable manifest')
     parent_id, node, parent_sha = PINS[spec['arm']]
     parent = reader.bound(spec['parent_request'])
     need(spec['parent_request']['sha256'] == parent_sha, 'Controller changed original parent identity')
-    run_id = 'mot-elmo-pickplace-continuous-large314m-' + spec['arm'] + '-robot-human-camera-subtask-s42-300k-20261026-v1'
-    need(parent['run_id'] == run_id and parent['parameters'] == 314187064 and parent['world_size'] == 4
+    run_id = QK_RUN_ID if spec['arm']=='qk' else 'mot-elmo-pickplace-continuous-large314m-'+spec['arm']+'-robot-human-camera-subtask-s42-300k-20261026-v1'
+    if spec['arm']=='qk':
+        need(digest(json.dumps(parent,sort_keys=True,separators=(',',':'),allow_nan=False).encode())==QK_CANONICAL_SHA, 'Exact QK original parent changed')
+    need(parent['run_id'] == run_id and parent['parameters'] == (314227000 if spec['arm']=='qk' else 314187064) and parent['world_size'] == 4
          and parent['target_steps'] == 300000 and parent['phase'] == 'full', 'Wrong original campaign identity')
     intent = reader.bound(spec['current_intent'])
     need(intent['schema'] == 'native-elmo-current-intent-v1' and intent['authority'] == 'human'
@@ -249,7 +261,7 @@ def queue_guard(raw,spec,current=None):
         row=line.split('|')
         need(len(row)==5 and row[0].isdecimal() and row[4]=='paphiwetsa3','Malformed full owner queue')
         scope=spec['queue_scope']
-        run_id='mot-elmo-pickplace-continuous-large314m-'+spec['arm']+'-robot-human-camera-subtask-s42-300k-20261026-v1'
+        run_id=profile_run_id(spec['arm'])
         scientific=(row[1] in scope['scientific_job_names'] or any(row[1].startswith(p) for p in scope['scientific_name_prefixes'])
                     or row[3]==run_id)
         controller=row[1].startswith('elmo-recovery-controller-'+spec['arm']+'-')
@@ -440,6 +452,9 @@ def allocated(spec_path,spec_sha,ops_sha):
     native=subprocess.run(['/usr/local/bin/scontrol','show','job',job,'-o','-dd'],capture_output=True,text=True,timeout=20)
     need(native.returncode==0 and not native.stderr,'Controller native authentication failed')
     current=check_controller(native.stdout,spec,spec_sha,job,'RUNNING')
+    # This reviewed controller executes on the authenticated allocated host.
+    os.environ['ELMO_HISTORY_LOCATION']='ALLOCATED_HOST'
+    os.environ.pop('ELMO_HISTORY_ATTEMPT',None)
     accepted=parse(reader.file(claim+'/acceptance.json')); held=reader.file(claim+'/HELD_NATIVE.txt').decode()
     prepared=parse(reader.file(claim+'/PREPARED.json')); released=parse(reader.file(claim+'/RELEASE_ATTEMPT.json'))
     previous=check_controller(held,spec,spec_sha,job,'PENDING')

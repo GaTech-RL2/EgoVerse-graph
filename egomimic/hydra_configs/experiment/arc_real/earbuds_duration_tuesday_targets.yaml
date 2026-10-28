@@ -1,0 +1,24 @@
+# @package _global_
+# earbuds_duration trained on Tuesday's E1 abstime targets (c685651d): window
+# from the current command, row 0 at t=0, frame-time clock, last-frame end,
+# zero-clock still arm. Decode, evaluator and station runtime stay PR #317's.
+defaults:
+- /experiment/arc_real/earbuds_duration
+- _self_
+name: earbuds_duration_tuesday_targets
+model:
+  data_requirements:
+    preprocessing:
+      '7':
+        key_map:
+          tuesday_targets: true
+        transforms:
+          tuesday_targets: true
+  inference_contracts:
+    hybrid_arc_tokenizer_cartesian:
+      compatibility:
+        tokenizer:
+          source_time_origin: current_frame
+run_provenance:
+  action_contract:
+    source_time_origin: current_frame

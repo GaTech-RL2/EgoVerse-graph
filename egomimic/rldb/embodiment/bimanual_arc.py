@@ -14,14 +14,14 @@ VARIANTS = ("time", "arc")
 
 
 class CopyKeyRows:
-    def __init__(self, src, dst, n_rows):
-        self.src, self.dst, self.n_rows = src, dst, int(n_rows)
+    def __init__(self, src, dst, n_rows, start=0):
+        self.src, self.dst, self.n_rows, self.start = src, dst, int(n_rows), int(start)
 
     def transform(self, batch):
         value = np.asarray(batch[self.src])
         if len(value) == 0 or self.n_rows < 1:
             raise ValueError("Cannot preserve an empty source or nonpositive horizon")
-        out = value[: self.n_rows].copy()
+        out = value[self.start : self.start + self.n_rows].copy()
         if len(out) < self.n_rows:
             out = np.concatenate(
                 (out, np.repeat(out[-1:], self.n_rows - len(out), axis=0))
@@ -37,6 +37,7 @@ def get_keymap(
     drop_wrist_images: bool = True,
     yam_source_frames: int | None = None,
     variant: str = "time",
+    tuesday_targets: bool = False,
     **kwargs,
 ):
     """Build a Cartesian keymap, preserving declarative distance horizons.
@@ -66,7 +67,11 @@ def get_keymap(
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     for spec in key_map.values():
-        if variant == "arc" and spec.get("key_type") == "action_keys":
+        if (
+            variant == "arc"
+            and not tuesday_targets
+            and spec.get("key_type") == "action_keys"
+        ):
             spec["start_offset"] = 1
         if "horizon" not in spec:
             continue
@@ -95,6 +100,7 @@ def get_transform_list(
     streams: str = "full_separation",
     gripper_distance_unit: float | None = None,
     gripper_stream_mode: str = "events",
+    tuesday_targets: bool = False,
 ):
     if not 0 < source_fps < float("inf"):
         raise ValueError("source_fps must be finite and positive")
@@ -135,7 +141,13 @@ def get_transform_list(
         )
     else:
         raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
-    tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
+    # Tuesday targets start at the current command; the scored rows still start
+    # one frame ahead, where the decoder's first action lands.
+    tl.append(
+        CopyKeyRows(
+            "actions_cartesian", "actions_time", int(time_rows), int(tuesday_targets)
+        )
+    )
     if variant == "arc":
         tl.append(StoreArcCurrentAction(coord_frame="eef_frame"))
         tl.append(
@@ -149,6 +161,7 @@ def get_transform_list(
                 gripper_distance_unit=gripper_distance_unit,
                 gripper_stream_mode=gripper_stream_mode,
                 dt=1 / source_fps,
+                tuesday_targets=tuesday_targets,
             )
         )
     return tl

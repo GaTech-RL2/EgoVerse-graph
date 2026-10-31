@@ -95,6 +95,29 @@ button.failure { border-color: #ec7977; background: #5c2023; color: #ffe2e1; }
 .episode-row.success { border-left-color: #80c9a0; }
 .episode-row.failure { border-left-color: #ec7977; }
 .episode-row.unlabeled { border-left-color: #667587; }
+.episode-labels { color: #dce3ed; }
+.episode-row .episode-edit { align-self: start; margin-top: 3px; padding: 4px 10px; }
+.rollout-control-panel { grid-template-rows: 20px 22px 34px auto auto; }
+.auto-record-toggle { justify-content: start; }
+.episode-label { margin: 12px 0; border: 1px solid #80c9a0; border-radius: 8px; background: #15241d; padding: 12px; }
+.episode-label-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+.episode-label-meta, #episode-label-meta { margin: 4px 0 0; overflow-wrap: anywhere; }
+#episode-label-meta a { color: #8cb5ca; }
+.episode-label-grid { display: grid; grid-template-columns: auto minmax(120px, 170px) minmax(170px, 1fr) minmax(220px, 1.4fr); align-items: end; gap: 10px 14px; margin: 10px 0; }
+.episode-label-grid > label { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: #93a2b4; font-size: 12px; }
+.episode-label-grid input:not([type=radio]), .episode-label-grid textarea { width: 100%; border: 1px solid #667587; border-radius: 5px; background: #0d1116; color: #dce3ed; padding: 7px 9px; font: inherit; }
+.episode-label-grid input:focus, .episode-label-grid textarea:focus { border-color: #8cb5ca; outline: none; }
+.label-outcome { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.label-outcome legend { padding: 0 0 4px; color: #93a2b4; font-size: 12px; }
+.label-outcome label { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid #3a4655; border-radius: 5px; background: #191e25; cursor: pointer; }
+.label-outcome label.success:has(input:checked) { border-color: #80c9a0; background: #1e513b; }
+.label-outcome label.failure:has(input:checked) { border-color: #ec7977; background: #5c2023; }
+.label-outcome label:has(input:checked) { border-color: #8cb5ca; }
+.label-notes { grid-column: 1 / -1; }
+.label-notes textarea { resize: vertical; }
+.episode-label .actions { justify-content: start; max-width: none; }
+@media (max-width: 1000px) { .episode-label-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .episode-label-grid { grid-template-columns: 1fr; } }
 
 dialog { width: min(1500px, 96vw); height: min(900px, 92vh); padding: 18px; background: #191e25; color: #dce3ed; border: 1px solid #3a4655; border-radius: 10px; }
 dialog::backdrop { background: rgb(0 0 0 / 65%); }

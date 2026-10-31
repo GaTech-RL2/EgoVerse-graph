@@ -126,6 +126,11 @@ class RolloutVideoRecorder:
     def recording(self) -> bool:
         return self._video_id is not None
 
+    @property
+    def video_id(self) -> str | None:
+        """The ID the current video will be published under, while recording."""
+        return self._video_id
+
     def start(self) -> str:
         """Start a new video session; no file is published until ``close``."""
         if self.recording:

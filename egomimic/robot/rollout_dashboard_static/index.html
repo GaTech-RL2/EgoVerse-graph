@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM rollout</title>
-    <link rel="stylesheet" href="/style.css?v=12">
+    <link rel="stylesheet" href="/style.css?v=13">
   </head>
   <body>
     <main>
@@ -12,7 +12,7 @@
         <div>
           <p class="eyebrow">RL2 YAM · LOCAL POLICY ROLLOUT</p>
           <h1>Rollout monitor</h1>
-          <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, <kbd>d</kbd> to record a demo-format episode (robot state, actions and full camera frames, about 5 GB per minute), and <kbd>r</kbd> to return YAM to home and then to the ready state. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
+          <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, <kbd>d</kbd> to start or end a demo-format episode (robot state, actions and full camera frames, about 4–5 GB per minute), and <kbd>r</kbd> to return YAM to home and then to the ready state. With auto-record on, every Start records an episode and its video; Reset, a model change or a camera reconnect ends it, and the label form opens with the checkpoint and W&amp;B run already filled in. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
         </div>
         <div class="rollout-control-panel">
           <p id="current-model" class="current-model">Selected model: connecting…</p>
@@ -35,6 +35,10 @@
             </label>
             <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
           </div>
+          <label class="overlay-toggle auto-record-toggle" for="auto-record" title="Applies from the next Start. The take ends at Reset, a model change, a camera reconnect or End episode.">
+            <input id="auto-record" type="checkbox" disabled>
+            Auto-record every rollout (episode + video) from Start
+          </label>
         </div>
       </header>
       <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
@@ -68,13 +72,49 @@
       </section>
       <section id="episode-save" class="episode-save" hidden aria-live="polite">
         <strong id="episode-title">Recording episode</strong>
-        <p id="episode-detail">When the rollout is over, save the take with its outcome. Reset (r) keeps it as unlabeled.</p>
+        <p id="episode-detail">End the take here when the task is over, or Reset (r) ends it. Either way the label form opens next.</p>
         <div class="actions">
-          <button data-episode-outcome="success" class="success">Save: success</button>
-          <button data-episode-outcome="failure" class="failure">Save: failure</button>
-          <button data-episode-outcome="unlabeled">Save unlabeled <kbd>d</kbd></button>
+          <button data-episode-outcome="success" class="success">End: success</button>
+          <button data-episode-outcome="failure" class="failure">End: failure</button>
+          <button data-episode-outcome="unlabeled">End episode <kbd>d</kbd></button>
           <button id="discard-episode">Discard</button>
         </div>
+      </section>
+      <section id="episode-label" class="episode-label" hidden aria-live="polite">
+        <form id="episode-label-form">
+          <div class="episode-label-head">
+            <strong id="episode-label-title">Label episode</strong>
+            <span id="episode-label-queue" class="video-meta"></span>
+          </div>
+          <p id="episode-label-meta" class="video-meta"></p>
+          <div class="episode-label-grid">
+            <fieldset class="label-outcome">
+              <legend>Outcome</legend>
+              <label class="success"><input type="radio" name="label-outcome" value="success"> Success</label>
+              <label class="failure"><input type="radio" name="label-outcome" value="failure"> Failure</label>
+              <label><input type="radio" name="label-outcome" value="unlabeled"> Unlabeled</label>
+            </fieldset>
+            <label>Partial score
+              <input id="label-score" autocomplete="off" maxlength="32" placeholder="3/5, 0.6 or 60%">
+            </label>
+            <label>Project
+              <input id="label-project" list="label-projects" autocomplete="off" maxlength="120" placeholder="e.g. stationery stack comparison">
+            </label>
+            <label>Model
+              <input id="label-model" list="label-models" autocomplete="off" maxlength="200">
+            </label>
+            <label class="label-notes">Notes
+              <textarea id="label-notes" rows="2" maxlength="2000" placeholder="What happened, where it failed"></textarea>
+            </label>
+          </div>
+          <datalist id="label-projects"></datalist>
+          <datalist id="label-models"></datalist>
+          <div class="actions">
+            <button id="label-save" type="submit" class="success">Save labels</button>
+            <button id="label-later" type="button">Later</button>
+            <span id="label-status" class="video-meta" role="status"></span>
+          </div>
+        </form>
       </section>
       <p id="episode-status" class="overlay-status" hidden></p>
       <section class="reset-guide-controls" aria-label="Visual reset guides">
@@ -155,6 +195,6 @@
     </dialog>
     <!-- Generated from robot/reset_overlay_templates.yaml. Run build_reset_guides.py. -->
     <script id="reset-guide-catalog" type="application/json">{"version":1,"templates":[{"id":"rl2-yam-earbuds-20261010","label":"Earbuds \u2014 left / case / right","camera":"front_img_1","image_size":[640,480],"provenance":{"camera_serial":"230322272195","captured_at":"2026-10-10T22:56:09-04:00","source_image_sha256":"ba58a2044fbaef73f4f916a067323752ea8916580ee22b546de21bc558b73336","placement":"User-confirmed table-plane projection: size 105.7, x 0, y 63.5","warning":"Recheck placement after moving the camera or table. Not surveyed calibration."},"regions":[{"label":"Left","points":[[216.06140961614906,231.80945168925663],[283.22134650936016,231.45398786744497],[280.2821555535088,295.01799006867714],[207.04833752125842,295.1446907785335]]},{"label":"Case","points":[[283.22134650936016,231.45398786744497],[350.7955911838059,231.12289178846373],[354.0180506380843,294.7067966731917],[280.2821555535088,295.01799006867714]]},{"label":"Right","points":[[350.7955911838059,231.12289178846373],[418.1763060993439,230.81930061865893],[427.51468215290413,294.2126378607729],[354.0180506380843,294.7067966731917]]}]}]}</script>
-    <script type="module" src="/app.js?v=15"></script>
+    <script type="module" src="/app.js?v=16"></script>
   </body>
 </html>

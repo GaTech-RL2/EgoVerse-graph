@@ -48,9 +48,16 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   Preserve main's failed-model-selection lockout; never resume the old model
   implicitly. HDF5 episode capture must enqueue existing observations/commands
   without adding a motion path or blocking a control tick on disk writes.
+  Auto-record starts one episode (plus its MP4) per Start; model/W&B metadata
+  (`rollout_metadata.py`) is read once per loaded model, never per tick, and a
+  metadata failure must never block a rollout or a recording.
+- `rollout_episode.py`: episode writer, manifests and operator label sidecars
+  (`<episode>.labels.json`, revision history kept). Never reopen or rewrite a
+  finalized HDF5 file to store labels; never overwrite an unreadable sidecar.
 - `rollout_dashboard.py`: the server-owned monotonic timer starts at Continue,
   excludes explicit pauses and camera/model holds, survives browser reconnects,
-  and resets on Restart. Keep numeric/boolean/enum controls model-owned.
+  and resets on Restart. Keep numeric/boolean/enum controls model-owned. Its
+  only file write is the same-origin JSON label endpoint for finalized episodes.
 - `virtual_gello_teleop.py`: MuJoCo-only followers with generated or passive
   real GELLO inputs. Reuse the shared leader reader/controller and the supplied
   combined calibration/home; absolute checks must preserve full-turn errors.

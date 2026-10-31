@@ -424,9 +424,35 @@ and termination use decode-only helpers and do not alter training targets.
 
 The dashboard's **Record episode (d)** control captures the same top-level HDF5
 observations/actions/cameras as GELLO collection. It also records policy plans,
-per-row timestamps and inference settings under `rollout/`. Save a take as
+per-row timestamps and inference settings under `rollout/`. End a take as
 success, failure or unlabeled; discard removes only that take. **Recorded
 episodes** lists finalized takes. MP4 capture remains available independently.
+
+With `episode_recording.auto_start: true` (the RL2 profiles) every Start begins
+an episode and, when video recording is enabled, its MP4; the two share the take
+and end together. Pause keeps the take. Reset (r), a model change, a camera
+reconnect, **End episode** or a recording failure ends it; the next Start begins
+a new one. The **Auto-record** checkbox switches this off for the session from
+the next Start. Each episode stores, without operator input, the model it ran:
+checkpoint path, step and SHA-256 (from `SHA256SUMS`, provenance or the file
+name; the checkpoint is not re-hashed), SHA-256 of the resolved config, data
+context and inference config, the training run's W&B entity, project, run id,
+name, tags and URL, the bundle's `provenance.json`, and the station checkout and
+commit. The manifest JSON carries this summary; the HDF5 file also holds the
+resolved config, inference config and provenance texts under `rollout/model/`
+and the station settings at the start of the take.
+
+When a take ends, the label form opens for it: outcome, partial score (`3/5`,
+`0.6` or `60%`, stored as a fraction plus the text entered), project, model and
+notes. Project and model are prefilled from the previous labels (the model label
+used last for the same checkpoint, else the run name and step). Labels are
+written to `<episode>.labels.json` beside the HDF5 file, which is not reopened;
+every revision is kept under `history`, and **Recorded episodes** can edit them
+later. **Later** leaves a take unlabeled. The index of all takes (recording,
+model/W&B identity, labels) is printed without opening any device by
+`python -m egomimic.robot.rollout_episode <episode directory> [--format csv|jsonl]`.
+Auto-recording writes about 4–5 GB per minute of rollout, so check `df -h /`
+before long sessions; the free-space floor below still applies.
 
 The background writer uses a bounded queue. Slow disk, a full queue or low free
 space ends capture as incomplete without adding robot commands or blocking the

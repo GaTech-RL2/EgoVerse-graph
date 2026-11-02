@@ -25,6 +25,8 @@ from typing import Mapping
 
 import yaml
 
+from egomimic.pipeline.inference_config import find_inference_config
+
 MODEL_METADATA_SCHEMA = "rl2_yam.rollout_model.v1"
 # Text sidecars stored verbatim in each episode (``rollout/model/<name>``).
 MAX_DOCUMENT_BYTES = 4 * 2**20
@@ -216,13 +218,25 @@ def model_metadata(policy: Mapping | None) -> tuple[dict, dict[str, str]]:
     if info["epoch"] is None:
         info["epoch"] = _int_or_none(artifact.get("epoch"))
 
+    sources = dict(policy)
+    if policy.get("kind") == "graph" and not policy.get("inference_config"):
+        # Without an explicit path the graph loader reads the model-owned
+        # artifact beside the checkpoint; record that same file.
+        try:
+            found = find_inference_config(checkpoint)
+        except OSError as error:
+            errors.append(f"inference_config: {error}")
+            found = None
+        if found is not None:
+            sources["inference_config"] = str(found)
+
     training = None
     for key, document in (
         ("training_config", "resolved_config_yaml"),
         ("inference_config", "inference_config_yaml"),
         ("normalizer_path", None),
     ):
-        value = policy.get(key)
+        value = sources.get(key)
         if not isinstance(value, str) or not value:
             metadata[key] = None
             continue

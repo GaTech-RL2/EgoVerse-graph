@@ -66,6 +66,9 @@ video_recording:
 # The low-disk guard ends capture without changing robot execution.
 episode_recording:
   enabled: true
+  # Every Start records an episode plus its MP4 until Reset / model change /
+  # camera reconnect / End episode; the dashboard checkbox turns it off.
+  auto_start: true
   directory: /home/rohan/rollouts/yam_hptflow/episodes
   min_free_gb: 20.0
   max_queued_rows: 60

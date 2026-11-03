@@ -17,6 +17,14 @@ let episodeFrames = 0;
 let episodeRequestPending = false;
 let episodeLastSaved;
 let episodeRequestTimer;
+let autoRecord = false;
+let autoRecordPending = null;
+let autoRecordTimer;
+// Finished episodes waiting for the label form, oldest first.
+const labelQueue = [];
+const promptedEpisodes = new Set();
+let labelEpisodeId = null;
+let labelSource = null;
 let modelBrowserEnabled = false;
 let currentCheckpoint;
 let modelDirectory = '.';
@@ -286,6 +294,180 @@ function describeEpisode(episode) {
   return `${episode.id} · ${episode.outcome} · ${episode.frames} frames · ${formatDuration(episode.duration_seconds)} · ${state}`;
 }
 
+function describeLabels(labels) {
+  if (!labels) return 'not labeled';
+  const parts = [labels.outcome];
+  if (labels.partial_score_text) parts.push(`score ${labels.partial_score_text}`);
+  if (labels.project) parts.push(labels.project);
+  if (labels.model) parts.push(labels.model);
+  return parts.join(' · ');
+}
+
+function describeModel(model) {
+  // Filled in automatically from the checkpoint bundle when the take started.
+  if (!model) return 'model metadata not recorded';
+  const parts = [];
+  const checkpoint = model.checkpoint || {};
+  if (checkpoint.name) parts.push(checkpoint.name);
+  if (Number.isInteger(checkpoint.global_step)) parts.push(`step ${checkpoint.global_step}`);
+  const wandb = model.wandb || {};
+  if (wandb.run_id) parts.push(`W&B ${[wandb.entity, wandb.project, wandb.run_id].filter(Boolean).join('/')}`);
+  const commit = model.runtime?.code_commit;
+  if (commit) parts.push(`station ${commit.slice(0, 8)}${model.runtime.code_dirty ? '+dirty' : ''}`);
+  if (model.errors?.length) parts.push(`metadata gaps: ${model.errors.join('; ')}`);
+  return parts.join(' · ') || 'model metadata not recorded';
+}
+
+function updateAutoRecord() {
+  const box = $('auto-record');
+  box.disabled = !episodeEnabled;
+  if (autoRecordPending === null) box.checked = autoRecord;
+}
+
+function applyAutoRecord(value) {
+  autoRecord = Boolean(value);
+  if (autoRecordPending !== null && autoRecord === autoRecordPending) autoRecordPending = null;
+  updateAutoRecord();
+}
+
+function requestAutoRecord(enabled) {
+  if (!send({auto_record: enabled})) {
+    reportDisconnected();
+    updateAutoRecord();
+    return;
+  }
+  autoRecordPending = enabled;
+  clearTimeout(autoRecordTimer);
+  autoRecordTimer = setTimeout(() => {
+    autoRecordPending = null;
+    updateAutoRecord();
+  }, 3000);
+}
+
+function queueLabel(saved) {
+  if (!saved?.id || promptedEpisodes.has(saved.id)) return;
+  promptedEpisodes.add(saved.id);
+  labelQueue.push(saved.id);
+  if (labelEpisodeId === null) openNextLabel();
+  else updateLabelQueue();
+}
+
+function updateLabelQueue() {
+  $('episode-label-queue').textContent = labelQueue.length
+    ? `${labelQueue.length} more ${labelQueue.length === 1 ? 'episode' : 'episodes'} waiting for labels`
+    : '';
+}
+
+async function openNextLabel() {
+  while (labelQueue.length) {
+    if (await openLabel(labelQueue.shift(), 'auto')) return;
+  }
+  closeLabel();
+}
+
+function closeLabel() {
+  labelEpisodeId = null;
+  labelSource = null;
+  $('episode-label').hidden = true;
+  updateLabelQueue();
+}
+
+function fillDatalist(id, values) {
+  const list = $(id);
+  list.replaceChildren();
+  for (const value of values || []) {
+    const option = document.createElement('option');
+    option.value = value;
+    list.append(option);
+  }
+}
+
+async function openLabel(id, source) {
+  let form;
+  try {
+    const response = await fetch(`/api/episodes/${encodeURIComponent(id)}/labels`, {cache: 'no-store'});
+    if (!response.ok) throw Error((await response.text()) || `Could not load episode ${id} (${response.status})`);
+    form = await response.json();
+  } catch (error) {
+    $('episode-status').hidden = false;
+    $('episode-status').textContent = `Could not open labels for ${id}: ${error.message}`;
+    return false;
+  }
+  // A take labeled already (for example before this tab reloaded) is not asked again.
+  if (source === 'auto' && form.episode.labels) return false;
+  labelEpisodeId = id;
+  labelSource = source;
+  const episode = form.episode;
+  const labels = form.suggested;
+  $('episode-label-title').textContent = episode.labels
+    ? `Edit labels · ${episode.id} (revision ${episode.labels_revision})`
+    : `Label episode · ${episode.id}`;
+  const meta = $('episode-label-meta');
+  meta.replaceChildren(`${episode.frames} frames · ${formatDuration(episode.duration_seconds)} · `
+    + `${episode.complete ? 'complete' : `incomplete (${episode.end_reason})`} · ${describeModel(episode.model)}`);
+  const url = episode.model?.wandb?.url;
+  if (url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'open W&B run';
+    meta.append(' · ', link);
+  }
+  for (const radio of document.querySelectorAll('input[name="label-outcome"]')) {
+    radio.checked = radio.value === (labels.outcome || 'unlabeled');
+  }
+  $('label-score').value = labels.partial_score_text || '';
+  $('label-project').value = labels.project || '';
+  $('label-model').value = labels.model || '';
+  $('label-notes').value = labels.notes || '';
+  fillDatalist('label-projects', form.choices?.projects);
+  fillDatalist('label-models', form.choices?.models);
+  $('label-status').textContent = '';
+  $('label-save').disabled = false;
+  $('episode-label').hidden = false;
+  updateLabelQueue();
+  return true;
+}
+
+async function saveLabels(event) {
+  event.preventDefault();
+  const id = labelEpisodeId;
+  if (id === null) return;
+  const outcome = document.querySelector('input[name="label-outcome"]:checked')?.value || 'unlabeled';
+  const body = {
+    outcome,
+    partial_score: $('label-score').value,
+    project: $('label-project').value,
+    model: $('label-model').value,
+    notes: $('label-notes').value,
+  };
+  $('label-save').disabled = true;
+  $('label-status').textContent = 'Saving…';
+  try {
+    const response = await fetch(`/api/episodes/${encodeURIComponent(id)}/labels`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw Error((await response.text()) || `Could not save labels (${response.status})`);
+    const record = await response.json();
+    $('episode-status').hidden = false;
+    $('episode-status').textContent = `Labeled ${id}: ${describeLabels(record.labels)}`;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if ($('episodes').open) loadEpisodes();
+    await openNextLabel();
+  } catch (error) {
+    $('label-status').textContent = error.message;
+    $('label-save').disabled = false;
+  }
+}
+
+function skipLabel() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  openNextLabel();
+}
+
 function updateEpisodeControls() {
   updateRecordingIndicator();
   const button = $('record-episode');
@@ -297,10 +479,14 @@ function updateEpisodeControls() {
   for (const save of document.querySelectorAll('#episode-save button')) {
     save.disabled = episodeRequestPending;
   }
-  $('episode-title').textContent = `Recording episode · ${episodeFrames} frames`;
+  $('episode-title').textContent = `Recording episode · ${episodeFrames} frames${autoRecord ? ' · auto-recorded from Start' : ''}`;
   const last = $('episode-status');
-  last.hidden = episodeRecording || !episodeLastSaved;
-  if (episodeLastSaved) last.textContent = `Last episode saved: ${describeEpisode(episodeLastSaved)}`;
+  // Keep a label confirmation or error until the next take ends.
+  if (episodeLastSaved && (!last.textContent || last.textContent.startsWith('Last episode saved'))) {
+    last.textContent = `Last episode saved: ${describeEpisode(episodeLastSaved)}`;
+  }
+  last.hidden = episodeRecording || !last.textContent;
+  updateAutoRecord();
 }
 
 function updateModelControl() {
@@ -438,7 +624,13 @@ function applyEpisodeState(message) {
   if (recording !== episodeRecording) episodeRequestPending = false;
   episodeRecording = recording;
   episodeFrames = Number(message.episode_frames) || 0;
-  if (message.episode_last_saved) episodeLastSaved = message.episode_last_saved;
+  if ('auto_record' in message) applyAutoRecord(message.auto_record);
+  const saved = message.episode_last_saved;
+  if (saved && saved.id !== episodeLastSaved?.id) {
+    $('episode-status').textContent = '';
+    queueLabel(saved);
+  }
+  if (saved) episodeLastSaved = saved;
 }
 
 function togglePause() {
@@ -870,11 +1062,27 @@ async function loadEpisodes() {
       const name = document.createElement('span');
       name.className = 'video-name';
       name.textContent = episode.filename;
+      const labels = document.createElement('span');
+      labels.className = 'episode-labels';
+      labels.textContent = describeLabels(episode.labels)
+        + (episode.labels?.notes ? ` · “${episode.labels.notes}”` : '');
       const detail = document.createElement('span');
       detail.className = 'video-detail';
       const size = (episode.size_bytes / 1e9).toFixed(1);
-      detail.textContent = `${describeEpisode(episode)} · ${size} GB · ${episode.checkpoint || 'checkpoint unknown'}`;
-      row.append(name, detail);
+      const video = episode.video_id ? ` · video ${episode.video_id}` : '';
+      detail.textContent = `${describeEpisode(episode)} · ${size} GB${video} · `
+        + (episode.model ? describeModel(episode.model) : (episode.checkpoint || 'checkpoint unknown'));
+      const edit = document.createElement('button');
+      edit.className = 'episode-edit';
+      edit.textContent = episode.labels ? 'Edit labels' : 'Label';
+      edit.onclick = async () => {
+        $('episodes').close();
+        if (labelEpisodeId !== null && labelEpisodeId !== episode.id && labelSource === 'auto') {
+          labelQueue.unshift(labelEpisodeId);
+        }
+        await openLabel(episode.id, 'edit');
+      };
+      row.append(name, labels, detail, edit);
       list.append(row);
     }
     if (!episodes.length) list.textContent = 'No saved rollout episodes yet.';
@@ -892,6 +1100,9 @@ for (const button of document.querySelectorAll('[data-episode-outcome]')) {
   button.onclick = () => saveEpisode(button.dataset.episodeOutcome);
 }
 $('discard-episode').onclick = discardEpisode;
+$('auto-record').onchange = event => requestAutoRecord(event.target.checked);
+$('episode-label-form').onsubmit = saveLabels;
+$('label-later').onclick = skipLabel;
 $('open-episodes').onclick = () => {
   $('episodes').showModal();
   loadEpisodes();
@@ -1012,7 +1223,7 @@ function connect() {
       $('status').textContent = 'A newer tab took over this dashboard; close this one.';
       for (const id of ['start', 'pause', 'record-video', 'record-episode', 'open-videos',
                         'open-episodes', 'select-model', 'restart', 'reconnect-cameras',
-                        'overlay']) $(id).disabled = true;
+                        'overlay', 'auto-record']) $(id).disabled = true;
       setInferenceControlsDisabled(true);
       return;
     }
@@ -1021,6 +1232,7 @@ function connect() {
     $('pause').disabled = true;
     $('record-video').disabled = true;
     $('record-episode').disabled = true;
+    $('auto-record').disabled = true;
     $('open-videos').disabled = true;
     $('open-episodes').disabled = true;
     $('select-model').disabled = true;

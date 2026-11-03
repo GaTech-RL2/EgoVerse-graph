@@ -2,7 +2,8 @@
 
 This module exposes display and high-level rollout requests only. It cannot arm,
 home, or otherwise send robot commands; :mod:`egomimic.robot.rollout` remains
-the sole command path.
+the sole command path. Its only file writes are operator label sidecars for
+finalized rollout episodes (``<episode>.labels.json``).
 """
 
 from __future__ import annotations
@@ -29,8 +30,10 @@ from egomimic.pipeline.inference_config import (
 from egomimic.robot.interface import ARM_OFFSET
 from egomimic.robot.rollout_episode import (
     OUTCOMES,
+    episode_label_form,
     list_rollout_episodes,
     validate_episode_recording,
+    write_episode_labels,
 )
 from egomimic.robot.rollout_video import (
     list_rollout_videos,
@@ -633,6 +636,10 @@ class RolloutDashboard:
         self._episode_frames = 0
         self._episode_last_saved: dict | None = None
         self._episode_request: dict | None = None
+        self._auto_record = bool(
+            self.episode_recording_config["enabled"]
+            and self.episode_recording_config["auto_start"]
+        )
         self._checkpoint = (
             None
             if self.model_browser is None
@@ -739,6 +746,19 @@ class RolloutDashboard:
             return False
         with self._lock:
             self._episode_request = request
+        return True
+
+    def auto_record_enabled(self) -> bool:
+        """Whether the rollout loop starts an episode (and MP4) at each Start."""
+        with self._lock:
+            return self._auto_record
+
+    def request_auto_record(self, enabled: object) -> bool:
+        """Switch auto-record for this session; it applies from the next Start."""
+        if type(enabled) is not bool or not self.episode_recording_config["enabled"]:
+            return False
+        with self._lock:
+            self._auto_record = enabled
         return True
 
     def take_episode_request(self) -> dict | None:
@@ -1080,6 +1100,7 @@ class RolloutDashboard:
                 ),
                 "episode_recording": self._episode_recording,
                 "episode_frames": self._episode_frames,
+                "auto_record": self._auto_record,
                 "episode_last_saved": (
                     None
                     if self._episode_last_saved is None
@@ -1141,6 +1162,7 @@ class RolloutDashboard:
                 gripper_force_limits = dict(self._gripper_force_limits)
                 checkpoint = self._checkpoint
                 rollout_time = self._rollout_timer.snapshot()
+                auto_record = self._auto_record
             for client in superseded:
                 # Closed in the background: an unresponsive stale tab must not
                 # hold up the operator's new one.
@@ -1174,6 +1196,7 @@ class RolloutDashboard:
                         ],
                         "episode_recording": self._episode_recording,
                         "episode_frames": self._episode_frames,
+                        "auto_record": auto_record,
                         "model_browser_enabled": self.model_browser is not None,
                         "checkpoint": checkpoint,
                     }
@@ -1205,6 +1228,8 @@ class RolloutDashboard:
                         self.request_episode_action("save", command["save_episode"])
                     if command.get("discard_episode") is True:
                         self.request_episode_action("discard")
+                    if "auto_record" in command:
+                        self.request_auto_record(command["auto_record"])
                     if "select_model" in command:
                         self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
@@ -1288,7 +1313,56 @@ class RolloutDashboard:
                     list_rollout_episodes(self.episode_recording_config["directory"])
                 )
 
+            async def episode_labels(request):
+                try:
+                    form = await asyncio.to_thread(
+                        episode_label_form,
+                        self.episode_recording_config["directory"],
+                        request.match_info["episode"],
+                    )
+                except FileNotFoundError as error:
+                    raise web.HTTPNotFound(text=str(error)) from error
+                except ValueError as error:
+                    raise web.HTTPConflict(text=str(error)) from error
+                return web.json_response(form)
+
+            async def save_episode_labels(request):
+                # Same-origin JSON only: a page on another origin cannot send this
+                # without a CORS preflight, which the dashboard never answers.
+                origin = request.headers.get("Origin")
+                if (
+                    origin is not None
+                    and origin != f"{request.scheme}://{request.host}"
+                ):
+                    raise web.HTTPForbidden(
+                        text="Cross-origin label writes are refused"
+                    )
+                if request.content_type != "application/json":
+                    raise web.HTTPUnsupportedMediaType(text="Send labels as JSON")
+                if (request.content_length or 0) > 16384:
+                    raise web.HTTPRequestEntityTooLarge(
+                        max_size=16384, actual_size=request.content_length
+                    )
+                try:
+                    labels = await request.json()
+                except ValueError as error:
+                    raise web.HTTPBadRequest(text="Labels must be JSON") from error
+                try:
+                    record = await asyncio.to_thread(
+                        write_episode_labels,
+                        self.episode_recording_config["directory"],
+                        request.match_info["episode"],
+                        labels,
+                    )
+                except FileNotFoundError as error:
+                    raise web.HTTPNotFound(text=str(error)) from error
+                except ValueError as error:
+                    raise web.HTTPBadRequest(text=str(error)) from error
+                return web.json_response(record)
+
             app.router.add_get("/api/episodes", episodes)
+            app.router.add_get("/api/episodes/{episode}/labels", episode_labels)
+            app.router.add_post("/api/episodes/{episode}/labels", save_episode_labels)
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
         await web.TCPSite(runner, self.config["host"], self.config["port"]).start()
@@ -1343,6 +1417,7 @@ class RolloutDashboard:
                         "video_last_saved": snapshot["video_last_saved"],
                         "episode_recording": snapshot["episode_recording"],
                         "episode_frames": snapshot["episode_frames"],
+                        "auto_record": snapshot["auto_record"],
                         "episode_last_saved": snapshot["episode_last_saved"],
                         "checkpoint": snapshot["checkpoint"],
                         "velocity_prompt": snapshot["velocity_prompt"],

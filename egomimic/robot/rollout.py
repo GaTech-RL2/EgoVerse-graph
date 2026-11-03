@@ -17,6 +17,7 @@ from egomimic.robot.rollout_episode import (
     RolloutEpisodeRecorder,
     validate_episode_recording,
 )
+from egomimic.robot.rollout_metadata import model_metadata
 from egomimic.robot.rollout_video import RolloutVideoRecorder, validate_video_recording
 from egomimic.robot.yam.rollout_ik import validate_ik_recovery
 
@@ -236,6 +237,21 @@ def _set_episode_recording(view, recording: bool, frames: int = 0, saved=None) -
         publish(recording, frames=frames, saved=saved)
 
 
+def _auto_record_enabled(view, default: bool) -> bool:
+    """The dashboard's live auto-record switch, else the configured default."""
+    enabled = getattr(view, "auto_record_enabled", None)
+    return bool(enabled()) if callable(enabled) else bool(default)
+
+
+def _episode_model(policy_config):
+    """Bundle/W&B identity for episodes of this model; never blocks a rollout."""
+    try:
+        return model_metadata(policy_config)
+    except Exception as error:  # metadata is evidence, not a precondition
+        print(f"Could not read model metadata for rollout episodes: {error}")
+        return {"errors": [f"{type(error).__name__}: {error}"]}, {}
+
+
 def _episode_actions(robot, commands, row, action_type):
     """Demo-format action columns for one executed tick.
 
@@ -341,10 +357,18 @@ def run_rollout(robot, policy, config, view=None):
         else None
     )
     episode_end_reason = "stop"
+    # Read once per loaded model (bundle sidecar hashes and texts), not per tick.
+    episode_model, episode_documents = (
+        _episode_model(policy_config) if episode_recorder is not None else ({}, {})
+    )
+    # True when the MP4 was started together with the episode and ends with it.
+    paired_video = False
     reset_on_start = config.get("reset_on_start", False)
     reset_home_on_restart = config.get("reset_home_on_restart", False)
     wait_for_start = bool(config.get("preview", {}).get("wait_for_start", False))
     started = not wait_for_start
+    # Auto-record starts on the first running tick after each Start.
+    auto_start_pending = started
     model_ready = True
 
     def publish_ik_relaxation():
@@ -398,9 +422,26 @@ def run_rollout(robot, policy, config, view=None):
             robot.set_home()
         _set_view_status(view, "Ready — press c to start")
 
+    def start_video_recording():
+        """Start the display-only MP4; return its ID, or None if it did not start."""
+        nonlocal video_recording
+        if video_recorder is None or video_recording:
+            return None
+        try:
+            video_id = video_recorder.start()
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"Could not start rollout video recording: {error}")
+            _set_view_status(view, "Could not start local video recording")
+            return None
+        video_recording = True
+        _set_video_recording(view, True)
+        print(f"Recording rollout video {video_id}.mp4")
+        return video_id
+
     def finish_video_recording():
         """Finalize recording without letting a disk failure interrupt robot control."""
-        nonlocal video_recording
+        nonlocal video_recording, paired_video
+        paired_video = False
         if not video_recording or video_recorder is None:
             return None
         video_recording = False
@@ -417,6 +458,68 @@ def run_rollout(robot, policy, config, view=None):
                 f"({saved['frames']} frames at {saved['fps']} fps)"
             )
         return saved
+
+    def session_settings():
+        """Station settings in force when an episode starts (plans log changes)."""
+        return {
+            "inference_controls": {
+                name: spec.get("value")
+                for name, spec in _policy_inference_controls(policy).items()
+                if isinstance(spec, Mapping)
+            },
+            "gripper_force_limits": dict(force_limits),
+            "ik_solver": solver_settings.get("backend"),
+            "ik_relaxation": bool(relaxation["enabled"]),
+        }
+
+    def start_episode(auto=False):
+        """Start one demo-format episode; ``auto`` also starts a paired MP4."""
+        nonlocal paired_video
+        if episode_recorder is None or episode_recorder.recording:
+            return None
+        if not callable(getattr(robot, "forward_kinematics", None)):
+            _set_view_status(
+                view,
+                "This robot runtime has no forward kinematics; "
+                "cannot record a demo-format episode",
+            )
+            return None
+        video_id = video_recorder.video_id if video_recording else None
+        started_video = False
+        if auto and video_id is None and video_recorder is not None:
+            video_id = start_video_recording()
+            started_video = video_id is not None
+        metadata = {
+            "checkpoint": (policy_config or {}).get("checkpoint"),
+            "policy_config": policy_config,
+            "action_type": policy.action_type,
+            "frequency": frequency,
+            "auto_started": bool(auto),
+            "video_id": video_id,
+            "model": episode_model,
+            "session": session_settings(),
+        }
+        try:
+            episode_id = episode_recorder.start(metadata, documents=episode_documents)
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"Could not start rollout episode recording: {error}")
+            _set_view_status(view, f"Episode not started: {error}")
+            if started_video:
+                finish_video_recording()
+            return None
+        paired_video = paired_video or started_video
+        _set_episode_recording(view, True, frames=0)
+        print(f"Recording rollout episode {episode_id}.hdf5")
+        return episode_id
+
+    def end_episode_capture(outcome="unlabeled", complete=True, end_reason="saved"):
+        """End the episode and the MP4 that auto-record started with it."""
+        episode_id = finish_episode(
+            outcome=outcome, complete=complete, end_reason=end_reason
+        )
+        if paired_video:
+            finish_video_recording()
+        return episode_id
 
     def finish_episode(outcome="unlabeled", complete=True, end_reason="saved"):
         """Stop episode capture; the recorder finalizes the file off the control loop."""
@@ -556,6 +659,8 @@ def run_rollout(robot, policy, config, view=None):
                 else:
                     policy, policy_config = candidate, candidate_config
                     model_ready = True
+                    if episode_recorder is not None:
+                        episode_model, episode_documents = _episode_model(policy_config)
                     _set_model_checkpoint(view, bundle)
                     _set_inference_controls(view, _policy_inference_controls(candidate))
                     _set_view_status(view, "Selected model loaded — press c to start")
@@ -665,16 +770,8 @@ def run_rollout(robot, policy, config, view=None):
                     finish_video_recording()
                 elif not started:
                     _set_view_status(view, "Press c to start before recording video")
-                elif video_recorder is not None:
-                    try:
-                        video_id = video_recorder.start()
-                    except (OSError, RuntimeError, ValueError) as error:
-                        print(f"Could not start rollout video recording: {error}")
-                        _set_view_status(view, "Could not start local video recording")
-                    else:
-                        video_recording = True
-                        _set_video_recording(view, True)
-                        print(f"Recording rollout video {video_id}.mp4")
+                else:
+                    start_video_recording()
             if video_recording and video_recorder is not None:
                 try:
                     video_recorder.append(obs)
@@ -689,29 +786,10 @@ def run_rollout(robot, policy, config, view=None):
                         _set_view_status(
                             view, "Press c to start before recording an episode"
                         )
-                    elif not callable(getattr(robot, "forward_kinematics", None)):
-                        _set_view_status(
-                            view,
-                            "This robot runtime has no forward kinematics; "
-                            "cannot record a demo-format episode",
-                        )
                     else:
-                        metadata = {
-                            "checkpoint": (policy_config or {}).get("checkpoint"),
-                            "policy_config": policy_config,
-                            "action_type": policy.action_type,
-                            "frequency": frequency,
-                        }
-                        try:
-                            episode_id = episode_recorder.start(metadata)
-                        except (OSError, RuntimeError, ValueError) as error:
-                            print(f"Could not start rollout episode recording: {error}")
-                            _set_view_status(view, f"Episode not started: {error}")
-                        else:
-                            _set_episode_recording(view, True, frames=0)
-                            print(f"Recording rollout episode {episode_id}.hdf5")
+                        start_episode()
                 elif action == "save":
-                    finish_episode(
+                    end_episode_capture(
                         outcome=episode_request.get("outcome", "unlabeled"),
                         end_reason="saved",
                     )
@@ -720,7 +798,7 @@ def run_rollout(robot, policy, config, view=None):
             if episode_recorder is not None:
                 if episode_recorder.recording and episode_recorder.failure:
                     reason = episode_recorder.failure
-                    finish_episode(complete=False, end_reason=reason)
+                    end_episode_capture(complete=False, end_reason=reason)
                     _set_view_status(
                         view,
                         "Episode recording stopped: "
@@ -743,10 +821,19 @@ def run_rollout(robot, policy, config, view=None):
                         )
                         continue
                     started = True
+                    auto_start_pending = True
                     _set_view_status(view, "Running")
                 else:
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
+            if auto_start_pending:
+                # One episode per Start: pause/resume keeps the take; Restart,
+                # a model change or a camera reconnect ends it.
+                auto_start_pending = False
+                if episode_recorder is not None and _auto_record_enabled(
+                    view, episode_config["auto_start"]
+                ):
+                    start_episode(auto=True)
             if not all(obs.get(name) is not None for name in robot.camera_res):
                 waiting_since = tick if waiting_since is None else waiting_since
                 if tick - waiting_since > float(config.get("camera_timeout", 30.0)):
@@ -919,6 +1006,8 @@ def run_rollout(robot, policy, config, view=None):
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                     continue
                 if decision == "restart":
+                    # Same as r: the take and any video end at the home reset.
+                    finish_video_recording()
                     finish_episode(end_reason="restart")
                     reset_to_ready()
                     time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))

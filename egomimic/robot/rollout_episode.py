@@ -5,7 +5,16 @@ GELLO demonstration: measured joints and EEF poses, the joint command sent to
 each arm, the forward kinematics of that command, and one RGB frame per camera
 per row. A rollout episode therefore replays, converts and loads like a demo.
 Rollout-only data lives under ``rollout/``: per-row timestamps and plan index,
-the policy's Cartesian target, and every plan with its inference settings.
+the policy's Cartesian target, every plan with its inference settings, and under
+``rollout/model/`` the checkpoint bundle's own text sidecars (resolved training
+config, inference config, provenance) so the episode names the exact model.
+
+Operator labels (outcome, partial score, project, model, notes) live in a
+``<episode>.labels.json`` sidecar beside the finalized file. They can be edited
+after the take; each revision keeps the previous ones, and the HDF5 file is never
+reopened for them. ``python -m egomimic.robot.rollout_episode <directory>``
+prints the joined index (episode, model/W&B identity, labels) without opening
+any device.
 
 A background thread owns the file, so the multi-megabyte image rows are never
 written inside the control tick; the rollout loop only enqueues copies. Like the
@@ -14,11 +23,14 @@ MP4 recorder, this observes the rollout and has no robot command path.
 
 from __future__ import annotations
 
+import argparse
+import csv
 import json
 import math
 import queue
 import re
 import shutil
+import sys
 import threading
 import time
 from copy import deepcopy
@@ -33,11 +45,17 @@ from egomimic.robot.collect_demo import EpisodeWriter
 
 EPISODE_RECORDING_DEFAULTS = {
     "enabled": False,
+    # Start an episode (and the MP4, when video recording is enabled) at every
+    # rollout start. The dashboard can switch this off for the session.
+    "auto_start": False,
     "directory": "/home/rohan/rollouts/yam_hptflow/episodes",
     "min_free_gb": 20.0,
     "max_queued_rows": 60,
 }
 OUTCOMES = ("success", "failure", "unlabeled")
+LABELS_SCHEMA = "rl2_yam.rollout_labels.v1"
+LABEL_FIELDS = ("outcome", "partial_score", "project", "model", "notes")
+LABEL_TEXT_LIMITS = {"project": 120, "model": 200, "notes": 2000}
 END_REASONS = (
     "saved",
     "restart",
@@ -62,8 +80,9 @@ def validate_episode_recording(config: Mapping[str, object] | None) -> dict:
             "Unknown episode_recording option(s): " + ", ".join(sorted(unknown))
         )
     result = {**deepcopy(EPISODE_RECORDING_DEFAULTS), **config}
-    if type(result["enabled"]) is not bool:
-        raise ValueError("episode_recording.enabled must be a boolean")
+    for name in ("enabled", "auto_start"):
+        if type(result[name]) is not bool:
+            raise ValueError(f"episode_recording.{name} must be a boolean")
     directory = result["directory"]
     if not isinstance(directory, str) or not directory:
         raise ValueError("episode_recording.directory must be a nonempty path")
@@ -90,13 +109,23 @@ def _episode_id() -> str:
     return "rollout_" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
 
 
+def is_episode_id(value: object) -> bool:
+    return isinstance(value, str) and _EPISODE_ID.fullmatch(value) is not None
+
+
 def list_rollout_episodes(directory: str | Path) -> list[dict]:
-    """Return finalized rollout episode manifests, newest first."""
+    """Return finalized rollout episode manifests with their labels, newest first.
+
+    ``outcome`` is the operator's latest label when one exists; the outcome the
+    recorder wrote at the end of the take stays in ``recorded_outcome``.
+    """
     directory = Path(directory)
     if not directory.is_dir():
         return []
     episodes = []
     for manifest_path in directory.glob("rollout_*.json"):
+        if manifest_path.name.endswith(".labels.json"):
+            continue
         try:
             payload = json.loads(manifest_path.read_text())
             episode_id, filename = payload["id"], payload["filename"]
@@ -111,10 +140,294 @@ def list_rollout_episodes(directory: str | Path) -> list[dict]:
             path = directory / filename
             if not path.is_file():
                 continue
-            episodes.append({**payload, "size_bytes": path.stat().st_size})
+            episode = {
+                **payload,
+                "size_bytes": path.stat().st_size,
+                "recorded_outcome": payload.get("outcome", "unlabeled"),
+                "labels": None,
+                "labels_revision": 0,
+            }
+            try:
+                record = read_episode_labels(directory, episode_id)
+            except ValueError:
+                record = None  # an unreadable sidecar is left alone, not hidden data
+            if record is not None:
+                episode.update(
+                    labels=record["labels"],
+                    labels_revision=record["revision"],
+                    labeled_at=record["labeled_at"],
+                    outcome=record["labels"]["outcome"],
+                )
+            episodes.append(episode)
         except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
             continue
     return sorted(episodes, key=lambda episode: episode["id"], reverse=True)
+
+
+def parse_partial_score(value: object) -> tuple[float | None, str]:
+    """Parse ``3/5``, ``0.6`` or ``60%`` into a fraction in [0, 1].
+
+    Returns ``(fraction, text as entered)``; an empty entry is ``(None, "")``.
+    """
+    if value is None:
+        return None, ""
+    if isinstance(value, bool):
+        raise ValueError("partial_score must be text such as 3/5, 0.6 or 60%")
+    text = str(value).strip()
+    if not text:
+        return None, ""
+    if len(text) > 32:
+        raise ValueError("partial_score is too long")
+    number = r"(\d+(?:\.\d*)?|\.\d+)"
+    try:
+        if match := re.fullmatch(number + r"\s*/\s*" + number, text):
+            done, total = float(match.group(1)), float(match.group(2))
+            if total <= 0 or done > total:
+                raise ValueError
+            score = done / total
+        elif match := re.fullmatch(number + r"\s*%", text):
+            score = float(match.group(1)) / 100
+        elif re.fullmatch(number, text):
+            score = float(text)
+        else:
+            raise ValueError
+    except ValueError:
+        raise ValueError(
+            "partial_score must be a fraction such as 3/5, 0.6 or 60%"
+        ) from None
+    if not 0 <= score <= 1:
+        raise ValueError("partial_score must be between 0 and 1 (0% to 100%)")
+    return round(score, 6), text
+
+
+def validate_episode_labels(labels: object) -> dict:
+    """Validate one operator label entry and return its stored form."""
+    if not isinstance(labels, Mapping):
+        raise ValueError("Episode labels must be a mapping")
+    unknown = set(labels) - set(LABEL_FIELDS)
+    if unknown:
+        raise ValueError("Unknown episode label(s): " + ", ".join(sorted(unknown)))
+    outcome = labels.get("outcome", "unlabeled")
+    if outcome not in OUTCOMES:
+        raise ValueError(f"outcome must be one of {OUTCOMES}")
+    score, score_text = parse_partial_score(labels.get("partial_score"))
+    result = {
+        "outcome": outcome,
+        "partial_score": score,
+        "partial_score_text": score_text,
+    }
+    for name, limit in LABEL_TEXT_LIMITS.items():
+        value = labels.get(name)
+        value = "" if value is None else value
+        if not isinstance(value, str):
+            raise ValueError(f"{name} must be text")
+        value = value.strip()
+        if len(value) > limit:
+            raise ValueError(f"{name} must be at most {limit} characters")
+        allowed = "\n\t" if name == "notes" else ""
+        if any(ord(char) < 32 and char not in allowed for char in value):
+            raise ValueError(f"{name} contains control characters")
+        result[name] = value
+    return result
+
+
+def _labels_path(directory: Path, episode_id: str) -> Path:
+    return directory / f"{episode_id}.labels.json"
+
+
+def read_episode_labels(directory: str | Path, episode_id: str) -> dict | None:
+    """Return one episode's label record, or None when it has never been labeled."""
+    if not is_episode_id(episode_id):
+        raise ValueError("Unknown rollout episode")
+    path = _labels_path(Path(directory), episode_id)
+    if not path.is_file():
+        return None
+    try:
+        record = json.loads(path.read_text())
+        if (
+            record.get("schema") != LABELS_SCHEMA
+            or record.get("id") != episode_id
+            or type(record.get("revision")) is not int
+            or not isinstance(record.get("labels"), dict)
+        ):
+            raise ValueError
+        record["labels"] = validate_episode_labels(
+            {
+                key: (
+                    record["labels"].get("partial_score_text")
+                    if key == "partial_score"
+                    else record["labels"].get(key)
+                )
+                for key in LABEL_FIELDS
+            }
+        )
+    except (OSError, ValueError, TypeError, AttributeError, json.JSONDecodeError):
+        raise ValueError(f"{path.name} is unreadable; fix or move it by hand") from None
+    return record
+
+
+_LABELS_LOCK = threading.Lock()
+
+
+def write_episode_labels(
+    directory: str | Path, episode_id: str, labels: Mapping[str, object]
+) -> dict:
+    """Store an operator label revision for one finalized episode.
+
+    The sidecar is replaced atomically and keeps every earlier revision under
+    ``history``; the HDF5 file is not opened. An unreadable existing sidecar is
+    never overwritten.
+    """
+    directory = Path(directory)
+    if not is_episode_id(episode_id) or not all(
+        (directory / f"{episode_id}{suffix}").is_file() for suffix in (".hdf5", ".json")
+    ):
+        raise FileNotFoundError("Unknown or still-recording rollout episode")
+    clean = validate_episode_labels(labels)
+    with _LABELS_LOCK:
+        current = read_episode_labels(directory, episode_id)
+        if current is not None and current["labels"] == clean:
+            return current
+        history = []
+        if current is not None:
+            history = list(current.get("history") or [])
+            history.append(
+                {
+                    "revision": current["revision"],
+                    "labeled_at": current.get("labeled_at"),
+                    "labels": current["labels"],
+                }
+            )
+        record = {
+            "schema": LABELS_SCHEMA,
+            "id": episode_id,
+            "revision": 1 if current is None else current["revision"] + 1,
+            "labeled_at": datetime.now(timezone.utc).isoformat(),
+            "labels": clean,
+            "history": history,
+        }
+        temporary = directory / f".{episode_id}.labels.partial.json"
+        temporary.write_text(json.dumps(record, indent=2) + "\n")
+        temporary.replace(_labels_path(directory, episode_id))
+    return record
+
+
+def episode_label_form(directory: str | Path, episode_id: str) -> dict:
+    """One episode with its labels, prefilled suggestions and earlier choices.
+
+    Suggestions for an unlabeled take: the recorded outcome, the most recent
+    project label, the model label last used for the same checkpoint, else the
+    bundle's label hint (W&B/provenance run name and step).
+    """
+    episodes = list_rollout_episodes(directory)
+    episode = next((item for item in episodes if item["id"] == episode_id), None)
+    if episode is None:
+        raise FileNotFoundError("Unknown or still-recording rollout episode")
+    projects, models = [], []
+    project = model = None
+    for other in episodes:
+        labels = other.get("labels")
+        if not labels:
+            continue
+        if labels["project"] and labels["project"] not in projects:
+            projects.append(labels["project"])
+        if labels["model"] and labels["model"] not in models:
+            models.append(labels["model"])
+        if other["id"] == episode_id:
+            continue
+        project = project or labels["project"] or None
+        if (
+            model is None
+            and labels["model"]
+            and episode.get("checkpoint")
+            and other.get("checkpoint") == episode.get("checkpoint")
+        ):
+            model = labels["model"]
+    if episode["labels"] is not None:
+        suggested = dict(episode["labels"])
+    else:
+        hint = (episode.get("model") or {}).get("label_hint")
+        suggested = {
+            "outcome": episode.get("recorded_outcome", "unlabeled"),
+            "partial_score": None,
+            "partial_score_text": "",
+            "project": project or "",
+            "model": model or (hint if isinstance(hint, str) else ""),
+            "notes": "",
+        }
+    return {
+        "episode": episode,
+        "suggested": suggested,
+        "choices": {"projects": projects[:50], "models": models[:50]},
+    }
+
+
+INDEX_COLUMNS = (
+    "id",
+    "created_at",
+    "frames",
+    "duration_seconds",
+    "complete",
+    "end_reason",
+    "outcome",
+    "partial_score",
+    "partial_score_text",
+    "project",
+    "model",
+    "notes",
+    "labels_revision",
+    "checkpoint",
+    "global_step",
+    "checkpoint_sha256",
+    "wandb_entity",
+    "wandb_project",
+    "wandb_run_id",
+    "wandb_url",
+    "video_id",
+    "auto_started",
+    "station_commit",
+    "size_bytes",
+)
+
+
+def episode_index(directory: str | Path) -> list[dict]:
+    """Flat rows joining each episode's recording, model identity and labels."""
+    rows = []
+    for episode in list_rollout_episodes(directory):
+        labels = episode.get("labels") or {}
+        model = episode.get("model") or {}
+        checkpoint = model.get("checkpoint") or {}
+        wandb = model.get("wandb") or {}
+        runtime = model.get("runtime") or {}
+        rows.append(
+            {
+                "id": episode["id"],
+                "created_at": episode.get("created_at"),
+                "frames": episode.get("frames"),
+                "duration_seconds": episode.get("duration_seconds"),
+                "complete": episode.get("complete"),
+                "end_reason": episode.get("end_reason"),
+                "outcome": episode.get("outcome"),
+                "partial_score": labels.get("partial_score"),
+                "partial_score_text": labels.get("partial_score_text", ""),
+                "project": labels.get("project", ""),
+                "model": labels.get("model", ""),
+                "notes": labels.get("notes", ""),
+                "labels_revision": episode.get("labels_revision", 0),
+                "checkpoint": episode.get("checkpoint"),
+                "global_step": checkpoint.get("global_step"),
+                "checkpoint_sha256": checkpoint.get("sha256"),
+                "wandb_entity": wandb.get("entity"),
+                "wandb_project": wandb.get("project"),
+                "wandb_run_id": wandb.get("run_id"),
+                "wandb_url": wandb.get("url"),
+                "video_id": episode.get("video_id"),
+                "auto_started": episode.get("auto_started"),
+                "station_commit": runtime.get("code_commit"),
+                "size_bytes": episode.get("size_bytes"),
+            }
+        )
+    return rows
 
 
 def _attr(value):
@@ -173,8 +486,16 @@ class RolloutEpisodeRecorder:
     def free_gb(self) -> float:
         return shutil.disk_usage(self.directory).free / 1e9
 
-    def start(self, metadata: Mapping[str, object] | None = None) -> str:
-        """Create the episode file; rows are accepted until ``close``."""
+    def start(
+        self,
+        metadata: Mapping[str, object] | None = None,
+        documents: Mapping[str, str] | None = None,
+    ) -> str:
+        """Create the episode file; rows are accepted until ``close``.
+
+        ``documents`` are small text files (the model bundle's resolved config,
+        inference config, provenance) stored verbatim under ``rollout/model``.
+        """
         if self.recording:
             raise RuntimeError("A rollout episode is already recording")
         if self.busy:
@@ -222,6 +543,11 @@ class RolloutEpisodeRecorder:
             plans.create_dataset(
                 "info", (0,), maxshape=(None,), dtype=h5py.string_dtype(), chunks=(256,)
             )
+            model = rollout.create_group("model")
+            for name, text in dict(documents or {}).items():
+                if not isinstance(name, str) or not name.isidentifier():
+                    raise ValueError(f"Invalid episode document name {name!r}")
+                model.create_dataset(name, data=str(text), dtype=h5py.string_dtype())
             created_at = datetime.now(timezone.utc).isoformat()
             attrs = {
                 "kind": "rollout",
@@ -246,12 +572,17 @@ class RolloutEpisodeRecorder:
         self._rows, self._plan_index = 0, -1
         self._t0 = time.monotonic()
         self._next_disk_check = self._t0 + _DISK_CHECK_SECONDS
+        metadata = dict(metadata or {})
         manifest = {
             "id": episode_id,
             "filename": path.name,
             "created_at": created_at,
-            "checkpoint": (metadata or {}).get("checkpoint"),
+            "checkpoint": metadata.get("checkpoint"),
             "cameras": list(self.camera_res),
+            "auto_started": bool(metadata.get("auto_started", False)),
+            "video_id": metadata.get("video_id"),
+            "model": metadata.get("model"),
+            "session": metadata.get("session"),
         }
         self._thread = threading.Thread(
             target=self._run,
@@ -524,3 +855,35 @@ class RolloutEpisodeRecorder:
                     pass
         with self._lock:
             self._finished.append(result)
+
+
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Print the rollout episode index (recording, model/W&B identity "
+        "and operator labels). Reads JSON sidecars only; opens no device."
+    )
+    parser.add_argument("directory", help="episode_recording.directory")
+    parser.add_argument("--format", choices=("table", "csv", "jsonl"), default="table")
+    args = parser.parse_args(argv)
+    rows = episode_index(args.directory)
+    if args.format == "jsonl":
+        for row in rows:
+            print(json.dumps(row, sort_keys=True))
+    elif args.format == "csv":
+        writer = csv.DictWriter(sys.stdout, fieldnames=INDEX_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    else:
+        for row in rows:
+            score = row["partial_score_text"] or "-"
+            print(
+                f"{row['id']}  {row['outcome']:<9}  score {score:<6}  "
+                f"{row['project'] or '-'} | {row['model'] or '-'} | "
+                f"W&B {row['wandb_run_id'] or '-'} | {row['frames']} frames"
+            )
+        if not rows:
+            print("No finalized rollout episodes.")
+
+
+if __name__ == "__main__":
+    main()

@@ -476,15 +476,24 @@ model loads. The old loaded model is never resumed implicitly.
 The **Reset guide** menu above the live cameras on both dashboards offers
 **Off** (default) and saved placement templates. The RL2 earbuds template shows
 adjacent left-earbud, case and right-earbud regions projected onto the table in
-`front_img_1`. It is a visual annotation, not surveyed calibration or an
+`front_img_1`. The RL2 stationery template (2026-11-02, from the first front
+frame of a rollout take) outlines both cup rims and puts a numbered crosshair
+on the center of each pen/marker. Rims and centers carry no identity or
+orientation: either cup goes on either rim, and any pen/marker goes on any
+center at any angle, so one guide covers every order and rotation. A guide is a
+visual annotation, not surveyed calibration or an
 automatic reset: recheck placement if the camera or table moves. Guides are SVG
 browser annotations only; raw camera pixels, recorded videos and episodes,
 policy inputs and robot commands are unchanged. They hide when disconnected,
 awaiting frames or on an incompatible image aspect ratio, track the image's
 letterboxing, and survive a websocket reconnect until the page is refreshed.
 
-Template geometry lives in `egomimic/hydra_configs/robot/reset_overlay_templates.yaml`.
-To add or change a template run `python -m egomimic.scripts.build_reset_guides`
+Template geometry lives in `egomimic/hydra_configs/robot/reset_overlay_templates.yaml`,
+in the raw pixels of the named camera. A template draws `regions` (labelled
+polygons) and optional `crosshairs` (labelled points, for a position without a
+fixed outline); either may set `label_point` to move its label off the mark,
+otherwise a region's label sits at its centroid and a crosshair's 22 px below
+it. To add or change a template run `python -m egomimic.scripts.build_reset_guides`
 and commit both generated dashboard catalogs and the rollout renderer;
 `--check` detects a stale catalog or renderer drift. The renderer is
 task-agnostic (its canonical block lives in `teleop_dashboard_static/app.js`;

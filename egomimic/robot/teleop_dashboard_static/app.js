@@ -28,20 +28,30 @@ function validateResetCatalog(catalog) {
   if (catalog?.version !== 1 || !Array.isArray(catalog.templates)) throw new Error('Unsupported reset template catalog');
   const ids = new Set();
   for (const template of catalog.templates) {
+    const inImage = point => Array.isArray(point) && point.length === 2
+      && point.every((n, axis) => Number.isFinite(n) && n >= 0 && n <= template.image_size[axis]);
+    // Optional label anchors keep text off thin or small marks.
+    const labelled = item => item && typeof item.label === 'string' && item.label
+      && (item.label_point === undefined || inImage(item.label_point));
     if (!template || typeof template.id !== 'string' || !template.id || ids.has(template.id)
         || typeof template.label !== 'string' || !template.label
         || typeof template.camera !== 'string' || !template.camera
         || !Array.isArray(template.image_size) || template.image_size.length !== 2
         || !template.image_size.every(n => Number.isInteger(n) && n > 0)
-        || !Array.isArray(template.regions) || !template.regions.length) throw new Error('Invalid reset template');
+        || !Array.isArray(template.regions)
+        || (template.crosshairs !== undefined && !Array.isArray(template.crosshairs))
+        || !(template.regions.length || template.crosshairs?.length)) throw new Error('Invalid reset template');
     ids.add(template.id);
     for (const region of template.regions) {
-      if (!region || typeof region.label !== 'string' || !region.label
-          || !Array.isArray(region.points) || region.points.length < 3
-          || !region.points.every(point => Array.isArray(point) && point.length === 2
-            && point.every((n, axis) => Number.isFinite(n) && n >= 0 && n <= template.image_size[axis]))) {
+      if (!labelled(region) || !Array.isArray(region.points) || region.points.length < 3
+          || !region.points.every(inImage)) {
         throw new Error('Invalid reset template region');
       }
+    }
+    // Crosshairs mark a point (e.g. where an object's center goes) without
+    // fixing its outline, so the object may lie at any angle.
+    for (const crosshair of template.crosshairs ?? []) {
+      if (!labelled(crosshair) || !inImage(crosshair.point)) throw new Error('Invalid reset template crosshair');
     }
   }
   return catalog.templates;
@@ -78,23 +88,53 @@ function resetGuideVisibility() {
   $('reset-guide-status').textContent = status;
 }
 
+function resetGuideLabel(text, [x, y]) {
+  const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  label.setAttribute('x', x);
+  label.setAttribute('y', y);
+  label.textContent = text;
+  return label;
+}
+
 function renderResetGuide() {
   for (const tile of cameras.values()) tile.overlay.replaceChildren();
   const template = selectedResetTemplate();
   const tile = template && cameras.get(template.camera);
   if (tile) {
+    const svg = 'http://www.w3.org/2000/svg';
     tile.overlay.setAttribute('viewBox', `0 0 ${template.image_size.join(' ')}`);
     for (const [index, region] of template.regions.entries()) {
-      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const polygon = document.createElementNS(svg, 'polygon');
       polygon.setAttribute('points', region.points.map(point => point.join(',')).join(' '));
       polygon.setAttribute('stroke', resetGuideColors[index % resetGuideColors.length]);
       polygon.setAttribute('fill', resetGuideColors[index % resetGuideColors.length]);
-      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       // Label centroid works for any polygon; no task-specific square assumption.
-      label.setAttribute('x', region.points.reduce((sum, p) => sum + p[0], 0) / region.points.length);
-      label.setAttribute('y', region.points.reduce((sum, p) => sum + p[1], 0) / region.points.length + 4);
-      label.textContent = region.label;
-      tile.overlay.append(polygon, label);
+      const labelPoint = region.label_point ?? [
+        region.points.reduce((sum, p) => sum + p[0], 0) / region.points.length,
+        region.points.reduce((sum, p) => sum + p[1], 0) / region.points.length + 4,
+      ];
+      tile.overlay.append(polygon, resetGuideLabel(region.label, labelPoint));
+    }
+    for (const [index, crosshair] of (template.crosshairs ?? []).entries()) {
+      const color = resetGuideColors[(template.regions.length + index) % resetGuideColors.length];
+      const [x, y] = crosshair.point;
+      const mark = document.createElementNS(svg, 'g');
+      mark.classList.add('reset-guide-crosshair');
+      mark.setAttribute('stroke', color);
+      const ring = document.createElementNS(svg, 'circle');
+      ring.setAttribute('cx', x);
+      ring.setAttribute('cy', y);
+      ring.setAttribute('r', 4);
+      mark.append(ring);
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const tick = document.createElementNS(svg, 'line');
+        tick.setAttribute('x1', x + 4 * dx);
+        tick.setAttribute('y1', y + 4 * dy);
+        tick.setAttribute('x2', x + 9 * dx);
+        tick.setAttribute('y2', y + 9 * dy);
+        mark.append(tick);
+      }
+      tile.overlay.append(mark, resetGuideLabel(crosshair.label, crosshair.label_point ?? [x, y + 22]));
     }
   }
   resetGuideVisibility();

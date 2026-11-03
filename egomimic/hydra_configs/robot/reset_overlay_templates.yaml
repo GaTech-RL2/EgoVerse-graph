@@ -21,3 +21,38 @@ templates:
         points: [[283.22134650936016, 231.45398786744497], [350.7955911838059, 231.12289178846373], [354.0180506380843, 294.7067966731917], [280.2821555535088, 295.01799006867714]]
       - label: Right
         points: [[350.7955911838059, 231.12289178846373], [418.1763060993439, 230.81930061865893], [427.51468215290413, 294.2126378607729], [354.0180506380843, 294.7067966731917]]
+  - id: rl2-yam-stationery-rims-centers-20261102
+    label: "Stationery — cup rims + pen/marker centers (any order, any angle)"
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance:
+      camera_serial: '230322272195'
+      captured_at: '2026-11-02T18:02:44-05:00'
+      source: 'rl2-yam rollout episode rollout_20261102-230244-106362, observations/images/front_img_1 frame 0 (the reset scene at Start)'
+      source_frame_sha256: 1c9b01d7a9c95eccb2836976b98a9ccd8fb9aaffe4b1d0348f7e93d9147a08db
+      pixel_space: raw_front_camera
+      placement: 'Rims: ellipses fitted to the Canny edge of each cup rim (about 75 edge points each). Centers: midpoint of the two ends of each pen/marker, so a marker cap does not bias it.'
+      cross_check: 'The 16:07 take of the same day (rollout_20261102-210724-972612) puts the rim centers within 2.3 px and the pen/marker centers 5-13 px away (objects 4.5-11 px further back, roughly 1-3 cm with a pen of about 15 cm spanning 55 px): the reset varies by about that much.'
+      warning: 'Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.'
+    # Either cup may go on either rim, and any pen/marker on any center at any
+    # angle: rims and centers carry no identity or orientation.
+    regions:
+      - label: Cup
+        label_point: [264.9, 183.7]
+        points: [[267.2, 211.3], [264.4, 211.7], [261.6, 211.6], [258.9, 211.1], [256.5, 210.1], [254.4, 208.8], [252.7, 207.1], [251.5, 205.2], [250.8, 203.1], [250.6, 200.8], [251, 198.6], [251.9, 196.4], [253.3, 194.3], [255.2, 192.5], [257.4, 191], [260, 189.8], [262.7, 189.1], [265.5, 188.7], [268.2, 188.8], [270.9, 189.4], [273.3, 190.3], [275.4, 191.7], [277.1, 193.3], [278.3, 195.2], [279, 197.4], [279.2, 199.6], [278.8, 201.8], [277.9, 204], [276.5, 206.1], [274.6, 207.9], [272.4, 209.4], [269.9, 210.6]]
+      - label: Cup
+        label_point: [347.4, 181.5]
+        points: [[346.1, 209.6], [343.4, 209.1], [340.8, 208.2], [338.5, 206.8], [336.5, 205.1], [334.9, 203.2], [333.9, 201.1], [333.3, 198.8], [333.3, 196.5], [333.8, 194.3], [334.9, 192.2], [336.4, 190.4], [338.3, 188.8], [340.6, 187.6], [343.2, 186.8], [345.9, 186.5], [348.7, 186.6], [351.4, 187.1], [354, 188], [356.3, 189.4], [358.3, 191.1], [359.8, 193], [360.9, 195.1], [361.5, 197.4], [361.5, 199.7], [360.9, 201.9], [359.9, 204], [358.4, 205.8], [356.4, 207.4], [354.1, 208.6], [351.6, 209.4], [348.9, 209.7]]
+    crosshairs:
+      - label: '1'
+        point: [220.4, 291.5]
+        label_point: [220.4, 333]
+      - label: '2'
+        point: [275.2, 293.5]
+        label_point: [275.2, 335.1]
+      - label: '3'
+        point: [328.7, 295.5]
+        label_point: [328.7, 334]
+      - label: '4'
+        point: [384.5, 295]
+        label_point: [384.5, 333.2]

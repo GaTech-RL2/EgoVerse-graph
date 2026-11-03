@@ -433,7 +433,13 @@ an episode and, when video recording is enabled, its MP4; the two share the take
 and end together. Pause keeps the take. Reset (r), a model change, a camera
 reconnect, **End episode** or a recording failure ends it; the next Start begins
 a new one. The **Auto-record** checkbox switches this off for the session from
-the next Start. Each episode stores, without operator input, the model it ran:
+the next Start. With `episode_recording.reset_on_end: true` (also the RL2
+profiles) ending a recording take with **End: success**, **End: failure**,
+**End episode** (d) or **Discard** also restarts the rollout exactly like r: no
+command is sent that tick, both arms return home (`reset_home_on_restart`) and
+the dashboard waits for Start, which begins the next take. A recording failure
+or low disk ends the take without a reset. Each episode stores, without operator
+input, the model it ran:
 checkpoint path, step and SHA-256 (from `SHA256SUMS`, provenance or the file
 name; the checkpoint is not re-hashed), SHA-256 of the resolved config, data
 context and inference config, the training run's W&B entity, project, run id,

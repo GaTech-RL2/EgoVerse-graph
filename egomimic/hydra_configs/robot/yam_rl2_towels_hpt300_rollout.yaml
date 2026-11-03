@@ -78,6 +78,8 @@ episode_recording:
   # Every Start records an episode plus its MP4 until Reset / model change /
   # camera reconnect / End episode; the dashboard checkbox turns it off.
   auto_start: true
+  # Ending a take (End / Discard) restarts like r: arms home, ready for c.
+  reset_on_end: true
   directory: /home/rohan/rollouts/yam_hptflow/episodes
   min_free_gb: 20.0
   max_queued_rows: 60

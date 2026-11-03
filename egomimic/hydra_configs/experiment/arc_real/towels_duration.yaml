@@ -2,6 +2,7 @@
 defaults:
 - /model/base/real_yam_settings
 - /model_contract/arc_clock_settings
+- /model_contract/tuesday_targets
 - override /model: hpt/yam_300m_arc
 - override /data: abc_arc/towels_arc
 - override /evaluator: eval_open_loop_sim

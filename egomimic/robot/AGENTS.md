@@ -48,7 +48,10 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   Preserve main's failed-model-selection lockout; never resume the old model
   implicitly. HDF5 episode capture must enqueue existing observations/commands
   without adding a motion path or blocking a control tick on disk writes.
-  Auto-record starts one episode (plus its MP4) per Start; model/W&B metadata
+  Auto-record starts one episode (plus its MP4) per Start; with
+  `reset_on_end`, an operator End / Discard of a recording take restarts
+  through the same path as r (the dashboard's `request_restart`, else
+  `reset_to_ready`) and sends no command that tick; model/W&B metadata
   (`rollout_metadata.py`) is read once per loaded model, never per tick, and a
   metadata failure must never block a rollout or a recording.
 - `rollout_episode.py`: episode writer, manifests and operator label sidecars

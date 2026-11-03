@@ -778,6 +778,10 @@ def run_rollout(robot, policy, config, view=None):
                 except (OSError, RuntimeError, ValueError) as error:
                     print(f"Rollout video recording stopped: {error}")
                     finish_video_recording()
+            # Whether a take was recording before this tick's End / Discard.
+            recording_before = (
+                episode_recorder is not None and episode_recorder.recording
+            )
             episode_request = _take_episode_request(view)
             if episode_request is not None and episode_recorder is not None:
                 action = episode_request.get("action")
@@ -809,6 +813,24 @@ def run_rollout(robot, policy, config, view=None):
                         ),
                     )
                 publish_finished_episodes()
+            if (
+                episode_config["reset_on_end"]
+                and recording_before
+                and episode_request is not None
+                and episode_request.get("action") in ("save", "discard")
+                and not episode_recorder.recording
+            ):
+                # The operator ended the take: restart exactly like r. No
+                # command is sent this tick; a dashboard view also clears its
+                # pause, timer and prompts and hands the loop r next tick.
+                request_restart = getattr(view, "request_restart", None)
+                if callable(request_restart):
+                    request_restart()
+                else:
+                    finish_video_recording()
+                    reset_to_ready()
+                time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
+                continue
             if paused:
                 time.sleep(max(0.0, 1 / frequency - (time.monotonic() - tick)))
                 continue

@@ -48,6 +48,11 @@ EPISODE_RECORDING_DEFAULTS = {
     # Start an episode (and the MP4, when video recording is enabled) at every
     # rollout start. The dashboard can switch this off for the session.
     "auto_start": False,
+    # Ending a recording take (End success / failure / End episode, or Discard)
+    # also restarts the rollout exactly like r: back to the ready gate, both
+    # arms home when reset_home_on_restart is set, and the next Start begins a
+    # new take.
+    "reset_on_end": False,
     "directory": "/home/rohan/rollouts/yam_hptflow/episodes",
     "min_free_gb": 20.0,
     "max_queued_rows": 60,
@@ -80,7 +85,7 @@ def validate_episode_recording(config: Mapping[str, object] | None) -> dict:
             "Unknown episode_recording option(s): " + ", ".join(sorted(unknown))
         )
     result = {**deepcopy(EPISODE_RECORDING_DEFAULTS), **config}
-    for name in ("enabled", "auto_start"):
+    for name in ("enabled", "auto_start", "reset_on_end"):
         if type(result[name]) is not bool:
             raise ValueError(f"episode_recording.{name} must be a boolean")
     directory = result["directory"]

@@ -1,0 +1,5 @@
+# abc_arc/stationery_narrow260 with the ARC preprocessing, as abc_arc/stationary_arc is to abc_arc/stationary.
+defaults:
+- /data/abc_arc/stationery_narrow260@_here_
+- /data/_base/yam_arc@_here_
+- _self_

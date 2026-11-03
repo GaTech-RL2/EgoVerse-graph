@@ -1,0 +1,20 @@
+# @package _global_
+# Aidan 2026-11-03: stationary_duration on the narrow split (260 takes, 170 post-shift, frozen 24 val), global batch 64 on one GPU, M 200, D 0.25.
+# Image augmentation is PR 331's stem default, which is not visible in the resolved config.
+defaults:
+- /experiment/arc_real/stationary_duration
+- override /data: abc_arc/stationery_narrow260_arc
+- _self_
+name: stationary_duration_narrow260_d025
+data:
+  train_dataloader_params:
+    yam_bimanual:
+      batch_size: 64
+abc:
+  arc_distance: 0.25
+paths:
+  dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+logger:
+  wandb:
+    id: stationery_hpt300_abstime_narrow_d025_pr331
+    tags: [rl2, stationery, narrow260, post170, hpt300, arcdur, absolute_waypoint_time, isotonic, translation, tuesday_targets, m200_d025, open_loop, image_aug, b64, pr331]

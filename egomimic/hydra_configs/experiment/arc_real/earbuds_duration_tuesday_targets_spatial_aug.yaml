@@ -1,0 +1,16 @@
+# @package _global_
+# earbuds_duration_tuesday_targets plus training-only per-image rotation,
+# translation and crop in the image stems, with no hue in the color jitter.
+defaults:
+- /experiment/arc_real/earbuds_duration_tuesday_targets
+- _self_
+name: earbuds_duration_tuesday_targets_spatial_aug
+model:
+  graph:
+    stem:
+      stems:
+        observations.images.front_img_1: {max_rotation_deg: 2.0, max_translate: 0.02, min_crop: 0.95, jitter_hue: 0.0}
+      domain_stems:
+        yam_bimanual:
+          observations.images.left_wrist_img: {max_rotation_deg: 2.0, max_translate: 0.02, min_crop: 0.95, jitter_hue: 0.0}
+          observations.images.right_wrist_img: {max_rotation_deg: 2.0, max_translate: 0.02, min_crop: 0.95, jitter_hue: 0.0}

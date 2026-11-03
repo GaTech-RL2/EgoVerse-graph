@@ -1,6 +1,6 @@
 """ImageNet-normalized ResNet features followed by an HPT MLP stem.
 
-Spatial augmentation (opt-in) and color jitter are applied only during training.
+Spatial augmentation and color jitter are applied only during training.
 Spatial tokens are preserved for latent pooling in HPTStemStage.
 """
 
@@ -55,10 +55,10 @@ class ResNetMLPImageStem(PolicyStem):
         self,
         output_dim=256,
         weights="DEFAULT",
-        max_rotation_deg=0.0,
-        max_translate=0.0,
-        min_crop=1.0,
-        jitter_hue=0.05,
+        max_rotation_deg=2.0,
+        max_translate=0.02,
+        min_crop=0.95,
+        jitter_hue=0.0,
         **kwargs,
     ):
         super().__init__(**kwargs)

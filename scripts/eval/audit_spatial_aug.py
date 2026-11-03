@@ -1,4 +1,4 @@
-"""Geometry and opt-in checks for the image stem's spatial augmentation."""
+"""Geometry and default checks for the image stem's spatial augmentation."""
 
 import torch
 
@@ -54,21 +54,21 @@ def main():
 
     # No parameters are added, and evaluation never augments.
     kwargs = dict(output_dim=16, weights=None)
-    off = ResNetMLPImageStem(**kwargs)
-    on = ResNetMLPImageStem(
-        **kwargs, max_rotation_deg=3.0, max_translate=0.03, min_crop=0.92
+    on = ResNetMLPImageStem(**kwargs)
+    off = ResNetMLPImageStem(
+        **kwargs, max_rotation_deg=0.0, max_translate=0.0, min_crop=1.0, jitter_hue=0.05
     )
     on.load_state_dict(off.state_dict(), strict=True)
     off.eval(), on.eval()
     with torch.no_grad():
         assert torch.equal(off(x[:2]), on(x[:2]))
 
-    # Hue is opt-out: recipes that do not set it keep today's jitter.
-    assert off.jitter.hue == (-0.05, 0.05)
-    no_hue = ResNetMLPImageStem(**kwargs, jitter_hue=0.0)
-    assert no_hue.jitter.hue is None and no_hue.jitter.brightness == (0.9, 1.1)
+    # On by default with no hue; a recipe can restore the old jitter.
+    assert on.use_spatial_aug and on.jitter.hue is None
+    assert on.jitter.brightness == (0.9, 1.1)
+    assert not off.use_spatial_aug and off.jitter.hue == (-0.05, 0.05)
 
-    # Off by default: training draws exactly what it drew before this option.
+    # Opted out: training draws exactly what it drew before this option.
     off.train()
     torch.manual_seed(1)
     jitter_only = off.jitter(x[:2])

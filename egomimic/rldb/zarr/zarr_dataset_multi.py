@@ -38,6 +38,7 @@ import pandas as pd
 import simplejpeg
 import torch
 import zarr
+from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
@@ -2128,10 +2129,9 @@ class MultiDataset(torch.utils.data.Dataset):
         provenance does not match this dataset.
 
         The provenance checks normalization mode, key set, and any requested
-        ARC action contract. Untagged legacy caches remain eligible for the
-        original joint_distance representation; new nonjoint modes require
-        matching contract metadata. Callers without a contract retain the
-        legacy loading behavior.
+        ARC action contract. Every requested contract must match exactly:
+        same-shaped pre-arrival clocks cannot reuse the incoming-row layout's
+        statistics. Callers without a contract retain baseline loading behavior.
         """
         with open(precomputed_file, "r") as f:
             payload = json.load(f)
@@ -2151,22 +2151,10 @@ class MultiDataset(torch.utils.data.Dataset):
         wanted_contract = getattr(self, "action_contracts", {}).get(embodiment)
         if wanted_contract is not None:
             if file_contract is None:
-                if (
-                    wanted_contract.get("arc_chunking_mode") != "joint_distance"
-                    or wanted_contract.get("source_sampling") is not None
-                ):
-                    raise ValueError(
-                        f"norm_stats file {precomputed_file} has no action contract for "
-                        f"embodiment {embodiment}; arc_chunking_mode="
-                        f"{wanted_contract.get('arc_chunking_mode')!r}, "
-                        f"source_sampling={wanted_contract.get('source_sampling')!r} requires matching "
-                        "cache provenance. Recompute stats for this representation."
-                    )
-                logger.warning(
-                    "[MultiDataset] Accepting legacy joint_distance norm cache %s "
-                    "without an action contract; existing data/cap compatibility "
-                    "must have been checked by the caller.",
-                    precomputed_file,
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} has no action contract for "
+                    f"embodiment {embodiment}; recompute stats for the requested "
+                    "ARC representation and timing layout."
                 )
             elif file_contract != wanted_contract:
                 raise ValueError(
@@ -2347,12 +2335,29 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.init_episode()
 
         self.key_map = key_map
+        start_offsets = []
+        for key, spec in self.key_map.items():
+            offset = spec.get("start_offset", 0)
+            if type(offset) is not int or offset < 0:
+                raise ValueError(f"{key}.start_offset must be a nonnegative integer")
+            if offset and spec.get("key_type") != "action_keys":
+                raise ValueError(
+                    f"{key}.start_offset is only supported for action keys"
+                )
+            if spec.get("key_type") == "action_keys":
+                start_offsets.append(offset)
+        if len(set(start_offsets)) > 1:
+            raise ValueError("All action keys must use the same start_offset")
+        self._action_start_offset = max(start_offsets, default=0)
         self.transform = transform_list
         views = [t for t in (self.transform or []) if hasattr(t, "sample_views")]
         if len(views) > 1:
             raise ValueError("Only one virtual-view transform is supported")
         self._view_transform = views[0] if views else None
-        self._valid_anchors = self.total_frames
+        # ARC current state belongs to idx; future targets start at idx+1.
+        # Exclude anchors with no future observation rather than reading an
+        # empty array or silently turning the current command into a target.
+        self._valid_anchors = max(0, self.total_frames - self._action_start_offset)
         if self._view_transform is not None:
             t = self._view_transform
             binder = getattr(t, "bind_episode", None)
@@ -2367,7 +2372,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                         "Raw keymap horizon must equal retiming required_frames"
                     )
             self._valid_anchors = complete_window_count(
-                self.total_frames, t.required_frames
+                self.total_frames - self._action_start_offset, t.required_frames
             )
         self.image_hw = tuple(image_hw) if image_hw else None
         # (H, W) of this episode's front camera BEFORE any resize, captured at
@@ -2481,7 +2486,9 @@ class ZarrDataset(torch.utils.data.Dataset):
 
     def episode_length_at(self, index: int) -> int:
         self.frame_index_at(index)
-        return self.total_frames
+        # Complete next-frame prediction covers every observation with a real
+        # future target. The physical final frame is a target, not a new anchor.
+        return max(0, self.total_frames - self._action_start_offset)
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         """End index (exclusive) for a windowed read starting at ``start_idx``.
@@ -2489,6 +2496,222 @@ class ZarrDataset(torch.utils.data.Dataset):
         Subclasses can override to add per-key-type clamping (e.g., annotation EOS).
         """
         return min(start_idx + horizon, self.total_frames)
+
+    @staticmethod
+    def _canonical_dynamic_horizon_spec(value: Any) -> Any:
+        """Return a hashable, value-based form of a horizon specification."""
+        if isinstance(value, Mapping):
+            return tuple(
+                sorted(
+                    (
+                        str(key),
+                        ZarrDataset._canonical_dynamic_horizon_spec(item),
+                    )
+                    for key, item in value.items()
+                )
+            )
+        if isinstance(value, (list, tuple)):
+            return tuple(
+                ZarrDataset._canonical_dynamic_horizon_spec(item) for item in value
+            )
+        if isinstance(value, np.generic):
+            return value.item()
+        return value
+
+    def _resolve_dynamic_horizons_for_sample(self, start_idx: int) -> dict[Any, int]:
+        """Resolve each distinct dynamic horizon once for one sample index."""
+        resolved_by_spec: dict[Any, int] = {}
+        shared_horizon: int | None = None
+        for key_spec in self.key_map.values():
+            if not isinstance(key_spec, dict):
+                continue
+            horizon_spec = key_spec.get("horizon")
+            if not isinstance(horizon_spec, dict):
+                continue
+            canonical = self._canonical_dynamic_horizon_spec(horizon_spec)
+            if canonical not in resolved_by_spec:
+                resolved = self._resolve_dynamic_horizon(
+                    start_idx + key_spec.get("start_offset", 0), horizon_spec
+                )
+                if shared_horizon is None:
+                    shared_horizon = resolved
+                elif shared_horizon != resolved:
+                    raise ValueError(
+                        "multiple dynamic horizon specs resolved to different "
+                        f"lengths ({shared_horizon} vs {resolved})"
+                    )
+                resolved_by_spec[canonical] = resolved
+        return resolved_by_spec
+
+    def _resolve_dynamic_horizon(self, start_idx: int, spec: dict) -> int:
+        """Resolve a declarative distance-based source window.
+
+        ARC YAM cannot use a fixed action horizon: the number of native source
+        frames needed to travel ``distance`` metres depends on the episode's
+        speed.  This helper reads a bounded prefix of the command poses,
+        accumulates translational distance independently for each arm, and
+        returns the smallest prefix that satisfies the requested arm policy.
+        The returned value is a *count* (including ``start_idx``), suitable for
+        the normal half-open ``(start, start + horizon)`` reads below.
+
+        ``source_buffer_frames`` is deliberately a read bound rather than a
+        target horizon. If an arm is stationary or the episode ends before
+        reaching the distance, the available prefix is returned and the
+        regular repeat-last padding rule handles short tails. ``max_frames``
+        is accepted as a legacy spelling.
+
+        Both arms must reach their own translation budget. When R is supplied,
+        both per-arm rotation clocks
+        must also reach R; a translation cutoff never clips either stream.
+        """
+        horizon_type = spec.get("type") if isinstance(spec, dict) else None
+        if horizon_type not in ("arc_distance", "arc_hybrid"):
+            raise TypeError(
+                "dynamic horizon must be an 'arc_distance' or 'arc_hybrid' spec, got "
+                f"{spec!r}"
+            )
+        distance = float(spec.get("distance", 0.0))
+        if not np.isfinite(distance) or distance <= 0.0:
+            raise ValueError(
+                f"arc_distance horizon requires a positive finite distance, got {distance!r}"
+            )
+        rotation_distance = None
+        if horizon_type == "arc_hybrid" or spec.get("rotation_distance") is not None:
+            rotation_distance = float(spec.get("rotation_distance", 0.0))
+            if not np.isfinite(rotation_distance) or rotation_distance <= 0.0:
+                raise ValueError(
+                    "arc_hybrid horizon requires positive finite rotation_distance, "
+                    f"got {rotation_distance!r}"
+                )
+        if "arc_chunking_mode" in spec or "require_all_arms" in spec:
+            raise ValueError(
+                "Retired ARC source selector; streams now have independent budgets"
+            )
+        max_frames_value = spec.get(
+            "source_buffer_frames", spec.get("max_frames", self.total_frames)
+        )
+        if max_frames_value in (None, 0):
+            max_frames_value = self.total_frames
+        if int(max_frames_value) < 2:
+            raise ValueError(
+                f"arc_distance horizon max_frames must be >= 2, got {max_frames_value}"
+            )
+        max_frames = int(max_frames_value)
+        pose_keys = tuple(spec.get("pose_zarr_keys", ()))
+        if not pose_keys:
+            raise ValueError("arc_distance horizon requires pose_zarr_keys")
+
+        available = max(0, min(max_frames, self.total_frames - int(start_idx)))
+        if available <= 1:
+            # Return two so the normal read + repeat-last padding path gives
+            # the tokenizer its minimum two source rows at an episode tail.
+            return 2 if available == 1 else 0
+        # Read the bounded source buffer once. ARC's normal operating regime
+        # reaches D well before 600 frames, while this fixed read keeps the
+        # resolver simple and gives slow episodes a deterministic fallback.
+        end_idx = int(start_idx) + available
+        poses = self.episode_reader.read(
+            {str(key): (int(start_idx), end_idx) for key in pose_keys}
+        )
+        if rotation_distance is not None:
+            # Translation and rotation select their own endpoints from the
+            # complete bounded buffer. The later endpoint governs source I/O.
+            pose_arrays = []
+            common_usable = available
+            pose_width = 7 if rotation_distance is not None else 3
+            for key in pose_keys:
+                pose = np.asarray(poses[str(key)], dtype=np.float64)
+                if pose.ndim != 2 or pose.shape[1] < pose_width:
+                    raise ValueError(
+                        f"{horizon_type} pose key {key!r} must be (T, >={pose_width}), "
+                        f"got {pose.shape}"
+                    )
+                finite = np.isfinite(pose[:, :pose_width]).all(axis=1)
+                first_bad = np.flatnonzero(~finite)
+                usable = int(first_bad[0]) if len(first_bad) else len(pose)
+                common_usable = min(common_usable, usable)
+                pose_arrays.append(pose)
+
+            if len(pose_arrays) != 2:
+                raise ValueError(
+                    "ARC horizon requires exactly two pose_zarr_keys "
+                    f"for the independent arm clocks, got {len(pose_arrays)}"
+                )
+            if common_usable < 2:
+                return max(2, available)
+
+            left, right = (pose[:common_usable] for pose in pose_arrays)
+            arm_distances = []
+            for pose in (left, right):
+                steps = np.linalg.norm(np.diff(pose[:, :3], axis=0), axis=1)
+                arm_distances.append(np.concatenate(([0.0], np.cumsum(steps))))
+            arm_distances = np.stack(arm_distances)
+
+            def reached_indices(cumulative: np.ndarray, budget: float) -> np.ndarray:
+                # Quaternion reconstruction can leave an exactly reachable cap a
+                # few ulps low. Avoid loading one unnecessary source frame there.
+                tolerance = 16 * np.finfo(np.float64).eps * max(1.0, abs(budget))
+                return np.flatnonzero(cumulative >= budget - tolerance)
+
+            translation_cumulative = arm_distances.min(axis=0)
+
+            translation_reached = reached_indices(translation_cumulative, distance)
+            if not len(translation_reached):
+                return max(2, available)
+            translation_end = int(translation_reached[0])
+            if rotation_distance is None:
+                return max(2, min(available, translation_end + 1))
+
+            rotation_ends = []
+            for pose in (left, right):
+                quaternion_xyzw = pose[:, 3:7][:, [1, 2, 3, 0]]
+                rotations = R.from_quat(quaternion_xyzw)
+                relative = rotations[:-1].inv() * rotations[1:]
+                rotation_cumulative = np.concatenate(
+                    ([0.0], np.cumsum(np.linalg.norm(relative.as_rotvec(), axis=-1)))
+                )
+                rotation_reached = reached_indices(
+                    rotation_cumulative, rotation_distance
+                )
+                # R is a per-arm budget. The source window must retain enough
+                # frames for both independent clocks, not a shared summed clock.
+                if not len(rotation_reached):
+                    return max(2, available)
+                rotation_ends.append(int(rotation_reached[0]))
+            required = max(translation_end, *rotation_ends)
+            return max(2, min(available, required + 1))
+
+        crossing_indices: list[int | None] = []
+        for key in pose_keys:
+            pose = np.asarray(poses[str(key)], dtype=np.float64)
+            if pose.ndim != 2 or pose.shape[1] < 3:
+                raise ValueError(
+                    f"arc_distance pose key {key!r} must be (T, >=3), got {pose.shape}"
+                )
+            xyz = pose[:, :3]
+            # Invalid pose rows should not manufacture distance. Truncate at
+            # the first non-finite sample; a later row cannot make that arm
+            # valid again.
+            finite = np.isfinite(xyz).all(axis=1)
+            first_bad = np.flatnonzero(~finite)
+            usable = int(first_bad[0]) if len(first_bad) else len(xyz)
+            xyz = xyz[:usable]
+            if len(xyz) < 2:
+                crossing_indices.append(None)
+                continue
+            cumulative = np.concatenate(
+                ([0.0], np.cumsum(np.linalg.norm(np.diff(xyz, axis=0), axis=1)))
+            )
+            reached = np.flatnonzero(cumulative >= distance)
+            crossing_indices.append(int(reached[0]) if len(reached) else None)
+
+        reached = [i for i in crossing_indices if i is not None]
+        if len(reached) == len(crossing_indices):
+            required = max(reached)
+            return max(2, min(available, required + 1))
+        # One or more arms did not reach D before the episode/bound; expose all
+        # available source rows and let repeat-last padding handle a true tail.
+        return max(2, available)
 
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
@@ -2554,20 +2777,48 @@ class ZarrDataset(torch.utils.data.Dataset):
         while True:
             data = {}
             retry = False
+            # Resolve a shared action window once per sample.  All YAM action
+            # keys (both poses and grippers) must have identical lengths so
+            # the downstream transforms and collate function stay aligned.
+            dynamic_horizons = self._resolve_dynamic_horizons_for_sample(idx)
+            dynamic_horizon: int | None = None
+            for horizon_spec in (
+                spec.get("horizon")
+                for spec in self.key_map.values()
+                if isinstance(spec, dict)
+            ):
+                if isinstance(horizon_spec, dict):
+                    resolved = dynamic_horizons[
+                        self._canonical_dynamic_horizon_spec(horizon_spec)
+                    ]
+                    if dynamic_horizon is None:
+                        dynamic_horizon = resolved
+                    elif dynamic_horizon != resolved:
+                        raise ValueError(
+                            "multiple dynamic horizon specs resolved to different "
+                            f"lengths ({dynamic_horizon} vs {resolved})"
+                        )
             for k in self.key_map:
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
-                horizon = self.key_map[k].get("horizon", None)
+                horizon_spec = self.key_map[k].get("horizon", None)
+                read_start = idx + self.key_map[k].get("start_offset", 0)
+                horizon = (
+                    dynamic_horizon if isinstance(horizon_spec, dict) else horizon_spec
+                )
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
                     continue
+                if key_type == "episode_metadata":
+                    data[k] = str(self.metadata[zarr_key])
+                    continue
 
                 if horizon is not None:
-                    end_idx = self._chunk_end_idx(idx, horizon, key_type)
-                    read_interval = (idx, end_idx)
+                    end_idx = self._chunk_end_idx(read_start, horizon, key_type)
+                    read_interval = (read_start, end_idx)
                 else:
-                    read_interval = (idx, None)
+                    read_interval = (read_start, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
                 required_keys = (
@@ -2706,6 +2957,16 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
 
     If the start frame is not inside any annotation, behaves like the base class.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._action_start_offset:
+            raise ValueError(
+                "Annotation-cutoff datasets do not support next-frame ARC targets: "
+                "the observation-boundary/target-boundary policy must be defined "
+                "before using a positive action start_offset. Use the standard "
+                "episode resolver for arrival ARC."
+            )
 
     def init_episode(self):
         super().init_episode()

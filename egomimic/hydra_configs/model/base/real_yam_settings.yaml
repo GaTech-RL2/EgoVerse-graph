@@ -1,0 +1,15 @@
+# @package _global_
+hpt:
+  embed_dim: 840
+  num_blocks: 19
+  num_heads: 10
+  stem_specs:
+    random_horizon_masking: false
+    cross_attn:
+      crossattn_latent: 16
+      crossattn_heads: 10
+      crossattn_dim_head: 84
+      crossattn_modality_dropout: 0.1
+      modality_embed_dim: 840
+  action_dim: ${yam.action_dim}
+  action_horizon: 100

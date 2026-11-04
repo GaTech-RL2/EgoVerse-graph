@@ -1,0 +1,32 @@
+# Concrete model recipe; shared graph/contract fields are inherited.
+defaults:
+- /model/base/hpt_human_flow@_here_
+- _self_
+inference_domains:
+  human_bimanual:
+    native_output:
+      timing:
+        dt: 0.009764309764309764
+        last_source_frame: 29
+    output:
+      shape:
+      - 30
+      - 12
+    profiles:
+      default:
+        adapter:
+          shape:
+          - 30
+          - 12
+          decoder:
+            native_dt: 0.009764309764309764
+            output_horizon: 30
+        overrides:
+          replan_every:
+            max: 30
+            default: 30
+data_requirements:
+  preprocessing:
+    '3':
+      transforms:
+        stride: 1

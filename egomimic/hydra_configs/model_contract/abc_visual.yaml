@@ -1,0 +1,158 @@
+# Shared deployment contracts for the visual ABC/RL2 HPT models. The
+# experiment's ``abc.action_mode`` selects the entry through
+# ``inference: ${model.inference_contracts.${abc.action_mode}}``. Models set
+# ``native_action_horizon`` / ``native_action_dim`` for their flow stages.
+# The time-indexed contract is the 100-frame, 30 Hz chunk every visual ABC
+# recipe trains (abc.action_horizon); station calibration is separate.
+inference_contracts:
+  cartesian:
+    input:
+      history_length: 1
+      keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      - embodiment
+      history_keys:
+      - observations.images.front_img_1
+      - observations.state.ee_pose
+      - observations.images.left_wrist_img
+      - observations.images.right_wrist_img
+      constants:
+        embodiment: 7
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape:
+      - ${model.native_action_horizon}
+      - ${model.native_action_dim}
+      timing:
+        kind: uniform_resampled_target
+        temporally_resolved: true
+        first_source_frame: 0
+        last_source_frame: 99
+        source_fps: 30.0
+      frame: eef_frame
+    output:
+      key: actions
+      representation: cartesian
+      shape:
+      - 100
+      - 14
+      timing:
+        kind: control_period
+        temporally_resolved: true
+        dt: 0.03333333333333333
+      frame: eef_frame
+    compatibility:
+      normalizer_schema:
+        action_key: actions_cartesian
+        native_shape:
+        - ${model.native_action_horizon}
+        - ${model.native_action_dim}
+      tokenizer: null
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape:
+        - ${model.native_action_horizon}
+        - ${model.native_action_dim}
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decoder:
+            _target_: egomimic.pipeline.sequence_decoder.UniformTimeGridDecoder
+            native_shape:
+            - ${model.native_action_horizon}
+            - ${model.native_action_dim}
+            # 100 frames span 99 source periods at 30 Hz.
+            native_duration: 3.3
+            output_horizon: 100
+            output_dt: 0.03333333333333333
+            angular_indices:
+            - 3
+            - 4
+            - 5
+            - 10
+            - 11
+            - 12
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps:
+            label: Sampling steps
+            description: Solver iterations per prediction.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 10
+            target:
+              kind: stage_attribute
+              stage_id: sampler
+              attribute_path: num_inference_steps
+          replan_every:
+            label: Actions before replanning
+            description: Execute this prefix before predicting again.
+            type: integer
+            min: 1
+            max: 100
+            step: 1
+            default: 30
+            target:
+              kind: policy_attribute
+              attribute_path: replan_every
+  hybrid_arc_tokenizer_cartesian:
+    input: ${model.inference_contracts.cartesian.input}
+    native_output:
+      key: pred_action
+      representation: normalized_action
+      shape: ["${model.native_action_horizon}", "${model.native_action_dim}"]
+      frame: eef_frame
+      timing:
+        kind: incoming_stream_clock
+        temporally_resolved: true
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
+    output: ${model.inference_contracts.cartesian.output}
+    compatibility:
+      normalizer_schema: ${model.inference_contracts.cartesian.compatibility.normalizer_schema}
+      tokenizer:
+        contract: cartesian_arc_arrival_v2
+        source_time_origin: next_frame
+        clock_mode: ${abc.arc_clock_mode}
+        streams: ${abc.arc_streams}
+        distance: ${abc.arc_distance}
+        rotation_distance: ${abc.arc_rotation_distance}
+        gripper_distance: ${oc.select:abc.arc_gripper_distance,null}
+        gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
+        waypoints: ${abc.arc_waypoints}
+    profiles:
+      default:
+        stage_id: sampler
+        native_shape: ["${model.native_action_horizon}", "${model.native_action_dim}"]
+        adapter:
+          _target_: egomimic.robot.graph_policy.CartesianGraphAdapter
+          decode_context:
+            initial_action:
+              _target_: egomimic.pipeline.action_adapter.CartesianCurrentAction
+              key: observations.state.ee_pose
+              action_frame: eef_frame
+              rotation_mode: euler
+          decoder:
+            _target_: egomimic.robot.arc_decoder.FirstStreamArcDecoder
+            clock_mode: ${abc.arc_clock_mode}
+            streams: ${abc.arc_streams}
+            min_distance_unit: ${abc.arc_distance}
+            rotation_distance_unit: ${abc.arc_rotation_distance}
+            gripper_distance_unit: ${oc.select:abc.arc_gripper_distance,null}
+            gripper_stream_mode: ${oc.select:abc.arc_gripper_stream_mode,events}
+            resampled_vector_length: ${abc.arc_waypoints}
+            dt: 0.03333333333333333
+            action_horizon: 100
+            execute_percent: 30
+            first_stream: 1
+          rotation_mode: euler
+          action_frame: eef_frame
+        overrides:
+          inference_steps: ${model.inference_contracts.cartesian.profiles.default.overrides.inference_steps}

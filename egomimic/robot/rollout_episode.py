@@ -129,7 +129,7 @@ def list_rollout_episodes(directory: str | Path) -> list[dict]:
         return []
     episodes = []
     for manifest_path in directory.glob("rollout_*.json"):
-        if manifest_path.name.endswith(".labels.json"):
+        if manifest_path.name.endswith((".labels.json", ".upload.json")):
             continue
         try:
             payload = json.loads(manifest_path.read_text())
@@ -588,6 +588,7 @@ class RolloutEpisodeRecorder:
             "video_id": metadata.get("video_id"),
             "model": metadata.get("model"),
             "session": metadata.get("session"),
+            "upload": metadata.get("upload"),
         }
         self._thread = threading.Thread(
             target=self._run,

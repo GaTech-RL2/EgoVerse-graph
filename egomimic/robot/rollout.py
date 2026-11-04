@@ -18,6 +18,11 @@ from egomimic.robot.rollout_episode import (
     validate_episode_recording,
 )
 from egomimic.robot.rollout_metadata import model_metadata
+from egomimic.robot.rollout_upload import (
+    start_worker,
+    upload_contract,
+    validate_episode_upload,
+)
 from egomimic.robot.rollout_video import RolloutVideoRecorder, validate_video_recording
 from egomimic.robot.yam.rollout_ik import validate_ik_recovery
 
@@ -76,7 +81,10 @@ def validate_rollout_config(config):
         )
     preview = dict(config.get("preview", {}))
     validate_video_recording(config.get("video_recording"))
-    validate_episode_recording(config.get("episode_recording"))
+    recording = validate_episode_recording(config.get("episode_recording"))
+    upload = validate_episode_upload(config.get("episode_upload"))
+    if upload["enabled"] and not recording["enabled"]:
+        raise ValueError("episode_upload needs episode_recording.enabled")
     policy = config.get("policy")
     if not isinstance(policy, dict):
         raise ValueError("Rollout configuration needs a policy mapping")
@@ -243,6 +251,30 @@ def _auto_record_enabled(view, default: bool) -> bool:
     return bool(enabled()) if callable(enabled) else bool(default)
 
 
+def _start_upload_worker(directory, upload_config):
+    """Upload runs in its own process; failing to start never stops a rollout."""
+    try:
+        worker = start_worker(directory, upload_config)
+    except OSError as error:
+        print(f"Could not start the rollout upload worker: {error}")
+        return None
+    print(
+        f"Rollout takes upload to r2://{upload_config['bucket']}/"
+        f"{upload_config['prefix']} and register as is_eval "
+        f"{upload_config['task']} episodes (worker pid {worker.pid})"
+    )
+    return worker
+
+
+def _stop_upload_worker(worker):
+    """Closing its stdin lets the worker finish pending uploads on its own."""
+    if worker is not None and worker.stdin is not None:
+        try:
+            worker.stdin.close()
+        except OSError:
+            pass
+
+
 def _episode_model(policy_config):
     """Bundle/W&B identity for episodes of this model; never blocks a rollout."""
     try:
@@ -357,6 +389,9 @@ def run_rollout(robot, policy, config, view=None):
         else None
     )
     episode_end_reason = "stop"
+    upload_config = validate_episode_upload(config.get("episode_upload"))
+    upload_enabled = upload_config["enabled"] and episode_recorder is not None
+    upload_worker = None
     # Read once per loaded model (bundle sidecar hashes and texts), not per tick.
     episode_model, episode_documents = (
         _episode_model(policy_config) if episode_recorder is not None else ({}, {})
@@ -498,6 +533,12 @@ def run_rollout(robot, policy, config, view=None):
             "video_id": video_id,
             "model": episode_model,
             "session": session_settings(),
+            # The SQL contract this take will be registered under (is_eval).
+            "upload": (
+                {"requested": True, "contract": upload_contract(upload_config)}
+                if upload_enabled
+                else None
+            ),
         }
         try:
             episode_id = episode_recorder.start(metadata, documents=episode_documents)
@@ -560,6 +601,10 @@ def run_rollout(robot, policy, config, view=None):
             )
 
     try:
+        if upload_enabled:
+            upload_worker = _start_upload_worker(
+                episode_config["directory"], upload_config
+            )
         _reset_policy_state(policy)
         if reset_on_start:
             _set_view_status(view, "Resetting YAM to configured home")
@@ -1095,6 +1140,7 @@ def run_rollout(robot, policy, config, view=None):
             if not episode_recorder.wait(timeout=60):
                 print("Rollout episode is still being written; it will finish on exit")
             publish_finished_episodes()
+        _stop_upload_worker(upload_worker)
         view.close()
         close_policy = getattr(policy, "close", None)
         if callable(close_policy):

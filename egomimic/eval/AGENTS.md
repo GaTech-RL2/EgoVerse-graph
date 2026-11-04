@@ -29,6 +29,5 @@ are YAML settings, including the `train_viz` group.
 
 Frame reversion must match the data configuration. Rotation encodings and
 gripper padding affect both actions and proprio; test both sides of the round
-trip. Focused regression tests are `test_shared_robot_components.py`,
-`test_eval_overlay_annotations.py`, `test_wrist6d_roundtrip.py`,
-`test_pi05_graph.py`, and the root ARC/tempo evaluation tests.
+trip. Keep regression checks outside the repository and report local results;
+do not commit tests or their fixtures.

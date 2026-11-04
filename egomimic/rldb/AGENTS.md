@@ -33,6 +33,5 @@ embodiment IDs when loading a cache. Live rollouts require the full
 `normalizer_state`, not just numeric bounds.
 
 Do not change stored episode metadata to rename an embodiment. Canonicalize the
-metadata at the loader boundary. Test geometric changes with
-`test_action_chunk_transforms.py`, `test_wrist6d_roundtrip.py`, `test_human_arc.py`,
-`test_abc_yam.py`, and the relevant ARC/PI numeric tests in the root `tests/`.
+metadata at the loader boundary. Verify geometric and ARC/PI changes with local
+CPU checks outside the repository; do not commit tests or their fixtures.

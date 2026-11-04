@@ -438,6 +438,9 @@ directory. `--list` performs no upload and needs no AWS credentials.
 
 ## Validation scope
 
+The regression sources referenced below are historical and no longer shipped;
+see [the verification policy](VERIFICATION_POLICY.md). Keep new checks local.
+
 `tests/test_robot_runtime.py` checks collection, format compatibility, world-frame
 clutch control, stale tracking/cameras, previews, Eva/Yam interfaces, cleanup and
 Zarr replay. `tests/test_robot_graph_policy.py` checks strict checkpoint loading,

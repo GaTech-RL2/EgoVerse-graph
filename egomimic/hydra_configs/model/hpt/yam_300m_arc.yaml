@@ -47,3 +47,10 @@ inference_contracts:
         adapter:
           decoder:
             execute_percent: 50
+        # The first-stream decoder knobs a rollout may change (from yam_wrists' model.arc_decoder_controls),
+        # declared by the model so the station dashboard shows what this decoder supports.
+        overrides:
+          multistream_fastest_stream: ${model.arc_decoder_controls.multistream_fastest_stream}
+          execute_waypoint_percent: ${model.arc_decoder_controls.execute_waypoint_percent}
+          arc_speed_percent: ${model.arc_decoder_controls.arc_speed_percent}
+          arc_hold_speed_percent: ${model.arc_decoder_controls.arc_hold_speed_percent}

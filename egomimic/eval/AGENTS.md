@@ -14,7 +14,9 @@ The root AGENTS.md applies here. Configure evaluators in
   DTW, Fréchet, reverse-KL and coverage calculations.
 - `arc_bimanual_cartesian_eval.py`, `arc_metrics.py`: ARC-specific decoding and
   trajectory alignment layered on the shared Cartesian evaluator.
-- `bimanual_tempo_eval.py`, `e1_metrics.py`: tempo/duration scoring.
+- `open_loop_stream.py` (stable exports in `open_loop_sim.py`),
+  `distance_budget_dtw.py`: shared first-moving-stream
+  simulation and trajectory scoring with the canonical Cartesian ARC codec.
 - `planar_action_eval.py`, `synthetic_trajectory_eval.py`: nonrobot evaluation.
 - `checkpoint_loading.py`: strict graph checkpoint restoration and EMA selection.
 - `token_diagnostics.py`, `latent_archive.py`: provider-owned token capture,
@@ -29,5 +31,5 @@ are YAML settings, including the `train_viz` group.
 
 Frame reversion must match the data configuration. Rotation encodings and
 gripper padding affect both actions and proprio; test both sides of the round
-trip. Keep regression checks outside the repository and report local results;
-do not commit tests or their fixtures.
+trip. Keep regression checks and fixtures outside the repository; never commit
+tests. Report local verification results in the PR.

@@ -44,8 +44,9 @@ within an arbitrary grace period. The old failed ICE smoke remains failed;
 run a readiness-aware scheduled smoke before relying on preemption recovery for
 a new cluster run. No training jobs or merge into main were requested here.
 
-GitHub access uses Skynet's authenticated `ElmoPA` identity through `sky2`, the
-working fallback after `sky1` stalled. Publication includes the previously
+For that historical publication, GitHub access used the `ElmoPA` identity through
+`sky2` after `sky1` stalled; this is provenance, not an account requirement for
+future submissions. Publication includes the previously
 unpublished gradient audit, sphere/cube experiment, stop-gradient ablation,
 and requeue commits. Existing experimental checkpoints remain bound to their
 original source revisions.

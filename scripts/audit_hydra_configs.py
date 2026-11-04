@@ -19,40 +19,53 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ROOT / "egomimic/hydra_configs"
 
 EXPERIMENT_CONTEXTS = {
-    "data/ravens/continuous": "ravens/action_flow",
-    "evaluator/ravens": "ravens/action_flow",
-    "data/e1/yam_human_keypoints_multiplier_proportional_val01": "e1/yam_human_matched_af64_multiplier",
-    "data/e1/yam_human_matched_noaug_proportional_val01": "e1/yam_human_matched_dp_noaug",
-    "data/pusht/planar_chain_manual4919_standard_retimed": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "data/pusht/parents/standard_dp_uc_h16": "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
-    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "model/libero/oat_dp_matched": "libero_historical/dp_libero10_oat_dp_matched_s42",
-    "experiment/e1/yam_human_matched_common": "e1/yam_human_matched_af64_multiplier",
-    "model/e1/hpt_flow_wrists": "e1/abcs_time",
-    "model/abc/yam_bimanual_dp": "abc/yam_fstshirt_dp",
-    "model/abc/yam_bimanual_hpt": "abc/yam_fstshirt_hpt",
-    "model/bf/bf_planar_v2_arc_graph_tok": "pusht/planar_v2_usocket_arc_graph_tok",
-    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "pusht/parents/action_flow_usocket_h384",
-    "evaluator/eval_arc_bimanual_cartesian_D40_M100": "abc_arc/abc_fstshirt_bc",
-    "data/e1/yam_stationary_action_flow_val01": "e1/yam_stationary_action_flow_h816_s42",
-    "data/e1/yam_human_keypoints_proportional_val01": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
-    "evaluator/e1/yam_action_flow": "e1/yam_stationary_action_flow_h816_s42",
-    "evaluator/e1/yam_human_keypoints_action_flow": "e1/yam_human_keypoints_action_flow_h816_private512_s42",
-    "data/libero/action_flow_libero10_val01_h16": "libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
-    "data/libero/oat": "oat/libero_oattok",
-    "model/oat/tokenizer": "oat/libero_oattok",
-    "model/oat/policy": "oat/libero_oatpolicy",
-    "model/oat/arc_tokenizer": "oat/libero_arc_oattok",
-    "model/oat/arc_policy": "oat/libero_arc_policy",
-    "model/oat/arc_oat_policy": "oat/libero_arc_oatpolicy",
-    "model/oat/arc_oat_dp_policy": "oat/libero_arc_oat_dp_policy",
+    "model_contract/arc_clock_settings": "arc_real/stationary_velocity",
+    "model/hpt/yam_300m_arc": "arc_real/earbuds_velocity",
+    "trainer/real_yam": "arc_real/earbuds_time",
+    "trainer/real_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/hpt/yam_flow": "arc_real/earbuds_time",
+    "model/hpt/yam_300m": "arc_real/earbuds_time",
+    "model_contract/yam_wrists": "arc_real/earbuds_time",
+    "model_contract/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/hpt/yam_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "model/abc_arc/abc_dit_yam_visual": "abc_arc/robot_bc/multitask/variants/abc_multitask4_abcdit_baseline_visual_openloop",
+    "data/abc_arc/abc_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+    "data/pusht/planar_chain_manual4919_standard_retimed": "arc_sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "data/pusht/parents/standard_dp_uc_h16": "arc_sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked",
+    "model/bf/libero10_action_flow_latent_fm_sg_unite_h240_euler50_dithalf": "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "model/libero/oat_dp_matched": "arc_sim/libero_historical/dp_libero10_oat_dp_matched_s42",
+    "model/bf/bf_planar_v2_arc_graph_tok": "arc_sim/pusht/planar_v2_usocket_arc_graph_tok",
+    "model/bf/us_action_flow_latent_fm_sg_unite_h384": "arc_sim/pusht/parents/action_flow_usocket_h384",
+    "data/libero/action_flow_libero10_val01_h16": "arc_sim/libero_historical/action_flow_libero10_h240_euler50_dithalf_80k_s42",
+    "data/libero/oat": "arc_sim/oat/libero_oattok",
+    "model/oat/tokenizer": "arc_sim/oat/libero_oattok",
+    "model/oat/policy": "arc_sim/oat/libero_oatpolicy",
+    "model/oat/arc_tokenizer": "arc_sim/oat/libero_arc_oattok",
+    "model/oat/arc_policy": "arc_sim/oat/libero_arc_policy",
+    "model/oat/arc_oat_policy": "arc_sim/oat/libero_arc_oatpolicy",
+    "model/oat/arc_oat_dp_policy": "arc_sim/oat/libero_arc_oat_dp_policy",
+    "data/abc_arc/stationary": "arc_real/stationary_time",
+    "data/abc_arc/stationary_arc": "arc_real/stationary_duration",
+    "data/abc_arc/earbuds": "arc_real/earbuds_time",
+    "data/abc_arc/earbuds_arc": "arc_real/earbuds_duration",
+    "data/abc_arc/towels": "arc_real/towels_time",
+    "data/abc_arc/towels_arc": "arc_real/towels_duration",
+    "data/abc_arc/stationery_yam_loader": "arc_real/stationary_time",
 }
+
+EXPERIMENT_CONTEXTS.update(
+    {
+        "model/hpt/bimanual_visual": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_baseline": "abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop",
+        "data/abc_arc/mecka_fold_clothes_40h_human_hybrid_D40_M100_R24deg": "abc_arc/robot_bc/abc_towels_hpt180_hybrid_visual_openloop",
+    }
+)
 MODEL_CONTEXTS = {
-    "experiment/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
-    "experiment/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
-    "experiment/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
-    "experiment/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
-    "experiment/oat/libero_base": "oat/tokenizer",
+    "experiment/arc_sim/pusht/action_flow_usocket_candidate_common": "bf/us_action_flow_latent_fm_sg_unite_h384",
+    "experiment/arc_sim/pusht/action_latent_vfm_usocket_val01_h16": "bf/us_action_latent_vfm_nt16_d8_h512_s42",
+    "experiment/arc_sim/pusht/unite_cotrain_usocket_chain_val01_h16": "bf/ct_unite_register_separate_nt8_h384_s42",
+    "experiment/arc_sim/pusht/unite_usocket_register_sweep_val01_h16": "bf/us_unite_register_shared_nt4_s42",
+    "experiment/arc_sim/oat/libero_base": "oat/tokenizer",
 }
 
 # Explicit non-production composition inputs, scoped and restored even on error.
@@ -81,10 +94,16 @@ AUDIT_ENVIRONMENT = {
         )
     },
     "DP_DATASET_DIR": "/tmp/egoverse-config-audit/chain",
+    "EGOVERSE_ABC_DATASET_DIR": "/tmp/egoverse-config-audit/abc",
+    "EGOVERSE_DINOV3_CHECKPOINT": "/tmp/egoverse-config-audit/dinov3.pth",
+    "EGOVERSE_CLIP_CHECKPOINT": "/tmp/egoverse-config-audit/clip.pth",
     "DP_U_DATASET_DIR": "/tmp/egoverse-config-audit/usocket",
     "DP_CHAIN_DATASET_DIR": "/tmp/egoverse-config-audit/chain",
     "AF_COTRAIN_NORM": "/tmp/egoverse-config-audit/normalizer.json",
     "AF_HUMAN_DATA_ROOT": "/tmp/egoverse-config-audit/human",
+    "YAM_HPTFLOW_TRAINING_CONFIG": "/tmp/egoverse-config-audit/resolved-config.yaml",
+    "YAM_HPTFLOW_CHECKPOINT": "/tmp/egoverse-config-audit/model.ckpt",
+    "YAM_HPTFLOW_NORMALIZER": "/tmp/egoverse-config-audit/data-context.json",
     "PUSHSHAPES_USOCKET_ROOT": "/tmp/egoverse-config-audit/usocket",
     "PUSHSHAPES_CHAIN_GRIPPER_ROOT": "/tmp/egoverse-config-audit/chain",
     **{
@@ -117,25 +136,99 @@ def audit_context(path):
         # This is a dataset fragment, not a selectable DataModule. Audit it
         # in the same nested package used by its real data parents.
         return "train_zarr_cartesian", [
-            "+experiment=pusht/planar_v2_usocket_dp_standard",
+            "+experiment=arc_sim/pusht/planar_v2_usocket_dp_standard",
             "+data@data.train_datasets.pushshapes_sim_u_socket=pusht/parents/episode_split",
         ]
     group, _, entry = name.partition("/")
+    component_contexts = {
+        # Chunk metrics must not inherit the public baseline's open-loop kwargs.
+        "evaluator/eval_cartesian_chunk_metrics": [
+            "evaluator=eval_cartesian_chunk_metrics",
+            "++yam.limit_val_batches=40",
+        ],
+        "model/base/real_visual_settings": [
+            "+experiment=abc_arc/robot_bc/abc_towels_hpt180_baseline_visual_openloop"
+        ],
+        "model/base/real_yam_settings": ["+experiment=arc_real/earbuds_time"],
+        "data/_base/yam_arc": ["+experiment=arc_real/earbuds_velocity"],
+        "model/base/yam_diffusion_settings": [
+            "model=abc/yam_bimanual_dp",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/base/yam_hpt_settings": [
+            "model=hpt/yam_bimanual",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/hpt/yam_bimanual": [
+            "model=hpt/yam_bimanual",
+            "data=abc_arc/abc_fstshirt_bc",
+        ],
+        "model/base/hpt_human_flow": ["model=hpt/bc_flow_human"],
+        "model/base/hpt_cotrain_flow": ["model=hpt/cotrain_flow_shared_head"],
+        "model/base/hpt_pickplace_qwen": ["model=hpt/bc_pickplace_qwen_pooled"],
+        "model/base/pi_human_legacy": ["model=pi/bc_mecka_legacy"],
+        "evaluator/_base/yam_human_cartesian": ["evaluator=eval_bimanual_cartesian"],
+        "evaluator/_base/cartesian_prompt": ["evaluator=eval_cartesian_wrist_prompt"],
+    }
+    if name in component_contexts:
+        root = (
+            "train_zarr_cartesian_pi"
+            if name == "evaluator/_base/cartesian_prompt"
+            else "train_zarr_cartesian"
+        )
+        return root, component_contexts[name]
+    if group == "visualization":
+        # Standalone data-visualization roots composed from their own
+        # directory (egomimic/scripts/data_visualization), not under a run.
+        return None, [f"+visualization@_global_={entry}"]
     experiment = None
     if group == "experiment":
         experiment = entry
-    elif "/e1/" in f"/{name}/":
-        experiment = "e1/fold_time"
     elif group in {"model", "data"} and entry.startswith(("bf/", "pusht/")):
-        experiment = "pusht/planar_v2_usocket_dp_standard"
-    elif group in {"model", "data"} and entry.startswith(("abc/", "abc_arc/")):
-        experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
-        if "arc_D" in entry or "arcD" in entry or "arc_cotrain" in entry:
-            experiment = "abc_arc/abc_lang_fstshirt_mecka_freefold_cotrain_baseline"
+        experiment = "arc_sim/pusht/planar_v2_usocket_dp_standard"
+    # Stationery fragments require the same FT sizes, source frames and fixed
+    # ranges supplied by their real inheriting recipes, never invented values.
+    if name.startswith("data/abc_arc/stationery_"):
+        experiment = "arc_real/earbuds_time"
+    if name.startswith(("data/abc_arc/towels_", "data/abc_arc/earbuds_")):
+        # YAM pools select their codec through the HPT300 recipe.
+        experiment = "arc_real/towels_time"
     experiment = EXPERIMENT_CONTEXTS.get(name, experiment)
     overrides = [] if experiment is None else [f"+experiment={experiment}"]
+    if name == "model/hpt/bimanual_visual":
+        overrides.append("++abc.population=human")
+    if name.startswith("data/abc_arc/mecka_fold_clothes_40h_human_"):
+        overrides.extend(
+            [
+                "model=hpt/bimanual_visual",
+                "++abc.population=human",
+                "abc.arc_distance=0.4",
+                "abc.task_predicate=\"row['task'] == 'fold_clothes'\"",
+            ]
+        )
+        if "hybrid" in name:
+            overrides.append("++abc.arc_rotation_distance=0.4188790204786391")
+    if (
+        experiment is None
+        and group in {"model", "data"}
+        and entry.startswith(("abc/", "abc_arc/"))
+    ):
+        # Retained reusable components no longer depend on deleted public
+        # experiment menus. Model-owned dimensions come from its base config.
+        overrides.extend(["model=abc/yam_bimanual_dp", "data=abc_arc/abc_fstshirt_bc"])
     config_name = name if not entry else "train_zarr_cartesian"
-    if group in {"model", "evaluator"} and entry.startswith("pi05/"):
+    if (
+        group == "model" and entry.startswith("pi/") and not entry.endswith("_legacy")
+    ) or (
+        group == "evaluator"
+        and entry
+        in {
+            "eval_cartesian_wrist_prompt",
+            "eval_cartesian_camera_6d_prompt",
+            "eval_cartesian_wrist_6d_prompt",
+            "eval_cartesian_wrist_6d_gripper_prompt",
+        }
+    ):
         config_name = "train_zarr_cartesian_pi"
     if name == "evaluator/dataset_video":
         config_name = "viz_language"
@@ -191,7 +284,7 @@ def _compose_for_audit(path):
         cfg.hydra.job.id = "config-audit"
         if "pi05" in cfg and OmegaConf.is_missing(cfg.pi05, "pretrained_weights"):
             cfg.pi05.pretrained_weights = "/tmp/egoverse-config-audit/pi-weights"
-        if "e1" in cfg:
+        if "yam" in cfg:
             for key, value in {
                 "variant": "time",
                 "spread": "smoke",
@@ -199,8 +292,8 @@ def _compose_for_audit(path):
                 "valid_root": "/tmp/audit/valid",
                 "data_root": "/tmp/audit/yam",
             }.items():
-                if OmegaConf.is_missing(cfg.e1, key):
-                    cfg.e1[key] = value
+                if OmegaConf.is_missing(cfg.yam, key):
+                    cfg.yam[key] = value
         for section, values in {
             "benchmark": {"dataset": "/tmp/audit/libero", "arc_basis": "chebyshev"},
             "speed_diagnostic": {"speed_reference": 0.1},
@@ -210,18 +303,9 @@ def _compose_for_audit(path):
                 for key, value in values.items():
                     if OmegaConf.is_missing(cfg[section], key):
                         cfg[section][key] = value
-        if OmegaConf.select(cfg, "benchmark.suite") == "ravens-continuous-v1":
-            # Explicit constructor-only identities, never launch certificates.
-            # Production Ravens configs retain their mandatory missing fields.
-            for key, value in {
-                "source_commit": "0" * 40,
-                "config_sha256": "0" * 64,
-            }.items():
-                if OmegaConf.is_missing(cfg.evaluator, key):
-                    cfg.evaluator[key] = value
         if (
             path.relative_to(CONFIGS).as_posix()
-            == "experiment/oat/libero_arc_shared_r384_d1p6_m36.yaml"
+            == "experiment/arc_sim/oat/libero_arc_shared_r384_d1p6_m36.yaml"
         ):
             # This reusable shortlist explicitly requires stk/dur selection.
             # Supplying an audit context does not make null a runtime default.
@@ -246,10 +330,6 @@ def _compose_for_audit(path):
                     "training_config": "/tmp/audit/resolved.yaml",
                     "checkpoint": "/tmp/audit/model.ckpt",
                     "normalizer_path": "/tmp/audit/normalizer.json",
-                    "inference_graph": {
-                        "status": "unsupported",
-                        "reason": "station template audit",
-                    },
                     "path": "/tmp/audit/replay.zarr",
                 }.items():
                     if OmegaConf.is_missing(policy, key) or (
@@ -310,7 +390,7 @@ if __name__ == "__main__":
     results = audit()
     args.output.write_text(json.dumps(results, indent=2) + "\n")
     failed = [r for r in results if r["status"] != "passed"]
-    print(f"{len(results)-len(failed)}/{len(results)} YAML configs resolved")
+    print(f"{len(results) - len(failed)}/{len(results)} YAML configs resolved")
     for row in failed:
         print(row["path"], row["error"].splitlines()[0])
     raise SystemExit(bool(failed))

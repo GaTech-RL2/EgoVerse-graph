@@ -34,7 +34,7 @@
 # the eval-viz overlay is not geometrically meaningful on ABC images (it
 # projects rl2yam-frame poses with the ABC camera's K); the arc-matched and
 # MSE metrics are unaffected, both sides go through the same transform.
-# Pairs with model=pi0.5_bc_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
+# Pairs with model=pi/bc_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
 # Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
 # videos_train_viz/). No shuffle -> same leading slice every val.
 # Graph port: train_viz is a nested validation group; episode filters retained.

@@ -1,4 +1,0 @@
-# Pair with evaluator=eval_hpt_wrist for native wrist-frame predictions.
-defaults:
-  - pi_cartesian_lang
-  - _self_

@@ -1,0 +1,64 @@
+# @package _global_
+defaults:
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: hpt/yam_visual
+- override /data: abc_arc/abc_visual
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
+abc:
+  action_mode: hybrid_arc_tokenizer_cartesian
+  action_horizon: 100
+  arc_distance: 0.4
+  arc_rotation_distance: 0.4188790204786391
+  arc_waypoints: 100
+  task_predicate: row['task'] == 'fold and stack the towels'
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+hpt:
+  embed_dim: 640
+  num_heads: 8
+  action_horizon: ${abc.arc_token_rows}
+  flow_blocks: 10
+  flow_hidden_dim: 384
+  stem_specs:
+    cross_attn:
+      crossattn_dim_head: 80
+  token_dim: ${abc.arc_token_dim}
+norm_stats:
+  sample_frac: 0.1
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  limit_val_episodes: 4
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+    - hpt180
+    - abc
+    - towels
+    - visual_only
+    - no_language
+    - hybrid
+    - D40
+    - M100
+    - R24deg
+    - per_waypoint
+    - open_loop
+    - video
+name: abc_towels_hpt180_hybrid_visual_openloop
+description: HPT180 ABC towels visual-only hybrid D40 M100 R24deg

@@ -1,6 +1,0 @@
-# @package _global_
-defaults:
-  - /experiment/ravens/base
-  - override /model: libero/oat_dp_matched
-  - _self_
-name: ravens_place_red_in_green_dp_transformer

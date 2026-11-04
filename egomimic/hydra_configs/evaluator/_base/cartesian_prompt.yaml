@@ -1,0 +1,20 @@
+# Shared sampling/overlay settings for prompt-conditioned Cartesian outputs.
+# Frame/rotation reversion is selected by the public evaluator preset.
+defaults:
+  - /evaluator/viz@viz_func: cartesian_prompt
+  - _self_
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+viz_func:
+  eva_bimanual:
+    fallback_intrinsics:
+      - [436.26, 0.0, 310.1, 0.0]
+      - [0.0, 435.13, 241.93, 0.0]
+      - [0.0, 0.0, 1.0, 0.0]
+viz_every_n_epochs: 100
+image_key: observations.images.front_img_1
+pose_metrics: true
+rkl_samples: ${model.pipeline.stages.0.policy.config.reverse_kl_samples}
+group_options:
+  train_viz:
+    limit_batches: 50
+    rkl_samples: 1

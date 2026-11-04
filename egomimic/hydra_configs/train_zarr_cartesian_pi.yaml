@@ -1,9 +1,9 @@
 defaults:
 - train_zarr_cartesian
-- override model: pi05/pi0.5_bc_abc_eva_6d
+- override model: pi/bc_abc_eva_6d
 - override data: pi05/abc_stationery_pi_6d
 - override trainer: ddp_pi
-- override evaluator: pi05/eval_pi_wristframe_6d
+- override evaluator: eval_cartesian_wrist_6d_prompt
 - _self_
 pi05:
   pretrained_weights: ???

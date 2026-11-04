@@ -10,8 +10,8 @@
 # mecka actions are recorded at the target rate (Aria uses 3). Language
 # prompts are sampled from the `annotations` track; prompt assembly
 # (proprio-in-prompt on, embodiment label off) lives in
-# model=pi0.5_bc_mecka_6d, which this config pairs with, alongside
-# evaluator=eval_pi_wristframe_6d (reverts wrist -> head frame via the
+# model=pi/bc_mecka_6d, which this config pairs with, alongside
+# evaluator=eval_cartesian_wrist_6d_prompt (reverts wrist -> head frame via the
 # proprio, then 6D -> ypr, for cam-frame MSE + viz).
 #
 # Validation/checkpoint cadence stays the epoch-based trainer default — no

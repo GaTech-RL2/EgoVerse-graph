@@ -1,0 +1,66 @@
+# @package _global_
+defaults:
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: abc_arc/abc_dit_yam_visual
+- override /data: abc_arc/abc_visual
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
+abc:
+  action_mode: cartesian
+  action_horizon: 100
+  arc_distance: 0.81
+  arc_rotation_distance: 0.4188790204786391
+  arc_waypoints: 100
+  task_predicate: row['task'] in ['fold and stack the towels', 'take the fake fruits out of the plastic
+    bag', 'sort the stationery into containers', 'insert the wireless bluetooth earbuds into the charging
+    case']
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+trainer:
+  gradient_clip_val: 10.0
+norm_stats:
+  sample_frac: 0.1
+evaluator:
+  action_mode: baseline
+  ground_truth_action_key: actions_cartesian
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+    - abc_dit
+    - abc
+    - multitask4
+    - clip_task
+    - open_loop
+    - video
+name: abc_multitask4_abcdit_baseline_visual_openloop
+description: ABC-DiT XL four-task baseline 100-frame chunks
+abc_dit:
+  hidden_size: 1536
+  depth: 32
+  num_heads: 24
+  action_dim: 14
+  action_horizon: ${abc.action_horizon}
+  backbone_checkpoint: ${oc.env:EGOVERSE_DINOV3_CHECKPOINT}
+  text_checkpoint: ${oc.env:EGOVERSE_CLIP_CHECKPOINT}
+data:
+  train_datasets:
+    yam_bimanual:
+      resolver:
+        key_map:
+          task_key: task

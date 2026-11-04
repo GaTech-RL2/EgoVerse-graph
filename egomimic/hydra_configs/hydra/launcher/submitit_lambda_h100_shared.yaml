@@ -1,0 +1,16 @@
+# Lambda now permits individual GPUs on loaner/rl2. No exclusive node request.
+defaults:
+  - submitit_slurm
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+name: ${hydra.job.name}
+partition: rl2
+account: loaner
+cpus_per_task: 28
+mem_gb: 128
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: gpu:h100:${launch_params.gpus_per_node}
+timeout_min: 2880
+additional_parameters:
+  requeue: true
+  signal: B:USR1@120

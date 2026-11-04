@@ -25,9 +25,9 @@
 #   data=pi05/abc_stationery_pi_6d   wristframe-6D actions, rl2yam extrinsics,
 #                               ABC's dense sub-task annotation spans (stock
 #                               annotation pipeline, no injected task prompt)
-#   model=pi05/pi0.5_bc_abc_eva_6d   eva_bimanual domain (the mirror zarrs still say
+#   model=pi/bc_abc_eva_6d   eva_bimanual domain (the mirror zarrs still say
 #                               eva_bimanual), 20D native, no embodiment label
-#   evaluator=pi05/eval_pi_wristframe_6d + the train_viz second head
+#   evaluator=eval_cartesian_wrist_6d_prompt + the train_viz second head
 #   init  = the DEFAULT pi0.5 base checkpoint (pi05_base_pytorch) and nothing
 #           else — BC from scratch, no mecka/human pretrain in the lineage
 #   norm  = norm_stats/abc_stationery_rl2yam (this task, this extrinsics key —
@@ -80,8 +80,8 @@ echo "=== commit=$(git rev-parse --short HEAD) node=$SLURMD_NODENAME $(date) ===
 ARGS=(
   --config-name=train_zarr_cartesian_pi
   data=pi05/abc_stationery_pi_6d
-  model=pi05/pi0.5_bc_abc_eva_6d
-  evaluator=pi05/eval_pi_wristframe_6d
+  model=pi/bc_abc_eva_6d
+  evaluator=eval_cartesian_wrist_6d_prompt
   launch_params.gpus_per_node=4
   "trainer.max_epochs=$MAX_EPOCHS"
   trainer.min_epochs=0

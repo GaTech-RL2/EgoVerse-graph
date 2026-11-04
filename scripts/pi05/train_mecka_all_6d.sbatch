@@ -76,8 +76,8 @@ fi
 ARGS=(
   --config-name=train_zarr_cartesian_pi
   data=pi05/mecka_all_pi_6d
-  model=pi05/pi0.5_bc_mecka_6d
-  evaluator=pi05/eval_pi_wristframe_6d
+  model=pi/bc_mecka_6d
+  evaluator=eval_cartesian_wrist_6d_prompt
   # Second eval head: spot-check metrics + videos on TRAIN data each val
   # (train_viz/ prefix, videos_train_viz/). Loader defined in the data config.
   launch_params.gpus_per_node=8

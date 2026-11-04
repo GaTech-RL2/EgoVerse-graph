@@ -1,0 +1,71 @@
+# @package _global_
+# Shared E1 stationery recipe: h640/t8, 240k steps, 10k warmup, seed 42.
+# Inherit training infrastructure and select evaluators through defaults;
+# leaves override only their pool, codec, model, and logging identity.
+defaults:
+- /experiment/e1/fold_base
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/stationery_tempo_fast_time
+- override /trainer: ddp
+- override /logger: wandb
+- override /callbacks: checkpoints
+- _self_
+name: scratch_rl2_stattempo_fast_time
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stattempo_fast_time
+ft:
+  max_steps: 240000
+  warmup_steps: 10000
+init_weights_from: null
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+  work_dir: null
+trainer:
+  default_root_dir: null
+  max_epochs: -1
+  min_epochs: 0
+  devices: 1
+  limit_val_batches: 80
+  check_val_every_n_epoch: 200
+  num_nodes: 1
+  num_sanity_val_steps: 2
+  max_steps: ${ft.max_steps}
+callbacks:
+  model_checkpoint:
+    filename: epoch-{epoch:04d}-step-{step:08d}
+    every_n_epochs: null
+    every_n_train_steps: 30000
+    auto_insert_metric_name: false
+logger:
+  wandb:
+    save_dir: null
+    id: scratch_rl2_stattempo_fast_time_20260925_s42
+    project: arc
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_fast
+    - scratch
+    - time
+    resume: never
+norm_stats:
+  sample_frac: 0.2
+  save_cache_dir: null
+e1:
+  policy_domain: yam
+  variant: time
+  spread: stationery
+  train_root: unused-s3-resolver
+  valid_root: unused-s3-resolver
+arc_tokenizer:
+  min_distance_unit: 0.4
+  resampled_vector_length: 100
+hpt:
+  embed_dim: 640
+  num_blocks: 8
+  stem_specs:
+    cross_attn:
+      crossattn_dim_head: 80
+      modality_embed_dim: 640
+  action_dim: 14
+  action_horizon: 100

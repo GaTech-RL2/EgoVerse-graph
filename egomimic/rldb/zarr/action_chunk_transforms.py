@@ -61,7 +61,7 @@ class InterpolatePose(Transform):
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -77,6 +77,11 @@ class InterpolatePose(Transform):
 
     def transform(self, batch: dict) -> dict:
         actions = np.asarray(batch[self.action_key])
+        # None preserves native source rows for ARC distance/timing. Legacy
+        # stride applies only when an interpolated output length is requested.
+        if self.new_chunk_length is None:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         actions = actions[:: self.stride]
         if self.mode == "xyzwxyz":
             if actions.ndim != 2 or actions.shape[-1] != 7:
@@ -113,7 +118,7 @@ class InterpolateLinear(Transform):
 
     def __init__(
         self,
-        new_chunk_length: int,
+        new_chunk_length: int | None,
         action_key: str,
         output_action_key: str,
         stride: int = 1,
@@ -132,6 +137,11 @@ class InterpolateLinear(Transform):
                 f"InterpolateLinear expects (T, D), got {actions.shape} for key "
                 f"'{self.action_key}'"
             )
+        # None preserves native source rows for ARC distance/timing. Legacy
+        # stride applies only when an interpolated output length is requested.
+        if self.new_chunk_length is None:
+            batch[self.output_action_key] = actions.copy()
+            return batch
         actions = actions[:: self.stride]
         batch[self.output_action_key] = _interpolate_linear(
             actions, self.new_chunk_length

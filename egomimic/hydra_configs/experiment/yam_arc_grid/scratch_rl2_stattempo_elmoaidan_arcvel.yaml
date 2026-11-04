@@ -1,0 +1,25 @@
+# @package _global_
+# Frozen Elmo + Aidan split: 218 train / 11 validation episodes.
+# Shared training and tempo evaluator inherited; only the codec/pool differs.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo
+- override /model: e1/hpt_flow_wrists_ft_arcdur
+- override /data: abc_arc/stationery_tempo_elmoaidan_arcvel
+- _self_
+name: scratch_rl2_stattempo_elmoaidan_arcvel
+description: h640t8_d384x10_cos10k_240k_s42_scratch_rl2_stattempo_elmoaidan_arcvel
+logger:
+  wandb:
+    id: scratch_rl2_stattempo_elmoaidan_arcvel_20260925_s42
+    tags:
+    - rl2
+    - stationery
+    - stattempo
+    - tempo_elmoaidan
+    - scratch
+    - arcvel
+e1:
+  variant: arcvel
+  action_dim: 16
+hpt:
+  action_dim: 16

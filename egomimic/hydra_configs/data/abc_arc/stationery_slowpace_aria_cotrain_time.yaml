@@ -1,0 +1,50 @@
+# GENERATED 2026-10-08 18:26 by scripts/e1/build_slowpace_aria_cotrain.py -- rebuild, don't edit.
+# Inherited slow-pace robot pool: 217 train / 24 validation; codec time.
+# Human: 37 RL2 Aria eps / 1.20 h, tasks ['organize stationary', 'organize_stationary'], since 2026-10-01, operators {'Elmo': 37}.
+# Per step: robot batch 32 + human batch 32; validation is robot-only.
+defaults:
+- /data/abc_arc/stationery_tempo_slowpace_time@_here_
+- _self_
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: human_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw:
+      - 480
+      - 640
+      key_map:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_keymap
+        horizon: 100
+        embodiment: human
+        drop_wrist_images: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.bimanual_arc.get_transform_list
+        variant: time
+        chunk_length: 100
+        time_rows: 100
+        min_distance_unit: 0.4
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: human
+        progress_smooth_hz: null
+        fixed_spacing: false
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row, S=frozenset({''2026-10-01-20-49-37-000000'',''2026-10-01-20-53-29-000000'',''2026-10-01-20-56-55-000000'',''2026-10-01-21-01-09-000000'',''2026-10-01-21-10-07-000000'',''2026-10-01-21-14-57-000000'',''2026-10-01-21-20-54-000000'',''2026-10-01-21-24-43-000000'',''2026-10-01-21-29-27-000000'',''2026-10-01-21-33-19-000000'',''2026-10-01-21-38-19-000000'',''2026-10-01-21-44-47-000000'',''2026-10-01-22-31-58-000000'',''2026-10-01-22-37-27-000000'',''2026-10-01-22-44-43-000000'',''2026-10-01-22-50-25-000000'',''2026-10-01-22-57-17-000000'',''2026-10-01-23-03-30-000000'',''2026-10-01-23-20-51-000000'',''2026-10-02-21-18-10-000000'',''2026-10-02-21-24-15-000000'',''2026-10-02-21-29-34-000000'',''2026-10-02-21-37-44-000000'',''2026-10-02-21-42-07-000000'',''2026-10-02-21-53-52-000000'',''2026-10-03-00-45-18-000000'',''2026-10-03-00-50-47-000000'',''2026-10-03-00-58-22-000000'',''2026-10-03-01-15-38-000000'',''2026-10-03-01-40-53-000000'',''2026-10-03-01-47-10-000000'',''2026-10-03-02-09-43-000000'',''2026-10-03-02-32-50-000000'',''2026-10-03-02-58-08-000000'',''2026-10-03-03-22-42-000000'',''2026-10-03-03-35-51-000000'',''2026-10-03-03-50-58-000000''}):
+        row[''embodiment''] in (''aria'', ''human_bimanual'',) and row[''lab''] ==
+        ''rl2'' and row[''zarr_processed_path''] != '''' and row[''is_deleted''] ==
+        False and row[''episode_hash''] in S'
+    mode: total
+    valid_ratio: 0.0
+    bounds_check: false
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+    persistent_workers: true

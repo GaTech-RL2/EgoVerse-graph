@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+- /experiment/yam_arc_grid/_base/towels_hpt300
+- _self_
+towels_pool: since0924
+e1:
+  variant: arcdur
+  action_dim: 16
+hpt:
+  action_dim: ${e1.action_dim}

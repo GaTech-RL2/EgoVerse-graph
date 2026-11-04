@@ -1,0 +1,21 @@
+# @package _global_
+# Default training targets for ARC duration on the translation stream: Tuesday's
+# E1 abstime targets (c685651d), with a window from the current command, row 0 at
+# t=0, a frame-time clock, a last-frame end and a zero-clock still arm. Decode,
+# evaluator and station runtime stay PR #317's.
+model:
+  data_requirements:
+    preprocessing:
+      '7':
+        key_map:
+          tuesday_targets: true
+        transforms:
+          tuesday_targets: true
+  inference_contracts:
+    hybrid_arc_tokenizer_cartesian:
+      compatibility:
+        tokenizer:
+          source_time_origin: current_frame
+run_provenance:
+  action_contract:
+    source_time_origin: current_frame

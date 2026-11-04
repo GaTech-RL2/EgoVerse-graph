@@ -9,6 +9,7 @@ from scipy.optimize import isotonic_regression
 from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.zarr.arc_length_tokenizer import (
+    _bracket_segments,
     _first_crossing_brackets,
     _slerp_segments_ypr,
     cumulative_arc_length,
@@ -208,6 +209,12 @@ class TokenizeBimanualArcLengthCartesian:
     Translation-only and rotation-only streams use that stream's supports and
     clock for all seven pose/gripper components of the arm. No legacy layout,
     initial-delay row, projection mode or synthetic hold window is inferred.
+
+    ``tuesday_targets`` (duration clock, translation stream only) instead
+    reproduces the Tuesday E1 abstime targets of ``c685651d``: source row 0 is
+    the current command and waypoint 0 at t=0, the clock is frame time from the
+    start of motion, the last waypoint is the last source frame, and a still
+    arm holds with a zero clock and a gripper ramp.
     """
 
     def __init__(
@@ -226,9 +233,13 @@ class TokenizeBimanualArcLengthCartesian:
         clock_mode="velocity",
         streams="full_separation",
         initial_action_key="arc.current_action",
+        tuesday_targets=False,
     ):
         self.clock_mode = validate_clock_mode(clock_mode)
         self.streams = validate_streams(streams)
+        if tuesday_targets and (clock_mode, streams) != ("duration", "translation"):
+            raise ValueError("tuesday_targets needs duration clocks on translation")
+        self.tuesday_targets = bool(tuesday_targets)
         self.action_key, self.output_action_key = action_key, output_action_key
         if not isinstance(initial_action_key, str) or not initial_action_key:
             raise ValueError("initial_action_key must name the measured current pose")
@@ -309,7 +320,10 @@ class TokenizeBimanualArcLengthCartesian:
                         )
                     )
             batch[self.preserve_action_key] = preserved
-        waypoints, arrival_times = self._future_supports(raw)
+        supports = (
+            self._tuesday_supports if self.tuesday_targets else self._future_supports
+        )
+        waypoints, arrival_times = supports(raw)
         clocks = []
         for index, name in enumerate(self._stream_names):
             for arm, off in enumerate((0, 7)):
@@ -389,6 +403,37 @@ class TokenizeBimanualArcLengthCartesian:
                 if name in self._stream_names:
                     times[name, arm] = (supports[0] + supports[1] + 1) * dt
             arms.append(np.concatenate((xyz, ypr, grip), axis=1))
+        return np.concatenate(arms, axis=1), times
+
+    def _tuesday_supports(self, raw):
+        """Tuesday E1 ``_tokenize_arm`` + absolute ``dur`` clock, translation only."""
+        cfg, M = self.tokenizer.config, self.M
+        arms, times = [], {}
+        for arm, off in enumerate((0, 7)):
+            pos, ypr, grip = (
+                raw[:, off : off + 3],
+                raw[:, off + 3 : off + 6],
+                raw[:, off + 6 : off + 7],
+            )
+            cum = cumulative_arc_length(pos)
+            end = min(cfg.min_distance_unit, float(cum[-1]))
+            u = np.linspace(0.0, end, M)
+            if end < self.zero_dist_epsilon:
+                ramp = np.linspace(0.0, 1.0, M)
+                xyz = np.repeat(pos[:1], M, axis=0)
+                ypr_rs = _slerp_segments_ypr(ypr[[0, -1]], np.zeros(M, dtype=int), ramp)
+                grip_rs = (1 - ramp[:, None]) * grip[0] + ramp[:, None] * grip[-1]
+                times["translation", arm] = np.zeros(M)
+            else:
+                lower, alpha = _bracket_segments(cum, u)
+                xyz = self._linear(pos, lower, alpha)
+                ypr_rs = _slerp_segments_ypr(ypr, lower, alpha)
+                grip_rs = self._linear(grip, lower, alpha)
+                xyz[0], ypr_rs[0], grip_rs[0] = pos[0], ypr[0], grip[0]
+                frame = np.interp(u, cum, np.arange(len(cum)))
+                seg = np.maximum(np.diff(frame) * cfg.dt, 1e-4) * (np.diff(u) > 1e-9)
+                times["translation", arm] = np.r_[0.0, np.cumsum(seg)]
+            arms.append(np.concatenate((xyz, ypr_rs, grip_rs), axis=1))
         return np.concatenate(arms, axis=1), times
 
     def _gripper_event_frames(self, values):

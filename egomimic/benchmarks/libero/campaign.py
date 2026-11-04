@@ -28,7 +28,7 @@ def campaign_plan(data_root, output_root, python=sys.executable):
                 python,
                 "-m",
                 "egomimic.trainHydra",
-                f"+experiment=oat/{experiment}",
+                f"+experiment=arc_sim/oat/{experiment}",
                 f"benchmark.suite={suite}",
                 f"benchmark.dataset={dataset}",
                 f"hydra.run.dir={outputs[name]}",

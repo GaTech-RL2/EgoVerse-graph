@@ -61,8 +61,8 @@ def recipe():
             "supported DP_COTRAIN_STANDARD profile. Historical runs keep their recorded source."
         )
     if multiplier():
-        return "pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier"
-    return "pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
+        return "arc_sim/pusht/planar_uc_manual4919_dp_261m_af_obs_multiplier"
+    return "arc_sim/pusht/planar_usocket_chain_manual4919_standard_dp_retimed_masked"
 
 
 def layout():

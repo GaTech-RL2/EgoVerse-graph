@@ -20,6 +20,9 @@ def profile_settings(profile_id, mode):
     if len(matches) != 1 or mode not in matches[0]["modes"]:
         raise ValueError("Unknown ARC profile or incompatible mode")
     profile = matches[0]
+    # Preserve dated calibration evidence; map only its selector to today's menu.
+    migration = json.loads((ROOT / "docs/experiment_config_migration.json").read_text())
+    recipe = migration.get(profile["recipe"], profile["recipe"])
     expected = {
         "arc_mode": mode,
         "arc_action_dim": 12,
@@ -36,7 +39,7 @@ def profile_settings(profile_id, mode):
         cfg = compose(
             config_name="train_zarr_cartesian",
             overrides=[
-                f"+experiment={profile['recipe']}",
+                f"+experiment={recipe}",
                 f"benchmark.arc_mode={mode}",
             ],
         )

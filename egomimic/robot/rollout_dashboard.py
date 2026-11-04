@@ -27,6 +27,11 @@ from egomimic.pipeline.inference_config import (
     find_inference_config,
 )
 from egomimic.robot.interface import ARM_OFFSET
+from egomimic.robot.rollout_episode import (
+    OUTCOMES,
+    list_rollout_episodes,
+    validate_episode_recording,
+)
 from egomimic.robot.rollout_video import (
     list_rollout_videos,
     rollout_video_path,
@@ -55,6 +60,34 @@ STATIC = Path(__file__).with_name("rollout_dashboard_static")
 SUPERSEDED_CLOSE_CODE = 4001
 CHECKPOINT_SUFFIXES = frozenset({".ckpt"})
 MODEL_BROWSER_DEFAULTS = {"enabled": False, "root": None}
+
+
+class _RolloutTimer:
+    """Monotonic active time since Continue; callers hold the dashboard lock."""
+
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.elapsed = 0.0
+        self.running_since = None
+
+    def resume(self):
+        if self.running_since is None:
+            self.running_since = self.clock()
+
+    def pause(self):
+        if self.running_since is not None:
+            self.elapsed += max(0.0, self.clock() - self.running_since)
+            self.running_since = None
+
+    def reset(self):
+        self.elapsed = 0.0
+        self.running_since = None
+
+    def snapshot(self):
+        elapsed = self.elapsed
+        if self.running_since is not None:
+            elapsed += max(0.0, self.clock() - self.running_since)
+        return {"elapsed_seconds": elapsed, "running": self.running_since is not None}
 
 
 def _require_bool(value: object, name: str) -> bool:
@@ -169,7 +202,15 @@ class CheckpointBrowser:
                 "resolved-config.yaml",
                 "training-config.yaml",
             ),
-            "normalizer_path": (f"{run_prefix}.norm_stats.json", "norm_stats.json"),
+            # Resolve the complete saved context first. Legacy filenames are
+            # discovery aliases only: load_bound_graph still validates contents
+            # and immutable binding, never a statistics-only fallback.
+            "normalizer_path": (
+                f"{run_prefix}.data-context.json",
+                "data-context.json",
+                f"{run_prefix}.norm_stats.json",
+                "norm_stats.json",
+            ),
         }.items():
             for name in names:
                 candidate = path.parent / name
@@ -557,6 +598,7 @@ class RolloutDashboard:
         video_recording=None,
         model_browser=None,
         policy=None,
+        episode_recording=None,
         **config,
     ) -> None:
         self.cameras = tuple(cameras)
@@ -564,6 +606,7 @@ class RolloutDashboard:
             raise ValueError("The rollout dashboard needs at least one camera")
         self.config, self.overlay = validate_rollout_preview(config, set(self.cameras))
         self.video_recording_config = validate_video_recording(video_recording)
+        self.episode_recording_config = validate_episode_recording(episode_recording)
         self.model_browser = validate_model_browser(model_browser, policy)
         if not self.config["enabled"]:
             raise ValueError(
@@ -574,11 +617,22 @@ class RolloutDashboard:
         self._overlay_status = "Waiting for a Cartesian graph plan"
         self._overlay_enabled = self.config["action_overlay"]["initial_enabled"]
         self._inference_controls = _validate_inference_controls(inference_controls)
-        self._pending_inference_overrides: dict[str, int] = {}
+        self._pending_inference_overrides: dict[str, object] = {}
         self._inference_controls_revision = 0
+        self._ik_relaxation = {"available": False, "enabled": False}
+        self._ik_relaxation_request = None
+        self._gripper_force_limits: dict[str, float] = {}
+        self._gripper_force_request = None
+        self._ik_solver = {"available": False, "backend": "mujoco", "error": None}
+        self._ik_solver_request = None
         self._inference_ms = deque(maxlen=20)
+        self._rollout_timer = _RolloutTimer()
         self._video_recording = False
         self._video_last_saved: dict | None = None
+        self._episode_recording = False
+        self._episode_frames = 0
+        self._episode_last_saved: dict | None = None
+        self._episode_request: dict | None = None
         self._checkpoint = (
             None
             if self.model_browser is None
@@ -603,6 +657,7 @@ class RolloutDashboard:
         self._velocity_decision: str | None = None
         if not self._wait_for_start:
             self._start_requested.set()
+            self._rollout_timer.resume()
         self._shutdown = threading.Event()
         self._ready = threading.Event()
         self._error: Exception | None = None
@@ -633,7 +688,10 @@ class RolloutDashboard:
 
     def request_start(self) -> None:
         """Begin policy control on the rollout loop's next safe tick."""
-        self._start_requested.set()
+        with self._lock:
+            self._start_requested.set()
+            if not self._paused.is_set():
+                self._rollout_timer.resume()
 
     def request_restart(self) -> None:
         """Return to ready state and discard any displayed action plan."""
@@ -641,6 +699,7 @@ class RolloutDashboard:
         self._paused.clear()
         self._camera_reconnect_requested.clear()
         with self._lock:
+            self._rollout_timer.reset()
             # A top-level Restart may arrive while the rollout thread is blocked
             # on a velocity decision. Remove that stale warning before it returns
             # to the ready gate.
@@ -654,6 +713,7 @@ class RolloutDashboard:
         self._start_requested.clear()
         self._paused.clear()
         with self._lock:
+            self._rollout_timer.pause()
             self._status = "Camera reconnect requested — control is paused"
         self._camera_reconnect_requested.set()
 
@@ -661,6 +721,44 @@ class RolloutDashboard:
         """Ask the rollout loop to start or save display-only MP4 recording."""
         if self.video_recording_config["enabled"]:
             self._video_record_requested.set()
+
+    def request_episode_action(self, action: object, outcome: object = None) -> bool:
+        """Queue start, save (with an outcome label) or discard of a rollout episode.
+
+        The rollout loop owns the recorder; the newest request replaces any
+        that the loop has not consumed yet."""
+        if not self.episode_recording_config["enabled"]:
+            return False
+        if action == "save":
+            if outcome not in OUTCOMES:
+                return False
+            request = {"action": "save", "outcome": outcome}
+        elif action in ("start", "discard"):
+            request = {"action": action}
+        else:
+            return False
+        with self._lock:
+            self._episode_request = request
+        return True
+
+    def take_episode_request(self) -> dict | None:
+        """Consume one browser episode request on the rollout control loop."""
+        with self._lock:
+            request, self._episode_request = self._episode_request, None
+        return request
+
+    def set_episode_recording(
+        self,
+        recording: bool,
+        frames: int = 0,
+        saved: Mapping[str, object] | None = None,
+    ) -> None:
+        """Publish recorder-owned episode state without adding a dashboard write path."""
+        with self._lock:
+            self._episode_recording = bool(recording)
+            self._episode_frames = int(frames)
+            if saved is not None:
+                self._episode_last_saved = dict(saved)
 
     def request_model_selection(self, relative: object) -> None:
         """Queue a selected model; rollout owns the actual model load."""
@@ -673,6 +771,7 @@ class RolloutDashboard:
         self._start_requested.clear()
         self._paused.clear()
         with self._lock:
+            self._rollout_timer.pause()
             self._selected_model = bundle
             self._status = (
                 f"Model selected: {self.model_browser.relative(bundle.checkpoint)} — "
@@ -724,8 +823,11 @@ class RolloutDashboard:
                 return
             if paused:
                 self._paused.set()
+                self._rollout_timer.pause()
             else:
                 self._paused.clear()
+                if self._start_requested.is_set():
+                    self._rollout_timer.resume()
 
     def is_paused(self) -> bool:
         """Return the browser's requested policy-control pause state."""
@@ -752,6 +854,66 @@ class RolloutDashboard:
                 validated[name] = value
             self._pending_inference_overrides.update(validated)
         return True
+
+    def set_ik_solver(self, settings) -> None:
+        with self._lock:
+            self._ik_solver = dict(settings)
+
+    def request_ik_solver(self, backend) -> bool:
+        with self._lock:
+            if (
+                backend not in ("mujoco", "pytracik")
+                or not self._ik_solver["available"]
+            ):
+                return False
+            self._ik_solver_request = backend
+            return True
+
+    def take_ik_solver_request(self):
+        with self._lock:
+            request, self._ik_solver_request = self._ik_solver_request, None
+            return request
+
+    def set_ik_relaxation(self, settings) -> None:
+        """Publish settings applied by the rollout thread, never command a robot."""
+        with self._lock:
+            self._ik_relaxation = dict(settings)
+
+    def request_ik_relaxation(self, enabled) -> bool:
+        with self._lock:
+            if type(enabled) is not bool or not self._ik_relaxation["available"]:
+                return False
+            self._ik_relaxation_request = enabled
+        return True
+
+    def take_ik_relaxation_request(self):
+        with self._lock:
+            request, self._ik_relaxation_request = self._ik_relaxation_request, None
+        return request
+
+    def set_gripper_force_limits(self, limits) -> None:
+        """Publish the limits the rollout thread applied, never command a robot."""
+        with self._lock:
+            self._gripper_force_limits = {arm: float(v) for arm, v in limits.items()}
+
+    def request_gripper_force(self, request) -> bool:
+        """Queue one arm's new force limit (1-50 N) for the rollout thread."""
+        if not isinstance(request, Mapping):
+            return False
+        try:
+            arm, value = request.get("arm"), float(request.get("value"))
+        except (TypeError, ValueError):
+            return False
+        with self._lock:
+            if arm not in self._gripper_force_limits or not 1 <= value <= 50:
+                return False
+            self._gripper_force_request = {"arm": arm, "value": value}
+        return True
+
+    def take_gripper_force_request(self):
+        with self._lock:
+            request, self._gripper_force_request = self._gripper_force_request, None
+        return request
 
     def request_inference_override(self, name: object, value: object) -> None:
         """Compatibility wrapper for callers submitting one declared value."""
@@ -875,6 +1037,8 @@ class RolloutDashboard:
         return "c" if self._start_requested.is_set() else None
 
     def close(self) -> None:
+        with self._lock:
+            self._rollout_timer.pause()
         self._shutdown.set()
         if self._thread.is_alive():
             self._thread.join(timeout=3)
@@ -894,7 +1058,11 @@ class RolloutDashboard:
                 "updated_at": self._updated_at,
                 "paused": self._paused.is_set(),
                 "started": self._start_requested.is_set(),
+                "rollout_time": self._rollout_timer.snapshot(),
                 "inference_controls": deepcopy(self._inference_controls),
+                "ik_relaxation": dict(self._ik_relaxation),
+                "ik_solver": dict(self._ik_solver),
+                "gripper_force_limits": dict(self._gripper_force_limits),
                 "inference_controls_revision": self._inference_controls_revision,
                 "inference": {
                     "samples": len(inference_ms),
@@ -909,6 +1077,13 @@ class RolloutDashboard:
                     None
                     if self._video_last_saved is None
                     else self._video_last_saved.copy()
+                ),
+                "episode_recording": self._episode_recording,
+                "episode_frames": self._episode_frames,
+                "episode_last_saved": (
+                    None
+                    if self._episode_last_saved is None
+                    else self._episode_last_saved.copy()
                 ),
                 "model_browser_enabled": self.model_browser is not None,
                 "checkpoint": self._checkpoint,
@@ -961,7 +1136,11 @@ class RolloutDashboard:
                 started = self._start_requested.is_set()
                 inference_controls = deepcopy(self._inference_controls)
                 inference_controls_revision = self._inference_controls_revision
+                ik_relaxation = dict(self._ik_relaxation)
+                ik_solver = dict(self._ik_solver)
+                gripper_force_limits = dict(self._gripper_force_limits)
                 checkpoint = self._checkpoint
+                rollout_time = self._rollout_timer.snapshot()
             for client in superseded:
                 # Closed in the background: an unresponsive stale tab must not
                 # hold up the operator's new one.
@@ -980,12 +1159,21 @@ class RolloutDashboard:
                         "wait_for_start": self._wait_for_start,
                         "paused": paused,
                         "started": started,
+                        "rollout_time": rollout_time,
                         "inference_controls": inference_controls,
+                        "ik_relaxation": ik_relaxation,
+                        "ik_solver": ik_solver,
+                        "gripper_force_limits": gripper_force_limits,
                         "inference_controls_revision": inference_controls_revision,
                         "video_recording_enabled": self.video_recording_config[
                             "enabled"
                         ],
                         "video_recording": self._video_recording,
+                        "episode_recording_enabled": self.episode_recording_config[
+                            "enabled"
+                        ],
+                        "episode_recording": self._episode_recording,
+                        "episode_frames": self._episode_frames,
                         "model_browser_enabled": self.model_browser is not None,
                         "checkpoint": checkpoint,
                     }
@@ -1000,6 +1188,8 @@ class RolloutDashboard:
                     if not isinstance(command, Mapping):
                         continue
                     if command.get("stop") is True:
+                        with self._lock:
+                            self._rollout_timer.pause()
                         self._quit_requested.set()
                     if command.get("start") is True:
                         self.request_start()
@@ -1009,10 +1199,22 @@ class RolloutDashboard:
                         self.request_camera_reconnect()
                     if command.get("record_video") is True:
                         self.request_video_recording()
+                    if command.get("record_episode") == "start":
+                        self.request_episode_action("start")
+                    if "save_episode" in command:
+                        self.request_episode_action("save", command["save_episode"])
+                    if command.get("discard_episode") is True:
+                        self.request_episode_action("discard")
                     if "select_model" in command:
                         self.request_model_selection(command["select_model"])
                     if type(command.get("paused")) is bool:
                         self.request_pause(command["paused"])
+                    if "ik_solver" in command:
+                        self.request_ik_solver(command["ik_solver"])
+                    if "ik_relaxation" in command:
+                        self.request_ik_relaxation(command["ik_relaxation"])
+                    if "gripper_force" in command:
+                        self.request_gripper_force(command["gripper_force"])
                     overrides = command.get(
                         "inference_overrides", command.get("inference_override")
                     )
@@ -1022,6 +1224,8 @@ class RolloutDashboard:
                     if decision in {"execute", "resample", "restart"}:
                         with self._lock:
                             if self._velocity_prompt is not None:
+                                if decision == "restart":
+                                    self._rollout_timer.reset()
                                 self._velocity_decision = decision
                                 self._velocity_decision_ready.set()
                     if type(command.get("overlay")) is bool:
@@ -1075,6 +1279,16 @@ class RolloutDashboard:
 
             app.router.add_get("/api/videos", videos)
             app.router.add_get("/api/videos/{video}", video)
+        if self.episode_recording_config["enabled"]:
+
+            async def episodes(_request):
+                # Metadata only: episode files are gigabytes and are read with
+                # h5py on the station, not streamed to the browser.
+                return web.json_response(
+                    list_rollout_episodes(self.episode_recording_config["directory"])
+                )
+
+            app.router.add_get("/api/episodes", episodes)
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
         await web.TCPSite(runner, self.config["host"], self.config["port"]).start()
@@ -1116,13 +1330,20 @@ class RolloutDashboard:
                         "age_ms": round(max(0.0, now - snapshot["updated_at"]) * 1000),
                         "paused": snapshot["paused"],
                         "started": snapshot["started"],
+                        "rollout_time": snapshot["rollout_time"],
                         "inference_controls": snapshot["inference_controls"],
+                        "ik_relaxation": snapshot["ik_relaxation"],
+                        "ik_solver": snapshot["ik_solver"],
+                        "gripper_force_limits": snapshot["gripper_force_limits"],
                         "inference_controls_revision": snapshot[
                             "inference_controls_revision"
                         ],
                         "inference": snapshot["inference"],
                         "video_recording": snapshot["video_recording"],
                         "video_last_saved": snapshot["video_last_saved"],
+                        "episode_recording": snapshot["episode_recording"],
+                        "episode_frames": snapshot["episode_frames"],
+                        "episode_last_saved": snapshot["episode_last_saved"],
                         "checkpoint": snapshot["checkpoint"],
                         "velocity_prompt": snapshot["velocity_prompt"],
                     }

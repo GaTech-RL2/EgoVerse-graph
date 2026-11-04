@@ -70,6 +70,11 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   Two, four or six timing channels follow all 14 pose channels; they are not interleaved.
   Decoder settings belong to explicit model YAML `decoder_attribute` controls;
   never append controls based on a model class or inferred token width. The
+  station YAML's `policy.station_controls` adds rollout-only knobs (replan,
+  fastest stream, waypoint %, replay/hold speed) where the model declares none
+  of that name and the loaded decoder has the target attribute, and
+  `policy.inference_defaults` sets start values of exposed controls; neither
+  edits the checkpoint-bound declaration. The
   decoders use the live `egomimic.rldb.zarr` tokenizers only; no checkpoint-era
   codec copies are carried. Anything the codec needs for deployment
   (``detokenize(times=)``, `stream_clocks`, `stream_ends`) is decode-only; never

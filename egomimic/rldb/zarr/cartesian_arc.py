@@ -441,6 +441,20 @@ class TokenizeBimanualArcLengthCartesian:
     ):
         if max_steps is not None and (int(max_steps) != max_steps or max_steps < 1):
             raise ValueError("max_steps must be a positive integer")
+        duration = self.control_duration(
+            token, initial_action=initial_action, clocks_in_seconds=clocks_in_seconds
+        )
+        if duration is None:
+            if max_steps is None:
+                raise ValueError(
+                    "ARC token timing does not define a finite replan boundary"
+                )
+            return int(max_steps)
+        steps = max(1, int(np.ceil(duration / self.tokenizer.config.dt - 1e-9)))
+        return min(steps, int(max_steps)) if max_steps is not None else steps
+
+    def control_duration(self, token, *, initial_action, clocks_in_seconds=False):
+        """Seconds until the first moving stream ends; None if that is undefined."""
         value = self._native(token, initial_action, clocks_in_seconds)
         moving_ends, static_ends = [], []
         for index, name in enumerate(self._stream_names):
@@ -451,28 +465,29 @@ class TokenizeBimanualArcLengthCartesian:
                     moving_ends.append(end)
                 elif self.clock_mode == "duration":
                     static_ends.append(end)
-        if moving_ends:
-            duration = min(moving_ends)
-        elif static_ends:
-            duration = min(static_ends)
-        else:
-            if max_steps is None:
-                raise ValueError(
-                    "A fully static velocity token has no duration; supply max_steps"
-                )
-            return int(max_steps)
-        if not np.isfinite(duration):
-            if max_steps is None:
-                raise ValueError(
-                    "ARC token timing does not define a finite replan boundary"
-                )
-            return int(max_steps)
-        steps = max(1, int(np.ceil(duration / self.tokenizer.config.dt - 1e-9)))
-        return min(steps, int(max_steps)) if max_steps is not None else steps
+        ends = moving_ends or static_ends
+        duration = min(ends) if ends else np.inf
+        return float(duration) if np.isfinite(duration) else None
 
-    def _clock_indices(self, durations, action_horizon):
+    def stream_clocks(self, token, *, initial_action, clocks_in_seconds=False):
+        """Decode-only: per arm, (arrival seconds, cumulative distance) of the
+        primary stream (translation if present), each of length M + 1."""
+        value = self._native(token, initial_action, clocks_in_seconds)
+        anchor = _initial_actions(initial_action)
+        names = self._stream_names
+        name = "translation" if "translation" in names else names[0]
+        index = names.index(name)
+        out = []
+        for arm, off in enumerate((0, 7)):
+            distance = self._distances(value, off, name, anchor)
+            durations = self._intervals(distance, value[:, 14 + index * 2 + arm])
+            out.append(
+                (np.r_[0.0, np.cumsum(durations)], np.r_[0.0, np.cumsum(distance)])
+            )
+        return out
+
+    def _clock_indices(self, durations, query):
         elapsed = np.r_[0.0, np.cumsum(durations)]
-        query = self.tokenizer.config.dt * np.arange(1, action_horizon + 1)
         upper = np.clip(
             np.searchsorted(elapsed, query, side="right"), 1, len(elapsed) - 1
         )
@@ -488,8 +503,16 @@ class TokenizeBimanualArcLengthCartesian:
         return lower, upper, np.clip(alpha, 0.0, 1.0), elapsed
 
     def detokenize(
-        self, arc_actions, action_horizon, *, initial_action, clocks_in_seconds=False
+        self,
+        arc_actions,
+        action_horizon,
+        *,
+        initial_action,
+        clocks_in_seconds=False,
+        times=None,
     ):
+        """``times`` (decode-only): token-clock seconds to read the H rows at,
+        replacing the uniform next-frame grid (dt, 2 dt, ..., H dt)."""
         value = self._native(arc_actions, initial_action, clocks_in_seconds)
         h = int(action_horizon)
         if h < 1:
@@ -497,6 +520,10 @@ class TokenizeBimanualArcLengthCartesian:
         anchor = _initial_actions(initial_action)
         geometry = np.concatenate((anchor[None], value[:, :14]), axis=0)
         query = np.arange(1, h + 1) * self.tokenizer.config.dt
+        if times is not None:
+            query = np.asarray(times, dtype=np.float64)
+            if query.shape != (h,) or not np.isfinite(query).all():
+                raise ValueError(f"times must be {h} finite clock readings")
         arms = []
         for arm, off in enumerate((0, 7)):
             indices, clocks = {}, {}
@@ -505,7 +532,7 @@ class TokenizeBimanualArcLengthCartesian:
                     self._distances(value, off, name, anchor),
                     value[:, 14 + index * 2 + arm],
                 )
-                lower, upper, alpha, elapsed = self._clock_indices(durations, h)
+                lower, upper, alpha, elapsed = self._clock_indices(durations, query)
                 indices[name] = (lower, upper, alpha)
                 clocks[name] = elapsed
             primary = indices.get("translation", indices.get("rotation"))

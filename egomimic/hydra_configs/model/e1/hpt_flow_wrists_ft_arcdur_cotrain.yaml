@@ -1,0 +1,5 @@
+# Co-training duration twin: action width is independent of the 14D state stems.
+defaults:
+- /model/e1/hpt_flow_wrists_ft_cotrain@_here_
+- _self_
+action_token_dim: 16

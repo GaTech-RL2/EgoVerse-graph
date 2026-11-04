@@ -36,6 +36,13 @@ whole scratch/project root. Candidate inventory alone does not authorize deletio
 Publish source from the authenticated Skynet account with Graphite `gt submit`,
 preserving branch parents. Do not merge without an explicit user request.
 
+## Aidan stationery source
+
+For new ARC/stattempo work, start from `aidan/stattempo-consolidated-main-20261011`.
+Read [docs/STATTEMPO.md](docs/STATTEMPO.md) for the source pins, shared config
+parents and validation limits. Original streams/ref/r72 and arc-bc-consolidated
+branches are historical run sources. Preserve existing jobs' recorded commits.
+
 ## Current PushT recipes
 
 Read the current selection section in `docs/cluster-pipeline.md` before choosing

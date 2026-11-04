@@ -1,0 +1,16 @@
+# @package _global_
+# Inherit the maintained recipe; keep only this row's differences.
+defaults:
+- /experiment/yam_arc_grid/_base/stattempo
+- override /model: e1/hpt_flow_wrists_ft
+- override /data: abc_arc/stationery_tempo_fast_time
+- override /evaluator: eval_open_loop_sim
+- _self_
+evaluator:
+  ground_truth_action_key: actions_time
+  execute_fraction: 0.25
+  action_mode: baseline
+  distance_dtw_enabled: false
+  viz_every_n_epochs: 0
+name: stattempo_eval_time
+description: h640t8_d384x10_cos10k_240k_s42_stattempo_eval_time

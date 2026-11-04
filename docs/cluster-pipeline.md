@@ -21,6 +21,13 @@ Refresh remote state and verify ancestry before choosing a new source. Older
 documents describing these PRs as unmerged are historical. Existing checkpoint
 source commits remain authoritative for strict reload and resume.
 
+## Aidan stationery selection
+
+New ARC/stattempo sessions use `aidan/stattempo-consolidated-main-20261011`.
+[The stationery guide](STATTEMPO.md) records its main base, original source,
+shared recipe hierarchy and verification. Existing checkpoint source pins remain
+unchanged. Resolve the branch's current commit before new work.
+
 ## Current PushT selection
 
 The paired raw-multiplier recipes are:

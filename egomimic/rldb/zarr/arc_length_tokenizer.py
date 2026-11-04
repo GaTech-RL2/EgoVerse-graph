@@ -143,6 +143,30 @@ def cumulative_arc_length(pos: np.ndarray) -> np.ndarray:
     return np.concatenate([np.array([0.0]), np.cumsum(step)])
 
 
+def cumulative_rotation_length(ypr: np.ndarray) -> np.ndarray:
+    """Return cumulative SO(3) geodesic angle in radians.
+
+    The returned coordinate is an independent rotation clock.  It deliberately
+    does not depend on translational motion, so an in-place wrist rotation can
+    advance even when the EEF position is stationary.
+    """
+    ypr = np.asarray(ypr, dtype=np.float64).reshape(-1, 3)
+    if len(ypr) < 2:
+        return np.zeros(len(ypr), dtype=np.float64)
+    rotations = _ypr_to_rotation(ypr)
+    relative = rotations[:-1].inv() * rotations[1:]
+    step = np.linalg.norm(relative.as_rotvec(), axis=-1)
+    return np.concatenate([np.array([0.0]), np.cumsum(step)])
+
+
+def cumulative_bimanual_translation_length(actions: np.ndarray) -> np.ndarray:
+    """Joint translation clock: left travel plus right travel."""
+    actions = np.asarray(actions, dtype=np.float64)
+    left = np.linalg.norm(np.diff(actions[:, 0:3], axis=0), axis=-1)
+    right = np.linalg.norm(np.diff(actions[:, 7:10], axis=0), axis=-1)
+    return np.concatenate(([0.0], np.cumsum(left + right)))
+
+
 def _bracket_segment(cumdist: np.ndarray, target_s: float) -> tuple[int, float]:
     """Locate the segment containing arc length target_s.
 
@@ -223,6 +247,51 @@ def _bracket_segments(
     i = np.where(lo, 0, np.where(hi, last, i))
     alpha = np.where(lo, 0.0, np.where(hi, 1.0, alpha))
     return i, alpha
+
+
+def _first_crossing_brackets(
+    cumdist: np.ndarray, targets: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized first-crossing bracket, mirroring the per-arm scalar rule.
+
+    Unlike :func:`_bracket_segments` this never clamps a target at or past the
+    end to the last segment's ``alpha = 1``: a trailing hold consumes no
+    translation, so the first frame reaching the distance is the answer.
+    ``TokenizeBimanualArcLengthCartesian._translation_bracket`` is the scalar
+    statement of the same rule, and the two must agree exactly.
+    """
+    cumdist = np.asarray(cumdist, dtype=np.float64)
+    targets = np.asarray(targets, dtype=np.float64)
+    n = len(cumdist)
+    capped = np.minimum(targets, cumdist[-1])
+    upper = np.clip(np.searchsorted(cumdist, capped, side="left"), 1, n - 1)
+    interval = cumdist[upper] - cumdist[upper - 1]
+    ok = interval > 1e-12
+    # The numerator keeps the uncapped target, exactly as the scalar path does;
+    # the clip below is what bounds an overshooting target.
+    alpha = np.where(
+        ok, (targets - cumdist[upper - 1]) / np.where(ok, interval, 1.0), 0.0
+    )
+    alpha = np.clip(alpha, 0.0, 1.0)
+    lo = targets <= cumdist[0]
+    return np.where(lo, 0, upper - 1), np.where(lo, 0.0, alpha)
+
+
+def _source_times_at_targets(
+    cumdist: np.ndarray, targets: np.ndarray, dt: float
+) -> np.ndarray:
+    """Map arc targets to fractional source times with scalar-identical math."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    return (indices + alpha) * dt
+
+
+def _linear_at_targets(
+    values: np.ndarray, cumdist: np.ndarray, targets: np.ndarray
+) -> np.ndarray:
+    """Interpolate all targets while preserving the scalar operation order."""
+    indices, alpha = _bracket_segments(cumdist, targets)
+    blend = alpha[:, None]
+    return (1.0 - blend) * values[indices] + blend * values[indices + 1]
 
 
 def _slerp_segments_ypr(
@@ -1063,6 +1132,33 @@ ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # bimanual total (fourteen)
 # whole token.
 BIMANUAL_VELOCITY_MODES = ("mean", "per_waypoint", "duration")
 
+# How the waypoint rows and the velocity rows are joined into one token.
+#
+#   "wide"     velocity rows sit BESIDE the waypoints: (M, 28), columns 0..13
+#              shape and 14..27 velocity. Halves the sequence length and gives
+#              each stream its own normalization statistics. The default.
+#   "stacked"  velocity rows sit UNDER the waypoints: (2M, 14). The historical
+#              layout. Shape and velocity share a column, so a per-column
+#              normalizer pools metres with metres/second.
+#
+# "wide" needs one velocity row per waypoint, so it is undefined for the "mean"
+# velocity mode, which emits a single row for the whole token. That is the only
+# place "stacked" is still the default.
+BIMANUAL_VELOCITY_LAYOUTS = ("wide", "stacked")
+ARC_CHUNKING_MODES = ("race", "multistream", "joint_distance")
+
+
+def resolve_arc_chunking_mode(mode=None, rotation_distance_unit=None) -> str:
+    """Keep old hybrid (joint) and nonhybrid (per-arm) checkpoints readable."""
+    if mode is None:
+        return "joint_distance" if rotation_distance_unit is not None else "multistream"
+    value = str(mode).strip().lower()
+    if value not in ARC_CHUNKING_MODES:
+        raise ValueError(
+            f"arc_chunking_mode must be one of {ARC_CHUNKING_MODES}, got {mode!r}"
+        )
+    return value
+
 
 def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
     if velocity_mode not in BIMANUAL_VELOCITY_MODES:
@@ -1071,6 +1167,31 @@ def validate_bimanual_velocity_mode(velocity_mode: str) -> str:
             f"got {velocity_mode!r}"
         )
     return velocity_mode
+
+
+def default_bimanual_velocity_layout(velocity_mode: str) -> str:
+    """Wide wherever wide is defined.
+
+    "mean" emits one velocity row for the whole token, so there is no
+    per-waypoint row to sit beside each waypoint and wide has no meaning there.
+    """
+    return "stacked" if velocity_mode == "mean" else "wide"
+
+
+def validate_bimanual_velocity_layout(
+    velocity_layout: str, velocity_mode: str = "mean"
+) -> str:
+    if velocity_layout not in BIMANUAL_VELOCITY_LAYOUTS:
+        raise ValueError(
+            f"velocity_layout must be one of {BIMANUAL_VELOCITY_LAYOUTS}, "
+            f"got {velocity_layout!r}"
+        )
+    if velocity_layout == "wide" and velocity_mode == "mean":
+        raise ValueError(
+            "velocity_layout='wide' needs one velocity row per waypoint; "
+            "velocity_mode='mean' emits a single row for the whole token"
+        )
+    return velocity_layout
 
 
 def bimanual_arc_token_rows(
@@ -1084,49 +1205,88 @@ def bimanual_arc_token_rows(
     return num_waypoints + 1 if velocity_mode == "mean" else 2 * num_waypoints
 
 
+def bimanual_arc_token_shape(
+    resampled_vector_length: int,
+    velocity_mode: str = "mean",
+    velocity_layout: str | None = None,
+) -> tuple[int, int]:
+    """(rows, dim) of one bimanual arc token -- the single source of truth."""
+    if velocity_layout is None:
+        velocity_layout = default_bimanual_velocity_layout(velocity_mode)
+    validate_bimanual_velocity_layout(velocity_layout, velocity_mode)
+    rows = bimanual_arc_token_rows(resampled_vector_length, velocity_mode)
+    if velocity_layout == "stacked":
+        return rows, ARC_TOK_BIMANUAL_DIM
+    return rows // 2, 2 * ARC_TOK_BIMANUAL_DIM
+
+
+def bimanual_arc_token_shapes(
+    resampled_vector_length: int, velocity_mode: str = "mean"
+) -> tuple[tuple[int, int], ...]:
+    """Every token shape this M and velocity mode can produce.
+
+    Shape is how the evaluators tell an arc token from a pose chunk, and one
+    evaluator serves runs tokenized in either velocity layout, so detection has
+    to accept both. "wide" is undefined for the "mean" mode (see
+    ``validate_bimanual_velocity_layout``), which leaves it a single shape.
+    """
+    layouts = ("stacked",) if velocity_mode == "mean" else BIMANUAL_VELOCITY_LAYOUTS
+    return tuple(
+        bimanual_arc_token_shape(resampled_vector_length, velocity_mode, layout)
+        for layout in layouts
+    )
+
+
+def stack_arc_token(token: np.ndarray) -> np.ndarray:
+    """Restack a wide arc token into the stacked layout.
+
+    Wide keeps each velocity row beside its waypoint, (..., M, 28); stacked
+    keeps it underneath, (..., 2M, 14). Everything that indexes token ROWS --
+    the evaluators' truncation and arcmatch helpers -- only speaks stacked, so
+    it converts once at its boundary instead of learning both layouts. A
+    stacked token passes through unchanged. Accepts one token or a batch.
+    """
+    value = np.asarray(token, dtype=np.float64)
+    if value.ndim >= 2 and value.shape[-1] == 2 * ARC_TOK_BIMANUAL_DIM:
+        return np.concatenate(
+            (value[..., :ARC_TOK_BIMANUAL_DIM], value[..., ARC_TOK_BIMANUAL_DIM:]),
+            axis=-2,
+        )
+    return value
+
+
 class TokenizeBimanualArcLengthCartesian:
-    """Transform: (T, 14) actions_cartesian -> (M+1, 14) arc-tokenized layout.
+    """Transform ``(T, 14)`` Cartesian chunks into bimanual ARC tokens.
 
-    Layout per row (same 14-dim as the canonical bimanual cartesian chunk):
-        [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
-    Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
-    the first ``min_distance_unit`` meters of that arm's translational
-    travel. xyz and gripper are linear-interpolated at the M arc-length
-    targets; ypr is SLERPed through the resampled rotation sequence (via
-    ``slerp_through_ypr``) so orientation is unconditionally supervised.
+    Waypoints retain the canonical ``[L xyz/ypr/grip | R xyz/ypr/grip]`` layout.
+    Mean velocity uses a stacked ``(M+1, 14)`` token. Granular modes use either
+    the historical stacked ``(2M, 14)`` layout or the default wide ``(M, 28)``
+    layout, with 14 waypoint values followed by their 14 velocity values in each
+    row. Wide halves sequence length while keeping position and rate statistics in
+    separate feature columns.
 
-    Row M is the velocity token. Per arm the slots hold:
-        [xyz_vel(3), ypr_vel(3), grip_vel(1)]
-    where xyz_vel is the mean per-axis translational rate (from the
-    underlying tokenizer's MEAN_PER_DIM mode), ypr_vel is
-    ``(ypr[M-1] - ypr[0]) / duration_arm`` — the mean angular velocity per
-    axis over the token span — and grip_vel is ``(grip[M-1] - grip[0]) /
-    duration_arm`` (mean gripper opening rate). duration_arm is derived
-    from ||xyz_vel|| (duration = chord / speed) with a fallback to
-    ``(M-1) * dt`` when the arm is stationary. Rotation is ALWAYS included
-    — there is no config option to drop it.
+    Translation mode ``joint_distance`` shares one summed-distance clock;
+    ``multistream`` caps each arm independently at D. When R is configured, each
+    arm has its own SO(3) rotation budget R in every mode. ``race`` ends when the
+    first of four streams reaches its budget: either arm's translation reaches D
+    or either arm's rotation reaches R. Emitted per-waypoint velocities preserve
+    independent translation, rotation, and gripper timing, including a stationary
+    arm's moving gripper.
 
-    Gripper padding/masking for embodiments without a gripper signal
-    (e.g. human_bimanual using PadGripperZeros upstream) is unchanged:
-    gripper still reaches slot 6 (per arm) of the output layout.
-
-    Assumes the input chunk is already in the model's target cam frame
-    (post InterpolatePose + ActionChunkCoordinateFrameTransform + XYZWXYZ_
-    to_XYZYPR + ConcatKeys).
+    Gripper padding for embodiments without a gripper signal remains in slot 6 of
+    each arm's waypoint block. Inputs must already be transformed into the model's
+    target frame.
 
     Args:
-        action_key: input batch key holding the (T, 14) chunk.
-        output_action_key: where to write the (M+1, 14) tokenized chunk.
-        min_distance_unit: per-arm arc length span of the token, in meters
-            (i.e. the D parameter in the sweep script; the tokenizer covers
-            the first ``min_distance_unit`` meters of each arm's translational
-            travel).
-        resampled_vector_length: number of waypoints M (the sequence has
-            M+1 rows once the velocity token is appended).
-        dt: seconds per raw timestep (control period).
-        zero_dist_epsilon: below-this-arc-length chunks are treated as
-            stationary; the vel token comes out as zeros in that case so
-            downstream (loss, detokenize) doesn't NaN.
+        action_key: Input batch key containing a ``(T, 14)`` chunk.
+        output_action_key: Batch key for the tokenized output.
+        min_distance_unit: Translation budget D, in meters.
+        rotation_distance_unit: Optional per-arm rotation budget R, in radians.
+        resampled_vector_length: Number of waypoints M.
+        dt: Seconds per raw timestep.
+        velocity_mode: Mean, per-waypoint, or duration timing.
+        arc_chunking_mode: Translation and race mode.
+        velocity_layout: ``wide`` or ``stacked`` layout for granular modes.
     """
 
     def __init__(
@@ -1134,11 +1294,15 @@ class TokenizeBimanualArcLengthCartesian:
         action_key: str = "actions_cartesian",
         output_action_key: str = "actions_cartesian",
         min_distance_unit: float = 0.60,
+        rotation_distance_unit: float | None = None,
         resampled_vector_length: int = 20,
         dt: float = 1.0 / 30.0,
         zero_dist_epsilon: float = 1e-6,
         preserve_action_key: str | None = None,
+        preserve_action_rows: int | None = None,
         velocity_mode: str = "mean",
+        arc_chunking_mode: str | None = None,
+        velocity_layout: str | None = None,
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
@@ -1148,9 +1312,38 @@ class TokenizeBimanualArcLengthCartesian:
         # normal action-chunk sampling", and detokenizing the token to recover
         # it would be circular (the reconstruction spans D by construction, so
         # its travelled distance carries no information). Set this to keep an
-        # untouched copy alongside the token.
+        # untouched copy alongside the token. ``preserve_action_rows`` can
+        # make that copy rectangular for a variable-length source window.
         self.preserve_action_key = preserve_action_key
+        self.preserve_action_rows = (
+            None if preserve_action_rows is None else int(preserve_action_rows)
+        )
+        if self.preserve_action_rows is not None and self.preserve_action_rows <= 0:
+            raise ValueError("preserve_action_rows must be positive when provided")
         self.velocity_mode = validate_bimanual_velocity_mode(velocity_mode)
+        self.velocity_layout = validate_bimanual_velocity_layout(
+            default_bimanual_velocity_layout(self.velocity_mode)
+            if velocity_layout is None
+            else velocity_layout,
+            self.velocity_mode,
+        )
+        if rotation_distance_unit is not None:
+            rotation_distance_unit = float(rotation_distance_unit)
+            if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0.0:
+                raise ValueError("rotation_distance_unit must be positive and finite")
+            if self.velocity_mode != "per_waypoint":
+                raise ValueError(
+                    "independent rotation clock requires velocity_mode='per_waypoint'"
+                )
+        self.rotation_distance_unit = rotation_distance_unit
+        self.arc_chunking_mode = resolve_arc_chunking_mode(
+            arc_chunking_mode, rotation_distance_unit
+        )
+        if rotation_distance_unit is None and arc_chunking_mode is not None:
+            raise ValueError(
+                "explicit arc_chunking_mode requires hybrid rotation_distance_unit; "
+                "omit arc_chunking_mode for legacy no-R checkpoints"
+            )
         # MEAN_PER_DIM velocity mode: we consume the per-axis xyz velocity
         # directly. ypr and gripper velocities are computed here (the base
         # tokenizer doesn't track ypr/gripper velocity).
@@ -1171,7 +1364,40 @@ class TokenizeBimanualArcLengthCartesian:
     def transform(self, batch: dict) -> dict:
         raw = np.asarray(batch[self.action_key], dtype=np.float64)
         if self.preserve_action_key is not None:
-            batch[self.preserve_action_key] = raw.copy()
+            preserved = raw.copy()
+            if self.preserve_action_rows is not None:
+                preserved = preserved[: self.preserve_action_rows]
+                if len(preserved) == 0:
+                    raise ValueError(
+                        f"{self.action_key!r} must contain at least one row to preserve"
+                    )
+                if len(preserved) < self.preserve_action_rows:
+                    preserved = np.concatenate(
+                        [
+                            preserved,
+                            np.repeat(
+                                preserved[-1:],
+                                self.preserve_action_rows - len(preserved),
+                                axis=0,
+                            ),
+                        ],
+                        axis=0,
+                    )
+            batch[self.preserve_action_key] = preserved
+        if (
+            self.rotation_distance_unit is not None
+            and self.velocity_mode == "per_waypoint"
+        ):
+            # The hybrid path replaces every waypoint and recomputes every
+            # velocity row, so tokenize()'s output below would be discarded
+            # wholesale. Skipping it is the single largest saving here. The
+            # guard is narrower than the hybrid branch further down because the
+            # "duration" and "mean" velocity modes still consume that token.
+            waypoints = self._hybrid_waypoints(raw)
+            velocity_rows = self._hybrid_per_waypoint_velocity(raw, waypoints)
+            batch[self.output_action_key] = self._join_token(waypoints, velocity_rows)
+            return batch
+
         arc = self.tokenizer.tokenize(raw)
         # Per-arm block emitted by BimanualArcLengthTokenizer (MEAN_PER_DIM):
         #   [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
@@ -1189,6 +1415,8 @@ class TokenizeBimanualArcLengthCartesian:
         waypoints = np.concatenate(
             [L_xyz, L_ypr, L_grip, R_xyz, R_ypr, R_grip], axis=-1
         )  # (M, 14)
+        if self.rotation_distance_unit is not None:
+            waypoints = self._hybrid_waypoints(raw)
 
         # Per-arm duration from mean_per_dim xyz vel: duration = chord / speed.
         # Guard for degenerate arms (no motion or below the tokenizer's
@@ -1239,24 +1467,318 @@ class TokenizeBimanualArcLengthCartesian:
             dtype=np.float64,
         )
         if self.velocity_mode == "per_waypoint":
-            out = np.concatenate(
-                [waypoints, self._per_waypoint_velocity(raw, waypoints)], axis=0
-            )  # (2M, 14)
+            velocity_rows = (
+                self._hybrid_per_waypoint_velocity(raw, waypoints)
+                if self.rotation_distance_unit is not None
+                else self._per_waypoint_velocity(raw, waypoints)
+            )
         elif self.velocity_mode == "duration":
-            out = np.concatenate(
-                [waypoints, self._per_waypoint_duration(raw, waypoints)], axis=0
-            )  # (2M, 14)
+            velocity_rows = self._per_waypoint_duration(raw, waypoints)
         else:
-            out = np.concatenate([waypoints, vel_token], axis=0)  # (M+1, 14)
-        expected_rows = bimanual_arc_token_rows(M, self.velocity_mode)
-        if out.shape != (expected_rows, ARC_TOK_BIMANUAL_DIM):
+            velocity_rows = vel_token
+        batch[self.output_action_key] = self._join_token(waypoints, velocity_rows, M)
+        return batch
+
+    def _join_token(self, waypoints, velocity_rows, num_waypoints=None):
+        """Join the two halves into one token and check the result's shape.
+
+        "stacked" puts the velocity rows under the waypoints, "wide" puts them
+        beside. Both output paths go through here so the two layouts cannot
+        drift apart.
+        """
+        axis = 0 if self.velocity_layout == "stacked" else 1
+        out = np.concatenate([waypoints, velocity_rows], axis=axis)
+        expected = bimanual_arc_token_shape(
+            self.M if num_waypoints is None else num_waypoints,
+            self.velocity_mode,
+            self.velocity_layout,
+        )
+        if out.shape != expected:
             raise AssertionError(
                 f"{type(self).__name__} produced {out.shape}, expected "
-                f"{(expected_rows, ARC_TOK_BIMANUAL_DIM)} for velocity_mode="
-                f"{self.velocity_mode!r}"
+                f"{expected} for velocity_mode={self.velocity_mode!r} "
+                f"velocity_layout={self.velocity_layout!r}"
             )
-        batch[self.output_action_key] = out
-        return batch
+        return out
+
+    def _translation_brackets(self, cumulative, targets):
+        """Vectorized :meth:`_translation_bracket` over many targets.
+
+        Each branch routes to the vectorization of its own scalar rule, because
+        the two rules differ at the end of the source: ``joint_distance`` shares
+        ``_bracket_segment``'s clamping, the per-arm modes use first crossing.
+        """
+        if self.arc_chunking_mode == "joint_distance":
+            return _bracket_segments(cumulative, targets)
+        return _first_crossing_brackets(cumulative, targets)
+
+    def _translation_values_at_targets(self, values, cumulative, targets):
+        """Vectorized :meth:`_translation_values_at_s` over many targets."""
+        if self.arc_chunking_mode == "joint_distance":
+            return _linear_at_targets(values, cumulative, targets)
+        index, alpha = _first_crossing_brackets(cumulative, targets)
+        blend = alpha[:, None]
+        return (1.0 - blend) * values[index] + blend * values[index + 1]
+
+    def _translation_source_times(self, cumulative, targets, dt):
+        """Fractional source times for many targets, mode-aware."""
+        index, alpha = self._translation_brackets(cumulative, targets)
+        return (index + alpha) * dt
+
+    def _translation_bracket(self, cumulative, target):
+        """Use the first translation crossing; trailing holds consume no travel."""
+        if self.arc_chunking_mode == "joint_distance":
+            return _bracket_segment(cumulative, target)
+        if target <= cumulative[0]:
+            return 0, 0.0
+        upper = int(
+            np.searchsorted(cumulative, min(target, cumulative[-1]), side="left")
+        )
+        upper = max(1, min(upper, len(cumulative) - 1))
+        interval = cumulative[upper] - cumulative[upper - 1]
+        alpha = (target - cumulative[upper - 1]) / interval if interval > 1e-12 else 0.0
+        return upper - 1, float(np.clip(alpha, 0.0, 1.0))
+
+    def _translation_values_at_s(self, values, cumulative, target):
+        if self.arc_chunking_mode == "joint_distance":
+            return _interp_linear_at_s(values, cumulative, target)
+        index, alpha = self._translation_bracket(cumulative, target)
+        return (1.0 - alpha) * values[index] + alpha * values[index + 1]
+
+    def _translation_hold_index(self, cumulative: np.ndarray, end: float) -> int | None:
+        """Apply ``ArcLengthTokenizer.tokenize_at``'s zero-token rule to one arm.
+
+        That tokenizer refuses to resample a chunk covering less than
+        ``zero_dist_epsilon`` of travel and emits a held pose instead: position
+        repeated, translational velocity zero, but gripper and rotation still
+        carried to the end of the window. Both hybrid paths below build their
+        waypoints without ever reaching that tokenizer, and resampling a
+        zero-length distance coordinate freezes the whole arm, gripper
+        included. Restating the rule here keeps the hold token faithful.
+
+        Deliberately does not restate ``max_steps_per_chunk``: with a source
+        window fixed at the same 200 frames that rule can never fire upstream
+        either, and an arm that moves but cannot reach D inside the window is
+        specified to resample its available motion, not to hold
+        (test_multistream_short_arm_resamples_all_100_waypoints_then_holds_on_decode).
+
+        Returns the source index a hold carries its gripper to, or None when the
+        arm resamples normally.
+        """
+        if end >= self.tokenizer.config.zero_dist_epsilon:
+            return None
+        _, end_idx = _dist_interval_indices(cumulative, 0.0, end)
+        return end_idx
+
+    def _race_frame(self, translation_cumulative, rotation_cumulative, num_frames):
+        """Fractional source frame at which the race ends.
+
+        Four racers, one per stream: each arm's translation spends D and each
+        arm's rotation spends R. The chunk ends at whichever budget is spent
+        first. A stream that never spends its budget inside the window does not
+        enter, and if no stream does the window's last frame ends the race.
+
+        ``_translation_bracket`` is a first-crossing rule over any monotone
+        cumulative array, so rotation reuses it rather than duplicating it.
+        """
+        distance = self.tokenizer.config.min_distance_unit
+        crossings = []
+        for values, budget in (
+            (translation_cumulative[0], distance),
+            (translation_cumulative[1], distance),
+            (rotation_cumulative[0], self.rotation_distance_unit),
+            (rotation_cumulative[1], self.rotation_distance_unit),
+        ):
+            if values[-1] >= budget:
+                frame, alpha = self._translation_bracket(values, budget)
+                crossings.append(frame + alpha)
+        return min(crossings, default=float(num_frames - 1))
+
+    def _hybrid_source_coordinates(self, raw: np.ndarray):
+        """Source distance coordinates and waypoint targets for both clocks.
+
+        Returns ``(translation, rotation)``. Each translation entry is one arm's
+        ``(cumulative, targets, hold)``, where a non-None hold index means that
+        arm emits a hold token this chunk. Each rotation entry is one arm's
+        ``(cumulative, targets)``: rotation never holds, because a hold is a
+        translation-distance rule and the rotation stream keeps its own clock.
+
+        Rotation is per-arm in every chunking mode: each arm spends R on its own
+        SO(3) travel. There is no summed left-plus-right rotation clock. A summed
+        clock lets a still arm inherit the other arm's angular travel and spread
+        its waypoints across rotation it never performed, and it reaches R after
+        roughly half the per-arm turn, which cuts every chunk short.
+
+        The translation and rotation clocks stay independent in the sense that
+        each spends its own budget. ``joint_distance`` sums both arms'
+        translation into one clock; ``multistream`` caps each arm at D on its
+        own. Neither defines a frame at which the chunk ends, so one stream
+        running past another is not a contradiction and nothing is truncated.
+
+        ``race`` is a stopping time rather than a budget, so the chunk does have
+        an end frame. All four streams race for it -- each arm's translation for
+        D and each arm's rotation for R -- and each is then interpolated on its
+        own cumulative length through that shared frame. That is what keeps a
+        waypoint's orientation inside the frames its position came from.
+        """
+        distance = self.tokenizer.config.min_distance_unit
+        rotation_cumulative = [
+            cumulative_rotation_length(raw[:, offset + 3 : offset + 6])
+            for offset in (0, 7)
+        ]
+
+        if self.arc_chunking_mode == "race":
+            translation_cumulative = [
+                cumulative_arc_length(raw[:, offset : offset + 3]) for offset in (0, 7)
+            ]
+            race_frame = self._race_frame(
+                translation_cumulative, rotation_cumulative, len(raw)
+            )
+            frames = np.arange(len(raw), dtype=np.float64)
+            race_ends = [
+                float(np.interp(race_frame, frames, values))
+                for values in translation_cumulative + rotation_cumulative
+            ]
+            return (
+                [
+                    (
+                        values,
+                        np.linspace(0.0, end, self.M),
+                        self._translation_hold_index(values, end),
+                    )
+                    for values, end in zip(translation_cumulative, race_ends[:2])
+                ],
+                [
+                    (values, np.linspace(0.0, end, self.M))
+                    for values, end in zip(rotation_cumulative, race_ends[2:])
+                ],
+            )
+
+        def budget_targets(values, budget):
+            return np.linspace(0.0, min(budget, float(values[-1])), self.M)
+
+        rotation = [
+            (values, budget_targets(values, self.rotation_distance_unit))
+            for values in rotation_cumulative
+        ]
+
+        def translation_stream(values):
+            end = min(distance, float(values[-1]))
+            return (
+                values,
+                np.linspace(0.0, end, self.M),
+                self._translation_hold_index(values, end),
+            )
+
+        if self.arc_chunking_mode == "joint_distance":
+            # Both arms share the joint clock, so they hold or move together.
+            joint = cumulative_bimanual_translation_length(raw)
+            return [translation_stream(joint)] * 2, rotation
+        return [
+            translation_stream(cumulative_arc_length(raw[:, offset : offset + 3]))
+            for offset in (0, 7)
+        ], rotation
+
+    def _hybrid_waypoints(self, raw: np.ndarray) -> np.ndarray:
+        """Resample both streams against their own source coordinates."""
+        translation, rotation = self._hybrid_source_coordinates(raw)
+
+        hold_alphas = np.linspace(0.0, 1.0, self.M)[:, None]
+        arms = []
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            rotation_indices, rotation_alpha = _bracket_segments(
+                rotation_cumulative, rotation_targets
+            )
+            if hold is None:
+                xyz = self._translation_values_at_targets(
+                    raw[:, offset : offset + 3],
+                    translation_cumulative,
+                    translation_targets,
+                )
+                grip = self._translation_values_at_targets(
+                    raw[:, offset + 6 : offset + 7],
+                    translation_cumulative,
+                    translation_targets,
+                )
+            else:
+                # Hold token, matching tokenize_at's kind="zero" payload: repeat
+                # the arm's current position and walk its gripper to the end of
+                # the span the arm does cover.
+                xyz = np.repeat(raw[0:1, offset : offset + 3], self.M, axis=0)
+                grip = (1.0 - hold_alphas) * raw[0, offset + 6 : offset + 7] + (
+                    hold_alphas * raw[hold, offset + 6 : offset + 7]
+                )
+            # Rotation always keeps its own clock: a translation hold must not
+            # cut the independent rotation stream short.
+            ypr = _slerp_segments_ypr(
+                raw[:, offset + 3 : offset + 6],
+                rotation_indices,
+                rotation_alpha,
+            )
+            arms.append(np.concatenate([xyz, ypr, grip], axis=-1))
+        return np.concatenate(arms, axis=-1)
+
+    def _hybrid_per_waypoint_velocity(
+        self, raw: np.ndarray, waypoints: np.ndarray
+    ) -> np.ndarray:
+        """Per-waypoint rates for the independent translation/rotation clocks."""
+        rows = np.zeros((self.M, ARC_TOK_BIMANUAL_DIM), dtype=np.float64)
+        dt = self.tokenizer.config.dt
+
+        translation, rotation = self._hybrid_source_coordinates(raw)
+
+        for offset, (translation_cumulative, translation_targets, hold), (
+            rotation_cumulative,
+            rotation_targets,
+        ) in zip((0, 7), translation, rotation):
+            rotation_times = _source_times_at_targets(
+                rotation_cumulative, rotation_targets, dt
+            )
+            rotation_dt = np.diff(rotation_times)
+            rotation_safe = np.where(
+                rotation_dt > self.zero_dist_epsilon,
+                rotation_dt,
+                np.inf,
+            )
+            # A held arm keeps its allocated zero rows: tokenize_at's zero token
+            # carries no translational velocity, and detokenization reads that
+            # zero rate as "this arm stays put for the whole chunk".
+            if hold is None:
+                translation_times = self._translation_source_times(
+                    translation_cumulative, translation_targets, dt
+                )
+                translation_dt = np.diff(translation_times)
+                translation_safe = np.where(
+                    translation_dt > self.zero_dist_epsilon,
+                    translation_dt,
+                    np.inf,
+                )
+                for block_offset, width in ((offset, 3), (offset + 6, 1)):
+                    block = waypoints[:, block_offset : block_offset + width]
+                    rate = np.diff(block, axis=0) / translation_safe[:, None]
+                    rows[:-1, block_offset : block_offset + width] = rate
+                    rows[-1, block_offset : block_offset + width] = rate[-1]
+            else:
+                # Position is a hold, but the gripper may move throughout the
+                # source window. Preserve that temporal signal independently.
+                grip = waypoints[:, offset + 6]
+                hold_times = np.linspace(0.0, float(hold), self.M) * dt
+                hold_dt = np.diff(hold_times)
+                hold_safe = np.where(hold_dt > self.zero_dist_epsilon, hold_dt, np.inf)
+                grip_rate = np.diff(grip) / hold_safe
+                rows[:-1, offset + 6] = grip_rate
+                rows[-1, offset + 6] = grip_rate[-1]
+
+            ypr = waypoints[:, offset + 3 : offset + 6]
+            rotations = _ypr_to_rotation(ypr)
+            relative = rotations[:-1].inv() * rotations[1:]
+            angular_rate = relative.as_rotvec() / rotation_safe[:, None]
+            rows[:-1, offset + 3 : offset + 6] = angular_rate
+            rows[-1, offset + 3 : offset + 6] = angular_rate[-1]
+        return rows
 
     def _per_waypoint_velocity(
         self, raw: np.ndarray, waypoints: np.ndarray
@@ -1281,12 +1803,14 @@ class TokenizeBimanualArcLengthCartesian:
             (7, 10, 13, slice(7, 10)),
         ):
             xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
             source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
+            # The waypoints are generated at these SOURCE arc coordinates.
+            # Do not use the waypoint polyline's chord cumulative distance as
+            # a lookup coordinate: on a curved path it is shorter than the
+            # source arc, shifting every timestamp after the first bend.
+            end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
+            source_targets = np.linspace(0.0, end_s, len(xyz_wp))
+            times = _source_times_at_targets(source_cum, source_targets, dt)
             delta_t = np.diff(times)
             safe = np.where(delta_t > self.zero_dist_epsilon, delta_t, np.inf)
             for offset, width in ((xyz_off, 3), (ypr_off, 3), (grip_off, 1)):
@@ -1316,24 +1840,184 @@ class TokenizeBimanualArcLengthCartesian:
             (7, slice(7, 10)),
         ):
             xyz_wp = waypoints[:, xyz_off : xyz_off + 3]
-            cumdist = cumulative_arc_length(xyz_wp)
             source_cum = cumulative_arc_length(raw[:, raw_xyz])
-            times = np.empty(len(xyz_wp), dtype=np.float64)
-            for index, arc_position in enumerate(cumdist):
-                frame, alpha = _bracket_segment(source_cum, float(arc_position))
-                times[index] = (frame + alpha) * dt
+            # Match the tokenizer's source-space targets exactly.  Re-using
+            # waypoint chord coordinates here underestimates timing on bends;
+            # durations must be measured at the original source timestamps.
+            end_s = min(self.tokenizer.config.min_distance_unit, float(source_cum[-1]))
+            source_targets = np.linspace(0.0, end_s, len(xyz_wp))
+            times = _source_times_at_targets(source_cum, source_targets, dt)
             delta_t = np.diff(times)
             rows[:-1, xyz_off] = delta_t
             rows[-1, xyz_off] = delta_t[-1]
         return rows
+
+    def _arm_durations(
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        offset: int,
+        action_horizon: int,
+        *,
+        rotation: bool = False,
+    ) -> np.ndarray:
+        """Recover one arm's clock, including holds and unreachable intervals."""
+        if rotation:
+            block = waypoints[:, offset + 3 : offset + 6]
+            steps = np.diff(cumulative_rotation_length(block))
+            rates = np.linalg.norm(velocity_rows[:-1, offset + 3 : offset + 6], axis=-1)
+            moving, usable = steps > 1e-12, rates > 1e-8
+            duration = np.zeros_like(steps)
+            np.divide(steps, rates, out=duration, where=moving & usable)
+            missing_rate = moving & ~usable
+            fallback = self.tokenizer.config.dt * (action_horizon + 1)
+            # A malformed terminal rate must not stretch the final turn over
+            # the whole rollout. Complete that last moving interval in one
+            # control step, then let the repeated terminal waypoints hold.
+            future_motion = np.r_[
+                np.logical_or.accumulate(moving[::-1])[::-1][1:], False
+            ]
+            duration[missing_rate & ~future_motion] = self.tokenizer.config.dt
+            duration[missing_rate & future_motion] = fallback
+            return duration
+
+        position_steps = np.linalg.norm(
+            np.diff(waypoints[:, offset : offset + 3], axis=0), axis=-1
+        )
+        position_rates = np.linalg.norm(
+            velocity_rows[:-1, offset : offset + 3], axis=-1
+        )
+        grip_steps = np.abs(np.diff(waypoints[:, offset + 6]))
+        grip_rates = np.abs(velocity_rows[:-1, offset + 6])
+        fallback = self.tokenizer.config.dt * (action_horizon + 1)
+
+        def component_duration(steps, rates):
+            moving, usable = steps > 1e-12, rates > 1e-8
+            duration = np.zeros_like(steps)
+            np.divide(steps, rates, out=duration, where=moving & usable)
+            duration[moving & ~usable] = fallback
+            return duration
+
+        # A stationary arm can still operate its gripper. Its hold-token
+        # velocity rows carry that source-time clock, so use the longer of the
+        # position and gripper intervals when reconstructing the arm timeline.
+        return np.maximum(
+            component_duration(position_steps, position_rates),
+            component_duration(grip_steps, grip_rates),
+        )
+
+    def _hybrid_clock_durations(
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        *,
+        action_horizon: int,
+    ) -> np.ndarray:
+        """Recover one shared translation clock from both arms' per-waypoint rates.
+
+        Only ``joint_distance`` has a shared clock. Rotation never does -- every
+        mode gives each arm its own R budget -- so there is no rotation form of
+        this helper; use ``_arm_durations(..., rotation=True)`` per arm.
+        """
+        step_by_arm = []
+        rate_by_arm = []
+        for offset in (0, 7):
+            values = waypoints[:, offset : offset + 3]
+            step = np.linalg.norm(np.diff(values, axis=0), axis=-1)
+            rate = np.linalg.norm(velocity_rows[:-1, offset : offset + 3], axis=-1)
+            step_by_arm.append(step)
+            rate_by_arm.append(rate)
+
+        # Evaluation/deployment may pass an execution prefix shorter than the
+        # tokenizer's configured full M (including a fractional last interval).
+        duration = np.zeros(len(waypoints) - 1, dtype=np.float64)
+        for index in range(len(waypoints) - 1):
+            moving = [step[index] > 1e-12 for step in step_by_arm]
+            if not any(moving):
+                duration[index] = 0.0
+            elif any(
+                is_moving and rate[index] <= 1e-8
+                for is_moving, rate in zip(moving, rate_by_arm)
+            ):
+                # A predicted moving arm with no usable rate must hold rather
+                # than teleport while the other arm advances the shared clock.
+                duration[index] = self.tokenizer.config.dt * (action_horizon + 1)
+            else:
+                duration[index] = max(
+                    step[index] / rate[index]
+                    for is_moving, step, rate in zip(moving, step_by_arm, rate_by_arm)
+                    if is_moving
+                )
+        return duration
+
+    def _hybrid_clock_indices(
+        self, duration: np.ndarray, action_horizon: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        elapsed = np.concatenate(([0.0], np.cumsum(duration)))
+        targets = self.tokenizer.config.dt * np.arange(action_horizon, dtype=np.float64)
+        upper = np.searchsorted(elapsed, targets, side="right")
+        upper = np.clip(upper, 1, len(elapsed) - 1)
+        lower = upper - 1
+        start = elapsed[lower]
+        end = elapsed[upper]
+        alpha = np.divide(
+            targets - start,
+            end - start,
+            out=np.zeros_like(targets),
+            where=(end - start) > self.zero_dist_epsilon,
+        )
+        return lower, upper, np.clip(alpha, 0.0, 1.0)
+
+    def _detokenize_hybrid(
+        self,
+        waypoints: np.ndarray,
+        velocity_rows: np.ndarray,
+        action_horizon: int,
+    ) -> np.ndarray:
+        translation_duration = self._hybrid_clock_durations(
+            waypoints,
+            velocity_rows,
+            action_horizon=action_horizon,
+        )
+        t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
+            translation_duration, action_horizon
+        )
+
+        arms = []
+        for offset in (0, 7):
+            if self.arc_chunking_mode != "joint_distance":
+                translation_duration = self._arm_durations(
+                    waypoints, velocity_rows, offset, action_horizon
+                )
+                t_lo, t_hi, t_alpha = self._hybrid_clock_indices(
+                    translation_duration, action_horizon
+                )
+            rotation_duration = self._arm_durations(
+                waypoints, velocity_rows, offset, action_horizon, rotation=True
+            )
+            r_lo, _, r_alpha = self._hybrid_clock_indices(
+                rotation_duration, action_horizon
+            )
+            xyz = waypoints[:, offset : offset + 3]
+            grip = waypoints[:, offset + 6 : offset + 7]
+            blend = t_alpha[:, None]
+            xyz_t = xyz[t_lo] + blend * (xyz[t_hi] - xyz[t_lo])
+            grip_t = grip[t_lo] + blend * (grip[t_hi] - grip[t_lo])
+            ypr_t = _slerp_segments_ypr(
+                waypoints[:, offset + 3 : offset + 6], r_lo, r_alpha
+            )
+            arms.append(np.concatenate([xyz_t, ypr_t, grip_t], axis=-1))
+        return np.concatenate(arms, axis=-1)
 
     def detokenize(
         self,
         arc_actions: np.ndarray,
         action_horizon: int,
     ) -> np.ndarray:
-        """Inverse of ``transform`` — take a (M+1, 14) arc token back to a
-        time-parameterized (H, 14) chunk at the control period.
+        """Decode one arc token to a time-parameterized ``(H, 14)`` chunk.
+
+        Per-waypoint velocity modes may use the wide ``(M, 28)`` layout;
+        stacked tokens use the corresponding waypoint and velocity rows.
 
         Semantics:
           - Read the vel token (row M) to derive per-arm duration from the
@@ -1357,28 +2041,46 @@ class TokenizeBimanualArcLengthCartesian:
         and by the deploy path in rollout-arc.py.
         """
         arc_actions = np.asarray(arc_actions, dtype=np.float64)
-        if arc_actions.ndim != 2 or arc_actions.shape[1] != ARC_TOK_BIMANUAL_DIM:
+        expected_dim = (
+            ARC_TOK_BIMANUAL_DIM
+            if self.velocity_layout == "stacked"
+            else 2 * ARC_TOK_BIMANUAL_DIM
+        )
+        if arc_actions.ndim != 2 or arc_actions.shape[1] != expected_dim:
             raise ValueError(
-                f"detokenize expects (rows, {ARC_TOK_BIMANUAL_DIM}), got "
-                f"{arc_actions.shape}"
+                f"detokenize expects (rows, {expected_dim}) for "
+                f"velocity_layout={self.velocity_layout!r}, got {arc_actions.shape}"
             )
         rows = arc_actions.shape[0]
         granular = self.velocity_mode in ("per_waypoint", "duration")
-        M = rows // 2 if granular else rows - 1
+        if self.velocity_layout == "wide":
+            M = rows
+        else:
+            M = rows // 2 if granular else rows - 1
         if M < 2:
             raise ValueError(f"Need M >= 2 waypoints, got {rows} rows")
-        if rows != bimanual_arc_token_rows(M, self.velocity_mode):
+        expected_shape = bimanual_arc_token_shape(
+            M, self.velocity_mode, self.velocity_layout
+        )
+        if arc_actions.shape != expected_shape:
             raise ValueError(
-                f"detokenize got {rows} rows, expected "
-                f"{bimanual_arc_token_rows(M, self.velocity_mode)} for "
-                f"velocity_mode={self.velocity_mode!r}"
+                f"detokenize got {arc_actions.shape}, expected {expected_shape} "
+                f"for velocity_mode={self.velocity_mode!r} "
+                f"velocity_layout={self.velocity_layout!r}"
             )
 
-        waypoints = arc_actions[:M]  # (M, 14)
-        vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
+        if self.velocity_layout == "wide":
+            # Columns 0..13 are the waypoint, 14..27 the velocity riding on it.
+            waypoints = arc_actions[:, :ARC_TOK_BIMANUAL_DIM]  # (M, 14)
+            vel_rows = arc_actions[:, ARC_TOK_BIMANUAL_DIM:]  # (M, 14)
+        else:
+            waypoints = arc_actions[:M]  # (M, 14)
+            vel_rows = arc_actions[M:]  # (1, 14) mean, or (M, 14) granular
         vel_token = vel_rows[0]
         dt = self.tokenizer.config.dt
         h = int(action_horizon)
+        if self.rotation_distance_unit is not None:
+            return self._detokenize_hybrid(waypoints, vel_rows, h)
 
         arms_out = []
         # Per-arm 14-dim layout: L block dims 0..6, R block dims 7..13. Each

@@ -8,10 +8,29 @@ camera/base frame transforms to the returned canonical poses.
 import numpy as np
 import torch
 
-from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeBimanualArcLengthCartesian
-from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    TokenizeBimanualArcLengthCartesian,
+    bimanual_arc_token_shape,
+)
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    DEFAULT_ROTATION_DISTANCE_UNIT,
+    TokenizeBimanualArcLengthE1,
+)
 
-E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+E1_VELOCITY_MODE = {
+    "e1_dur": "dur",
+    "e1_logdur": "logdur",
+    "e1_profile": "profile",
+    "e1_durhyb": "durhyb",
+    "e1_profhyb": "profhyb",
+    "e1_durtri": "durtri",
+    "e1_proftri": "proftri",
+    "e1_durevt": "durevt",
+    "e1_stkevt": "stkevt",
+    "e1_durref": "durref",
+    "e1_stkref": "stkref",
+}
+E1_HYBRID_LAYOUTS = set(E1_VELOCITY_MODE) - {"e1_dur", "e1_logdur", "e1_profile"}
 ARC_TOKEN_LAYOUTS = ("lab", *E1_VELOCITY_MODE)
 
 
@@ -23,6 +42,7 @@ class BimanualArcDecoder:
         resampled_vector_length=100,
         dt=1 / 30,
         action_horizon=100,
+        rotation_distance_unit=None,
     ):
         if token_layout not in ARC_TOKEN_LAYOUTS:
             raise ValueError(f"token_layout must be one of {ARC_TOKEN_LAYOUTS}")
@@ -30,10 +50,22 @@ class BimanualArcDecoder:
         self.action_horizon = int(action_horizon)
         if self.M < 2 or self.action_horizon < 1 or dt <= 0 or min_distance_unit <= 0:
             raise ValueError("Invalid ARC distance, time, horizon or waypoint count")
-        self.shape = (self.M + 1, 14) if token_layout == "lab" else (self.M, 16)
         kwargs = dict(
             min_distance_unit=min_distance_unit, resampled_vector_length=self.M, dt=dt
         )
+        if token_layout in E1_HYBRID_LAYOUTS:
+            rotation_distance_unit = float(
+                DEFAULT_ROTATION_DISTANCE_UNIT
+                if rotation_distance_unit is None
+                else rotation_distance_unit
+            )
+            if not np.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0:
+                raise ValueError(
+                    "Hybrid ARC rotation distance must be finite and positive"
+                )
+            kwargs["rotation_distance_unit"] = rotation_distance_unit
+        elif rotation_distance_unit is not None:
+            raise ValueError("A rotation distance requires an E1 hybrid token layout")
         self.codec = (
             TokenizeBimanualArcLengthCartesian(**kwargs)
             if token_layout == "lab"
@@ -42,6 +74,12 @@ class BimanualArcDecoder:
                 velocity_norm="path",
                 velocity_mode=E1_VELOCITY_MODE[token_layout],
             )
+        )
+
+        self.shape = (
+            (self.M + 1, 14)
+            if token_layout == "lab"
+            else (self.M, self.codec.token_dim)
         )
 
     def __call__(self, native_tokens):
@@ -65,7 +103,7 @@ class BimanualArcDecoder:
 
 
 class BimanualIntervalArcDecoder:
-    """Decode the declared 2M-row interval layout; mean timing stays diagnostic."""
+    """Decode an explicitly declared interval layout using the training codec."""
 
     def __init__(
         self,
@@ -74,6 +112,9 @@ class BimanualIntervalArcDecoder:
         resampled_vector_length,
         dt,
         action_horizon,
+        velocity_layout="stacked",
+        rotation_distance_unit=None,
+        arc_chunking_mode=None,
     ):
         if velocity_mode not in {"per_waypoint", "duration"}:
             raise ValueError(
@@ -88,7 +129,12 @@ class BimanualIntervalArcDecoder:
             resampled_vector_length=self.M,
             dt=dt,
             velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
+            rotation_distance_unit=rotation_distance_unit,
+            arc_chunking_mode=arc_chunking_mode,
         )
+
+        self.shape = bimanual_arc_token_shape(self.M, velocity_mode, velocity_layout)
 
     def __call__(self, native_tokens):
         if torch.is_tensor(native_tokens):
@@ -96,10 +142,12 @@ class BimanualIntervalArcDecoder:
         values = np.asarray(native_tokens)
         if (
             values.ndim != 3
-            or values.shape[1:] != (2 * self.M, 14)
+            or values.shape[1:] != self.shape
             or not np.isfinite(values).all()
         ):
-            raise ValueError(f"Expected finite (B,{2 * self.M},14) interval ARC tokens")
+            raise ValueError(
+                f"Expected finite (B,{self.shape[0]},{self.shape[1]}) interval ARC tokens"
+            )
         return np.stack(
             [
                 self.codec.detokenize(row, action_horizon=self.action_horizon)
@@ -121,6 +169,7 @@ def main():
     parser.add_argument("--arc-resampled-vector-length", type=int, default=100)
     parser.add_argument("--arc-dt", type=float, default=1 / 30)
     parser.add_argument("--arc-rollout-horizon", type=int, default=100)
+    parser.add_argument("--arc-rotation-distance-unit", type=float, default=None)
     args = parser.parse_args()
     decoder = BimanualArcDecoder(
         args.arc_token_layout,
@@ -128,6 +177,7 @@ def main():
         args.arc_resampled_vector_length,
         args.arc_dt,
         args.arc_rollout_horizon,
+        rotation_distance_unit=args.arc_rotation_distance_unit,
     )
     result = decoder(np.load(args.tokens, allow_pickle=False))
     with open(args.output, "xb") as output:

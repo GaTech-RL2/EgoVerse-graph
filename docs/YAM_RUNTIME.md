@@ -490,7 +490,9 @@ defaults to Aidan. Override them with `YAM_ROLLOUT_TASK` and
 `YAM_ROLLOUT_OPERATOR`. Credentials come from the station's `~/.egoverse_env`.
 `python -m egomimic.robot.rollout_upload status <episode dir>` shows each
 take's state without network access; `plan <dir> --config <yaml>` is a
-read-only check against R2 and SQL. The stationery SQL-task training filters
+read-only check against R2 and SQL. Takes recorded before upload existed are
+never uploaded on their own; `backfill <dir> --config <yaml> --episode <id>`
+marks named ones and uploads them. The stationery SQL-task training filters
 exclude `is_eval` rows, as earbuds and towels already did.
 
 Auto-recording writes about 4–5 GB per minute of rollout, so check `df -h /`

@@ -517,6 +517,35 @@ class EpisodeUploader:
         return False
 
 
+def request_backfill(directory: str | Path, episode_id: str, config: Mapping) -> bool:
+    """Mark a take recorded before upload existed for upload under ``config``.
+
+    Adds the ``upload`` block to its manifest (atomically); a take that already
+    has one keeps it. Returns whether the manifest changed.
+    """
+    directory = Path(directory)
+    config = validate_episode_upload(config)
+    if not config["enabled"]:
+        raise ValueError("episode_upload is not enabled in this config")
+    if not is_episode_id(episode_id):
+        raise ValueError(f"Not a rollout episode ID: {episode_id!r}")
+    path = directory / f"{episode_id}.json"
+    manifest = json.loads(path.read_text())
+    if not (directory / f"{episode_id}.hdf5").is_file():
+        raise FileNotFoundError(f"{episode_id}.hdf5 is missing")
+    if isinstance(manifest.get("upload"), Mapping):
+        return False
+    manifest["upload"] = {
+        "requested": True,
+        "contract": upload_contract(config),
+        "backfilled_at": _now(),
+    }
+    temporary = directory / f".{episode_id}.partial.json"
+    temporary.write_text(json.dumps(manifest, indent=2) + "\n")
+    temporary.replace(path)
+    return True
+
+
 def upload_status(directory: str | Path) -> list[dict]:
     """One row per take recorded with upload requested, newest first."""
     rows = []
@@ -646,6 +675,12 @@ def main(argv=None) -> None:
     plan.add_argument("directory")
     plan.add_argument("--config", required=True, help="rollout YAML")
     plan.add_argument("--episode", action="append", help="only these take IDs")
+    backfill = sub.add_parser(
+        "backfill", help="upload named takes recorded before upload existed"
+    )
+    backfill.add_argument("directory")
+    backfill.add_argument("--config", required=True, help="rollout YAML")
+    backfill.add_argument("--episode", action="append", required=True)
     worker = sub.add_parser("worker", help=argparse.SUPPRESS)
     worker.add_argument("directory")
     worker.add_argument("--config-json", required=True)
@@ -661,6 +696,14 @@ def main(argv=None) -> None:
             if not args.episode and episode not in uploader.eligible():
                 continue
             print(json.dumps(uploader.plan(episode), default=str))
+    elif args.command == "backfill":
+        config = _load_config(args.config)
+        for episode_id in args.episode:
+            changed = request_backfill(args.directory, episode_id, config)
+            print(
+                f"{episode_id}: {'marked for upload' if changed else 'already marked'}"
+            )
+        print(json.dumps(EpisodeUploader(args.directory, config).run_once()))
     elif args.command == "once":
         print(
             json.dumps(

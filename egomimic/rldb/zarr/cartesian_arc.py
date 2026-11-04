@@ -412,6 +412,40 @@ class TokenizeBimanualArcLengthCartesian:
         intervals[moving & ~usable] = np.inf
         return intervals
 
+    def control_steps(
+        self, token, *, initial_action, max_steps=None, clocks_in_seconds=False
+    ):
+        if max_steps is not None and (int(max_steps) != max_steps or max_steps < 1):
+            raise ValueError("max_steps must be a positive integer")
+        value = self._native(token, initial_action, clocks_in_seconds)
+        moving_ends, static_ends = [], []
+        for index, name in enumerate(self._stream_names):
+            for arm, off in enumerate((0, 7)):
+                distance = self._distances(value, off, name, initial_action)
+                end = self._intervals(distance, value[:, 14 + index * 2 + arm]).sum()
+                if np.any(distance > _NUMERICAL_EPS):
+                    moving_ends.append(end)
+                elif self.clock_mode == "duration":
+                    static_ends.append(end)
+        if moving_ends:
+            duration = min(moving_ends)
+        elif static_ends:
+            duration = min(static_ends)
+        else:
+            if max_steps is None:
+                raise ValueError(
+                    "A fully static velocity token has no duration; supply max_steps"
+                )
+            return int(max_steps)
+        if not np.isfinite(duration):
+            if max_steps is None:
+                raise ValueError(
+                    "ARC token timing does not define a finite replan boundary"
+                )
+            return int(max_steps)
+        steps = max(1, int(np.ceil(duration / self.tokenizer.config.dt - 1e-9)))
+        return min(steps, int(max_steps)) if max_steps is not None else steps
+
     def _clock_indices(self, durations, action_horizon):
         elapsed = np.r_[0.0, np.cumsum(durations)]
         query = self.tokenizer.config.dt * np.arange(1, action_horizon + 1)

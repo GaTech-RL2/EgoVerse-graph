@@ -34,7 +34,7 @@ train_datasets:
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''lab''] == ''rl2'' and row[''task''] in (''organize_stationary'',
         ''organize_stationary_updated'') and row[''rig_name''] == ''rl2_abc'' and row[''zarr_processed_path''] !=
-        '''' and row[''is_deleted''] == False'
+        '''' and row[''is_deleted''] == False and not row[''is_eval'']'
     mode: total
     valid_ratio: 0.0
     bounds_check: false
@@ -71,7 +71,7 @@ valid_datasets:
       filter_lambdas:
       - 'lambda row: row[''embodiment''] == ''yam_bimanual'' and row[''lab''] == ''rl2'' and row[''task''] in (''organize_stationary'',
         ''organize_stationary_updated'') and row[''rig_name''] == ''rl2_abc'' and row[''zarr_processed_path''] !=
-        '''' and row[''is_deleted''] == False'
+        '''' and row[''is_deleted''] == False and not row[''is_eval'']'
     mode: total
     valid_ratio: 0.0
     bounds_check: false

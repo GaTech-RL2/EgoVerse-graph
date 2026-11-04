@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YAM rollout</title>
-    <link rel="stylesheet" href="/style.css?v=14">
+    <link rel="stylesheet" href="/style.css?v=16">
   </head>
   <body>
     <main>
@@ -12,7 +12,7 @@
         <div>
           <p class="eyebrow">RL2 YAM · LOCAL POLICY ROLLOUT</p>
           <h1>Rollout monitor</h1>
-          <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, <kbd>d</kbd> to start or end a demo-format episode (robot state, actions and full camera frames, about 4–5 GB per minute), and <kbd>r</kbd> to return YAM to home and then to the ready state. With auto-record on, every Start records an episode and its video; Reset, a model change or a camera reconnect ends it, and the label form opens with the checkpoint and W&amp;B run already filled in. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
+          <p class="caption" title="With auto-record on, every Start records an episode (about 4–5 GB per minute) and its video; Reset, a model change or a camera reconnect ends it, and the label form opens with the checkpoint and W&amp;B run filled in. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.">Keys (tab focused): <kbd>c</kbd> start · <kbd>Space</kbd> pause · <kbd>v</kbd> video · <kbd>d</kbd> episode · <kbd>r</kbd> home · <kbd>q</kbd> stop</p>
         </div>
         <div class="rollout-control-panel">
           <p id="current-model" class="current-model">Selected model: connecting…</p>
@@ -29,38 +29,18 @@
             <button id="select-model" disabled>Select model</button>
             <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
             <button id="reconnect-cameras" disabled>Reconnect RGB cameras</button>
-            <label class="overlay-toggle" for="overlay">
+            <label class="overlay-toggle" for="overlay" title="Show front action overlay">
               <input id="overlay" type="checkbox">
-              Show front action overlay
+              Front action overlay
+            </label>
+            <label class="overlay-toggle auto-record-toggle" for="auto-record" title="Auto-record every rollout (episode + video) from Start. Applies from the next Start. The take ends at Reset, a model change, a camera reconnect or End episode.">
+              <input id="auto-record" type="checkbox" disabled>
+              Auto-record from Start
             </label>
             <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
           </div>
-          <label class="overlay-toggle auto-record-toggle" for="auto-record" title="Applies from the next Start. The take ends at Reset, a model change, a camera reconnect or End episode.">
-            <input id="auto-record" type="checkbox" disabled>
-            Auto-record every rollout (episode + video) from Start
-          </label>
         </div>
       </header>
-      <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
-      <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
-      <label id="ik-solver-control" class="overlay-toggle" hidden>
-        Endpoint IK
-        <select id="ik-solver" disabled>
-          <option value="mujoco">MuJoCo</option>
-          <option value="pytracik">TRAC-IK</option>
-        </select>
-        <span id="ik-solver-detail"></span>
-      </label>
-      <label id="ik-relaxation-control" class="overlay-toggle" hidden>
-        <input id="ik-relaxation" type="checkbox" disabled>
-        Allow small IK pose errors
-        <span id="ik-relaxation-detail"></span>
-      </label>
-      <section id="gripper-settings" class="gripper-settings" aria-label="Gripper force settings" hidden>
-        <strong>Gripper force limit</strong>
-        <div id="gripper-controls"></div>
-        <small>Applied on the next control tick (1–50 N).</small>
-      </section>
       <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
         <strong>Joint velocity limit reached</strong>
         <p id="velocity-detail"></p>
@@ -125,6 +105,28 @@
         <small id="reset-guide-status" role="status">Visual guide only · not recorded · no robot motion</small>
       </section>
       <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
+      <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
+      <div class="ik-settings">
+        <label id="ik-solver-control" class="overlay-toggle" hidden>
+          Endpoint IK
+          <select id="ik-solver" disabled>
+            <option value="mujoco">MuJoCo</option>
+            <option value="pytracik">TRAC-IK</option>
+          </select>
+          <span id="ik-solver-detail"></span>
+        </label>
+        <label id="ik-relaxation-control" class="overlay-toggle" hidden>
+          <input id="ik-relaxation" type="checkbox" disabled>
+          Allow small IK pose errors
+          <span id="ik-relaxation-detail"></span>
+        </label>
+      </div>
+      <section id="gripper-settings" class="gripper-settings" aria-label="Gripper force settings" hidden>
+        <strong>Gripper force limit</strong>
+        <div id="gripper-controls"></div>
+        <small>Applied on the next control tick (1–50 N).</small>
+      </section>
       <div class="rollout-controls">
         <div class="launchers">
           <button id="open-videos" class="video-launch" disabled>Recorded videos</button>

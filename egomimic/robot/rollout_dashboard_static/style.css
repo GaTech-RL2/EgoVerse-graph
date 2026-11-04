@@ -13,7 +13,9 @@ h1 { margin: 4px 0; font-size: 27px; font-weight: 550; }
 p { margin: 0; color: #9aa8b8; }
 .eyebrow { font-size: 11px; letter-spacing: 2px; color: #8793a4; }
 .actions { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 8px; max-width: 620px; }
-.rollout-control-panel { flex: 0 1 660px; width: min(660px, 100%); display: grid; grid-template-rows: 20px 22px 34px auto; gap: 8px; }
+/* The description shrinks first so the control panel keeps its width and the button grid stays two rows. */
+header > div:first-child { flex: 1 1 0; min-width: 0; }
+.rollout-control-panel { flex: 0 0 900px; width: min(900px, 100%); display: grid; grid-template-rows: 20px 22px 34px auto; gap: 6px; }
 .rollout-time { font-variant-numeric: tabular-nums; white-space: nowrap; color: #dce3ed; }
 .rollout-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
 #status { display: block; min-width: 0; padding: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid #3a4655; border-radius: 6px; }
@@ -24,8 +26,10 @@ p { margin: 0; color: #9aa8b8; }
 @keyframes blink { 50% { opacity: .35; } }
 .overlay-toggle { display: flex; gap: 7px; align-items: center; padding: 7px 10px; border: 1px solid #3a4655; border-radius: 6px; background: #191e25; color: #dce3ed; }
 .overlay-toggle input { accent-color: #80c9a0; }
-.rollout-button-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 40px; gap: 8px; }
-.rollout-button-grid > button, .rollout-button-grid > .overlay-toggle { width: 100%; min-width: 0; justify-content: center; }
+.rollout-button-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: 30px; gap: 6px; }
+.rollout-button-grid > button, .rollout-button-grid > .overlay-toggle { width: 100%; min-width: 0; justify-content: center; padding: 3px 8px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rollout-button-grid kbd { font-size: 11px; padding: 0 3px; }
+.rollout-button-grid > .overlay-toggle { gap: 5px; }
 .inference-controls { display: flex; flex-wrap: wrap; justify-content: end; align-items: center; gap: 8px; }
 .inference-controls[hidden] { display: none; }
 .inference-control { display: flex; gap: 6px; align-items: center; padding: 6px 9px; border: 1px solid #3a4655; border-radius: 6px; background: #191e25; color: #dce3ed; }
@@ -59,8 +63,8 @@ kbd { font: inherit; font-size: 12px; padding: 1px 4px; border: 1px solid #66758
 /* Same viewport and contain projection as the camera, including letterboxing. */
 .reset-guide-overlay { pointer-events: none; overflow: hidden; }
 .reset-guide-overlay[hidden] { display: none; }
-.reset-guide-overlay polygon { fill-opacity: .1; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.reset-guide-crosshair circle, .reset-guide-crosshair line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.reset-guide-overlay polygon { fill-opacity: .1; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.reset-guide-crosshair circle, .reset-guide-crosshair line { fill: none; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .reset-guide-overlay text { font: 600 13px system-ui, sans-serif; text-anchor: middle; fill: white; stroke: #101317; stroke-width: 3px; paint-order: stroke; }
 .reset-guide-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 46px; margin-bottom: 10px; }
 .reset-guide-controls label { font-weight: 650; }
@@ -98,8 +102,6 @@ button.failure { border-color: #ec7977; background: #5c2023; color: #ffe2e1; }
 .episode-row.unlabeled { border-left-color: #667587; }
 .episode-labels { color: #dce3ed; }
 .episode-row .episode-edit { align-self: start; margin-top: 3px; padding: 4px 10px; }
-.rollout-control-panel { grid-template-rows: 20px 22px 34px auto auto; }
-.auto-record-toggle { justify-content: start; }
 .episode-label { margin: 12px 0; border: 1px solid #80c9a0; border-radius: 8px; background: #15241d; padding: 12px; }
 .episode-label-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
 .episode-label-meta, #episode-label-meta { margin: 4px 0 0; overflow-wrap: anywhere; }
@@ -149,7 +151,8 @@ dialog header { align-items: center; }
 @media (max-width: 1000px) {
   header { flex-direction: column; }
   .actions { justify-content: start; }
-  .rollout-control-panel { flex-basis: 100%; }
+  .rollout-control-panel { flex-basis: auto; width: 100%; }
+  .rollout-button-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .rollout-controls { grid-template-columns: 1fr; }
   .launchers, .inference-controls { grid-column: 1; justify-self: start; }
   .cameras { grid-template-columns: 1fr; }
@@ -159,9 +162,17 @@ dialog header { align-items: center; }
 @media (max-width: 700px) {
   .rollout-button-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.gripper-settings { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid var(--line, #ccd2d8); border-radius: .5rem; }
-.gripper-settings small { display: block; margin-top: .35rem; opacity: .7; }
-.gripper-control { display: inline-flex; align-items: center; gap: .6rem; margin: .5rem 1rem 0 0; }
+.caption { margin-top: 4px; }
+/* Status lines, IK and gripper force sit below the cameras. */
+#cameras + .overlay-status { margin-top: 12px; }
+.overlay-status + .overlay-status { margin-top: -6px; }
+.ik-settings { display: flex; flex-wrap: wrap; gap: 8px; }
+.ik-settings > [hidden] { display: none; }
+/* Below the cameras, on one line. */
+.gripper-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--line, #ccd2d8); border-radius: .5rem; }
+.gripper-settings[hidden] { display: none; }
+.gripper-settings small { opacity: .7; }
+.gripper-control { display: inline-flex; align-items: center; gap: .6rem; margin: 0 1rem 0 0; }
 .gripper-control span { min-width: 4.5rem; text-transform: capitalize; }
 .gripper-control input { width: 12rem; }
 .gripper-control output { min-width: 3.5rem; }

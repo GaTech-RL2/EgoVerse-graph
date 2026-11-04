@@ -457,6 +457,44 @@ every revision is kept under `history`, and **Recorded episodes** can edit them
 later. **Later** leaves a take unlabeled. The index of all takes (recording,
 model/W&B identity, labels) is printed without opening any device by
 `python -m egomimic.robot.rollout_episode <episode directory> [--format csv|jsonl]`.
+#### Upload to R2 and SQL as eval episodes
+
+With `episode_upload.enabled: true` (the RL2 profiles) every complete take is
+also uploaded and registered as an **eval** episode. The rollout starts
+`python -m egomimic.robot.rollout_upload` as a separate, niced worker process,
+so the control loop never touches the network. A take recorded with upload
+enabled carries the SQL contract in its manifest (`upload`). The worker sends
+it in this order:
+
+1. `s3://rldb/raw_v2/yam/<ms>.hdf5`, where `<ms>` is the take's UTC start in
+   epoch milliseconds. With no metadata JSON yet, the raw_v2 cron ignores it.
+2. The `app.episodes` row: `is_eval` true, `eval_success` from the outcome
+   (success / failure; unlabeled stays NULL), and `eval_score` from the partial
+   score. The task, operator and rest of the contract match the GELLO uploads
+   of that task.
+3. `<ms>_rollout.json`: the manifest (checkpoint, W&B run, station commit) and
+   the labels.
+4. `<ms>_metadata.json`. The cron then finds the row already present, so it can
+   never register a rollout as an ordinary training episode.
+
+Saving labels later updates only that row's `eval_success` / `eval_score`
+(never a non-eval row) and re-uploads the rollout JSON. Progress is kept in
+`<episode>.upload.json`. A restart resumes, and failures retry with backoff
+(30 s to 10 min). After the rollout exits the worker drains for up to 30 min,
+and the next session's worker picks up the rest. An existing object or row it
+did not create is never overwritten. Incomplete takes are not uploaded.
+
+The task is set per profile: `organize_stationary` for `yam_rl2_hptflow_rollout`,
+`wireless_earbuds` and `fold_towels` for the HPT300 profiles. The operator
+defaults to Aidan. Override them with `YAM_ROLLOUT_TASK` and
+`YAM_ROLLOUT_OPERATOR`. Credentials come from the station's `~/.egoverse_env`.
+`python -m egomimic.robot.rollout_upload status <episode dir>` shows each
+take's state without network access; `plan <dir> --config <yaml>` is a
+read-only check against R2 and SQL. Takes recorded before upload existed are
+never uploaded on their own; `backfill <dir> --config <yaml> --episode <id>`
+marks named ones and uploads them. The stationery SQL-task training filters
+exclude `is_eval` rows, as earbuds and towels already did.
+
 Auto-recording writes about 4–5 GB per minute of rollout, so check `df -h /`
 before long sessions; the free-space floor below still applies.
 

@@ -83,6 +83,13 @@ episode_recording:
   directory: /home/rohan/rollouts/yam_hptflow/episodes
   min_free_gb: 20.0
   max_queued_rows: 60
+# Each complete take also goes to R2 (raw_v2/yam/<ms>.hdf5) and into app.episodes
+# as an is_eval episode, from a separate worker process (rollout_upload.py);
+# labels saved later update eval_success / eval_score.
+episode_upload:
+  enabled: true
+  operator: ${oc.env:YAM_ROLLOUT_OPERATOR,Aidan}
+  task: wireless_earbuds
 model_browser:
   enabled: true
   root: /home/rohan/checkpoints/EgoVerse

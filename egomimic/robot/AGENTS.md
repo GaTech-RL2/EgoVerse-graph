@@ -54,6 +54,12 @@ for Eva/Yam setup, Quest app build requirements, data format and operator comman
   `reset_to_ready`) and sends no command that tick; model/W&B metadata
   (`rollout_metadata.py`) is read once per loaded model, never per tick, and a
   metadata failure must never block a rollout or a recording.
+- `rollout_upload.py`: R2 upload + `is_eval` SQL registration of complete takes,
+  in a separate worker process (never the control loop). Keep the order HDF5 →
+  SQL row → rollout JSON → `_metadata.json`, so the raw_v2 cron can never
+  register a rollout as a training episode. Label updates touch only
+  `eval_success` / `eval_score` of `is_eval` rows. Never overwrite an object or
+  row the worker did not create.
 - `rollout_episode.py`: episode writer, manifests and operator label sidecars
   (`<episode>.labels.json`, revision history kept). Never reopen or rewrite a
   finalized HDF5 file to store labels; never overwrite an unreadable sidecar.

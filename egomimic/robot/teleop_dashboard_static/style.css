@@ -51,12 +51,14 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 /* Same viewport and contain projection as the camera, including letterboxing. */
 .reset-guide-overlay { pointer-events: none; overflow: hidden; }
 .reset-guide-overlay[hidden] { display: none; }
-.reset-guide-overlay polygon { fill-opacity: .1; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.reset-guide-overlay polygon { fill-opacity: .1; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.reset-guide-crosshair circle, .reset-guide-crosshair line { fill: none; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .reset-guide-overlay text { font: 600 13px system-ui, sans-serif; text-anchor: middle; fill: white; stroke: #101317; stroke-width: 3px; paint-order: stroke; }
 .reset-guide-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 46px; margin-bottom: 10px; }
 .reset-guide-controls label { font-weight: 650; }
 .reset-guide-controls select { min-width: 240px; max-width: 100%; padding: 8px 10px; border: 1px solid #4b5a6b; border-radius: 5px; background: #191e25; color: #edf3fa; }
 .reset-guide-controls small { color: #bac7d6; }
+.reset-guide-controls #reset-guide-task { min-width: 160px; }
 .notice { font-size: 12px; margin-top: 14px; }
 .bottom-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 18px; margin-top: 16px; }
 .bottom-bar .demo-launch { grid-column: 2; }

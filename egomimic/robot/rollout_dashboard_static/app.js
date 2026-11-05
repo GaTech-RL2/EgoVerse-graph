@@ -42,20 +42,34 @@ function validateResetCatalog(catalog) {
   if (catalog?.version !== 1 || !Array.isArray(catalog.templates)) throw new Error('Unsupported reset template catalog');
   const ids = new Set();
   for (const template of catalog.templates) {
+    const inImage = point => Array.isArray(point) && point.length === 2
+      && point.every((n, axis) => Number.isFinite(n) && n >= 0 && n <= template.image_size[axis]);
+    // Optional label anchors keep text off thin or small marks.
+    const labelled = item => item && typeof item.label === 'string' && item.label
+      && (item.label_point === undefined || inImage(item.label_point));
     if (!template || typeof template.id !== 'string' || !template.id || ids.has(template.id)
         || typeof template.label !== 'string' || !template.label
         || typeof template.camera !== 'string' || !template.camera
         || !Array.isArray(template.image_size) || template.image_size.length !== 2
         || !template.image_size.every(n => Number.isInteger(n) && n > 0)
-        || !Array.isArray(template.regions) || !template.regions.length) throw new Error('Invalid reset template');
+        || !Array.isArray(template.regions)
+        || (template.crosshairs !== undefined && !Array.isArray(template.crosshairs))
+        || !(template.regions.length || template.crosshairs?.length)) throw new Error('Invalid reset template');
     ids.add(template.id);
+    // Optional task groups guides in the Task menu; no task = listed under All tasks only.
+    if (template.task !== undefined && (typeof template.task !== 'string' || !template.task)) {
+      throw new Error('Invalid reset template task');
+    }
     for (const region of template.regions) {
-      if (!region || typeof region.label !== 'string' || !region.label
-          || !Array.isArray(region.points) || region.points.length < 3
-          || !region.points.every(point => Array.isArray(point) && point.length === 2
-            && point.every((n, axis) => Number.isFinite(n) && n >= 0 && n <= template.image_size[axis]))) {
+      if (!labelled(region) || !Array.isArray(region.points) || region.points.length < 3
+          || !region.points.every(inImage)) {
         throw new Error('Invalid reset template region');
       }
+    }
+    // Crosshairs mark a point (e.g. where an object's center goes) without
+    // fixing its outline, so the object may lie at any angle.
+    for (const crosshair of template.crosshairs ?? []) {
+      if (!labelled(crosshair) || !inImage(crosshair.point)) throw new Error('Invalid reset template crosshair');
     }
   }
   return catalog.templates;
@@ -92,45 +106,135 @@ function resetGuideVisibility() {
   $('reset-guide-status').textContent = status;
 }
 
+function resetGuideLabel(text, [x, y]) {
+  const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  label.setAttribute('x', x);
+  label.setAttribute('y', y);
+  label.textContent = text;
+  return label;
+}
+
 function renderResetGuide() {
   for (const tile of cameras.values()) tile.overlay.replaceChildren();
   const template = selectedResetTemplate();
   const tile = template && cameras.get(template.camera);
   if (tile) {
+    const svg = 'http://www.w3.org/2000/svg';
     tile.overlay.setAttribute('viewBox', `0 0 ${template.image_size.join(' ')}`);
     for (const [index, region] of template.regions.entries()) {
-      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const polygon = document.createElementNS(svg, 'polygon');
       polygon.setAttribute('points', region.points.map(point => point.join(',')).join(' '));
       polygon.setAttribute('stroke', resetGuideColors[index % resetGuideColors.length]);
       polygon.setAttribute('fill', resetGuideColors[index % resetGuideColors.length]);
-      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       // Label centroid works for any polygon; no task-specific square assumption.
-      label.setAttribute('x', region.points.reduce((sum, p) => sum + p[0], 0) / region.points.length);
-      label.setAttribute('y', region.points.reduce((sum, p) => sum + p[1], 0) / region.points.length + 4);
-      label.textContent = region.label;
-      tile.overlay.append(polygon, label);
+      const labelPoint = region.label_point ?? [
+        region.points.reduce((sum, p) => sum + p[0], 0) / region.points.length,
+        region.points.reduce((sum, p) => sum + p[1], 0) / region.points.length + 4,
+      ];
+      tile.overlay.append(polygon, resetGuideLabel(region.label, labelPoint));
+    }
+    for (const [index, crosshair] of (template.crosshairs ?? []).entries()) {
+      const color = resetGuideColors[(template.regions.length + index) % resetGuideColors.length];
+      const [x, y] = crosshair.point;
+      const mark = document.createElementNS(svg, 'g');
+      mark.classList.add('reset-guide-crosshair');
+      mark.setAttribute('stroke', color);
+      const ring = document.createElementNS(svg, 'circle');
+      ring.setAttribute('cx', x);
+      ring.setAttribute('cy', y);
+      ring.setAttribute('r', 4);
+      mark.append(ring);
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const tick = document.createElementNS(svg, 'line');
+        tick.setAttribute('x1', x + 4 * dx);
+        tick.setAttribute('y1', y + 4 * dy);
+        tick.setAttribute('x2', x + 9 * dx);
+        tick.setAttribute('y2', y + 9 * dy);
+        mark.append(tick);
+      }
+      tile.overlay.append(mark, resetGuideLabel(crosshair.label, crosshair.label_point ?? [x, y + 22]));
     }
   }
   resetGuideVisibility();
 }
 
+const resetGuideTaskKey = 'resetGuideTask';
+
+function resetGuideTasks() {
+  return [...new Set(resetTemplates.map(template => template.task).filter(Boolean))];
+}
+
+// List only the selected task's guides; a drawn guide of another task turns Off.
+function populateResetGuides(render = true) {
+  const select = $('reset-guide');
+  const task = $('reset-guide-task')?.value ?? '';
+  const current = select.value;
+  select.replaceChildren(new Option('Off', ''));
+  for (const template of resetTemplates) {
+    if (!task || template.task === task) select.append(new Option(template.label, template.id));
+  }
+  select.value = [...select.options].some(option => option.value === current) ? current : '';
+  if (render) renderResetGuide();
+}
+
+const resetGuideRefreshMs = 10000;
+let resetCatalogText = '';
+
+// Load a catalog and rebuild the Task menu, keeping the chosen task while it exists.
+function applyResetCatalog(text) {
+  const templates = validateResetCatalog(JSON.parse(text));
+  resetCatalogText = text;
+  resetTemplates = templates;
+  const taskSelect = $('reset-guide-task');
+  if (taskSelect) {
+    const current = taskSelect.value;
+    const tasks = resetGuideTasks();
+    taskSelect.replaceChildren(new Option('All tasks', ''));
+    for (const task of tasks) taskSelect.append(new Option(task, task));
+    taskSelect.value = tasks.includes(current) ? current : '';
+  }
+}
+
+// Guides rebuilt on disk (build_reset_guides) reach an open page without a refresh:
+// re-read this page's catalog; an unreachable or invalid one keeps the loaded guides.
+async function refreshResetCatalog() {
+  try {
+    const response = await fetch(location.pathname, {cache: 'no-store'});
+    if (!response.ok) return;
+    const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const text = page.getElementById('reset-guide-catalog')?.textContent;
+    if (!text || text === resetCatalogText) return;
+    applyResetCatalog(text);
+    populateResetGuides();
+  } catch { /* retry next interval */ }
+}
+
 function setupResetGuides() {
   const select = $('reset-guide');
   if (!select) return; // An older cached page must retain its normal controls.
+  const taskSelect = $('reset-guide-task');
   try {
-    resetTemplates = validateResetCatalog(JSON.parse($('reset-guide-catalog').textContent));
-    for (const template of resetTemplates) {
-      const option = document.createElement('option');
-      option.value = template.id;
-      option.textContent = template.label;
-      select.append(option);
+    applyResetCatalog($('reset-guide-catalog').textContent);
+    if (taskSelect) {
+      const tasks = resetGuideTasks();
+      let saved = '';
+      try { saved = localStorage.getItem(resetGuideTaskKey) ?? ''; } catch { /* storage blocked */ }
+      taskSelect.value = tasks.includes(saved) ? saved : ''; // This browser's last task.
+      taskSelect.onchange = () => {
+        try { localStorage.setItem(resetGuideTaskKey, taskSelect.value); } catch { /* storage blocked */ }
+        populateResetGuides();
+      };
+      taskSelect.onkeydown = event => event.stopPropagation();
     }
     select.value = ''; // Deliberately Off on page load; selection survives WS reconnects.
+    populateResetGuides(false);
     select.onchange = renderResetGuide;
     select.onkeydown = event => event.stopPropagation();
+    setInterval(refreshResetCatalog, resetGuideRefreshMs);
   } catch (error) {
     resetTemplates = [];
     select.disabled = true;
+    if (taskSelect) taskSelect.disabled = true;
     $('reset-guide-status').textContent = `Reset guides unavailable: ${error.message}. Camera preview is unaffected.`;
   }
 }

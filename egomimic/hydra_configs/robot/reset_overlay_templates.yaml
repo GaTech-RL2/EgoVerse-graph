@@ -1,9 +1,11 @@
 # Visual annotations only, not metric calibration or motion targets.
 # Add templates here, then run: python -m egomimic.scripts.build_reset_guides
+# `task` groups guides in the dashboards' Task menu; a guide without one is listed under All tasks only.
 version: 1
 templates:
   - id: rl2-yam-earbuds-20261010
     label: "Earbuds — left / case / right"
+    task: Earbuds
     camera: front_img_1
     image_size: [640, 480]
     provenance:
@@ -21,3 +23,984 @@ templates:
         points: [[283.22134650936016, 231.45398786744497], [350.7955911838059, 231.12289178846373], [354.0180506380843, 294.7067966731917], [280.2821555535088, 295.01799006867714]]
       - label: Right
         points: [[350.7955911838059, 231.12289178846373], [418.1763060993439, 230.81930061865893], [427.51468215290413, 294.2126378607729], [354.0180506380843, 294.7067966731917]]
+  - id: rl2-yam-stationery-cups-pens-20261011
+    label: "Stationery 1"
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance:
+      camera_serial: '230322272195'
+      captured_at: '2026-10-11T17:09:59-04:00'
+      source_image_sha256: 0f1024a36190e0d9f548ebf3131b357c866f06ebf6e18f2877a166dc5256dd3e
+      source_image: /home/rohan/station-tasks/cups-pens-original-20261026.RH0t0E/reference_20261011_170959.png
+      calibration_reference: 'Original cups + markers reference reused by the 2026-10-26 scene comparison'
+      pixel_space: raw_distorted_front_camera
+      placement: 'Manually traced outer object silhouettes in the saved raw reference; no image undistortion or live-frame warp'
+      warning: 'Visual placement guide only. Recheck camera/table alignment; not surveyed calibration or motion targets.'
+    # Silhouettes and label anchors are bound to this exact raw reference.
+    # Never substitute the monitor's undistorted or edge preview.
+    regions:
+      - label: Pink cup
+        label_point: [268, 174]
+        points: [[252.5, 196.5], [254, 190], [260, 185.5], [268, 184], [275.5, 185], [281, 189], [284, 195], [284, 204], [281, 218], [276.5, 226], [267.5, 228], [260, 224], [256, 215], [253, 204]]
+      - label: Grey cup
+        label_point: [348, 175]
+        points: [[330, 197], [332, 191], [339, 187], [347.5, 185.5], [355.5, 187.5], [361, 192.5], [363.5, 198], [370, 197.5], [374, 201], [373.5, 207], [369.5, 212.5], [362, 214.5], [359, 221], [351, 225], [342, 225.5], [335, 222], [331.5, 215], [329.5, 205]]
+      - label: Pen 1
+        label_point: [231, 332]
+        points: [[231, 257], [235, 257], [237, 262], [234, 280], [231, 301], [231, 313], [226, 314], [225, 310], [228, 289], [230, 270]]
+      - label: Pen 2
+        label_point: [284, 332]
+        points: [[282, 258], [286, 258], [288, 265], [286, 283], [286, 313], [284, 317], [279, 317], [279, 307], [280, 281], [280, 266]]
+      - label: Marker R
+        label_point: [334, 332]
+        points: [[329.5, 262], [338, 261.5], [340, 264], [339.5, 276], [338.5, 279], [339, 310], [337, 314], [330, 314], [330, 281], [330, 277]]
+      - label: Marker B
+        label_point: [389, 335]
+        points: [[384.5, 266], [392, 265.5], [394, 269], [393, 279], [392, 281], [393, 313], [391, 318], [384, 318], [383.5, 311], [383.5, 282], [383, 278]]
+  - id: rl2-yam-stationery-02-20261104
+    label: Stationery 2
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T18:35:56-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-2-20261104-183555/front.png, source_image_sha256: 4b938ab23905a9d35c5450d1787a7106020d75635a1092dd43b3f6c16140a03c, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 26.0, ROI [214, 250, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker R
+      label_point: [240.0, 314.0]
+      points:
+      - [259.0, 260.0]
+      - [259.0, 269.0]
+      - [229.0, 299.0]
+      - [223.0, 299.0]
+      - [220.0, 296.0]
+      - [220.0, 290.0]
+      - [250.0, 259.0]
+    - label: Marker B
+      label_point: [284.7, 257.0]
+      points:
+      - [270.0, 263.0]
+      - [278.0, 263.0]
+      - [296.0, 287.0]
+      - [300.0, 294.0]
+      - [299.0, 306.0]
+      - [293.0, 306.0]
+      - [284.0, 296.0]
+      - [268.0, 271.0]
+      - [268.0, 265.0]
+    - label: Pen 1
+      label_point: [324.5, 328.2]
+      points:
+      - [328.0, 255.0]
+      - [330.0, 256.0]
+      - [327.0, 311.0]
+      - [326.0, 314.0]
+      - [320.0, 314.0]
+      - [319.0, 306.0]
+      - [321.0, 256.0]
+    - label: Pen 2
+      label_point: [364.4, 252.0]
+      points:
+      - [343.0, 258.0]
+      - [349.0, 258.0]
+      - [354.0, 261.0]
+      - [386.0, 296.0]
+      - [386.0, 304.0]
+      - [381.0, 304.0]
+      - [349.0, 273.0]
+      - [343.0, 265.0]
+  - id: rl2-yam-stationery-03-20261104
+    label: Stationery 3
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T18:47:55-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-3-20261104-184754/front.png, source_image_sha256: e8136fe908c44848c58c4e4ebbfbde489dae7a3f04094bce054f7484bf9fe271, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [214, 245, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Pen 1
+      label_point: [243.0, 314.0]
+      points:
+      - [266.0, 253.0]
+      - [266.0, 259.0]
+      - [263.0, 264.0]
+      - [226.0, 298.0]
+      - [219.0, 297.0]
+      - [219.0, 291.0]
+      - [259.0, 253.0]
+    - label: Marker R
+      label_point: [288.7, 247.0]
+      points:
+      - [297.0, 253.0]
+      - [294.0, 299.0]
+      - [292.0, 301.0]
+      - [283.0, 301.0]
+      - [280.0, 300.0]
+      - [284.0, 253.0]
+    - label: Pen 2
+      label_point: [338.0, 313.5]
+      points:
+      - [316.0, 253.0]
+      - [324.0, 253.0]
+      - [330.0, 258.0]
+      - [359.0, 291.0]
+      - [359.0, 298.0]
+      - [352.0, 298.0]
+      - [317.0, 263.0]
+    - label: Marker B
+      label_point: [374.8, 245.0]
+      points:
+      - [369.0, 251.0]
+      - [377.0, 251.0]
+      - [379.0, 254.0]
+      - [382.0, 288.0]
+      - [382.0, 300.0]
+      - [373.0, 301.0]
+      - [370.0, 296.0]
+      - [367.0, 268.0]
+      - [367.0, 252.0]
+  - id: rl2-yam-stationery-04-20261104
+    label: Stationery 4
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T19:14:29-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-4-20261104-191428/front.png, source_image_sha256: fd865a70e499ef19a232b899b43a738e397cb7bc87463eb9e427e6b9eb6b6d75, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [214, 245, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker R
+      label_point: [247.8, 314.5]
+      points:
+      - [269.0, 257.0]
+      - [270.0, 265.0]
+      - [234.0, 299.0]
+      - [229.0, 299.0]
+      - [227.0, 294.0]
+      - [227.0, 287.0]
+      - [258.0, 256.0]
+      - [265.0, 255.0]
+    - label: Pen 1
+      label_point: [291.7, 247.0]
+      points:
+      - [298.0, 253.0]
+      - [298.0, 265.0]
+      - [293.0, 308.0]
+      - [292.0, 310.0]
+      - [286.0, 310.0]
+      - [285.0, 303.0]
+      - [290.0, 253.0]
+    - label: Marker B
+      label_point: [331.7, 319.1]
+      points:
+      - [338.0, 255.0]
+      - [339.0, 299.0]
+      - [334.0, 305.0]
+      - [328.0, 305.0]
+      - [324.0, 255.0]
+    - label: Pen 2
+      label_point: [372.0, 245.0]
+      points:
+      - [374.0, 251.0]
+      - [377.0, 262.0]
+      - [377.0, 307.0]
+      - [370.0, 308.0]
+      - [367.0, 280.0]
+      - [368.0, 252.0]
+  - id: rl2-yam-stationery-05-20261104
+    label: Stationery 5
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T21:27:08-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-5-20261104-212706/front.png, source_image_sha256: 16f73576af20291dafccfaef0ccc9f5663e9f3a14a5a095710ccacbcfe83d559, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Pen 1
+      label_point: [243.3, 321.2]
+      points:
+      - [228.0, 257.0]
+      - [233.0, 257.0]
+      - [239.0, 263.0]
+      - [258.0, 297.0]
+      - [258.0, 306.0]
+      - [253.0, 306.0]
+      - [229.0, 266.0]
+    - label: Marker B
+      label_point: [296.4, 250.0]
+      points:
+      - [300.0, 256.0]
+      - [304.0, 257.0]
+      - [301.0, 304.0]
+      - [297.0, 306.0]
+      - [291.0, 306.0]
+      - [289.0, 294.0]
+      - [290.0, 257.0]
+    - label: Marker R
+      label_point: [337.9, 313.4]
+      points:
+      - [342.0, 250.0]
+      - [344.0, 252.0]
+      - [346.0, 295.0]
+      - [344.0, 299.0]
+      - [332.0, 299.0]
+      - [330.0, 255.0]
+      - [332.0, 250.0]
+    - label: Pen 2
+      label_point: [376.8, 244.0]
+      points:
+      - [380.0, 250.0]
+      - [382.0, 306.0]
+      - [375.0, 306.0]
+      - [372.0, 280.0]
+      - [373.0, 250.0]
+  - id: rl2-yam-stationery-06-20261104
+    label: Stationery 6
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T21:35:56-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-6-20261104-213554/front.png, source_image_sha256: 953299a9c55dbbd0fdaffddda016b744c6ce464279db8193e40c97f70ab59555, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 26.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker R
+      label_point: [245.0, 313.0]
+      points:
+      - [247.0, 253.0]
+      - [251.0, 255.0]
+      - [249.0, 297.0]
+      - [247.0, 299.0]
+      - [242.0, 299.0]
+      - [240.0, 288.0]
+      - [239.0, 254.0]
+    - label: Pen 1
+      label_point: [285.3, 254.0]
+      points:
+      - [268.0, 260.0]
+      - [273.0, 260.0]
+      - [278.0, 265.0]
+      - [304.0, 303.0]
+      - [303.0, 309.0]
+      - [296.0, 308.0]
+      - [275.0, 279.0]
+      - [268.0, 267.0]
+    - label: Pen 2
+      label_point: [339.4, 323.4]
+      points:
+      - [356.0, 257.0]
+      - [356.0, 265.0]
+      - [352.0, 273.0]
+      - [329.0, 306.0]
+      - [321.0, 306.0]
+      - [321.0, 301.0]
+      - [343.0, 263.0]
+      - [350.0, 257.0]
+    - label: Marker B
+      label_point: [375.9, 249.0]
+      points:
+      - [378.0, 255.0]
+      - [380.0, 256.0]
+      - [382.0, 261.0]
+      - [383.0, 295.0]
+      - [382.0, 304.0]
+      - [374.0, 305.0]
+      - [372.0, 302.0]
+      - [369.0, 276.0]
+      - [369.0, 256.0]
+  - id: rl2-yam-stationery-07-20261104
+    label: Stationery 7
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T21:45:32-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-7-20261104-214530/front.png, source_image_sha256: 0d560688cf2e5d454222e84381bb65549b408ef9113d9f8a0538488935edc416, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Pen 1
+      label_point: [246.0, 318.4]
+      points:
+      - [250.0, 248.0]
+      - [252.0, 253.0]
+      - [252.0, 262.0]
+      - [246.0, 304.0]
+      - [240.0, 304.0]
+      - [243.0, 252.0]
+      - [244.0, 248.0]
+    - label: Pen 2
+      label_point: [290.8, 317.1]
+      points:
+      - [307.0, 250.0]
+      - [308.0, 257.0]
+      - [282.0, 299.0]
+      - [280.0, 301.0]
+      - [274.0, 301.0]
+      - [273.0, 295.0]
+      - [295.0, 257.0]
+      - [301.0, 250.0]
+    - label: Marker B
+      label_point: [345.0, 314.5]
+      points:
+      - [321.0, 256.0]
+      - [337.0, 255.0]
+      - [353.0, 272.0]
+      - [366.0, 289.0]
+      - [367.0, 296.0]
+      - [357.0, 297.0]
+      - [321.0, 263.0]
+    - label: Marker R
+      label_point: [375.3, 249.0]
+      points:
+      - [370.0, 255.0]
+      - [378.0, 255.0]
+      - [382.0, 259.0]
+      - [385.0, 305.0]
+      - [375.0, 305.0]
+      - [367.0, 280.0]
+      - [368.0, 259.0]
+  - id: rl2-yam-stationery-08-20261104
+    label: Stationery 8
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T21:56:01-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-8-20261104-215559/front.png, source_image_sha256: 9b07cf2688ae91c807986a5e2aa9fdaa71060c2aa3451a69066055fc3e6f2cef, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Pen 1
+      label_point: [246.6, 318.3]
+      points:
+      - [250.0, 248.0]
+      - [252.0, 251.0]
+      - [252.0, 266.0]
+      - [248.0, 303.0]
+      - [241.0, 304.0]
+      - [244.0, 251.0]
+      - [245.0, 248.0]
+    - label: Marker B
+      label_point: [295.0, 253.0]
+      points:
+      - [276.0, 261.0]
+      - [279.0, 259.0]
+      - [289.0, 260.0]
+      - [315.0, 294.0]
+      - [315.0, 299.0]
+      - [305.0, 301.0]
+      - [300.0, 298.0]
+      - [276.0, 268.0]
+    - label: Pen 2
+      label_point: [345.1, 313.5]
+      points:
+      - [323.0, 254.0]
+      - [331.0, 255.0]
+      - [354.0, 276.0]
+      - [367.0, 291.0]
+      - [366.0, 299.0]
+      - [361.0, 299.0]
+      - [330.0, 270.0]
+      - [322.0, 261.0]
+    - label: Marker R
+      label_point: [375.2, 244.0]
+      points:
+      - [380.0, 250.0]
+      - [382.0, 252.0]
+      - [384.0, 297.0]
+      - [380.0, 300.0]
+      - [375.0, 300.0]
+      - [372.0, 296.0]
+      - [367.0, 280.0]
+      - [369.0, 252.0]
+      - [371.0, 250.0]
+  - id: rl2-yam-stationery-09-20261104
+    label: Stationery 9
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T22:03:43-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-9-20261104-220341/front.png, source_image_sha256: cc426861aafe1ceea8c242ac23282f35987f14c836ba27143eca2fde12e66bd0, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker B
+      label_point: [262.9, 318.3]
+      points:
+      - [248.0, 257.0]
+      - [256.0, 256.0]
+      - [261.0, 261.0]
+      - [278.0, 288.0]
+      - [280.0, 300.0]
+      - [266.0, 299.0]
+      - [247.0, 266.0]
+    - label: Pen 1
+      label_point: [304.0, 249.0]
+      points:
+      - [322.0, 255.0]
+      - [322.0, 263.0]
+      - [294.0, 306.0]
+      - [287.0, 306.0]
+      - [287.0, 299.0]
+      - [311.0, 259.0]
+      - [315.0, 255.0]
+    - label: Marker R
+      label_point: [339.5, 320.0]
+      points:
+      - [341.0, 255.0]
+      - [344.0, 257.0]
+      - [347.0, 263.0]
+      - [346.0, 296.0]
+      - [342.0, 306.0]
+      - [335.0, 306.0]
+      - [332.0, 293.0]
+      - [332.0, 255.0]
+    - label: Pen 2
+      label_point: [381.2, 244.0]
+      points:
+      - [377.0, 250.0]
+      - [383.0, 251.0]
+      - [385.0, 259.0]
+      - [387.0, 300.0]
+      - [386.0, 307.0]
+      - [380.0, 307.0]
+      - [379.0, 305.0]
+      - [376.0, 268.0]
+  - id: rl2-yam-stationery-10-20261104
+    label: Stationery 10
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T22:12:41-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-10b-20261104-221239/front.png, source_image_sha256: 22b970b6fe6a899cb9ef42efd88c71f40767fd40831667d628c40047778b317e, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 26.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Pen 1
+      label_point: [252.8, 323.5]
+      points:
+      - [239.0, 257.0]
+      - [246.0, 257.0]
+      - [250.0, 262.0]
+      - [266.0, 301.0]
+      - [266.0, 308.0]
+      - [260.0, 308.0]
+      - [239.0, 262.0]
+    - label: Marker B
+      label_point: [290.5, 252.0]
+      points:
+      - [293.0, 258.0]
+      - [297.0, 260.0]
+      - [297.0, 296.0]
+      - [295.0, 307.0]
+      - [286.0, 307.0]
+      - [284.0, 294.0]
+      - [285.0, 259.0]
+    - label: Marker R
+      label_point: [323.1, 318.1]
+      points:
+      - [327.0, 256.0]
+      - [329.0, 258.0]
+      - [330.0, 299.0]
+      - [325.0, 304.0]
+      - [319.0, 304.0]
+      - [317.0, 293.0]
+      - [316.0, 256.0]
+    - label: Pen 2
+      label_point: [362.4, 250.0]
+      points:
+      - [341.0, 256.0]
+      - [346.0, 256.0]
+      - [350.0, 258.0]
+      - [384.0, 295.0]
+      - [384.0, 302.0]
+      - [379.0, 302.0]
+      - [352.0, 276.0]
+      - [341.0, 263.0]
+  - id: rl2-yam-stationery-11-20261104
+    label: Stationery 11
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T22:20:34-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-11-20261104-222032/front.png, source_image_sha256: 2c2896b2033b982ecac6c70933484f15a0d939dc5f7b73e301e8fe6fd101f191, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [222, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker B
+      label_point: [251.6, 317.6]
+      points:
+      - [258.0, 255.0]
+      - [260.0, 265.0]
+      - [256.0, 300.0]
+      - [251.0, 303.0]
+      - [246.0, 303.0]
+      - [243.0, 300.0]
+      - [247.0, 256.0]
+    - label: Pen 1
+      label_point: [289.6, 252.0]
+      points:
+      - [272.0, 258.0]
+      - [279.0, 258.0]
+      - [282.0, 261.0]
+      - [306.0, 299.0]
+      - [306.0, 307.0]
+      - [299.0, 306.0]
+      - [272.0, 264.0]
+    - label: Pen 2
+      label_point: [329.5, 322.0]
+      points:
+      - [333.0, 251.0]
+      - [333.0, 308.0]
+      - [326.0, 308.0]
+      - [325.0, 255.0]
+      - [327.0, 251.0]
+    - label: Marker R
+      label_point: [366.5, 250.0]
+      points:
+      - [362.0, 256.0]
+      - [368.0, 256.0]
+      - [373.0, 261.0]
+      - [373.0, 306.0]
+      - [364.0, 306.0]
+      - [361.0, 304.0]
+      - [359.0, 258.0]
+  - id: rl2-yam-stationery-12-20261104
+    label: Stationery 12
+    task: Sort stationary
+    camera: front_img_1
+    image_size: [640, 480]
+    provenance: {captured_at: '2026-11-04T22:30:08-0500', source: 'rollout dashboard websocket http://127.0.0.1:8081/ws, front_img_1, per-pixel median of 12 JPEG frames (dashboard width 640, quality 80), action overlay off', source_image: /home/rohan/station-tasks/reset-guides/stationery-12-20261104-223006/front.png, source_image_sha256: f9aaaa8304a57dcdb6064698bc2fb2728967409ef1bbfd310d0cc4c35d73a0fe, pixel_space: raw_front_camera, regions_from: 'Pink cup, Grey cup reused unchanged from rl2-yam-stationery-cups-pens-20261011', placement: 'Other regions: make_reset_guide.py detect (Lab distance from a 31 px median-blurred table > 22.0, ROI [214, 238, 425, 330], 2 px outer pad, convex outline)', warning: Visual placement guide only. Recheck after moving the camera or table; not surveyed calibration or motion targets.}
+    regions:
+    - label: Pink cup
+      label_point: [268, 174]
+      points:
+      - [252.5, 196.5]
+      - [254, 190]
+      - [260, 185.5]
+      - [268, 184]
+      - [275.5, 185]
+      - [281, 189]
+      - [284, 195]
+      - [284, 204]
+      - [281, 218]
+      - [276.5, 226]
+      - [267.5, 228]
+      - [260, 224]
+      - [256, 215]
+      - [253, 204]
+    - label: Grey cup
+      label_point: [348, 175]
+      points:
+      - [330, 197]
+      - [332, 191]
+      - [339, 187]
+      - [347.5, 185.5]
+      - [355.5, 187.5]
+      - [361, 192.5]
+      - [363.5, 198]
+      - [370, 197.5]
+      - [374, 201]
+      - [373.5, 207]
+      - [369.5, 212.5]
+      - [362, 214.5]
+      - [359, 221]
+      - [351, 225]
+      - [342, 225.5]
+      - [335, 222]
+      - [331.5, 215]
+      - [329.5, 205]
+    - label: Marker B
+      label_point: [241.8, 321.0]
+      points:
+      - [259.0, 259.0]
+      - [260.0, 267.0]
+      - [240.0, 298.0]
+      - [220.0, 300.0]
+      - [220.0, 295.0]
+      - [249.0, 258.0]
+    - label: Marker R
+      label_point: [289.0, 251.0]
+      points:
+      - [273.0, 258.0]
+      - [282.0, 257.0]
+      - [286.0, 260.0]
+      - [306.0, 294.0]
+      - [306.0, 300.0]
+      - [297.0, 301.0]
+      - [291.0, 298.0]
+      - [272.0, 266.0]
+    - label: Pen 1
+      label_point: [333.0, 320.0]
+      points:
+      - [336.0, 249.0]
+      - [338.0, 255.0]
+      - [336.0, 306.0]
+      - [330.0, 306.0]
+      - [328.0, 255.0]
+      - [329.0, 249.0]
+    - label: Pen 2
+      label_point: [367.0, 245.0]
+      points:
+      - [382.0, 251.0]
+      - [383.0, 257.0]
+      - [380.0, 265.0]
+      - [364.0, 294.0]
+      - [358.0, 302.0]
+      - [352.0, 302.0]
+      - [352.0, 295.0]
+      - [369.0, 261.0]
+      - [376.0, 251.0]

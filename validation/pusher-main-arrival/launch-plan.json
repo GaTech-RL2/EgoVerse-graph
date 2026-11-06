@@ -1,0 +1,187 @@
+{
+  "source_commit": "505c3eed6a6e62ad3fc985ab4bdee6ebe830f0d8",
+  "upstream_main": "c7e110461650d09a88b2c2dff8f02db54b1deace",
+  "submitted": false,
+  "workflows": [
+    {
+      "name": "pa1105-cotrain-42",
+      "regime": "cotrain",
+      "seed": 42,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    },
+    {
+      "name": "pa1105-cotrain-43",
+      "regime": "cotrain",
+      "seed": 43,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    },
+    {
+      "name": "pa1105-cotrain-44",
+      "regime": "cotrain",
+      "seed": 44,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    },
+    {
+      "name": "pa1105-clean-42",
+      "regime": "clean",
+      "seed": 42,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    },
+    {
+      "name": "pa1105-clean-43",
+      "regime": "clean",
+      "seed": 43,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    },
+    {
+      "name": "pa1105-clean-44",
+      "regime": "clean",
+      "seed": 44,
+      "training_tasks": 3,
+      "evaluation_tasks": 93,
+      "resources": {
+        "gate": {
+          "cpu": 2,
+          "gpu": 0,
+          "memory": "8Gi",
+          "storage": "12Gi",
+          "platform": "ovx-l40s"
+        },
+        "training": {
+          "cpu": 32,
+          "gpu": 4,
+          "memory": "192Gi",
+          "storage": "500Gi",
+          "platform": "ovx-l40s"
+        },
+        "evaluation": {
+          "cpu": 8,
+          "gpu": 1,
+          "memory": "64Gi",
+          "storage": "120Gi",
+          "platform": "ovx-l40s"
+        }
+      }
+    }
+  ]
+}

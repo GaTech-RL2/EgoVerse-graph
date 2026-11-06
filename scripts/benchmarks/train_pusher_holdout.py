@@ -179,6 +179,7 @@ def main(args):
         assert selected, (source, "requires training-only replay audit")
         for row in selected:
             native = np.load(DATA / row["episode_id"] / "actions.npy", mmap_mode="r")
+            states = np.load(DATA / row["episode_id"] / "observations.state.npy", mmap_mode="r")
             horizon = config["planar"]["raw_action_horizon"]
             offset = row["action_target_offset_obs2"]
             for start in (0, len(native)//2, len(native)-2):
@@ -186,17 +187,51 @@ def main(args):
                 raw = np.asarray(native[indices]).copy()
                 transform_cfg = config["data"]["train_datasets"][row["embodiment"]]["resolver"]["transform_list"]
                 transforms = instantiate(OmegaConf.create(dict(transform_cfg, action_target_offset=offset)))
-                sample = {"actions": raw.copy()}
+                obs_indices = np.minimum(
+                    np.arange(start, start + config["planar"]["observation_horizon"]),
+                    len(states) - 1,
+                )
+                sample = {"actions": raw.copy(), "state_agent_obj": np.asarray(states[obs_indices]).copy()}
                 for transform in transforms:
                     sample = transform.transform(sample)
                 decoder = instantiate(OmegaConf.create(config["evaluator"]["native_decoders"][row["embodiment"]]))
-                decoded = np.asarray(decoder(sample["actions"])).reshape(horizon, native.shape[1])
+                if getattr(decoder, "requires_initial_action", False):
+                    context = decoder.context_from_observation(
+                        {"state_agent_obj": sample["state_agent_obj"][None]}
+                    )
+                    context["initial_action"] = context["initial_action"][0]
+                    decoded = decoder(sample["actions"], context=context)
+                else:
+                    decoded = decoder(sample["actions"])
+                decoded = np.asarray(decoded).reshape(horizon, native.shape[1])
                 assert np.isfinite(decoded).all()
                 error = decoded - raw[offset:]
                 if native.shape[1] >= 3:
                     error[:, 2] = np.arctan2(np.sin(error[:, 2]), np.cos(error[:, 2]))
-                assert np.abs(error[0]).max() < 1e-4
+                arrival_velocity = (
+                    getattr(decoder, "requires_initial_action", False)
+                    and decoder.codec.clock_mode == "velocity"
+                )
+                if arrival_velocity:
+                    # Main's velocity clocks cannot represent a stationary wait.
+                    # Check source alignment on supports; require first-control
+                    # equality only for streams with a moving incoming segment.
+                    first = raw[offset]
+                    token = sample["actions"][0]
+                    np.testing.assert_allclose(token[:2], first[:2], atol=1e-4, rtol=0)
+                    moving_xy = np.linalg.norm(first[:2] - context["initial_action"][:2]) > 1e-12
+                    if moving_xy:
+                        assert np.abs(error[0, :2]).max() < 1e-4
+                    if native.shape[1] >= 3:
+                        np.testing.assert_allclose(token[2:4], [np.cos(first[2]), np.sin(first[2])], atol=1e-4, rtol=0)
+                        angle = first[2] - context["initial_action"][2]
+                        if abs(np.arctan2(np.sin(angle), np.cos(angle))) > 1e-12:
+                            assert abs(error[0, 2]) < 1e-4
+                else:
+                    assert np.abs(error[0]).max() < 1e-4
                 codec_summary.append({"episode": row["episode_id"], "split": row["split"], "start": start,
+                    "first_control_error": error[0].tolist(),
+                    "stationary_waits_representable": not arrival_velocity,
                     "rmse": np.sqrt(np.mean(error**2, axis=0)).tolist()})
     write("codec-audit.json", {"arm": args.arm, "windows": codec_summary, "is_policy_score": False})
 
@@ -249,15 +284,26 @@ def main(args):
     thread.start()
     try:
         norm = NORMALIZERS / "norm_stats/norm_stats.json"
+        action_contract = config["run_provenance"]["action_contract"]
+        arrival = action_contract.get("codec_contract") == "cartesian_arc_arrival_v2_unbounded"
         prior_norm = read(destination + "normalizer-receipt.json")
         if prior_norm:
             assert prior_norm["data_manifest_sha256"] == manifest_hash
+            if arrival:
+                assert prior_norm.get("action_contract") == action_contract
             download(prior_norm["artifact"], norm)
         else:
             execute(entry + common(ROOT / "normalization-log") + ["norm_stats_only=true", "norm_stats.precomputed_norm_path=null", "~logger"], "normalization.log")
-            assert "normalizer_state" in json.loads(norm.read_text())
+            payload = json.loads(norm.read_text())
+            assert "normalizer_state" in payload
+            if arrival:
+                payload["action_contract"] = action_contract
+                norm.write_text(json.dumps(payload, allow_nan=False) + "\n")
             norm_receipt = upload(norm, destination + "normalizer.json")
-            write("normalizer-receipt.json", {"artifact": norm_receipt, "data_manifest_sha256": manifest_hash, "train_only": True})
+            write("normalizer-receipt.json", {"artifact": norm_receipt, "data_manifest_sha256": manifest_hash,
+                "train_only": True, "action_contract": action_contract})
+        if arrival:
+            assert json.loads(norm.read_text()).get("action_contract") == action_contract
         norm_receipt = upload(norm, destination + "normalizer.json")
         execute(entry + common(ROOT / "smoke") + ["trainer.max_steps=4", "~logger", "~callbacks.model_checkpoint",
             "++trainer.enable_checkpointing=false", "norm_stats.save_cache_dir=null",

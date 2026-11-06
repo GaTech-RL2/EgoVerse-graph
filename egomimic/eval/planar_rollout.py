@@ -6,6 +6,7 @@ calling evaluator's verified protocol.
 """
 
 import hashlib
+import json
 import math
 from collections import deque
 from dataclasses import dataclass
@@ -229,9 +230,14 @@ class PlanarGraphPolicy:
 
     @torch.inference_mode()
     def predict_action_plan(self):
-        normalized = self.normalizer.normalize(
-            self.observation_window(), self.embodiment_id
+        observations = self.observation_window()
+        needs_anchor = getattr(self.decoder, "requires_initial_action", False)
+        context = (
+            self.decoder.context_from_observation(observations)
+            if needs_anchor
+            else None
         )
+        normalized = self.normalizer.normalize(observations, self.embodiment_id)
         batch = self.graph.process_batch_for_training(
             {self.embodiment_name: normalized}
         )
@@ -248,7 +254,11 @@ class PlanarGraphPolicy:
         actions = self.normalizer.unnormalize(
             {"actions": prediction}, self.embodiment_id
         )["actions"]
-        native = torch.as_tensor(self.decoder.decode(actions))
+        native = torch.as_tensor(
+            self.decoder.decode(actions, context=context)
+            if needs_anchor
+            else self.decoder.decode(actions)
+        )
         if (
             tuple(native.shape) != (1, *self.native_shape)
             or not torch.isfinite(native).all()
@@ -384,6 +394,36 @@ def load_planar_graph_policy(
         )
     if embodiment_name not in cfg.data.train_datasets:
         raise ValueError("Embodiment was not present in the training config")
+    decoder_config = cfg.planar.eval_native_decoder
+    if decoder_config is None:
+        decoder_config = OmegaConf.select(
+            cfg, f"evaluator.native_decoders.{embodiment_name}"
+        )
+    if decoder_config is None:
+        raise ValueError(f"No native decoder configured for {embodiment_name}")
+    decoder = instantiate(decoder_config)
+    if getattr(decoder, "requires_initial_action", False):
+        representation = decoder.representation_context()
+        if (
+            contract.get("codec_contract") != representation["contract"]
+            or contract.get("timing_layout") != representation["timing_layout"]
+        ):
+            raise ValueError("Checkpoint has incompatible ARC arrival-clock provenance")
+        for key in (
+            "clock_mode",
+            "streams",
+            "translation_distance",
+            "rotation_distance_radians",
+        ):
+            if contract.get(key) != representation[key]:
+                raise ValueError(f"Checkpoint ARC {key} differs from its decoder")
+        if contract.get("control_dt") != representation["control_grid_start_seconds"]:
+            raise ValueError("Checkpoint ARC control interval differs from its decoder")
+        payload = json.loads(Path(normalizer_path).read_text())
+        if payload.get("action_contract") != OmegaConf.to_container(
+            contract, resolve=True
+        ):
+            raise ValueError("Normalizer has incompatible ARC arrival-clock provenance")
     normalizer = load_normalizer(normalizer_path)
     if normalizer.norm_mode != cfg.norm_stats.norm_mode:
         raise ValueError("Normalizer mode differs from the training config")
@@ -393,12 +433,6 @@ def load_planar_graph_policy(
     graph.bind_data_context(normalizer=normalizer)
     strict_load_pipeline_checkpoint(graph, checkpoint, use_ema=use_ema)
     graph.nets.eval()
-    decoder_config = cfg.planar.eval_native_decoder
-    if decoder_config is None:
-        decoder_config = OmegaConf.select(cfg, f"evaluator.native_decoders.{embodiment_name}")
-    if decoder_config is None:
-        raise ValueError(f"No native decoder configured for {embodiment_name}")
-    decoder = instantiate(decoder_config)
     return PlanarGraphPolicy(
         graph=graph,
         normalizer=normalizer,

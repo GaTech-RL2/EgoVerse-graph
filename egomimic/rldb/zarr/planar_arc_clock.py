@@ -1,10 +1,34 @@
-"""Native planar geometry with the canonical Cartesian ARC clock contract."""
+"""Native planar future targets and explicit measured-current-pose anchors."""
 
 from __future__ import annotations
 
 import numpy as np
 
 from egomimic.rldb.zarr.arc_clock_bridge import SingleArmArcClockBridge
+
+
+def current_action_from_state(state, native_action_dim, state_indices=None):
+    """Extract measured actuator state, never object pose or a future command."""
+    state = np.asarray(state, dtype=np.float64)
+    if state_indices is None:
+        if native_action_dim not in (2, 3):
+            raise ValueError(
+                "Gripper embodiments require explicit measured-state indices"
+            )
+        state_indices = tuple(range(native_action_dim))
+    indices = np.asarray(state_indices)
+    if (
+        state.ndim < 1
+        or indices.shape != (native_action_dim,)
+        or not np.issubdtype(indices.dtype, np.integer)
+        or np.any(indices < 0)
+        or np.any(indices >= state.shape[-1])
+    ):
+        raise ValueError("Invalid measured-current-pose state mapping")
+    value = state[..., indices]
+    if not np.isfinite(value).all():
+        raise ValueError("Measured current pose must be finite")
+    return value.copy()
 
 
 class PlanarArcClockCodec(SingleArmArcClockBridge):
@@ -42,11 +66,11 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
             **clock_kwargs,
         )
 
-    def encode(self, actions):
+    def _canonical_pose(self, actions):
         value = np.asarray(actions, dtype=np.float64)
         if (
             value.ndim != 2
-            or len(value) < 2
+            or len(value) < 1
             or value.shape[1] not in (self.native_action_dim, 5)
             or not np.isfinite(value).all()
         ):
@@ -61,7 +85,17 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
             )
         if self.native_action_dim == 4:
             raw[:, 6] = value[:, -1]
-        canonical = self._encode_cartesian(raw)
+        return raw
+
+    def _anchor(self, initial_action):
+        value = np.asarray(initial_action, dtype=np.float64)
+        if value.shape != (self.native_action_dim,):
+            raise ValueError("Supply one measured native current pose explicitly")
+        return self._canonical_pose(value[None])[0]
+
+    def encode(self, actions, *, initial_action):
+        raw = self._canonical_pose(actions)
+        canonical = self._encode_cartesian(raw, self._anchor(initial_action))
         return np.column_stack(
             (
                 canonical[:, :2],
@@ -82,14 +116,18 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
             canonical[:, 6] = value[:, 4]
         return canonical
 
-    def decode(self, token):
-        poses = self._decode_cartesian(token)
-        return np.column_stack((poses[:, :2], np.unwrap(poses[:, 3]), poses[:, 6]))[
+    def decode(self, token, *, initial_action):
+        anchor = self._anchor(initial_action)
+        poses = self._decode_cartesian(token, anchor)
+        theta = np.unwrap(np.r_[anchor[3], poses[:, 3]])[1:]
+        return np.column_stack((poses[:, :2], theta, poses[:, 6]))[
             :, : self.native_action_dim
         ]
 
-    def waypoint_clocks(self, token):
-        clocks = super().waypoint_clocks(token)
+    def waypoint_clocks(self, token, *, initial_action):
+        clocks = super().waypoint_clocks(
+            token, initial_action=self._anchor(initial_action)
+        )
         if self.native_action_dim < 4:
             clocks.pop("gripper", None)
         if self.native_action_dim < 3:
@@ -106,15 +144,31 @@ class PlanarArcClockCodec(SingleArmArcClockBridge):
 
 
 class TokenizePlanarArcClock:
-    def __init__(self, action_key="actions", output_action_key=None, **codec_kwargs):
+    def __init__(
+        self,
+        action_key="actions",
+        output_action_key=None,
+        state_key="state_agent_obj",
+        state_indices=None,
+        **codec_kwargs,
+    ):
         self.action_key = action_key
         self.output_action_key = output_action_key or action_key
         self.codec = PlanarArcClockCodec(**codec_kwargs)
+        self.state_key, self.state_indices = state_key, state_indices
 
     def transform(self, batch):
         value = np.asarray(batch[self.action_key])
         dtype = value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
-        batch[self.output_action_key] = self.codec.encode(value).astype(dtype)
+        state = np.asarray(batch[self.state_key])
+        if state.ndim != 2 or len(state) == 0:
+            raise ValueError("Arrival ARC requires an explicit observation history")
+        anchor = current_action_from_state(
+            state[-1], self.codec.native_action_dim, self.state_indices
+        )
+        batch[self.output_action_key] = self.codec.encode(
+            value, initial_action=anchor
+        ).astype(dtype)
         return batch
 
 

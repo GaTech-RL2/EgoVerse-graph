@@ -1,0 +1,99 @@
+# @package _global_
+defaults:
+- /experiment/pusht/pusher_triangle_holdout_base
+- override /data: pusht/pusher_arrival_holdout
+- _self_
+planar:
+  action_dim: 8
+  action_horizon: 56
+  raw_action_horizon: 80
+  arc_waypoints: 56
+  arc_clock_mode: duration
+  arc_streams: full_separation
+  transform_target: egomimic.rldb.zarr.planar_arc_clock.get_planar_clock_transform_list
+  arc_clock_contract: cartesian_arc_arrival_v2_unbounded
+  arc_timing_layouts:
+    duration: absolute_arrival_seconds_v2
+    velocity: incoming_rate_v2
+evaluator:
+  native_decoders:
+    pushshapes_sim_circle_small:
+      _target_: egomimic.pipeline.planar_clock.PlanarArcClockNativeDecoder
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 2
+      num_waypoints: ${planar.arc_waypoints}
+      clock_mode: ${planar.arc_clock_mode}
+      streams: ${planar.arc_streams}
+      min_distance_unit: ${planar.arc_distance}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+      codec_contract: ${planar.arc_clock_contract}
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.planar_clock.PlanarArcClockNativeDecoder
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 2
+      num_waypoints: ${planar.arc_waypoints}
+      clock_mode: ${planar.arc_clock_mode}
+      streams: ${planar.arc_streams}
+      min_distance_unit: ${planar.arc_distance}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+      codec_contract: ${planar.arc_clock_contract}
+    pushshapes_sim_pentagon:
+      _target_: egomimic.pipeline.planar_clock.PlanarArcClockNativeDecoder
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 3
+      num_waypoints: ${planar.arc_waypoints}
+      clock_mode: ${planar.arc_clock_mode}
+      streams: ${planar.arc_streams}
+      min_distance_unit: ${planar.arc_distance}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+      codec_contract: ${planar.arc_clock_contract}
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.planar_clock.PlanarArcClockNativeDecoder
+      action_horizon: ${planar.raw_action_horizon}
+      native_action_dim: 3
+      num_waypoints: ${planar.arc_waypoints}
+      clock_mode: ${planar.arc_clock_mode}
+      streams: ${planar.arc_streams}
+      min_distance_unit: ${planar.arc_distance}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+      codec_contract: ${planar.arc_clock_contract}
+  semantic_blocks:
+  - - 0
+    - 2
+  - - 2
+    - 4
+  - - 4
+    - 5
+  - - 5
+    - 8
+run_provenance:
+  campaign: pusher-main-arrival-20261105
+  arc_contract: cartesian_arc_arrival_v2_unbounded
+  training_runtime_parent: 92ac9c295d8ee58d41d41e73c2cb0e5479f0eb2b
+  clock_mode: ${planar.arc_clock_mode}
+  streams: ${planar.arc_streams}
+  translation_units: native
+  translation_speed_limit: null
+  duration_clock_correction: nonnegative_isotonic
+  gripper: Absent for every pusher; constant padded channels retain width8 and do
+    not affect execution
+  support_groups: xy/rotation
+  upstream_arc_commit: c7e110461650d09a88b2c2dff8f02db54b1deace
+  timing_layout: ${planar.arc_timing_layouts.${planar.arc_clock_mode}}
+  action_contract:
+    codec_contract: cartesian_arc_arrival_v2_unbounded
+    timing_layout: ${run_provenance.timing_layout}
+    source_time_origin: next_frame
+    initial_action: measured_state_agent_obj_last_observation
+    control_dt: ${planar.arc_dt}
+    clock_mode: ${planar.arc_clock_mode}
+    streams: ${planar.arc_streams}
+    translation_distance: ${planar.arc_distance}
+    rotation_distance_radians: ${planar.arc_rotation_distance}
+    translation_units: native
+    translation_speed_limit: null
+    upstream_arc_commit: c7e110461650d09a88b2c2dff8f02db54b1deace

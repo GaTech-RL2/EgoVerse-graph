@@ -1,5 +1,23 @@
 # Repo Agent Rules
 
+## Main arrival-clock pusher comparison
+
+The current campaign is `benchmark/pusher_main_arrival.yaml`, on
+`codex/pusher-main-arrival-20261105`. Its Cartesian codec is copied from main
+commit `c7e110461650d09a88b2c2dff8f02db54b1deace` (`cartesian_arc.py`).
+The planar adapter supplies measured actuator state from the last raw
+observation to both training tokenization and rollout decoding. Source action
+offsets still follow the pinned cache's pre/post-step observation metadata.
+Every token row is a future target; decoded controls start at dt, not zero.
+Preserve native units, unbounded isotonic correction, D80/R26/M56, the original
+network/data/batch128/240k budget and fixed8 replanning. Do not add projection,
+physical speed bounds or the proposed pause-aware sampling ablation.
+Use the new artifact prefix and fresh training-only normalization/checkpoints;
+same-width first-delay checkpoints are incompatible. Historical campaigns below
+must use their recorded source revisions, not this decoder. Verification and
+launch artifacts live outside this runtime checkout in the sibling
+`egoverse-pusher-arrival-20261105-artifacts` directory.
+
 ## Corrected pusher clock comparison
 
 `benchmark/pusher_clock_contract.yaml` is the fresh L40S campaign. It compares

@@ -204,6 +204,21 @@ def stream_training_arguments(
             "model=oat/arc_grouped_oat_dp_policy",
             "model.benchmark_protocol.arc_backbone=oat_dp",
         ]
+    decoder_variant = spec.get("decoder_variant")
+    if decoder_variant:
+        args = [a for a in args if not a.startswith("model=")]
+        model = (
+            "arc_mot_policy"
+            if decoder_variant.startswith("mot_")
+            else "arc_stream_policy"
+        )
+        args += [
+            f"model=oat/{model}",
+            f"++benchmark.arc_decoder_variant={decoder_variant}",
+            "++benchmark.arc_profile=stk_2",
+        ]
+        if decoder_variant.startswith("mot_"):
+            args.append(f"+arc_decoder={decoder_variant}")
     if mode == "smoke":
         # Exercise the actual per-rank memory footprint before committing to
         # a long run. Smoke has two steps and a separate fresh initialization.
@@ -293,6 +308,32 @@ def validate_stream_config(config, *, suite, variant, arc_mode):
             "obs_as_cond": True,
             "n_cond_layers": 0,
         }
+        decoder_variant = campaign().get("decoder_variant")
+        if decoder_variant:
+            from egomimic.benchmarks.libero.arc_decoders import (
+                decoder_metadata,
+                mot_architecture,
+            )
+
+            decoder_metadata(decoder_variant, codec.num_waypoints)
+            if protocol.get("arc_decoder_variant") != decoder_variant:
+                raise ValueError("Checkpoint decoder ablation differs")
+            if decoder_variant.startswith("mot_"):
+                arch = mot_architecture(decoder_variant)
+                wanted.update(
+                    _target_="egomimic.models.modality_diffusion.ModalityDiffusionTransformer",
+                    modality_columns=arch["modalities"],
+                    blocked_attention=arch["blocked_attention"],
+                    dim_feedforward=arch["feedforward"],
+                    n_emb=arch["width"],
+                    n_layer=arch["layers"],
+                    n_head=arch["heads"],
+                )
+            else:
+                wanted.update(
+                    _target_="egomimic.models.arc_diffusion.ArcStreamDiffusionTransformer",
+                    decoder_variant=decoder_variant,
+                )
         if network != wanted or stages[3]["policy"]["num_inference_steps"] != 10:
             raise ValueError("Stream experiment changed the released OAT-DP backbone")
         return codec.representation_context()

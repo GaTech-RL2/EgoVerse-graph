@@ -18,6 +18,7 @@ pipeline:
       operation: encode
       encode_cache_size: ${benchmark.arc_encode_cache_size}
       arc_mode: ${benchmark.arc_mode}
+      stream_spec: ${benchmark.arc_stream_spec}
       velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
@@ -68,6 +69,7 @@ pipeline:
       clock_contract: libero_osc_main_arrival_v2_unbounded
       operation: decode
       arc_mode: ${benchmark.arc_mode}
+      stream_spec: ${benchmark.arc_stream_spec}
       velocity_norm_bound: ${benchmark.arc_velocity_norm_bound}
       num_waypoints: ${benchmark.arc_waypoints}
       horizon: ${benchmark.horizon}
@@ -84,5 +86,5 @@ benchmark_protocol:
   arc_decoder_budget: total_layers
   arc_decoder_total_layers: 4
   arc_decoder_width: 256
-  arc_shape_columns: [0, 1, 2, 4, 5, 6, 7, 8, 9, 11]
-  arc_timing_columns: [3, 10]
+  arc_shape_columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  arc_timing_columns: [10, 11]

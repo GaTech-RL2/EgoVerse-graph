@@ -4,8 +4,8 @@ layers: 4
 heads: 4
 feedforward: 672
 modalities:
-  shape: [0, 1, 2, 4, 5, 6, 7, 8, 9, 11]
-  velocity: [3, 10]
+  shape: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  velocity: [10, 11]
 blocked_attention: []
 budget: total_parameters_approx
 reference_parameters: 4791564

@@ -1,7 +1,7 @@
 """Matched diffusion decoders for ARC geometry and timing streams.
 
 The external timed LIBERO codec remains M x 12. Only the denoiser internally
-separates ten geometry/gripper channels from timing channels 3 and 10. All
+separates ten geometry/gripper channels from timing channels 10 and 11. All
 variants have identical parameter counts, observation conditioning, temporal
 causality, output channels, and diffusion losses.
 """
@@ -12,8 +12,8 @@ from torch import nn
 from egomimic.models.oat.diffusion import GraphDiffusionTransformer
 
 DECODER_VARIANTS = ("shared", "separate", "shape_masked")
-SHAPE_COLUMNS = (0, 1, 2, 4, 5, 6, 7, 8, 9, 11)
-TIMING_COLUMNS = (3, 10)
+SHAPE_COLUMNS = tuple(range(10))
+TIMING_COLUMNS = (10, 11)
 
 
 class ArcStreamDiffusionTransformer(GraphDiffusionTransformer):

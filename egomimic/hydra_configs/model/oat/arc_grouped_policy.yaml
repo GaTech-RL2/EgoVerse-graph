@@ -10,6 +10,7 @@ pipeline:
         _target_: egomimic.models.oat.factory.make_obs_encoder
       obs_keys: [agentview_rgb, robot0_eye_in_hand_rgb, robot0_eef_pos, robot0_eef_quat, robot0_gripper_qpos, task_uid]
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      clock_contract: libero_osc_main_arrival_v2_unbounded
       operation: encode
       encode_cache_size: ${benchmark.arc_encode_cache_size}
       arc_mode: ${benchmark.arc_mode}
@@ -47,6 +48,7 @@ pipeline:
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
     - _target_: egomimic.pipeline.stages_libero_arc.ArcPredictionName
     - _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      clock_contract: libero_osc_main_arrival_v2_unbounded
       operation: decode
       arc_mode: ${benchmark.arc_mode}
       stream_spec: ${benchmark.arc_stream_spec}

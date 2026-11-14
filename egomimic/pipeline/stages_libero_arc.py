@@ -25,9 +25,12 @@ class LiberoArcStage(Stage):
         velocity_norm_bound=1.0,
         encode_cache_size=0,
         encode_inference=False,
+        clock_contract=None,
         **codec_kwargs,
     ):
         super().__init__()
+        if arc_mode != "joint_dur" and clock_contract != "libero_osc_main_arrival_v2_unbounded":
+            raise ValueError("Arrival ARC requires a new recipe and fresh checkpoint")
         self.codec = (
             make_libero_arc_codec(arc_mode, **codec_kwargs) if codec is None else codec
         )

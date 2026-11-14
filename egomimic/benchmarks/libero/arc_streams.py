@@ -24,14 +24,21 @@ from egomimic.benchmarks.libero.cluster import (
     validate_gpu_allocation,
     write_json,
 )
-from egomimic.rldb.zarr.libero_arc_grouped import LiberoArcGroupedCodec
+from egomimic.rldb.zarr.libero_arc_arrival import (
+    LiberoArcArrivalCodec as LiberoArcGroupedCodec,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml"
 
 
 def campaign():
-    return yaml.safe_load(MANIFEST.read_text())
+    return yaml.safe_load(campaign_path().read_text())
+
+
+def campaign_path():
+    path = Path(os.environ.get("LIBERO_STREAM_CAMPAIGN", str(MANIFEST)))
+    return path if path.is_absolute() else ROOT / path
 
 
 def variant_settings(variant, mode):
@@ -61,10 +68,13 @@ def source_receipt():
         "egomimic/rldb/zarr/libero_arc.py",
         "egomimic/rldb/zarr/libero_arc_timed.py",
         "egomimic/rldb/zarr/libero_arc_grouped.py",
+        "egomimic/rldb/zarr/libero_arc_arrival.py",
+        "egomimic/rldb/zarr/cartesian_arc.py",
+        "egomimic/rldb/zarr/arc_arrival_primitives.py",
         "egomimic/rldb/zarr/planar_arc.py",
         "egomimic/benchmarks/libero/replay.py",
         "egomimic/benchmarks/libero/arc_streams.py",
-        "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml",
+        campaign_path().relative_to(ROOT).as_posix(),
     ]
     paths += [
         f"egomimic/hydra_configs/arc_stream/{v}.yaml" for v in campaign()["variants"]
@@ -168,10 +178,8 @@ def stream_training_arguments(
 ):
     spec = campaign()
     variant_settings(variant, arc_mode)
-    if spec["backbone"] != "unet":
-        raise ValueError(
-            "This campaign freezes the validated four-suite U-Net backbone"
-        )
+    if spec["backbone"] not in {"unet", "oat_dp"}:
+        raise ValueError("Unknown matched diffusion backbone")
     args = training_arguments(
         f"arc_{arc_mode}",
         suite,
@@ -187,7 +195,15 @@ def stream_training_arguments(
         f"arc_stream={variant}",
         f"benchmark.arc_mode={arc_mode}",
         f"seed={spec['seed']}",
+        f"benchmark.arc_waypoints={spec['geometry']['num_waypoints']}",
+        f"benchmark.arc_max_translation={spec['geometry']['max_translation']}",
+        f"benchmark.arc_max_rotation_degrees={spec['geometry']['max_rotation_degrees']}",
     ]
+    if spec["backbone"] == "oat_dp":
+        args += [
+            "model=oat/arc_grouped_oat_dp_policy",
+            "model.benchmark_protocol.arc_backbone=oat_dp",
+        ]
     if mode == "smoke":
         # Exercise the actual per-rank memory footprint before committing to
         # a long run. Smoke has two steps and a separate fresh initialization.
@@ -248,6 +264,7 @@ def validate_stream_config(config, *, suite, variant, arc_mode):
             "horizon": 32,
             "max_translation": expected["max_translation"],
             "max_rotation_degrees": expected["max_rotation_degrees"],
+            "clock_contract": "libero_osc_main_arrival_v2_unbounded",
         }.items():
             if stage.get(key) != value:
                 raise ValueError(f"Stream encoder/decoder differs: {key}")
@@ -258,6 +275,27 @@ def validate_stream_config(config, *, suite, variant, arc_mode):
         ):
             raise ValueError("Stream model dimensions differ")
     network = stages[3]["policy"]["model"]
+    if campaign()["backbone"] == "oat_dp":
+        wanted = {
+            "_target_": "egomimic.models.oat.diffusion.GraphDiffusionTransformer",
+            "input_dim": codec.action_dim,
+            "output_dim": codec.action_dim,
+            "horizon": codec.num_waypoints,
+            "n_obs_steps": 2,
+            "cond_dim": 138,
+            "n_layer": 4,
+            "n_head": 4,
+            "n_emb": 256,
+            "p_drop_emb": 0.1,
+            "p_drop_attn": 0.1,
+            "causal_attn": True,
+            "time_as_cond": True,
+            "obs_as_cond": True,
+            "n_cond_layers": 0,
+        }
+        if network != wanted or stages[3]["policy"]["num_inference_steps"] != 10:
+            raise ValueError("Stream experiment changed the released OAT-DP backbone")
+        return codec.representation_context()
     if (
         network
         != {

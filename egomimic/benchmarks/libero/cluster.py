@@ -749,6 +749,8 @@ def main():
         default=os.environ.get("BENCHMARK_GPU_TYPE", "L40S"),
     )
     parser.add_argument("--arc-only", action="store_true")
+    parser.add_argument("--oat-only", action="store_true")
+    parser.add_argument("--training-output", type=Path)
     parser.add_argument("--arc-profile")
     parser.add_argument(
         "--arc-backbone",
@@ -790,6 +792,15 @@ def main():
         tuple(arc_methods) if args.arc_only else ("tokenizer", "oat", *arc_methods)
     )
     policy_methods = tuple(arc_methods) if args.arc_only else ("oat", *arc_methods)
+    if args.oat_only:
+        if (
+            args.arc_only
+            or args.campaign_id
+            or args.arc_profile
+            or args.training_output is None
+        ):
+            raise ValueError("Native OAT-only requires a separate evaluation output")
+        methods, policy_methods, arc_methods = ("tokenizer", "oat"), ("oat",), {}
     profile_overrides = {}
     if args.arc_profile:
         from egomimic.benchmarks.libero.arc_sweep import profile_settings
@@ -855,6 +866,7 @@ def main():
             "arc_modes": args.arc_modes,
             "arc_replay_runs": replay_runs,
             "arc_only": args.arc_only,
+            "oat_only": args.oat_only,
             "arc_profile": args.arc_profile,
             "arc_backbone": args.arc_backbone,
             "evaluation_workers": 5
@@ -882,6 +894,31 @@ def main():
             )
             write_json(evidence / "decoded-replay-cache.json", cache.manifest)
         configure_simulator(args.root)
+        if args.oat_only and args.mode == "full" and not args.resume_from_run:
+            from egomimic.benchmarks.libero.baseline import smoke_policy
+
+            preflight = evidence / "preflight"
+            preflight.mkdir()
+            for smoke_method in ("tokenizer", "oat"):
+                command = training_arguments(
+                    smoke_method,
+                    args.suite,
+                    dataset,
+                    preflight,
+                    "smoke",
+                    1,
+                    gpus=args.gpus,
+                )
+                execute(command, preflight / f"{smoke_method}-training.log")
+            smoke_policy(
+                preflight / "training/oat/checkpoints/last.ckpt",
+                preflight,
+                "oat",
+                args.suite,
+            )
+            write_json(
+                evidence / "gpu-preflight.json", {"passed": True, "method": "oat"}
+            )
         restored = {}
         if args.evaluate_from_run or args.resume_from_run:
             restored = restore_checkpoints(
@@ -952,6 +989,36 @@ def main():
             checkpoint = evidence / f"training/{method}/checkpoints/last.ckpt"
             if not checkpoint.is_file():
                 raise FileNotFoundError(checkpoint)
+        if args.oat_only:
+            from egomimic.benchmarks.libero.evaluate import checkpoint_completion
+
+            uploader.stop.set()
+            uploader.thread.join()
+            uploader.upload(final=True)
+            uploader.upload(final=True)
+            checkpoint = evidence / "training/oat/checkpoints/last.ckpt"
+            payload = torch.load(
+                checkpoint, map_location="cpu", weights_only=False, mmap=True
+            )
+            request = {
+                "source_run": args.run_id,
+                "source_commit": commit,
+                "suite": args.suite,
+                "method": "oat",
+                "epochs": args.epochs,
+                "total_optimizer_steps": payload["training_budget"][
+                    "total_optimizer_steps"
+                ],
+                "checkpoint": uploader.receipts["training/oat/checkpoints/last.ckpt"],
+            }
+            if checkpoint_completion(payload, request) is None:
+                raise ValueError("Native OAT policy has not completed its budget")
+            write_json(args.training_output / "evaluation-request.json", request)
+            write_json(
+                evidence / "status.json",
+                {"state": "TRAINING_COMPLETE", "method": "oat"},
+            )
+            return
         for method in policy_methods:
             write_json(
                 evidence / "status.json", {"state": "ROLLOUTS", "method": method}

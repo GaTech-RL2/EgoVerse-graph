@@ -7,6 +7,7 @@ pipeline:
   stages:
     - &arc
       _target_: egomimic.pipeline.stages_libero_arc.LiberoArcStage
+      clock_contract: libero_osc_main_arrival_v2_unbounded
       operation: encode
       encode_inference: true
       encode_cache_size: ${benchmark.arc_encode_cache_size}

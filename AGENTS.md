@@ -1,3 +1,25 @@
+# November 13 benchmark rerun
+
+This branch `codex/libero-main-arrival-20261113` reruns the prior LIBERO
+comparison and grouping tables with main c7e110461650d09a88b2c2dff8f02db54b1deace
+arrival timing. Use fresh run IDs and checkpoints. Historical checkpoints must
+use their recorded revisions: same token width does not imply compatible clocks.
+`LiberoArcArrivalCodec` preserves relative OSC integration, rotation6d or declared
+angular-command geometry, and the original 16-command replanning. It uses main's
+future-only support allocation, incoming rates, absolute timestamps, and isotonic
+correction without a physical speed limit. Coupled gripper follows main's primary
+clock interpolation; separate gripper uses events. The explicit command-space
+anchor is zero displacement, identity rotation and neutral gripper, not a measured
+Cartesian pose. No pixel-to-metre adjustment or projection is used.
+
+`LIBERO_STREAM_CAMPAIGN` selects a checked-in campaign YAML for the grouped sweep
+or a frozen original R/D/M profile and backbone. Every campaign requires paired
+simulator replay and fresh two-update GPU/rollout preflight. Full budgets remain
+5001 epochs, global batch1024, seed42, and 2500 evaluation episodes per cell.
+Shared-profile U-Net rows are the same fresh reference runs in both result tables.
+Native OAT-only training now releases training GPUs before dependent evaluation.
+Tests, reports and launch receipts belong on a separate validation branch.
+
 # Repo Agent Rules
 
 ## LIBERO stream experiment checkout

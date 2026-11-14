@@ -252,20 +252,17 @@ class LiberoArcTimedCodec(LiberoArcCodec):
 
 
 def make_libero_arc_codec(mode="joint_dur", stream_spec=None, **kwargs):
-    if stream_spec is not None:
-        from egomimic.rldb.zarr.libero_arc_grouped import LiberoArcGroupedCodec
-
-        return LiberoArcGroupedCodec(mode=mode, stream_spec=stream_spec, **kwargs)
     if mode == "joint_dur":
         return LiberoArcCodec(**kwargs)
-    return LiberoArcTimedCodec(mode=mode, **kwargs)
+    from egomimic.rldb.zarr.libero_arc_arrival import LiberoArcArrivalCodec
+    return LiberoArcArrivalCodec(mode=mode, stream_spec=stream_spec, **kwargs)
 
 
 def codec_source_files(mode):
     """All local codec implementation dependencies for replay/training gating."""
     paths = ["egomimic/rldb/zarr/libero_arc.py", "egomimic/rldb/zarr/planar_arc.py"]
     if mode in {"stk", "dur"}:
-        paths.append("egomimic/rldb/zarr/libero_arc_timed.py")
+        paths.extend(["egomimic/rldb/zarr/libero_arc_timed.py", "egomimic/rldb/zarr/libero_arc_grouped.py", "egomimic/rldb/zarr/libero_arc_arrival.py", "egomimic/rldb/zarr/cartesian_arc.py", "egomimic/rldb/zarr/arc_arrival_primitives.py"])
     elif mode != "joint_dur":
         raise ValueError(f"Unknown ARC mode {mode!r}")
     return paths

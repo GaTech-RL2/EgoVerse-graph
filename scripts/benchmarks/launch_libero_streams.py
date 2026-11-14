@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import os
 import re
 from pathlib import Path
 
@@ -36,6 +37,11 @@ def stream_workflow(commit, name, suite, *, gpus=4, mode="full", variants=None):
         gpu_type="L40S",
     )
     body = workflow["workflow"]
+    for task in body["tasks"]:
+        if os.environ.get("LIBERO_STREAM_CAMPAIGN"):
+            task["environment"]["LIBERO_STREAM_CAMPAIGN"] = os.environ[
+                "LIBERO_STREAM_CAMPAIGN"
+            ]
     training = body["tasks"][0]
     evaluation = body["tasks"][1] if mode == "full" else None
     body["tasks"] = []

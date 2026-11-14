@@ -52,6 +52,8 @@ elif [[ "${RUN_KIND:-benchmark}" == arc_decoders ]]; then
     python -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$ARC_DECODER_OUTPUT" --variant "$ARC_DECODER_VARIANT" --profile "$ARC_PROFILE" --arc-mode "$ARC_DECODER_MODE" --replay-run "$ARC_REPLAY_RUN" --reference-run "$ARC_DECODER_REFERENCE_RUN"
 elif [[ "${RUN_KIND:-benchmark}" == dp_baseline ]]; then
     python -m egomimic.benchmarks.libero.baseline --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --backbone "$DP_BACKBONE" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$DP_OUTPUT"
+elif [[ "${RUN_KIND:-benchmark}" == native_oat ]]; then
+    python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --oat-only --training-output "$OAT_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == fast ]]; then
     python -m egomimic.benchmarks.libero.fast --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$FAST_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == arc_oat ]]; then

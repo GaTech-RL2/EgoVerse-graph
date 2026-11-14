@@ -1,0 +1,354 @@
+{
+  "commit": "9a054f6e163e06283c4f94e1f0e3ef9339ff446e",
+  "workflows": [
+    {
+      "name": "la1113-spatial-streams",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-streams.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml",
+      "training_cells": 22
+    },
+    {
+      "name": "la1113-spatial-dur1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-dur1-od.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-dur1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-dur1-un.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-dur2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-dur2-od.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-dur2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-dur2-un.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-shared-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-shared-od.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_shared_oat_dp.yaml",
+      "training_cells": 2
+    },
+    {
+      "name": "la1113-spatial-stk1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-stk1-od.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-stk1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-stk1-un.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-stk2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-stk2-od.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-spatial-stk2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-spatial-stk2-un.yaml",
+      "suite": "libero_spatial",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "ln1113-spatial-oat",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ln1113-spatial-oat.yaml",
+      "suite": "libero_spatial",
+      "kind": "oat",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-streams",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-streams.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml",
+      "training_cells": 22
+    },
+    {
+      "name": "la1113-object-dur1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-dur1-od.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-dur1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-dur1-un.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-dur2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-dur2-od.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-dur2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-dur2-un.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-shared-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-shared-od.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_shared_oat_dp.yaml",
+      "training_cells": 2
+    },
+    {
+      "name": "la1113-object-stk1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-stk1-od.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-stk1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-stk1-un.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-stk2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-stk2-od.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-object-stk2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-object-stk2-un.yaml",
+      "suite": "libero_object",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "ln1113-object-oat",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ln1113-object-oat.yaml",
+      "suite": "libero_object",
+      "kind": "oat",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-streams",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-streams.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml",
+      "training_cells": 22
+    },
+    {
+      "name": "la1113-goal-dur1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-dur1-od.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-dur1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-dur1-un.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-dur2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-dur2-od.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-dur2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-dur2-un.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-shared-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-shared-od.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_shared_oat_dp.yaml",
+      "training_cells": 2
+    },
+    {
+      "name": "la1113-goal-stk1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-stk1-od.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-stk1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-stk1-un.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-stk2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-stk2-od.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-goal-stk2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-goal-stk2-un.yaml",
+      "suite": "libero_goal",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "ln1113-goal-oat",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ln1113-goal-oat.yaml",
+      "suite": "libero_goal",
+      "kind": "oat",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-streams",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-streams.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arc_streams.yaml",
+      "training_cells": 22
+    },
+    {
+      "name": "la1113-10-dur1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-dur1-od.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-dur1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-dur1-un.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-dur2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-dur2-od.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-dur2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-dur2-un.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_dur_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-shared-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-shared-od.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_shared_oat_dp.yaml",
+      "training_cells": 2
+    },
+    {
+      "name": "la1113-10-stk1-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-stk1-od.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-stk1-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-stk1-un.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_1_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-stk2-od",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-stk2-od.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_oat_dp.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "la1113-10-stk2-un",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/la1113-10-stk2-un.yaml",
+      "suite": "libero_10",
+      "kind": "arc",
+      "campaign": "egomimic/hydra_configs/benchmark/libero_arrival_stk_2_unet.yaml",
+      "training_cells": 1
+    },
+    {
+      "name": "ln1113-10-oat",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ln1113-10-oat.yaml",
+      "suite": "libero_10",
+      "kind": "oat",
+      "training_cells": 1
+    }
+  ],
+  "training_cells": 132
+}

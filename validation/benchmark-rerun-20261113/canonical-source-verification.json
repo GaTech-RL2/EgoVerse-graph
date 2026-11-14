@@ -1,0 +1,14 @@
+{
+  "main_commit": "c7e110461650d09a88b2c2dff8f02db54b1deace",
+  "canonical_identical_except_helper_import": true,
+  "source_sha256": "6a93876939af29538a744053642766b488c690acf0e7e4e3d76c61a908d08362",
+  "helpers_ast_identical": [
+    "_ypr_to_rotation",
+    "_rotation_to_ypr",
+    "cumulative_arc_length",
+    "cumulative_rotation_length",
+    "_bracket_segments",
+    "_first_crossing_brackets",
+    "_slerp_segments_ypr"
+  ]
+}

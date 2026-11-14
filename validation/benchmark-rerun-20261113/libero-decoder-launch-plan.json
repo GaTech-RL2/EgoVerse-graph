@@ -1,0 +1,41 @@
+{
+  "commit": "6138cd6ff4e9f3e80d7817a541406756f607df95",
+  "workflows": [
+    {
+      "name": "ld1113-spatial-shared",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-shared.yaml",
+      "variant": "shared",
+      "training_cells": 1
+    },
+    {
+      "name": "ld1113-spatial-separate",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-separate.yaml",
+      "variant": "separate",
+      "training_cells": 1
+    },
+    {
+      "name": "ld1113-spatial-masked",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-masked.yaml",
+      "variant": "shape_masked",
+      "training_cells": 1
+    },
+    {
+      "name": "ld1113-spatial-mot-xyz",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-mot-xyz.yaml",
+      "variant": "mot_xyz_rot_gripper",
+      "training_cells": 1
+    },
+    {
+      "name": "ld1113-spatial-mot-sv",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-mot-sv.yaml",
+      "variant": "mot_shape_velocity",
+      "training_cells": 1
+    },
+    {
+      "name": "ld1113-spatial-mot-mask",
+      "path": "/tmp/benchmark-rerun-20261113-artifacts/ld1113-spatial-mot-mask.yaml",
+      "variant": "mot_shape_velocity_masked",
+      "training_cells": 1
+    }
+  ]
+}

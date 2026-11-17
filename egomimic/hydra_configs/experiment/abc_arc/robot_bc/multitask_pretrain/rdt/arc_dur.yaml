@@ -1,0 +1,57 @@
+# @package _global_
+# ABC seven-task pretraining, EgoVerse RDT (~300M DiT), first-delay absolute-duration ARC.
+# Data: abc/arm_local_fk_v1, published is_eval split (data/abc_arc/multitask_pretrain).
+# D = 0.519 m: training-only median larger-arm cmd translation travel over complete
+# 100-row windows of the 30 Hz view (80 train episodes per task, 1.89M windows, 2026-11-17).
+defaults:
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: rdt/yam_visual
+- override /data: abc_arc/multitask_pretrain
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
+abc:
+  arc_clock_mode: duration
+  action_mode: hybrid_arc_tokenizer_cartesian
+  action_horizon: 100
+  arc_distance: 0.519
+  arc_rotation_distance: 0.4188790204786391
+  arc_waypoints: 100
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+norm_stats:
+  sample_frac: 0.1
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+    - rdt
+    - abc
+    - multitask_pretrain
+    - abc7
+    - visual_only
+    - duration
+    - open_loop
+    - video
+name: multitask_pretrain_rdt_arc_dur
+description: ABC seven-task pretraining, EgoVerse RDT (~300M DiT), first-delay absolute-duration ARC

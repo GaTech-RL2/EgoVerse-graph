@@ -8,6 +8,13 @@ four-task `robot_bc/multitask/{baseline,arc_vel,arc_dur}` and the ABC-DiT
 plus the independent MECKA human-only folding experiments
 `human_bc/mecka_fold_clothes_40h_human_visual_{baseline,hybrid}_openloop`.
 Brace notation denotes two YAML files, not Hydra syntax.
+
+ABC seven-task pretraining lives in `robot_bc/multitask_pretrain/{hpt,rdt}/{baseline,arc_dur}`
+on `data/abc_arc/multitask_pretrain`: the `abc/arm_local_fk_v1` conversion with its
+published `is_eval` split (14,494 train / 1,166 validation episodes), sampled on one
+30 Hz clock. These runs use D = 0.519 m, the training-only median of larger-arm command
+translation travel over complete 100-row windows.
+
 See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
 
 Select `abc.arc_clock_mode=velocity|duration` and

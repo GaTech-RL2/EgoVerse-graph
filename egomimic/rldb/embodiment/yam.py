@@ -372,11 +372,15 @@ class Yam(Embodiment):
         task_zarr_key: str = "task_description",
         source_buffer_frames: int | None = None,
         gripper_stream_mode: str = "events",
+        pose_zarr_suffix: str = "",
     ):
         """Keep the raw-data read horizon aligned with configured ARC caps.
 
         ``source_buffer_frames`` overrides the ARC read window
         (``ARC_SOURCE_BUFFER_FRAMES``); baseline keymaps ignore it.
+        ``pose_zarr_suffix`` reads ``<arm>.{obs,cmd}_ee_pose<suffix>`` stores
+        (e.g. ``_arm_local`` in ``abc/arm_local_fk_v1``) under the usual batch
+        names, so transforms and ARC horizons are unchanged.
         """
         key_map = super().get_keymap(
             keymap_mode,
@@ -387,9 +391,16 @@ class Yam(Embodiment):
             task_zarr_key=task_zarr_key,
         )
         for spec in key_map.values():
+            if pose_zarr_suffix and spec.get("zarr_key", "").endswith("_ee_pose"):
+                spec["zarr_key"] += pose_zarr_suffix
             horizon = spec.get("horizon")
             if not isinstance(horizon, dict):
                 continue
+            if pose_zarr_suffix and "pose_zarr_keys" in horizon:
+                horizon["pose_zarr_keys"] = [
+                    k if k.endswith(pose_zarr_suffix) else k + pose_zarr_suffix
+                    for k in horizon["pose_zarr_keys"]
+                ]
             if spec.get("key_type") == "action_keys":
                 spec["start_offset"] = 1
             if source_buffer_frames is not None:

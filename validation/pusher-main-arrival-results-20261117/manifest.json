@@ -1,0 +1,86 @@
+{
+  "status": "COMPLETE",
+  "primary_metric": "SR@80",
+  "level_summaries": 372,
+  "episodes": 18600,
+  "comparison_rows": 62,
+  "models": [
+    "dp16",
+    "xy_absdur_m56"
+  ],
+  "training_seeds": [
+    42,
+    43,
+    44
+  ],
+  "levels": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+  ],
+  "checks": [
+    "exact model/regime/seed/level matrix",
+    "50 episodes per seed-level",
+    "integer success counts",
+    "finite bounded metrics",
+    "weighted aggregate parity"
+  ],
+  "files": {
+    "source-level-summaries.json": {
+      "bytes": 168974,
+      "sha256": "bfe069c0af4e6269889936dadeea8b0f50807c0397b1c432fed18c4c87279984"
+    },
+    "provenance.json": {
+      "bytes": 1397,
+      "sha256": "6bcde369f7c228aaeadbf3c935020301e03ca5c9f7b04156b5bf581a72f87326"
+    },
+    "build_results.py": {
+      "bytes": 5809,
+      "sha256": "c0f30579712df198b5df31775a2a9d2adac0a8695925dfb4530b3be98b1a105d"
+    },
+    "per_level_by_seed.csv": {
+      "bytes": 75100,
+      "sha256": "1682391f1346d3740aceff0d8ae359761ef3db19c83d15b26b6189aff0ba93e2"
+    },
+    "per_level_comparison.csv": {
+      "bytes": 6951,
+      "sha256": "d62c29637d055ad42bea824ce9760039f299b926321c7d9a316ae4b49b98ecce"
+    },
+    "summary.csv": {
+      "bytes": 599,
+      "sha256": "00538d1c646aede3be34a6e7a0113d8938f8d41ddc897783696710e742a70ca2"
+    },
+    "README.md": {
+      "bytes": 4876,
+      "sha256": "5cc7f61dfc850761586d3d7609c2b54267f0674006e606eced2e68bac51e3043"
+    }
+  }
+}

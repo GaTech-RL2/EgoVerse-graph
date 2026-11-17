@@ -1,0 +1,6326 @@
+[
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5267127047066814,
+      "median_peak_coverage": 0.5907314303673813,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.14296278108710062,
+      "mean_collision_rate": 0.4555218295218295,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03856286344339378,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.0025678510073769323,
+      "mean_collision_rate": 0.8281203223949337,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.021748548048966664,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.0036674383721069896,
+      "mean_collision_rate": 0.8305551272166537,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04265466907910561,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.010478448780906379,
+      "mean_collision_rate": 0.771111111111111,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04151052182595539,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.0041630354819665386,
+      "mean_collision_rate": 0.7789753424657532,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0176081639064099,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.0035535848105521036,
+      "mean_collision_rate": 0.8127448419952991,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.02070047757241075,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.00014497433617350038,
+      "mean_collision_rate": 0.8265954805065806,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.012086576849236537,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.7874045080307733,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.021304169769231888,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.00277200821754889,
+      "mean_collision_rate": 0.7595825909900737,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0180085568034557,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.007475075210990156,
+      "mean_collision_rate": 0.8278474716772589,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.010539056030994254,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.00508434726086466,
+      "mean_collision_rate": 0.8088278633623577,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23494376809316095,
+      "median_peak_coverage": 0.13889780993114403,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.008676511013477719,
+      "mean_collision_rate": 0.7850676572035024,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21100731952317375,
+      "median_peak_coverage": 0.06446497913215948,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.014598196769314732,
+      "mean_collision_rate": 0.6978273195876288,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18786997827073457,
+      "median_peak_coverage": 0.06813522419862988,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.020270139798113925,
+      "mean_collision_rate": 0.8026140917905623,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.173564988877514,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.022079063839972508,
+      "mean_collision_rate": 0.7393296089385476,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.08370224158396121,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.0027967183998340015,
+      "mean_collision_rate": 0.7515710306406685,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06691525658710422,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.017857592822499723,
+      "mean_collision_rate": 0.7690011286681717,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.035234805809739755,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.00514547880097932,
+      "mean_collision_rate": 0.7641335323653141,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.040939335785941965,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.006733193011031979,
+      "mean_collision_rate": 0.7320740365111562,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.02729104835734941,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.007404437159469256,
+      "mean_collision_rate": 0.7773155249933881,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03604528276204552,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.011310743621367095,
+      "mean_collision_rate": 0.8075762838005458,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.017686096155196108,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.008910092020257254,
+      "mean_collision_rate": 0.8320033528918691,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06944650744266374,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.010838887422386381,
+      "mean_collision_rate": 0.7628477407923048,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1718836826332308,
+      "median_peak_coverage": 0.08271016188779562,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.015863704856518012,
+      "mean_collision_rate": 0.7793288064768871,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.19159369577778038,
+      "median_peak_coverage": 0.0003719577137944923,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.01982505118396648,
+      "mean_collision_rate": 0.777141242937853,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13908044863431485,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.017768606638577822,
+      "mean_collision_rate": 0.7503845662450491,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.11043376198176354,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.014191041114349467,
+      "mean_collision_rate": 0.7751778533869471,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05096807835386904,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.005213620141873028,
+      "mean_collision_rate": 0.7849801674746586,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03249960914844529,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.002365728343190612,
+      "mean_collision_rate": 0.8504154747309631,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.041948634384461655,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.7807413048997209,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.028428336174394966,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.0047578672003486125,
+      "mean_collision_rate": 0.6999353709438535,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.6683804027492524,
+      "median_peak_coverage": 0.6670985417080593,
+      "SR80": 0.28,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.35838964177805205,
+      "mean_collision_rate": 0.20696465696465693,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.014270287349712857,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.004059337510686902,
+      "mean_collision_rate": 0.7820581462291307,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.017611848544549242,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 6.424535475935074e-05,
+      "mean_collision_rate": 0.7610203032639424,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.011050702319689859,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.7154151478331309,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.6952356164383561,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03334830996301827,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.004612325043096822,
+      "mean_collision_rate": 0.8612431444241316,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.028176903392187373,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.010096566249220623,
+      "mean_collision_rate": 0.7894586540849267,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.01489164451818569,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.0056176118134510684,
+      "mean_collision_rate": 0.834228640842219,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.013733294008549866,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.005521860609554633,
+      "mean_collision_rate": 0.789557139221176,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.01836582148058229,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.0067552378219468134,
+      "mean_collision_rate": 0.7614783089251173,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.033259023582905466,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.0056859925561635275,
+      "mean_collision_rate": 0.6821406563965171,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16136854648333288,
+      "median_peak_coverage": 0.040784030986567577,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.05629738305456609,
+      "mean_collision_rate": 0.7840912708941363,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15565142027225748,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.06836075301229494,
+      "mean_collision_rate": 0.7179613402061855,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16993835399807078,
+      "median_peak_coverage": 0.006528899576410329,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.06687772902247321,
+      "mean_collision_rate": 0.7573781512605041,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07386632645241037,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.01910682269075249,
+      "mean_collision_rate": 0.7175275748460106,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05098005318791771,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.011656119582486914,
+      "mean_collision_rate": 0.7750947075208913,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03612406694143989,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.009376498672458442,
+      "mean_collision_rate": 0.7476664785553048,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07949150047239086,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.007151785362322425,
+      "mean_collision_rate": 0.769868367485412,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.047834460611836924,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.011581346309417895,
+      "mean_collision_rate": 0.7713717038539556,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.01945002449501635,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.007799218879820902,
+      "mean_collision_rate": 0.7955487966146522,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.025508118873495002,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.007876709653679646,
+      "mean_collision_rate": 0.8185760357231456,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04548495317113654,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.014176081207238136,
+      "mean_collision_rate": 0.711349538977368,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04642156633259871,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.011290346326202835,
+      "mean_collision_rate": 0.7043336286546007,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20382877530182517,
+      "median_peak_coverage": 0.12809356070304298,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.018895983997045625,
+      "mean_collision_rate": 0.8202925045703838,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.28878260523579313,
+      "median_peak_coverage": 0.3486348799238629,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.05272978093085769,
+      "mean_collision_rate": 0.7010480225988701,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.11158490080033338,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.039186821527124965,
+      "mean_collision_rate": 0.6750785741663472,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0896838734814525,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.03030175949797477,
+      "mean_collision_rate": 0.6847510052582741,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03588229732141101,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.01133338213856188,
+      "mean_collision_rate": 0.797549581313354,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04432509793858802,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.007959088880848042,
+      "mean_collision_rate": 0.6801117014030785,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.01807786901017915,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0032191430896174487,
+      "mean_collision_rate": 0.7050469662350851,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-42-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03971977110481064,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.008406535376539584,
+      "mean_collision_rate": 0.6855284771778645,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5617975339240124,
+      "median_peak_coverage": 0.5993878135497552,
+      "SR80": 0.2,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.15907606843399386,
+      "mean_collision_rate": 0.4271226611226611,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07156539127213506,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.027543952585713582,
+      "mean_collision_rate": 0.821482440990213,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.02973235092607006,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.008211646665332119,
+      "mean_collision_rate": 0.8460010280133642,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.00968441808304668,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.007491249421714873,
+      "mean_collision_rate": 0.765130282165519,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.005581232383848457,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.7549287671232878,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.029514351740031607,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.0023057064163984555,
+      "mean_collision_rate": 0.7982214677461477,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.035281657814727224,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.00929275869015252,
+      "mean_collision_rate": 0.8147703004718152,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03698251886922944,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.011829807405227355,
+      "mean_collision_rate": 0.7629261708732622,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03527517137042715,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.004386260263592161,
+      "mean_collision_rate": 0.7394324255535758,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.030818029738862496,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.002536907677635668,
+      "mean_collision_rate": 0.7737496546007183,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.022672167381727743,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.0027791176863643454,
+      "mean_collision_rate": 0.7271426657736102,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1769889252165558,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.024328885262596512,
+      "mean_collision_rate": 0.7855319713451844,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09506657644995595,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.014904532441310599,
+      "mean_collision_rate": 0.7307113402061856,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2725134539242842,
+      "median_peak_coverage": 0.18091425290432253,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.04072184755260578,
+      "mean_collision_rate": 0.7970885585003231,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09419619213114018,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.011437249126722249,
+      "mean_collision_rate": 0.7679787995989115,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07831835010208721,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.01567293894313778,
+      "mean_collision_rate": 0.7270974930362116,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06003286475436721,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.021173496316902986,
+      "mean_collision_rate": 0.7605474040632053,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03527763011758085,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.010465461650279444,
+      "mean_collision_rate": 0.7313719636314289,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10681160666327123,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.019898539716363697,
+      "mean_collision_rate": 0.762882860040568,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12333422795881749,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.029488955743502642,
+      "mean_collision_rate": 0.7828722560169266,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04688198230850858,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.015697129233890703,
+      "mean_collision_rate": 0.7382014388489209,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17574821061317042,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.03837832065344838,
+      "mean_collision_rate": 0.720027940765577,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06006154807684455,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.012857415198779604,
+      "mean_collision_rate": 0.7454980382230098,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.275129587511472,
+      "median_peak_coverage": 0.29251045962269284,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.027888230343311643,
+      "mean_collision_rate": 0.7416139984330111,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.30124758574698446,
+      "median_peak_coverage": 0.3926658838825015,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.026225991570945403,
+      "mean_collision_rate": 0.7721158192090395,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1724327039420462,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.01909716044648973,
+      "mean_collision_rate": 0.7973578638047784,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.19280391470773978,
+      "median_peak_coverage": 0.01451923553095523,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.027002170152893704,
+      "mean_collision_rate": 0.7731951747602843,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.025856431737141236,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.002439195304164154,
+      "mean_collision_rate": 0.7981166446305273,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03141811078009051,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.00046018152837796756,
+      "mean_collision_rate": 0.7511456204876721,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05790103607153947,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.017254844502429516,
+      "mean_collision_rate": 0.7321985275450622,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.043982854200262364,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.004905524230435724,
+      "mean_collision_rate": 0.7578322337417532,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.7118250593739891,
+      "median_peak_coverage": 0.6833482733396827,
+      "SR80": 0.28,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.4089380235539056,
+      "mean_collision_rate": 0.17222869022869022,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.019655118097384742,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.0026631818348921976,
+      "mean_collision_rate": 0.862020725388601,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.030801013483392318,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.009449685066920873,
+      "mean_collision_rate": 0.8373477255204318,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.00728248210640921,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.002700641764883755,
+      "mean_collision_rate": 0.8329310112056163,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.031080539855084872,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.012704965753450488,
+      "mean_collision_rate": 0.8277671232876713,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09717329324314954,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.011760372686428005,
+      "mean_collision_rate": 0.8427265604596501,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03426365227232667,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.014282822828794062,
+      "mean_collision_rate": 0.8662453439284827,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.02978143325773074,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.0002615644707771733,
+      "mean_collision_rate": 0.8140855716021056,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.022505188550104627,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.011130336719472752,
+      "mean_collision_rate": 0.7749198269279713,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.005384712926675816,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.004470699598401969,
+      "mean_collision_rate": 0.8348051948051949,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03629277962656963,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.009986761817184713,
+      "mean_collision_rate": 0.7941728064300067,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23002099619017854,
+      "median_peak_coverage": 0.22359162086548526,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.08289340149245454,
+      "mean_collision_rate": 0.79359777129212,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20589262799215605,
+      "median_peak_coverage": 0.1813762723994305,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.0684663735675424,
+      "mean_collision_rate": 0.7892371134020622,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.22376421303859723,
+      "median_peak_coverage": 0.1699551316174686,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.11109525515667046,
+      "mean_collision_rate": 0.7579987071751778,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21277845213630095,
+      "median_peak_coverage": 0.17475544017632233,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.07654096104007496,
+      "mean_collision_rate": 0.7650852313422146,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04606803532031641,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.007555182587543234,
+      "mean_collision_rate": 0.825239554317549,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05880155171825398,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.015753463253222445,
+      "mean_collision_rate": 0.7336653498871332,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07279105993484367,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.015246125497612254,
+      "mean_collision_rate": 0.789906364499932,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.031007810433403473,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.008472912231530943,
+      "mean_collision_rate": 0.8138970588235295,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03523321711238281,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.020360134946128993,
+      "mean_collision_rate": 0.8449986775985191,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.042669912820452634,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.008842440826681366,
+      "mean_collision_rate": 0.8434358719920616,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05638145843754563,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.019010848612053953,
+      "mean_collision_rate": 0.8141184688460464,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.032081189687818076,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.010086241480222262,
+      "mean_collision_rate": 0.7825768890013923,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.27083630022251465,
+      "median_peak_coverage": 0.22908964163514595,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.057014947532567126,
+      "mean_collision_rate": 0.732870201096892,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2788206352947682,
+      "median_peak_coverage": 0.30842772550636766,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.08662914081589157,
+      "mean_collision_rate": 0.672725988700565,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1271708138943484,
+      "median_peak_coverage": 0.0028763003179682316,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.030019337139311427,
+      "mean_collision_rate": 0.8116673054810271,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12171602018945533,
+      "median_peak_coverage": 0.019068096744741858,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.033936668803405956,
+      "mean_collision_rate": 0.7813547788431796,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.022111558126386644,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.005377708283605658,
+      "mean_collision_rate": 0.8322432789775231,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.024014933400741123,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.0015693985543018263,
+      "mean_collision_rate": 0.7670644326386052,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05325105857680198,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.008126579074723436,
+      "mean_collision_rate": 0.8413226707286112,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-43-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.046689348330591525,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.0006158418728853344,
+      "mean_collision_rate": 0.8095274000269289,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4837059350541324,
+      "median_peak_coverage": 0.5191004107171908,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.0889338484147333,
+      "mean_collision_rate": 0.6019459459459459,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06903389239825587,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.025254866304571105,
+      "mean_collision_rate": 0.800146804835924,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0912528258352923,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.03535535400901296,
+      "mean_collision_rate": 0.7627062451811872,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04916542348800665,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.01406234177030929,
+      "mean_collision_rate": 0.7630403672201972,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.029412380952136143,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.007603820563290244,
+      "mean_collision_rate": 0.7857424657534245,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09597749398185675,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.012601679659196528,
+      "mean_collision_rate": 0.7744946461217027,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06558907186965354,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.01600384689173162,
+      "mean_collision_rate": 0.7544524459895703,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.04359189552746633,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.007840110270046252,
+      "mean_collision_rate": 0.807347820218653,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0853306889146202,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.02835372598990758,
+      "mean_collision_rate": 0.8143369814202087,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.030676023811929312,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.004152121845391998,
+      "mean_collision_rate": 0.8433489914340977,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03672636891136969,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.01594546922141278,
+      "mean_collision_rate": 0.8347622237106498,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.25909110926772655,
+      "median_peak_coverage": 0.1249471257400562,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.04499283208402504,
+      "mean_collision_rate": 0.7276147519235872,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23544098171110914,
+      "median_peak_coverage": 0.034397062163542075,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.059796692992745835,
+      "mean_collision_rate": 0.7367345360824742,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3152959927386354,
+      "median_peak_coverage": 0.32601787107580754,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.030149421588896358,
+      "mean_collision_rate": 0.7276509372979959,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2469977856148818,
+      "median_peak_coverage": 0.05229570370515548,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.06265661308854167,
+      "mean_collision_rate": 0.7713450795015039,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05934977345804044,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.0159771672443461,
+      "mean_collision_rate": 0.8132924791086351,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0925326991452916,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.03031680151957566,
+      "mean_collision_rate": 0.7538572234762981,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.08504550965473516,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.006636154625093707,
+      "mean_collision_rate": 0.8302700502103407,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0935587239430143,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.022604916607367378,
+      "mean_collision_rate": 0.7937576064908725,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10841944589902926,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.02754513569719743,
+      "mean_collision_rate": 0.7923856122718856,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.08697016111233041,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.013784889432487209,
+      "mean_collision_rate": 0.792279831307368,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09700104546779233,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.03903041097101048,
+      "mean_collision_rate": 0.8066135792120704,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07432265496222415,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.006822467695693786,
+      "mean_collision_rate": 0.7545298063536261,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2778673390587037,
+      "median_peak_coverage": 0.320773507369179,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.0495394919498019,
+      "mean_collision_rate": 0.6917158527030555,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2809630414751432,
+      "median_peak_coverage": 0.1841379082333231,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.046735300561258256,
+      "mean_collision_rate": 0.7351807909604521,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18474768603995328,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.043176402630121694,
+      "mean_collision_rate": 0.7923214513862271,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2863241063425548,
+      "median_peak_coverage": 0.3390613458232671,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.03427609584244268,
+      "mean_collision_rate": 0.7711537271883698,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.047763745632154485,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.010845194810896913,
+      "mean_collision_rate": 0.849358013809314,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07764654482790412,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.009121225672004624,
+      "mean_collision_rate": 0.823277482631794,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0555815840413846,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.016134942881938126,
+      "mean_collision_rate": 0.8246915460776847,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.057773172495866325,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.02429787401143889,
+      "mean_collision_rate": 0.8191975225528477,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.7144712842621691,
+      "median_peak_coverage": 0.7155866876006916,
+      "SR80": 0.4,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.35727989345040484,
+      "mean_collision_rate": 0.17765488565488569,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.012599231809485413,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.012184400209216519,
+      "mean_collision_rate": 0.6448071387449626,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.013638983008891771,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.0025586244252923528,
+      "mean_collision_rate": 0.5983243382163969,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.00979373883219191,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.005103363689060543,
+      "mean_collision_rate": 0.7544862967463212,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.009583041809460685,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.0037061145374577605,
+      "mean_collision_rate": 0.6441863013698631,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.009540273196866728,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.8278688952729172,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06290844398364316,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.013060948460412718,
+      "mean_collision_rate": 0.8321107524211573,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0029202568993116833,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.00030425005369205834,
+      "mean_collision_rate": 0.7101768119854232,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.024168771570310818,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.011060454922782657,
+      "mean_collision_rate": 0.7273606515652837,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0023450654191961647,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 2.648661146749183e-05,
+      "mean_collision_rate": 0.6414423873998342,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.0,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.0,
+      "mean_collision_rate": 0.6394400535833892,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.11897944997109995,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.026507559967546654,
+      "mean_collision_rate": 0.7349668347041657,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2088460141894743,
+      "median_peak_coverage": 0.007417023467532744,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.08298552369927593,
+      "mean_collision_rate": 0.7204768041237114,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13139568998186024,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.06398222611073294,
+      "mean_collision_rate": 0.6969256625727214,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10426825000512822,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.048635343293825344,
+      "mean_collision_rate": 0.7851110156138088,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.016341808589611685,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.013495641965742076,
+      "mean_collision_rate": 0.7561866295264623,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07362059566630778,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.02397230582358407,
+      "mean_collision_rate": 0.7101410835214448,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.012095020567116288,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.0015535116101013497,
+      "mean_collision_rate": 0.7774297733749491,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06777526698440355,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.024949500530132434,
+      "mean_collision_rate": 0.7805197768762676,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.015252854891045758,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.0021992199932254304,
+      "mean_collision_rate": 0.828304681301243,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03654214298868505,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.005121361036295946,
+      "mean_collision_rate": 0.8488389977673034,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.013136439603517467,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.006559078090856532,
+      "mean_collision_rate": 0.5885778150321318,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.05854218180686559,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.021859411271882997,
+      "mean_collision_rate": 0.642455385394254,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1078871808050462,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.010613818199969817,
+      "mean_collision_rate": 0.7779237398798641,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.26760781917057996,
+      "median_peak_coverage": 0.2179703768091485,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.10056042085646393,
+      "mean_collision_rate": 0.7186073446327684,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.164360673989227,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.037359356970258224,
+      "mean_collision_rate": 0.7196550402453048,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17824443185601438,
+      "median_peak_coverage": 0.07252836974321063,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.05524743289040691,
+      "mean_collision_rate": 0.7128703990102074,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.015113355459896947,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.0022814483175242184,
+      "mean_collision_rate": 0.7337623035110916,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.006076616506560147,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.0018631351759853074,
+      "mean_collision_rate": 0.7024111156518186,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.03774956718305296,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0008079354418100064,
+      "mean_collision_rate": 0.6507971566387407,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-clean-44-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.016573188572094763,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.004068878807877615,
+      "mean_collision_rate": 0.7142237781069072,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5620062086739565,
+      "median_peak_coverage": 0.5793386918519607,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.16897934040979595,
+      "mean_collision_rate": 0.31656133056133057,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21531827506737503,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.044253979683714875,
+      "mean_collision_rate": 0.7145710995970065,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2686391001201225,
+      "median_peak_coverage": 0.03088151227217413,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.05162673415806955,
+      "mean_collision_rate": 0.718786944230275,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.25319581662465873,
+      "median_peak_coverage": 0.0431837816226316,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.05524734945261968,
+      "mean_collision_rate": 0.7253030916700419,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2546512052804779,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.050807572834530114,
+      "mean_collision_rate": 0.6905041095890412,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3238841356835881,
+      "median_peak_coverage": 0.3363563582370604,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.035183459609585015,
+      "mean_collision_rate": 0.6858762078871768,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.31243253516497044,
+      "median_peak_coverage": 0.2734642182062473,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.07180981302809561,
+      "mean_collision_rate": 0.7000049664762851,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.19706069607813492,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.027261003336613774,
+      "mean_collision_rate": 0.7540936698609799,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15901633845835703,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.030048908882603517,
+      "mean_collision_rate": 0.7584219903283278,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12852944156470622,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.027785839622700072,
+      "mean_collision_rate": 0.7740536059684997,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10942395607590162,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.013904564466483537,
+      "mean_collision_rate": 0.808206296048225,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4286193549218962,
+      "median_peak_coverage": 0.5070018400317295,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.10135291572811156,
+      "mean_collision_rate": 0.6615096842663836,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4262861158453245,
+      "median_peak_coverage": 0.5358700284660374,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.11017873275519266,
+      "mean_collision_rate": 0.6492860824742269,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4621965056956141,
+      "median_peak_coverage": 0.5658473427345192,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.09802908165794882,
+      "mean_collision_rate": 0.5933445378151261,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.34581793779312675,
+      "median_peak_coverage": 0.3911539941340608,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.0739707019984757,
+      "mean_collision_rate": 0.7118894141240512,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1965723615262737,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.0598595732366962,
+      "mean_collision_rate": 0.6891810584958218,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.27067868469654466,
+      "median_peak_coverage": 0.003545649709419584,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.07585476878244675,
+      "mean_collision_rate": 0.6809565462753951,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16115457649128856,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.028120997314110358,
+      "mean_collision_rate": 0.721761433030262,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.28167094914322843,
+      "median_peak_coverage": 0.23950341311051387,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.04510337812086072,
+      "mean_collision_rate": 0.6994700811359027,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17394015692008413,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.04057220299995896,
+      "mean_collision_rate": 0.7289764612536367,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20132820029112794,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.0425303037476363,
+      "mean_collision_rate": 0.7498486727859093,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4079884119017558,
+      "median_peak_coverage": 0.45503418266764417,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.10420447952198848,
+      "mean_collision_rate": 0.6219893825090808,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2556578519071223,
+      "median_peak_coverage": 0.13060280181280823,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.051627194485105096,
+      "mean_collision_rate": 0.6903556511833945,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3762993095978027,
+      "median_peak_coverage": 0.437474204208269,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.031112842476558905,
+      "mean_collision_rate": 0.6666884303995821,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4071528052558392,
+      "median_peak_coverage": 0.500351349001586,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.04617918974893377,
+      "mean_collision_rate": 0.6252824858757063,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3654004384814662,
+      "median_peak_coverage": 0.4441184174055418,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.0626958480344876,
+      "mean_collision_rate": 0.6757940462501598,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3855141628243971,
+      "median_peak_coverage": 0.44189839784531254,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.07111354892784424,
+      "mean_collision_rate": 0.6735818125579958,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20635563076363198,
+      "median_peak_coverage": 0.05079087158560091,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.03202706933307686,
+      "mean_collision_rate": 0.7540619950051416,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.33678242539431436,
+      "median_peak_coverage": 0.38241000841539874,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.0768222822913182,
+      "mean_collision_rate": 0.6729001498433456,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.287668039206959,
+      "median_peak_coverage": 0.34229842691096324,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0629712608476356,
+      "mean_collision_rate": 0.7012058898197512,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.28827149772366284,
+      "median_peak_coverage": 0.27593916013560726,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.05137097858918658,
+      "mean_collision_rate": 0.7135747946681028,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.6604308921783735,
+      "median_peak_coverage": 0.6636974345159206,
+      "SR80": 0.2,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.30074729046288307,
+      "mean_collision_rate": 0.1815883575883576,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.165234765716746,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.07747177580900876,
+      "mean_collision_rate": 0.7283333333333334,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21868223191385464,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.10313283410669138,
+      "mean_collision_rate": 0.7218915445900796,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2637744329219434,
+      "median_peak_coverage": 0.01154484353502098,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.11878530034390139,
+      "mean_collision_rate": 0.7006939381665991,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2143447339644461,
+      "median_peak_coverage": 0.004305618273946276,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.09820931895740542,
+      "mean_collision_rate": 0.7688082191780822,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18272829088395942,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.07641771640441553,
+      "mean_collision_rate": 0.7194620005223297,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2827364383135691,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.11995311414530622,
+      "mean_collision_rate": 0.6709038986838837,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1948520410875018,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.0638568895719748,
+      "mean_collision_rate": 0.7570711297071129,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.19765182078682605,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.08417962528808254,
+      "mean_collision_rate": 0.7219445151438024,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16860473590015584,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.07503462746626101,
+      "mean_collision_rate": 0.7723791102514507,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15427171244386348,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.05079892390755745,
+      "mean_collision_rate": 0.7675766912257199,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4499058999015216,
+      "median_peak_coverage": 0.5907511880104712,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.24106829643168542,
+      "mean_collision_rate": 0.5394215972406474,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.41744195888764934,
+      "median_peak_coverage": 0.5267404358591867,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.19206101621352786,
+      "mean_collision_rate": 0.5226855670103092,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4414824244156369,
+      "median_peak_coverage": 0.5784188810104816,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.18934851758643811,
+      "mean_collision_rate": 0.5080336134453781,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.348308758081835,
+      "median_peak_coverage": 0.339156796358439,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.14298258415377665,
+      "mean_collision_rate": 0.6151239077496061,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2600883807449468,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.14931641386438793,
+      "mean_collision_rate": 0.6520000000000001,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.32195909470678397,
+      "median_peak_coverage": 0.22365327707684618,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.12853938742130436,
+      "mean_collision_rate": 0.6825423250564334,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2660718383188556,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.11187494734911739,
+      "mean_collision_rate": 0.6771013706065951,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1821054683502246,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.0725439433875953,
+      "mean_collision_rate": 0.731143509127789,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18769554583381506,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.10620821215364075,
+      "mean_collision_rate": 0.7455091245702193,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.192465758574205,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.08948715524947523,
+      "mean_collision_rate": 0.7444629124286777,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3980883789985471,
+      "median_peak_coverage": 0.45474453053225494,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.21432780598571288,
+      "mean_collision_rate": 0.6553171276892986,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2963498201652727,
+      "median_peak_coverage": 0.1614152295623366,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.1129195590303052,
+      "mean_collision_rate": 0.7229743070497405,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4557584192436411,
+      "median_peak_coverage": 0.5458849706030294,
+      "SR80": 0.24,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.19410693129176948,
+      "mean_collision_rate": 0.5137320449203447,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4893331689028919,
+      "median_peak_coverage": 0.6309415447614093,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.18434028746320405,
+      "mean_collision_rate": 0.46289548022598864,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.43326829114767007,
+      "median_peak_coverage": 0.4381935809988224,
+      "SR80": 0.2,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.13920174357457704,
+      "mean_collision_rate": 0.5653788169158043,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.42594218039101933,
+      "median_peak_coverage": 0.5069504472612598,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.18959482433007524,
+      "mean_collision_rate": 0.5869409217445097,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3424032808804187,
+      "median_peak_coverage": 0.3809065235863046,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.11949222939295537,
+      "mean_collision_rate": 0.6730336418392829,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24023186606417524,
+      "median_peak_coverage": 0.046822205007385174,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.08909408717828315,
+      "mean_collision_rate": 0.7022449257594332,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3560034280712949,
+      "median_peak_coverage": 0.4130203328904527,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.15808668640708295,
+      "mean_collision_rate": 0.6923305407463823,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-42-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3316884977265765,
+      "median_peak_coverage": 0.36419045257378924,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.09093896616723596,
+      "mean_collision_rate": 0.7071549750908847,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5125766593514688,
+      "median_peak_coverage": 0.5816969918595832,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.11190050832302413,
+      "mean_collision_rate": 0.5025114345114345,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2149970509569631,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.03584268691196801,
+      "mean_collision_rate": 0.7404778353483016,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13839517816276026,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.02645821695558705,
+      "mean_collision_rate": 0.7218015934207146,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17697050371266115,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.054462205850316706,
+      "mean_collision_rate": 0.7277386256244093,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12549541863354297,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.022758679317909092,
+      "mean_collision_rate": 0.7566630136986303,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.22450843258316547,
+      "median_peak_coverage": 0.10052395731087413,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.03787104271952172,
+      "mean_collision_rate": 0.7224105510577173,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1528246699220417,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.027335022620753137,
+      "mean_collision_rate": 0.7802061087658306,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15778037292178052,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.04232623368103863,
+      "mean_collision_rate": 0.7527601565663382,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12530720201904455,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.013728371021225514,
+      "mean_collision_rate": 0.7889462967676255,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.06529139209241955,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.023042551009180904,
+      "mean_collision_rate": 0.8060541586073501,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12898872239488868,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.030082326682369445,
+      "mean_collision_rate": 0.8221540522438044,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.35510920401082613,
+      "median_peak_coverage": 0.46585680178587696,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.07996964646087372,
+      "mean_collision_rate": 0.7183072433006101,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2885919496624293,
+      "median_peak_coverage": 0.3210635869703967,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.04763818418785606,
+      "mean_collision_rate": 0.7500773195876289,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.22170903785093107,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.04447601193286754,
+      "mean_collision_rate": 0.7502288299935358,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23916066033625247,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.05075940570570417,
+      "mean_collision_rate": 0.7295201260564389,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18140318524546678,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.020409621649208454,
+      "mean_collision_rate": 0.6906211699164345,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1842464403571159,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.03297925440066822,
+      "mean_collision_rate": 0.7172121896162529,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18242752051061842,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.03411070068598957,
+      "mean_collision_rate": 0.7811399104356086,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2564076456900505,
+      "median_peak_coverage": 0.1657401342474412,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.016019953187962337,
+      "mean_collision_rate": 0.761062373225152,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15165746806984956,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.021360096724495115,
+      "mean_collision_rate": 0.7913647183284845,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20712996283650562,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.026387881944704875,
+      "mean_collision_rate": 0.7275291490945176,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21701711714132102,
+      "median_peak_coverage": 0.004378222507913343,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.05688341181721197,
+      "mean_collision_rate": 0.718013411567477,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20124081966162538,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.05770357232601727,
+      "mean_collision_rate": 0.7595443614732312,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3325890507647624,
+      "median_peak_coverage": 0.39323182598884465,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.045663399723807924,
+      "mean_collision_rate": 0.740020893183599,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.27382411660964334,
+      "median_peak_coverage": 0.20893636633904333,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.02139920825377822,
+      "mean_collision_rate": 0.6856101694915254,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.27762555278116285,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.03066248528860175,
+      "mean_collision_rate": 0.7507167497125335,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3028704879288396,
+      "median_peak_coverage": 0.34623839597363687,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.06476256066633931,
+      "mean_collision_rate": 0.7510145375811939,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.22899233392944315,
+      "median_peak_coverage": 0.17977610583667905,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.05237800040487155,
+      "mean_collision_rate": 0.7481474952255031,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2513566184022606,
+      "median_peak_coverage": 0.18337455846760986,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.07656072019178788,
+      "mean_collision_rate": 0.7523416428279525,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23842902654351242,
+      "median_peak_coverage": 0.1794167589049392,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0511345225598739,
+      "mean_collision_rate": 0.7534678852500636,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3005117384453434,
+      "median_peak_coverage": 0.33378439540008786,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.050477414184298255,
+      "mean_collision_rate": 0.7248148646829137,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.6073130583993165,
+      "median_peak_coverage": 0.6640527609457721,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.27149739989973715,
+      "mean_collision_rate": 0.2621122661122661,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.22889640739927722,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.11326539108755529,
+      "mean_collision_rate": 0.7243667242371906,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2444939038178636,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.08677901770033306,
+      "mean_collision_rate": 0.6906759187869445,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16842724876039056,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.06969801342587725,
+      "mean_collision_rate": 0.7612879708383962,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2109230978948013,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.08471208368846175,
+      "mean_collision_rate": 0.7092356164383563,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2827006643984998,
+      "median_peak_coverage": 0.0002098346222964714,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.13549728103197134,
+      "mean_collision_rate": 0.6921859493340297,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24373785370138518,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.09442817468914506,
+      "mean_collision_rate": 0.687705487956295,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.29349994989322487,
+      "median_peak_coverage": 0.04862377261510557,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.11105608696862795,
+      "mean_collision_rate": 0.7001322715616144,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12257138398849228,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.04863131034430159,
+      "mean_collision_rate": 0.7803741410027998,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17720034653293676,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.05390319436462503,
+      "mean_collision_rate": 0.7675960210002762,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16238225925645317,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.05473444810695735,
+      "mean_collision_rate": 0.766438044206296,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4320064768715284,
+      "median_peak_coverage": 0.5356308071004189,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.14316344958557498,
+      "mean_collision_rate": 0.5815309100557178,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5113012096669072,
+      "median_peak_coverage": 0.5985214745414198,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.2131822117219842,
+      "mean_collision_rate": 0.46967268041237115,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5234060562548336,
+      "median_peak_coverage": 0.6584493056416768,
+      "SR80": 0.28,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.21172279305557612,
+      "mean_collision_rate": 0.48597026502908863,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2769662852780132,
+      "median_peak_coverage": 0.11767798127190894,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.1176647037913915,
+      "mean_collision_rate": 0.6804297378599056,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23875551106139575,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.08199091164884177,
+      "mean_collision_rate": 0.6900640668523677,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.28868810564370456,
+      "median_peak_coverage": 0.10776804613362437,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.1492084865656301,
+      "mean_collision_rate": 0.6312104966139954,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.32071991334546196,
+      "median_peak_coverage": 0.1111263980913816,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.12111297259408829,
+      "mean_collision_rate": 0.6658786809607817,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.29318236085645155,
+      "median_peak_coverage": 0.06922693810345094,
+      "SR80": 0.1,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.11154918501815628,
+      "mean_collision_rate": 0.6690669371196754,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15833391564204777,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.08909867186090852,
+      "mean_collision_rate": 0.7200052896059244,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2064203921978888,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.0931238502643577,
+      "mean_collision_rate": 0.7326469858595881,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.34147218910528915,
+      "median_peak_coverage": 0.4085031426462882,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.13349377047369668,
+      "mean_collision_rate": 0.668086057557977,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.31932689815251203,
+      "median_peak_coverage": 0.30435246616255146,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.12677092056350905,
+      "mean_collision_rate": 0.6893076825718264,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3758634843034936,
+      "median_peak_coverage": 0.4243629447535708,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.14765783299096522,
+      "mean_collision_rate": 0.6257691303212327,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4711413769882711,
+      "median_peak_coverage": 0.6374332699970016,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.19113467781028995,
+      "mean_collision_rate": 0.5199039548022599,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3109706072031366,
+      "median_peak_coverage": 0.2301111297450329,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.1172873869770058,
+      "mean_collision_rate": 0.6629129934840935,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.321922645858763,
+      "median_peak_coverage": 0.27446981749785115,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.08333979692694582,
+      "mean_collision_rate": 0.6737797711104236,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2460638990949228,
+      "median_peak_coverage": 0.20398093093739672,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.07205243661194105,
+      "mean_collision_rate": 0.7625121198765976,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1794833864528217,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.07653056728723859,
+      "mean_collision_rate": 0.7545239068246831,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.30484567429757,
+      "median_peak_coverage": 0.34940137326859033,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.12968285582719022,
+      "mean_collision_rate": 0.7288271134805788,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-43-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2631345991147579,
+      "median_peak_coverage": 0.13633350272305128,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.1107231939046093,
+      "mean_collision_rate": 0.765784300525111,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.5446606958594488,
+      "median_peak_coverage": 0.5568652386588778,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.15389116218261395,
+      "mean_collision_rate": 0.4519251559251559,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09936789700267823,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.02740493262325737,
+      "mean_collision_rate": 0.8087392055267704,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.17779709557216206,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.03364565059263728,
+      "mean_collision_rate": 0.7742225648933437,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1273050633156609,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.02431698000446395,
+      "mean_collision_rate": 0.7766275145132983,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1347901184331083,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.03159299104590008,
+      "mean_collision_rate": 0.7609205479452055,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13811220814990008,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.015157474784742579,
+      "mean_collision_rate": 0.8121258814311831,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13964013907798598,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.023718235278085635,
+      "mean_collision_rate": 0.783416935684132,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16217018779843975,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.0293962857264205,
+      "mean_collision_rate": 0.7458334458091511,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.12669469614806642,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.018126587992959943,
+      "mean_collision_rate": 0.803593789768389,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09833662493752925,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.02265795055232024,
+      "mean_collision_rate": 0.7997540757115226,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.07284914590411691,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.017201680929707117,
+      "mean_collision_rate": 0.8495726724715338,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.284988522782194,
+      "median_peak_coverage": 0.29825068230174473,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.04727563536020457,
+      "mean_collision_rate": 0.7480206951446005,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.38229793261725725,
+      "median_peak_coverage": 0.4574725153127044,
+      "SR80": 0.12,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.06383820618599971,
+      "mean_collision_rate": 0.740659793814433,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3050230550597388,
+      "median_peak_coverage": 0.2074284116175093,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.0783712924921748,
+      "mean_collision_rate": 0.7245843568196509,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.35857559819545964,
+      "median_peak_coverage": 0.48976101913606396,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.08790598699100632,
+      "mean_collision_rate": 0.7268901303538174,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.235038245192794,
+      "median_peak_coverage": 0.001983749730378034,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.07376862073956095,
+      "mean_collision_rate": 0.6774512534818942,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24114573943433468,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.05178199076664745,
+      "mean_collision_rate": 0.7263120767494358,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.16156833112643462,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.04508626903829667,
+      "mean_collision_rate": 0.7261256615551634,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.26344874765511805,
+      "median_peak_coverage": 0.11029320675811742,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.06252539244272536,
+      "mean_collision_rate": 0.7404056795131845,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15362883822110818,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.02473663075363925,
+      "mean_collision_rate": 0.7887622322137,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.13983403287105647,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.0228725482713086,
+      "mean_collision_rate": 0.7836740262962044,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.29851159704139024,
+      "median_peak_coverage": 0.27640200705466195,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.07011122941302307,
+      "mean_collision_rate": 0.7451159541771445,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2330017002476471,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.03742022966716882,
+      "mean_collision_rate": 0.7678774838628023,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24251229818512546,
+      "median_peak_coverage": 0.032691316000764546,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.021826055044572676,
+      "mean_collision_rate": 0.735348655001306,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3028563792866018,
+      "median_peak_coverage": 0.35379414805749465,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.045242537313102675,
+      "mean_collision_rate": 0.7166158192090394,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2813452972468982,
+      "median_peak_coverage": 0.08082236537882614,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.04467666145545911,
+      "mean_collision_rate": 0.7411268685320047,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.27525488802254505,
+      "median_peak_coverage": 0.26364565358742476,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.05246511717415998,
+      "mean_collision_rate": 0.7713578719455613,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21694463933479877,
+      "median_peak_coverage": 0.0002989233797367891,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.034516942283099,
+      "mean_collision_rate": 0.7906684295578081,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24276419138210723,
+      "median_peak_coverage": 0.08935011099209561,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.04413362144763594,
+      "mean_collision_rate": 0.7540416836943196,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2322340959770255,
+      "median_peak_coverage": 0.0700634847675409,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.0266482718627363,
+      "mean_collision_rate": 0.777903021071338,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-dp16",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21638258753585402,
+      "median_peak_coverage": 0.08297845035063565,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.05936283270187967,
+      "mean_collision_rate": 0.7700390467214219,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 0,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.6864327608365841,
+      "median_peak_coverage": 0.685042365976047,
+      "SR80": 0.32,
+      "failure_count": 0,
+      "mean_control_steps": 4810.0,
+      "mean_final_coverage": 0.36576425522358813,
+      "mean_collision_rate": 0.24198336798336798,
+      "budget": 4810,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 1,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.23744475371551804,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 6948.0,
+      "mean_final_coverage": 0.1030467607932357,
+      "mean_collision_rate": 0.7054202648244099,
+      "budget": 6948,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 2,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.20754014423990302,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7782.0,
+      "mean_final_coverage": 0.11338198014443829,
+      "mean_collision_rate": 0.6922462092007196,
+      "budget": 7782,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 3,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.18432390132025453,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7407.0,
+      "mean_final_coverage": 0.08792745417137648,
+      "mean_collision_rate": 0.7272606993384637,
+      "budget": 7407,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 4,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.15006897771918618,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7300.0,
+      "mean_final_coverage": 0.07565007687014051,
+      "mean_collision_rate": 0.7695260273972603,
+      "budget": 7300,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 5,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.21692960327524652,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.1031259997460684,
+      "mean_collision_rate": 0.677328284147297,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 6,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1461681362288384,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 8054.0,
+      "mean_final_coverage": 0.068181956768445,
+      "mean_collision_rate": 0.7181549540600943,
+      "budget": 8054,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 7,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.164684923854887,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7409.0,
+      "mean_final_coverage": 0.06886260117287415,
+      "mean_collision_rate": 0.727102173032798,
+      "budget": 7409,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 8,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.14346708143497733,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7858.0,
+      "mean_final_coverage": 0.06338595248450113,
+      "mean_collision_rate": 0.7800381776533469,
+      "budget": 7858,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 9,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1746471519624192,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7238.0,
+      "mean_final_coverage": 0.04829163249868733,
+      "mean_collision_rate": 0.7745758496822326,
+      "budget": 7238,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 10,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10603393957298016,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7465.0,
+      "mean_final_coverage": 0.03472042530972008,
+      "mean_collision_rate": 0.7855833891493638,
+      "budget": 7465,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 11,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.41126854114988276,
+      "median_peak_coverage": 0.5777191183259656,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 7538.0,
+      "mean_final_coverage": 0.19693051400538578,
+      "mean_collision_rate": 0.5304377819050146,
+      "budget": 7538,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 12,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4533275529811509,
+      "median_peak_coverage": 0.6452826176642996,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7760.0,
+      "mean_final_coverage": 0.17085565579136883,
+      "mean_collision_rate": 0.5042371134020618,
+      "budget": 7760,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 13,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4799404578933604,
+      "median_peak_coverage": 0.6494888666027413,
+      "SR80": 0.2,
+      "failure_count": 0,
+      "mean_control_steps": 7735.0,
+      "mean_final_coverage": 0.2358267369375718,
+      "mean_collision_rate": 0.5347175177763412,
+      "budget": 7735,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 14,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.42372079188737966,
+      "median_peak_coverage": 0.5468486024735191,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 6981.0,
+      "mean_final_coverage": 0.17853399341719162,
+      "mean_collision_rate": 0.5780203409253688,
+      "budget": 6981,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 15,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.1890975095900469,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7180.0,
+      "mean_final_coverage": 0.08111615772014877,
+      "mean_collision_rate": 0.7025125348189414,
+      "budget": 7180,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 16,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.25439143281957155,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7088.0,
+      "mean_final_coverage": 0.12665681645111992,
+      "mean_collision_rate": 0.6530361173814899,
+      "budget": 7088,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 17,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.217814942360445,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7369.0,
+      "mean_final_coverage": 0.10961628276551658,
+      "mean_collision_rate": 0.7408413624643778,
+      "budget": 7369,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 18,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2200642488873331,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.06,
+      "failure_count": 0,
+      "mean_control_steps": 7888.0,
+      "mean_final_coverage": 0.10371215106479818,
+      "mean_collision_rate": 0.7123199797160243,
+      "budget": 7888,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 19,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.09473809462318065,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7562.0,
+      "mean_final_coverage": 0.049900754719681154,
+      "mean_collision_rate": 0.789103411795821,
+      "budget": 7562,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 20,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.10654905202780916,
+      "median_peak_coverage": 0.0,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 8062.0,
+      "mean_final_coverage": 0.06224988575734968,
+      "mean_collision_rate": 0.7865641280079384,
+      "budget": 8062,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 21,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3364889459905461,
+      "median_peak_coverage": 0.28611535696406853,
+      "SR80": 0.04,
+      "failure_count": 0,
+      "mean_control_steps": 7158.0,
+      "mean_final_coverage": 0.1308699343736854,
+      "mean_collision_rate": 0.6861106454316848,
+      "budget": 7158,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 22,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2423523436669514,
+      "median_peak_coverage": 0.08060423328625778,
+      "SR80": 0.02,
+      "failure_count": 0,
+      "mean_control_steps": 7901.0,
+      "mean_final_coverage": 0.09775176074912499,
+      "mean_collision_rate": 0.736851031514998,
+      "budget": 7901,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 23,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.46439936112883046,
+      "median_peak_coverage": 0.6305374762665982,
+      "SR80": 0.16,
+      "failure_count": 0,
+      "mean_control_steps": 7658.0,
+      "mean_final_coverage": 0.1599136441411143,
+      "mean_collision_rate": 0.5416322799686601,
+      "budget": 7658,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 24,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.36761912017503595,
+      "median_peak_coverage": 0.2961048455207509,
+      "SR80": 0.18,
+      "failure_count": 0,
+      "mean_control_steps": 7080.0,
+      "mean_final_coverage": 0.13288402545123684,
+      "mean_collision_rate": 0.6007655367231638,
+      "budget": 7080,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 25,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.4463645234918244,
+      "median_peak_coverage": 0.6443524327425996,
+      "SR80": 0.18,
+      "failure_count": 0,
+      "mean_control_steps": 7827.0,
+      "mean_final_coverage": 0.18380768091316682,
+      "mean_collision_rate": 0.48654656956688386,
+      "budget": 7827,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 26,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.3544665384552255,
+      "median_peak_coverage": 0.2767334218750659,
+      "SR80": 0.14,
+      "failure_count": 0,
+      "mean_control_steps": 6466.0,
+      "mean_final_coverage": 0.14538230052421222,
+      "mean_collision_rate": 0.6120600061862048,
+      "budget": 6466,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 27,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.19118855821863506,
+      "median_peak_coverage": 0.05978595613005653,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 6807.0,
+      "mean_final_coverage": 0.10060446877345862,
+      "mean_collision_rate": 0.748846775378287,
+      "budget": 6807,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 28,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.26166124239265626,
+      "median_peak_coverage": 0.024121253850845032,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7341.0,
+      "mean_final_coverage": 0.10133108245811606,
+      "mean_collision_rate": 0.6966516823321075,
+      "budget": 7341,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 29,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.24305377481173437,
+      "median_peak_coverage": 0.01872532902978536,
+      "SR80": 0.0,
+      "failure_count": 0,
+      "mean_control_steps": 7878.0,
+      "mean_final_coverage": 0.11229160085496527,
+      "mean_collision_rate": 0.7097562833206397,
+      "budget": 7878,
+      "budget_derived": false
+    }
+  },
+  {
+    "kind": "pusher",
+    "run": "pa1113-cotrain-44-xy_absdur_m56",
+    "level": 30,
+    "scores": {
+      "episodes": 50,
+      "mean_peak_coverage": 0.2809161664914307,
+      "median_peak_coverage": 0.20783757648804346,
+      "SR80": 0.08,
+      "failure_count": 0,
+      "mean_control_steps": 7427.0,
+      "mean_final_coverage": 0.12211990413589016,
+      "mean_collision_rate": 0.7191975225528477,
+      "budget": 7427,
+      "budget_derived": false
+    }
+  }
+]

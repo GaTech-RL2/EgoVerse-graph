@@ -1,0 +1,5 @@
+training_regime,model,training_seeds,L0_episodes,L0_successes_at_80,L0_sr80_pct,L0_peak_coverage_pct,L0_final_coverage_pct,L1_30_episodes,L1_30_successes_at_80,L1_30_sr80_pct,L1_30_peak_coverage_pct,L1_30_final_coverage_pct
+clean,dp16,42;43;44,150,23,15.333333,52.407206,13.032423,4500,20,0.444444,9.49863,1.638669
+clean,xy_absdur_m56,42;43;44,150,48,32.0,69.822558,37.486919,4500,6,0.133333,6.925489,2.039609
+cotrain,dp16,42;43;44,150,15,10.0,53.974785,14.492367,4500,134,2.977778,23.594206,4.563394
+cotrain,xy_absdur_m56,42;43;44,150,33,22.0,65.139224,31.266965,4500,354,7.866667,27.965604,11.695

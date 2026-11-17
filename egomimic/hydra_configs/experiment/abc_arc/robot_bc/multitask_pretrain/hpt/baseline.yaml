@@ -19,6 +19,11 @@ abc:
   arc_distance: 0.519
   arc_rotation_distance: 0.4188790204786391
   arc_waypoints: 100
+trainer:
+  # bf16 autocast; RDT ran 2.5x faster than fp32 on B200 in a 300-step benchmark.
+  precision: bf16-mixed
+  # Neither model leaves parameters unused, so skip the extra autograd traversal.
+  strategy: ddp
 launch_params:
   gpus_per_node: 2
   nodes: 1

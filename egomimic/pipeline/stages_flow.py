@@ -216,7 +216,7 @@ class FlowDenoiserStage(Stage):
         noisy = batch["flow/noisy_action"]
         _validate_action_shape(
             noisy,
-            batch_size=int(condition.shape[0]),
+            batch_size=len(condition),
             action_horizon=self.action_horizon,
             action_dim=self.action_dim,
             label="Flow noisy action",
@@ -236,7 +236,7 @@ class FlowDenoiserStage(Stage):
     def _forward_inference(self, batch: dict) -> dict:
         condition = batch["condition"]
         self._validate_condition(condition)
-        batch_size = int(condition.shape[0])
+        batch_size = len(condition)
         x_t = torch.randn(
             batch_size,
             self.action_horizon,

@@ -1,0 +1,127 @@
+# EgoVerse RDT (Robotics Diffusion Transformer), ~300M DiT, for visual ABC/RL2 Yam.
+# Drop-in for hpt/yam_visual: same contracts and data, and abc.action_mode picks
+# the time-indexed or ARC codec. Ported from EgoVerse rdt_bc_mecka_6d_dinov3_vitb
+# (GaTech-RL2/EgoVerse dd87495a). Visual/proprioceptive: no prompt or text encoder.
+#
+# DiT width 1280 x 18 blocks x 20 heads, FFN ratio 1 (~295M). Each camera has a
+# DINOv3 ViT-B/16 tower, fine-tuned at 0.1x LR. Each tower resizes and normalizes
+# its own input, so the image augs must not normalize. 240x320 keeps the Yam
+# cameras' 4:3 aspect (300 patch tokens per frame, all cross-attended).
+# Uses the action settings in model/base/real_visual_settings (hpt.*). ARC
+# experiments set hpt.token_dim and hpt.action_horizon.
+defaults:
+- /model_contract/abc_visual@_here_
+- _self_
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+width: 1280
+action_horizon: ${hpt.action_horizon}
+action_dim: ${oc.select:hpt.token_dim,${hpt.action_dim}}
+dino:
+  _target_: egomimic.models.stems.rdt_encoders.DINOv3Stem
+  model_name: vit_base_patch16_dinov3.lvd1689m
+  output_dim: ${model.width}
+  freeze_backbone: false
+  image_size: [240, 320]
+# Image adaptor: DINOv3Stem.proj plus this MLP stands in for RDT's mlp2x_gelu.
+image_adaptor:
+  _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+  input_dim: ${model.width}
+  output_dim: ${model.width}
+  widths: ["${model.width}"]
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stage_ids:
+    condition: 0
+    sampler: 3
+  stages:
+    - _target_: egomimic.pipeline.stages_rdt.RDTConditionStage
+      backbone:
+        _target_: egomimic.models.rdt_nets.RDTBackbone
+        hidden_dim: ${model.width}
+        depth: 18
+        n_heads: 20
+        mlp_ratio: 1.0
+      image_encoders:
+        observations.images.front_img_1: ${model.dino}
+        observations.images.left_wrist_img: ${model.dino}
+        observations.images.right_wrist_img: ${model.dino}
+      image_stems:
+        observations.images.front_img_1: ${model.image_adaptor}
+        observations.images.left_wrist_img: ${model.image_adaptor}
+        observations.images.right_wrist_img: ${model.image_adaptor}
+      # State adaptor (RDT's mlp3x_gelu): one token per proprio step.
+      state_stems:
+        observations.state.ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: ${hpt.action_dim}
+          output_dim: ${model.width}
+          widths: ["${model.width}", "${model.width}"]
+      # RDT's cond_mask_prob for each stream, in training only. img drops whole
+      # cameras but never all cameras of one sample.
+      cond_drop: {state: 0.1, lang: 0.0, img: 0.0}
+      control_frequency_hz: 30.0
+      train_image_augs:
+        _target_: torchvision.transforms.Compose
+        transforms:
+          - _target_: torchvision.transforms.ColorJitter
+            brightness: 0.1
+            contrast: 0.1
+            saturation: 0.1
+            hue: 0.05
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_flow.FlowNoisingStage
+      action_horizon: ${model.action_horizon}
+      action_dim: ${model.action_dim}
+      time_dist: beta
+      beta_alpha: 1.5
+      beta_beta: 1.0
+    - _target_: egomimic.pipeline.stages_rdt.RDTFlowDenoiserStage
+      action_horizon: ${model.action_horizon}
+      action_dim: ${model.action_dim}
+      condition_input_dim: ${model.width}
+      num_inference_steps: 10
+      model:
+        _target_: egomimic.models.rdt_nets.RDTDenoiser
+        act_dim: ${model.action_dim}
+        act_seq: ${model.action_horizon}
+        hidden_dim: ${model.width}
+        n_state_tokens: 1
+        # flow t in [0, 1] -> RDT's [0, 1000) timestep embedding
+        time_scale: 1000.0
+    - _target_: egomimic.pipeline.stages_flow.FlowVelocityLossStage
+enable_grad_norm: false
+# DINOv3 towers at 1e-5 against 1e-4 everywhere else.
+training_behavior:
+  _target_: egomimic.pl_utils.training_behavior.BackboneLRScale
+  scale: 0.1
+# RDT / ABC-DiT: AdamW 1e-4, wd 1e-2, (0.9, 0.95); 1k-step warmup, then constant.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.95]
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1.0e-3
+  end_factor: 1.0
+  total_iters: 1000
+scheduler_interval: step
+
+native_action_horizon: ${model.action_horizon}
+native_action_dim: ${model.action_dim}
+inference: ${model.inference_contracts.${abc.action_mode}}
+data_requirements:
+  preprocessing:
+    '7':
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: ${abc.action_mode}
+      transforms:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: ${abc.action_mode}
+        coord_frame: eef_frame
+        rotation_mode: euler
+      source_fps: 30.0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import weakref
 from typing import TYPE_CHECKING, Any
 
@@ -102,3 +103,38 @@ class TrainingBehavior:
 
     def forward_eval(self, batch):
         return self.context._default_forward_eval(batch)
+
+
+class BackboneLRScale(TrainingBehavior):
+    """Pretrained encoder backbones at ``lr * scale``, the rest at ``lr``.
+
+    EgoVerse's ``model.backbone_lr_scale``: a pretrained image tower and a
+    randomly initialised trunk do not want the same learning rate. Modules that
+    declare ``backbone_parameters()`` (``DINOv3Stem``'s tower) form the scaled
+    group; frozen parameters are left out.
+    """
+
+    def __init__(self, scale: float):
+        super().__init__()
+        self.scale = float(scale)
+        if not (math.isfinite(self.scale) and self.scale > 0):
+            raise ValueError("backbone LR scale must be finite and positive")
+
+    def optimizer_instantiation_kwargs(self, cfg: DictConfig) -> dict[str, Any]:
+        lr = cfg.model.optimizer.get("lr")
+        if lr is None:
+            raise ValueError("BackboneLRScale needs an explicit model.optimizer.lr")
+        backbone, seen = [], set()
+        for module in self.context.model.nets.modules():
+            for param in getattr(module, "backbone_parameters", list)():
+                if param.requires_grad and id(param) not in seen:
+                    seen.add(id(param))
+                    backbone.append(param)
+        rest = [
+            p
+            for p in self.context.trainer.model.parameters()
+            if p.requires_grad and id(p) not in seen
+        ]
+        groups = [{"params": backbone, "lr": float(lr) * self.scale}, {"params": rest}]
+        # _convert_ hands torch plain dicts, not DictConfig parameter groups.
+        return {"params": [g for g in groups if g["params"]], "_convert_": "all"}

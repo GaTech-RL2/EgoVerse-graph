@@ -102,8 +102,11 @@ def main():
                    "integer success counts", "finite bounded metrics", "weighted aggregate parity"],
         "files": {},
     }
-    for name in ("source-level-summaries.json", "provenance.json", "build_results.py",
-                 "per_level_by_seed.csv", "per_level_comparison.csv", "summary.csv", "README.md"):
+    names = ["source-level-summaries.json", "provenance.json", "build_results.py",
+             "per_level_by_seed.csv", "per_level_comparison.csv", "summary.csv", "README.md"]
+    names += [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / "figures").glob("*"))
+              if p.is_file()]
+    for name in names:
         path = ROOT / name
         if path.exists():
             raw = path.read_bytes()

@@ -1,0 +1,59 @@
+{
+  "metric": "mean peak coverage (%)",
+  "episodes_per_cell": 150,
+  "training_seeds": [
+    42,
+    43,
+    44
+  ],
+  "levels": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+  ],
+  "absolute_color_limits": [
+    0,
+    100
+  ],
+  "difference_color_limits_pp": [
+    -30,
+    30
+  ],
+  "geometry": "Exact obstacle endpoints and wall radius from the pinned simulator and frozen evaluation seed bank; poses omitted.",
+  "plot_dependencies": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.4.6"
+  },
+  "input_hashes": {
+    "level-designs.json": "64cf4f2bf2eac8648f4c75f5c7753a1bdccff2ea3a17a1e07125d0caf7ce15af",
+    "per_level_comparison.csv": "d62c29637d055ad42bea824ce9760039f299b926321c7d9a316ae4b49b98ecce"
+  }
+}

@@ -1,0 +1,816 @@
+{
+  "arena_size": 512,
+  "wall_radius": 4.0,
+  "description": "Exact static obstacle geometry from the frozen triangle evaluation reset bank, checked against the pinned simulator for all 31 levels. Object, goal, and pusher poses are deliberately omitted from schematics because they vary across the 50 resets.",
+  "seed_bank": {
+    "bytes": 1229803,
+    "key": "experiments/pusher-holdout-20261012/data-v1/release/seed-bank.json",
+    "sha256": "fa7c0b113e4eea5dd8cc1613aa0c6f26f96460e88a087813b2e680db0eec581a",
+    "uri": "s3://rldb/experiments/pusher-holdout-20261012/data-v1/release/seed-bank.json"
+  },
+  "simulator": {
+    "bytes": 351876,
+    "key": "experiments/pusher-obstacle-topup-20261011/assets/8e85479114c7a1e9a4a872f6af16196374aa9b9291b4113625209a2bb397b4dd/collector-topup-v1.tar.gz",
+    "sha256": "8e85479114c7a1e9a4a872f6af16196374aa9b9291b4113625209a2bb397b4dd",
+    "uri": "s3://rldb/experiments/pusher-obstacle-topup-20261011/assets/8e85479114c7a1e9a4a872f6af16196374aa9b9291b4113625209a2bb397b4dd/collector-topup-v1.tar.gz"
+  },
+  "obstacles_source_sha256": "12b64ad2dcf536306b680154fc3cc4aa894e087541dde5dcca432c93d8a2c4a8",
+  "levels": [
+    {
+      "level": 0,
+      "family": "no_obstacles",
+      "segments": [],
+      "example_seed": 10000
+    },
+    {
+      "level": 1,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            0.0,
+            256.0
+          ],
+          [
+            330.0,
+            256.0
+          ]
+        ]
+      ],
+      "example_seed": 21542
+    },
+    {
+      "level": 2,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            512.0,
+            256.0
+          ],
+          [
+            182.0,
+            256.0
+          ]
+        ]
+      ],
+      "example_seed": 22163
+    },
+    {
+      "level": 3,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            256.0,
+            0.0
+          ],
+          [
+            256.0,
+            330.0
+          ]
+        ]
+      ],
+      "example_seed": 18587
+    },
+    {
+      "level": 4,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            256.0,
+            512.0
+          ],
+          [
+            256.0,
+            182.0
+          ]
+        ]
+      ],
+      "example_seed": 10758
+    },
+    {
+      "level": 5,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            300.0,
+            300.0
+          ]
+        ]
+      ],
+      "example_seed": 11362
+    },
+    {
+      "level": 6,
+      "family": "edge_wall",
+      "segments": [
+        [
+          [
+            512.0,
+            0.0
+          ],
+          [
+            212.0,
+            300.0
+          ]
+        ]
+      ],
+      "example_seed": 23133
+    },
+    {
+      "level": 7,
+      "family": "edge_l",
+      "segments": [
+        [
+          [
+            0.0,
+            216.0
+          ],
+          [
+            300.0,
+            216.0
+          ]
+        ],
+        [
+          [
+            300.0,
+            216.0
+          ],
+          [
+            300.0,
+            341.0
+          ]
+        ]
+      ],
+      "example_seed": 32977
+    },
+    {
+      "level": 8,
+      "family": "edge_l",
+      "segments": [
+        [
+          [
+            296.0,
+            0.0
+          ],
+          [
+            296.0,
+            300.0
+          ]
+        ],
+        [
+          [
+            296.0,
+            300.0
+          ],
+          [
+            171.0,
+            300.0
+          ]
+        ]
+      ],
+      "example_seed": 20192
+    },
+    {
+      "level": 9,
+      "family": "edge_l",
+      "segments": [
+        [
+          [
+            512.0,
+            296.0
+          ],
+          [
+            212.0,
+            296.0
+          ]
+        ],
+        [
+          [
+            212.0,
+            296.0
+          ],
+          [
+            212.0,
+            171.0
+          ]
+        ]
+      ],
+      "example_seed": 31943
+    },
+    {
+      "level": 10,
+      "family": "edge_l",
+      "segments": [
+        [
+          [
+            216.0,
+            512.0
+          ],
+          [
+            216.0,
+            212.0
+          ]
+        ],
+        [
+          [
+            216.0,
+            212.0
+          ],
+          [
+            341.0,
+            212.0
+          ]
+        ]
+      ],
+      "example_seed": 19016
+    },
+    {
+      "level": 11,
+      "family": "wide_gate",
+      "segments": [
+        [
+          [
+            0.0,
+            216.0
+          ],
+          [
+            176.0,
+            216.0
+          ]
+        ],
+        [
+          [
+            336.0,
+            216.0
+          ],
+          [
+            512.0,
+            216.0
+          ]
+        ]
+      ],
+      "example_seed": 17375
+    },
+    {
+      "level": 12,
+      "family": "wide_gate",
+      "segments": [
+        [
+          [
+            296.0,
+            0.0
+          ],
+          [
+            296.0,
+            176.0
+          ]
+        ],
+        [
+          [
+            296.0,
+            336.0
+          ],
+          [
+            296.0,
+            512.0
+          ]
+        ]
+      ],
+      "example_seed": 13421
+    },
+    {
+      "level": 13,
+      "family": "wide_gate",
+      "segments": [
+        [
+          [
+            512.0,
+            296.0
+          ],
+          [
+            336.0,
+            296.0
+          ]
+        ],
+        [
+          [
+            176.0,
+            296.0
+          ],
+          [
+            0.0,
+            296.0
+          ]
+        ]
+      ],
+      "example_seed": 13214
+    },
+    {
+      "level": 14,
+      "family": "wide_gate",
+      "segments": [
+        [
+          [
+            216.0,
+            512.0
+          ],
+          [
+            216.0,
+            336.0
+          ]
+        ],
+        [
+          [
+            216.0,
+            176.0
+          ],
+          [
+            216.0,
+            0.0
+          ]
+        ]
+      ],
+      "example_seed": 29650
+    },
+    {
+      "level": 15,
+      "family": "floating_l",
+      "segments": [
+        [
+          [
+            170.0,
+            335.0
+          ],
+          [
+            255.0,
+            335.0
+          ]
+        ],
+        [
+          [
+            255.0,
+            335.0
+          ],
+          [
+            340.0,
+            247.5
+          ]
+        ],
+        [
+          [
+            340.0,
+            247.5
+          ],
+          [
+            340.0,
+            160.0
+          ]
+        ]
+      ],
+      "example_seed": 32021
+    },
+    {
+      "level": 16,
+      "family": "floating_l",
+      "segments": [
+        [
+          [
+            177.0,
+            170.0
+          ],
+          [
+            177.0,
+            255.0
+          ]
+        ],
+        [
+          [
+            177.0,
+            255.0
+          ],
+          [
+            264.5,
+            340.0
+          ]
+        ],
+        [
+          [
+            264.5,
+            340.0
+          ],
+          [
+            352.0,
+            340.0
+          ]
+        ]
+      ],
+      "example_seed": 37467
+    },
+    {
+      "level": 17,
+      "family": "floating_l",
+      "segments": [
+        [
+          [
+            342.0,
+            177.0
+          ],
+          [
+            257.0,
+            177.0
+          ]
+        ],
+        [
+          [
+            257.0,
+            177.0
+          ],
+          [
+            172.0,
+            264.5
+          ]
+        ],
+        [
+          [
+            172.0,
+            264.5
+          ],
+          [
+            172.0,
+            352.0
+          ]
+        ]
+      ],
+      "example_seed": 12821
+    },
+    {
+      "level": 18,
+      "family": "floating_l",
+      "segments": [
+        [
+          [
+            335.0,
+            342.0
+          ],
+          [
+            335.0,
+            257.0
+          ]
+        ],
+        [
+          [
+            335.0,
+            257.0
+          ],
+          [
+            247.5,
+            172.0
+          ]
+        ],
+        [
+          [
+            247.5,
+            172.0
+          ],
+          [
+            160.0,
+            172.0
+          ]
+        ]
+      ],
+      "example_seed": 27221
+    },
+    {
+      "level": 19,
+      "family": "middle_diagonal",
+      "segments": [
+        [
+          [
+            155.0,
+            357.0
+          ],
+          [
+            357.0,
+            155.0
+          ]
+        ]
+      ],
+      "example_seed": 10948
+    },
+    {
+      "level": 20,
+      "family": "middle_diagonal",
+      "segments": [
+        [
+          [
+            155.0,
+            155.0
+          ],
+          [
+            357.0,
+            357.0
+          ]
+        ]
+      ],
+      "example_seed": 10060
+    },
+    {
+      "level": 21,
+      "family": "middle_axis",
+      "segments": [
+        [
+          [
+            150.0,
+            256.0
+          ],
+          [
+            362.0,
+            256.0
+          ]
+        ]
+      ],
+      "example_seed": 21378
+    },
+    {
+      "level": 22,
+      "family": "middle_axis",
+      "segments": [
+        [
+          [
+            256.0,
+            150.0
+          ],
+          [
+            256.0,
+            362.0
+          ]
+        ]
+      ],
+      "example_seed": 16583
+    },
+    {
+      "level": 23,
+      "family": "diagonal_gate",
+      "segments": [
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            192.0,
+            192.0
+          ]
+        ],
+        [
+          [
+            320.0,
+            320.0
+          ],
+          [
+            512.0,
+            512.0
+          ]
+        ]
+      ],
+      "example_seed": 11159
+    },
+    {
+      "level": 24,
+      "family": "diagonal_gate",
+      "segments": [
+        [
+          [
+            0.0,
+            512.0
+          ],
+          [
+            192.0,
+            320.0
+          ]
+        ],
+        [
+          [
+            320.0,
+            192.0
+          ],
+          [
+            512.0,
+            0.0
+          ]
+        ]
+      ],
+      "example_seed": 12031
+    },
+    {
+      "level": 25,
+      "family": "corner_square_gate",
+      "segments": [
+        [
+          [
+            0.0,
+            192.0
+          ],
+          [
+            192.0,
+            192.0
+          ]
+        ],
+        [
+          [
+            192.0,
+            0.0
+          ],
+          [
+            192.0,
+            192.0
+          ]
+        ],
+        [
+          [
+            320.0,
+            512.0
+          ],
+          [
+            320.0,
+            320.0
+          ]
+        ],
+        [
+          [
+            512.0,
+            320.0
+          ],
+          [
+            320.0,
+            320.0
+          ]
+        ]
+      ],
+      "example_seed": 11159
+    },
+    {
+      "level": 26,
+      "family": "corner_square_gate",
+      "segments": [
+        [
+          [
+            320.0,
+            0.0
+          ],
+          [
+            320.0,
+            192.0
+          ]
+        ],
+        [
+          [
+            512.0,
+            192.0
+          ],
+          [
+            320.0,
+            192.0
+          ]
+        ],
+        [
+          [
+            0.0,
+            320.0
+          ],
+          [
+            192.0,
+            320.0
+          ]
+        ],
+        [
+          [
+            192.0,
+            512.0
+          ],
+          [
+            192.0,
+            320.0
+          ]
+        ]
+      ],
+      "example_seed": 12031
+    },
+    {
+      "level": 27,
+      "family": "t_obstacle",
+      "segments": [
+        [
+          [
+            156.0,
+            196.0
+          ],
+          [
+            356.0,
+            196.0
+          ]
+        ],
+        [
+          [
+            256.0,
+            196.0
+          ],
+          [
+            256.0,
+            346.0
+          ]
+        ]
+      ],
+      "example_seed": 60978
+    },
+    {
+      "level": 28,
+      "family": "t_obstacle",
+      "segments": [
+        [
+          [
+            316.0,
+            156.0
+          ],
+          [
+            316.0,
+            356.0
+          ]
+        ],
+        [
+          [
+            316.0,
+            256.0
+          ],
+          [
+            166.0,
+            256.0
+          ]
+        ]
+      ],
+      "example_seed": 55165
+    },
+    {
+      "level": 29,
+      "family": "t_obstacle",
+      "segments": [
+        [
+          [
+            356.0,
+            316.0
+          ],
+          [
+            156.0,
+            316.0
+          ]
+        ],
+        [
+          [
+            256.0,
+            316.0
+          ],
+          [
+            256.0,
+            166.0
+          ]
+        ]
+      ],
+      "example_seed": 23581
+    },
+    {
+      "level": 30,
+      "family": "t_obstacle",
+      "segments": [
+        [
+          [
+            196.0,
+            356.0
+          ],
+          [
+            196.0,
+            156.0
+          ]
+        ],
+        [
+          [
+            196.0,
+            256.0
+          ],
+          [
+            346.0,
+            256.0
+          ]
+        ]
+      ],
+      "example_seed": 40784
+    }
+  ]
+}

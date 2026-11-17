@@ -63,8 +63,8 @@
       "sha256": "6bcde369f7c228aaeadbf3c935020301e03ca5c9f7b04156b5bf581a72f87326"
     },
     "build_results.py": {
-      "bytes": 5809,
-      "sha256": "c0f30579712df198b5df31775a2a9d2adac0a8695925dfb4530b3be98b1a105d"
+      "bytes": 5944,
+      "sha256": "5390dcad58a9178e92665bbbbbc30d53ef08c5c276840404dda168d3774583e5"
     },
     "per_level_by_seed.csv": {
       "bytes": 75100,
@@ -79,8 +79,52 @@
       "sha256": "00538d1c646aede3be34a6e7a0113d8938f8d41ddc897783696710e742a70ca2"
     },
     "README.md": {
-      "bytes": 4876,
-      "sha256": "5cc7f61dfc850761586d3d7609c2b54267f0674006e606eced2e68bac51e3043"
+      "bytes": 6149,
+      "sha256": "7d44d5e19e8527307eb4322725b915cc2244954711cc4fd28b556c4291a5fccf"
+    },
+    "figures/coverage-by-level-and-design-L00-L14.pdf": {
+      "bytes": 50130,
+      "sha256": "9db350a5b0dcf2c6ca07edf01c368d32f5e83b2e26c03b3cd1563fe051d9930b"
+    },
+    "figures/coverage-by-level-and-design-L00-L14.png": {
+      "bytes": 260649,
+      "sha256": "9b0751b5a88e5629074deda815beb796051a1db43c884fa961ec3a8f09925b01"
+    },
+    "figures/coverage-by-level-and-design-L15-L30.pdf": {
+      "bytes": 53627,
+      "sha256": "1f52e15f58b7501a7ebb3c66e40d05f1f4fff4ae3a0411621a0eddd0ed2f2d66"
+    },
+    "figures/coverage-by-level-and-design-L15-L30.png": {
+      "bytes": 294337,
+      "sha256": "b772dd322959c63e6809f292f04dbe707366ef04621baca1d45f2bbe37346ad0"
+    },
+    "figures/coverage-by-level-and-design.pdf": {
+      "bytes": 62846,
+      "sha256": "000debfda68067e901fce83c82282e3dd010351666089bf9bd64e1f4ae41c4ad"
+    },
+    "figures/coverage-by-level-and-design.png": {
+      "bytes": 463533,
+      "sha256": "57e668d220137524ee2f9d01882f6818df4c29cf75c41046b13663509ac351d2"
+    },
+    "figures/coverage-preview.png": {
+      "bytes": 248950,
+      "sha256": "f8437c9ab8550ce1c69e19b7bedb9cb8d4441004bf64169fe5f71e7a2dda1e77"
+    },
+    "figures/figure-provenance.json": {
+      "bytes": 908,
+      "sha256": "c241719ffa1ceb6391c72ddd6a35d30b390457ba5d69074264f136458ca0a356"
+    },
+    "figures/level-designs.json": {
+      "bytes": 13135,
+      "sha256": "64cf4f2bf2eac8648f4c75f5c7753a1bdccff2ea3a17a1e07125d0caf7ce15af"
+    },
+    "figures/plot-requirements.txt": {
+      "bytes": 32,
+      "sha256": "d4aa24b9803ed583bce81e7372bc8b4d0dfc63b03184332d74b7abc6951c053b"
+    },
+    "figures/render_heatmap.py": {
+      "bytes": 8374,
+      "sha256": "d3e9eaf61f4dfb902765e954197caeddfa948ad49271d09c011c20e71d29da5c"
     }
   }
 }

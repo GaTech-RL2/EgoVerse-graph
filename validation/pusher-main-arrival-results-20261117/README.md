@@ -18,6 +18,29 @@ ending in `_pp` are percentage points. Source JSON metrics remain fractions.
 `sr80_seed_sd_pp` is the sample standard deviation across the three training
 seeds, not a confidence interval or episode-level standard deviation.
 
+## Coverage heatmaps with level designs
+
+- [All 31 levels (PDF)](figures/coverage-by-level-and-design.pdf)
+- [All 31 levels (PNG)](figures/coverage-by-level-and-design.png)
+- Larger panels: [L0–L14](figures/coverage-by-level-and-design-L00-L14.pdf) and
+  [L15–L30](figures/coverage-by-level-and-design-L15-L30.pdf).
+
+These charts show mean peak coverage, as requested, rather than the primary
+SR@80 success metric. Both training regimes use the same 0–100% color scale;
+ARC-minus-DP panels use a shared −30 to +30 percentage-point scale. Each cell
+contains all 150 rollouts for that level, regime, and model.
+
+The obstacle schematics use exact segment endpoints from the frozen triangle
+seed bank. All 31 layouts were checked against the pinned simulator obstacle
+source (SHA256 in `figures/level-designs.json`). Object, goal, and pusher poses
+are omitted because they vary across resets; the diagrams represent level
+geometry, not one rollout screenshot. The arena is 512×512 with wall radius 4.
+
+To rebuild, install `figures/plot-requirements.txt` in an isolated plotting
+environment and run `figures/render_heatmap.py`. The figure provenance file
+records plot versions and input hashes. Refresh `build_results.py` afterward
+to update the report file manifest.
+
 ## Completed results
 
 | Training regime | Model | L0 SR@80 | L1–30 SR@80 | L0 peak coverage | L1–30 peak coverage |

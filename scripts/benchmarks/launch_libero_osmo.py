@@ -228,6 +228,7 @@ def baseline_workflow(
     suite,
     *,
     backbone,
+    representation="raw_actions",
     mode="full",
     epochs=5001,
     gpus=8,
@@ -237,6 +238,8 @@ def baseline_workflow(
     """Release training GPUs before allocating one GPU for all 2500 rollouts."""
     import copy
 
+    if representation not in ("raw_actions", "bspline"):
+        raise ValueError("Unknown DP action representation")
     if backbone not in ("unet", "oat_dp") or len(run_id) > 58:
         raise ValueError("Invalid raw DP backbone or run ID")
     if mode == "full" and epochs != 5001:
@@ -256,6 +259,7 @@ def baseline_workflow(
     task["environment"].update(
         RUN_KIND="dp_baseline",
         DP_BACKBONE=backbone,
+        DP_REPRESENTATION=representation,
         DP_OUTPUT="{{output}}",
     )
     if mode == "full":
@@ -360,8 +364,19 @@ def fast_workflow(
 
 
 def arc_decoder_workflow(
-    commit, run_id, suite, *, variant, profile, arc_mode, replay_run=None,
-    mode="full", epochs=5001, gpus=8, gpu_type="L40S", resume_from_run=None,
+    commit,
+    run_id,
+    suite,
+    *,
+    variant,
+    profile,
+    arc_mode,
+    replay_run=None,
+    mode="full",
+    epochs=5001,
+    gpus=8,
+    gpu_type="L40S",
+    resume_from_run=None,
     reference_run=None,
 ):
     """Matched ARC training with a dependent five-worker, one-GPU evaluation."""
@@ -378,14 +393,25 @@ def arc_decoder_workflow(
     if reference_run and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", reference_run):
         raise ValueError("Invalid ARC decoder reference run")
     spec = baseline_workflow(
-        commit, run_id, suite, backbone="oat_dp", mode=mode, epochs=epochs,
-        gpus=gpus, gpu_type=gpu_type, resume_from_run=resume_from_run,
+        commit,
+        run_id,
+        suite,
+        backbone="oat_dp",
+        mode=mode,
+        epochs=epochs,
+        gpus=gpus,
+        gpu_type=gpu_type,
+        resume_from_run=resume_from_run,
     )
     task = spec["workflow"]["tasks"][0]
     task["environment"].update(
-        RUN_KIND="arc_decoders", ARC_DECODER_OUTPUT="{{output}}",
-        ARC_DECODER_VARIANT=variant, ARC_PROFILE=profile, ARC_DECODER_MODE=arc_mode,
-        ARC_REPLAY_RUN=replay_run or "", ARC_BACKBONE="oat_dp",
+        RUN_KIND="arc_decoders",
+        ARC_DECODER_OUTPUT="{{output}}",
+        ARC_DECODER_VARIANT=variant,
+        ARC_PROFILE=profile,
+        ARC_DECODER_MODE=arc_mode,
+        ARC_REPLAY_RUN=replay_run or "",
+        ARC_BACKBONE="oat_dp",
         ARC_DECODER_REFERENCE_RUN=reference_run or "",
     )
     for task in spec["workflow"]["tasks"]:
@@ -421,6 +447,8 @@ def evaluation_workflow(
     task = result["workflow"]["tasks"][0]
     task["environment"]["RUN_KIND"] = "policy_evaluation"
     task["environment"]["EVALUATION_WORKERS"] = str(workers)
+    if request["method"].startswith("bspline_"):
+        task["environment"]["DP_REPRESENTATION"] = "bspline"
     if resume_evaluation_from:
         task["environment"]["RESUME_EVALUATION_FROM"] = resume_evaluation_from
     if workers == 5:
@@ -463,6 +491,7 @@ def main():
     parser.add_argument("--arc-decoder-reference-run")
     parser.add_argument("--arc-backbone", choices=("unet", "oat_dp"), default="unet")
     parser.add_argument("--dp-backbone", choices=("unet", "oat_dp"))
+    parser.add_argument("--bspline", action="store_true")
     parser.add_argument("--fast", action="store_true")
     parser.add_argument("--oat-reference-run")
     parser.add_argument("--replay-spec", default="libero_arc_replay")
@@ -470,11 +499,24 @@ def main():
     parser.add_argument("--raw-cache")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.bspline and (not args.dp_backbone or args.fast or args.arc_decoder_variant):
+        parser.error("--bspline requires a standalone --dp-backbone")
     if args.arc_decoder_variant:
         if (
-            any((args.fast, args.dp_backbone, args.replay, args.evaluate_from_run,
-                 args.campaign_id, args.campaign_runs_file, args.arc_replay_runs_file,
-                 args.oat_reference_run, args.calibration_parent, args.raw_cache))
+            any(
+                (
+                    args.fast,
+                    args.dp_backbone,
+                    args.replay,
+                    args.evaluate_from_run,
+                    args.campaign_id,
+                    args.campaign_runs_file,
+                    args.arc_replay_runs_file,
+                    args.oat_reference_run,
+                    args.calibration_parent,
+                    args.raw_cache,
+                )
+            )
             or not args.arc_profile
             or not args.arc_modes
             or len(args.arc_modes) != 1
@@ -482,9 +524,17 @@ def main():
         ):
             parser.error("ARC decoders require one profile and one timed ARC mode")
         spec = arc_decoder_workflow(
-            args.commit, args.run_id, args.suite, variant=args.arc_decoder_variant,
-            profile=args.arc_profile, arc_mode=args.arc_modes[0], replay_run=args.arc_replay_run,
-            mode=args.mode, epochs=args.epochs, gpus=args.gpus, gpu_type=args.gpu_type,
+            args.commit,
+            args.run_id,
+            args.suite,
+            variant=args.arc_decoder_variant,
+            profile=args.arc_profile,
+            arc_mode=args.arc_modes[0],
+            replay_run=args.arc_replay_run,
+            mode=args.mode,
+            epochs=args.epochs,
+            gpus=args.gpus,
+            gpu_type=args.gpu_type,
             resume_from_run=args.resume_from_run,
             reference_run=args.arc_decoder_reference_run,
         )
@@ -548,6 +598,7 @@ def main():
             args.run_id,
             args.suite,
             backbone=args.dp_backbone,
+            representation="bspline" if args.bspline else "raw_actions",
             mode=args.mode,
             epochs=args.epochs,
             gpus=args.gpus,

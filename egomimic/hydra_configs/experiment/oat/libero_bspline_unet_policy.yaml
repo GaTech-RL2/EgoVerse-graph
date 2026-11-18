@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+- /experiment/oat/libero_base
+- override /data: libero/bspline
+- override /model: oat/bspline_unet_policy
+- _self_
+normalizer:
+  _target_: egomimic.rldb.zarr.libero_bspline.LiberoBSplineNormalizer
+benchmark:
+  bspline:
+    num_knots: 16
+    degree: 3
+    max_error: 0.002
+    smoothing: 1.0e-12
+    knot_epsilon: 1.0e-06

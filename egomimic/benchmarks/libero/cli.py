@@ -21,6 +21,21 @@ def policy_method(stages, protocol):
     from egomimic.pipeline.stages_libero_arc import LiberoArcStage
     from egomimic.pipeline.stages_oat import OATPolicyStage
 
+    if protocol.get("action_representation") == "bspline_policy_v1":
+        from egomimic.pipeline.stages_bspline import BSplineDecodeStage
+
+        decoders = [s for s in stages if isinstance(s, BSplineDecodeStage)]
+        denoisers = [s for s in stages if isinstance(s, DiffusionDenoiserStage)]
+        if (
+            len(decoders) != 1
+            or len(denoisers) != 1
+            or denoisers[0].action_dim != 8
+            or denoisers[0].action_horizon != decoders[0].codec.num_knots
+            or protocol.get("dp_backbone") not in ("unet", "oat_dp")
+        ):
+            raise ValueError("BSP requires a spline diffusion graph and decoder")
+        return "bspline_unet" if protocol["dp_backbone"] == "unet" else "bspline_oat"
+
     fast = [stage for stage in stages if isinstance(stage, FASTPolicyStage)]
     if fast:
         if len(stages) != 1 or protocol.get("action_representation") != "fast_dct_bpe":
@@ -318,6 +333,19 @@ def main():
                 "temperature": model.temperature,
                 "topk": model.topk,
             }
+        if method.startswith("bspline_"):
+            from egomimic.pipeline.stages_bspline import BSplineDecodeStage
+
+            if args.tokens is not None:
+                raise ValueError("BSP does not use discrete tokenizer prefixes")
+            decoder = next(s for s in stages if isinstance(s, BSplineDecodeStage))
+            metadata["representation"] = {
+                **decoder.codec.context(),
+                "float32_channels": 8,
+                "segment_alignment": False,
+                "execution_speed": 1.0,
+                "segment_end_behavior": "hold_until_fixed_replan",
+            }
         if method.startswith("dp_"):
             if args.tokens is not None:
                 raise ValueError("Raw diffusion policies do not use tokenizer prefixes")
@@ -343,7 +371,9 @@ def main():
                 "kind": "SE3 ARC",
                 "mode": getattr(codec, "mode", "joint_dur"),
                 "waypoints": codec.num_waypoints,
-                "float32_channels": getattr(codec, "action_dim", 12 if hasattr(codec, "mode") else 11),
+                "float32_channels": getattr(
+                    codec, "action_dim", 12 if hasattr(codec, "mode") else 11
+                ),
                 "dt": codec.dt,
                 "max_translation": codec.max_translation,
                 "max_rotation_degrees": codec.max_rotation_degrees,

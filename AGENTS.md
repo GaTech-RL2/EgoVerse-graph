@@ -1,3 +1,18 @@
+# B-spline Policy benchmark
+
+The `codex/libero-bspline-policy-20261118` addition implements the released
+BSP representation in `models/bspline/codec.py`, with cached full-episode fits in
+`rldb/zarr/libero_bspline.py` and a native diffusion graph decoder. LIBERO recipes
+are `oat/libero_bspline_{unet,oat_dp}_policy`. The OSMO renderer accepts
+`--bspline --dp-backbone {unet,oat_dp}`. Targets contain 16 rows, including cubic
+boundary support, and 8 channels: knot time followed by all 7 native OSC commands.
+Keep simulator frequency, 16-command replanning, and speed=1 for matched controls;
+segment alignment is disabled for delta commands. Do not label these recipes as
+paper speedup reproductions. Training/evaluation must use fresh BSP checkpoints.
+BSP tests and documentation live on the companion validation branch; the pinned
+restore mechanism below brings them into runtime checkouts. Run `pytest tests/unit`
+and the affected LIBERO regression tests before committing.
+
 # November 13 benchmark rerun
 
 This branch `codex/libero-main-arrival-20261113` reruns the prior LIBERO

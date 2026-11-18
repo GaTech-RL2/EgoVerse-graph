@@ -6,6 +6,12 @@ on:
       - 'egomimic/benchmarks/libero/**'
       - 'egomimic/rldb/zarr/libero_arc*'
       - 'egomimic/pipeline/stages_libero_arc.py'
+      - 'egomimic/pipeline/stages_bspline.py'
+      - 'egomimic/models/bspline/**'
+      - 'egomimic/rldb/zarr/libero_bspline.py'
+      - 'egomimic/hydra_configs/data/libero/bspline.yaml'
+      - 'egomimic/hydra_configs/model/oat/bspline*'
+      - 'egomimic/hydra_configs/experiment/oat/libero_bspline*'
       - 'egomimic/hydra_configs/arc_stream/**'
       - 'egomimic/hydra_configs/benchmark/libero_arc_streams.yaml'
       - 'egomimic/hydra_configs/model/oat/arc_grouped_policy.yaml'
@@ -32,7 +38,7 @@ jobs:
           uv venv --python 3.11 emimic
           source emimic/bin/activate
           uv pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
-          uv pip install -e '.[oat]' numpy==2.3.5
+          uv pip install -e '.[oat,bspline]' numpy==2.3.5
       - name: Build the runtime wheel before restoring companion files
         run: uv build --wheel --out-dir /tmp/libero-wheel
       - name: Restore immutable validation inputs
@@ -46,7 +52,7 @@ jobs:
           MKL_NUM_THREADS: '1'
         run: |
           source emimic/bin/activate
-          python -m pytest -q tests/test_libero_arc_grouped.py tests/test_libero_stream_campaign.py tests/test_libero_stream_parallel.py tests/test_libero_stream_recovery.py tests/test_libero_stream_expansion.py tests/test_libero_stream_repair.py tests/test_libero_arc_timed.py tests/test_libero_benchmark.py tests/test_libero_evaluate.py tests/test_libero_replay.py --junitxml=libero-streams-junit.xml
+          python -m pytest -q tests/unit tests/test_libero_dp_baseline.py tests/test_libero_arc_grouped.py tests/test_libero_stream_campaign.py tests/test_libero_stream_parallel.py tests/test_libero_stream_recovery.py tests/test_libero_stream_expansion.py tests/test_libero_stream_repair.py tests/test_libero_arc_timed.py tests/test_libero_benchmark.py tests/test_libero_evaluate.py tests/test_libero_replay.py --junitxml=libero-streams-junit.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -29,6 +29,9 @@ uv venv --python 3.11 emimic
 source emimic/bin/activate
 # Select only the OAT/simulator extras; unrelated PI/Yam constraints conflict.
 uv pip install -e '.[oat,libero]'
+if [[ "${DP_REPRESENTATION:-raw_actions}" == bspline ]]; then
+    uv pip install 'scipy>=1.15' filelock
+fi
 # Upstream's wheel does not declare its simulator assets. Keep the pinned
 # checkout available and install it editable so meshes and BDDL files exist.
 export LIBERO_SOURCE_ROOT=/workspace/libero/LIBERO
@@ -51,7 +54,7 @@ elif [[ "${RUN_KIND:-benchmark}" == arc_stream_train ]]; then
 elif [[ "${RUN_KIND:-benchmark}" == arc_decoders ]]; then
     python -m egomimic.benchmarks.libero.arc_decoders --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$ARC_DECODER_OUTPUT" --variant "$ARC_DECODER_VARIANT" --profile "$ARC_PROFILE" --arc-mode "$ARC_DECODER_MODE" --replay-run "$ARC_REPLAY_RUN" --reference-run "$ARC_DECODER_REFERENCE_RUN"
 elif [[ "${RUN_KIND:-benchmark}" == dp_baseline ]]; then
-    python -m egomimic.benchmarks.libero.baseline --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --backbone "$DP_BACKBONE" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$DP_OUTPUT"
+    python -m egomimic.benchmarks.libero.baseline --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --backbone "$DP_BACKBONE" --representation "${DP_REPRESENTATION:-raw_actions}" --mode "$RUN_MODE" --epochs "$EPOCHS" --output "$DP_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == native_oat ]]; then
     python -m egomimic.benchmarks.libero.cluster --root /workspace/libero --suite "$SUITE" --run-id "$RUN_ID" --mode "$RUN_MODE" --epochs "$EPOCHS" --oat-only --training-output "$OAT_OUTPUT"
 elif [[ "${RUN_KIND:-benchmark}" == fast ]]; then

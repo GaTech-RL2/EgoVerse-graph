@@ -1,4 +1,4 @@
-"""Train raw-action DP controls, then hand final checkpoints to GPU evaluation."""
+"""Train raw-action DP or BSP controls, then hand checkpoints to GPU evaluation."""
 
 import argparse
 import os
@@ -68,7 +68,12 @@ def verify_checkpoint(path, *, suite, method, mode, complete=True):
 
     payload = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
     config = payload["hyper_parameters"]["config_tree"]
-    validate_raw_dp_config(config, method)
+    if method.startswith("bspline_"):
+        from egomimic.benchmarks.libero.bspline import validate_bspline_config
+
+        validate_bspline_config(config, method)
+    else:
+        validate_raw_dp_config(config, method)
     if (
         payload["benchmark_data_context"]["suite"] != suite
         or config["model"]["benchmark_protocol"]["suite"] != suite
@@ -137,6 +142,9 @@ def main():
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--suite", choices=TASKS, required=True)
     parser.add_argument("--backbone", choices=METHODS, required=True)
+    parser.add_argument(
+        "--representation", choices=("raw_actions", "bspline"), default="raw_actions"
+    )
     parser.add_argument("--mode", choices=("smoke", "full"), required=True)
     parser.add_argument("--epochs", type=int, default=5001)
     args = parser.parse_args()
@@ -144,7 +152,12 @@ def main():
         raise ValueError("Full DP controls require the released 5001 epochs")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,57}", args.run_id):
         raise ValueError("Run ID must leave room for its evaluation suffix")
-    method = METHODS[args.backbone]
+    if args.representation == "bspline":
+        from egomimic.benchmarks.libero.bspline import METHODS as bspline_methods
+
+        method = bspline_methods[args.backbone]
+    else:
+        method = METHODS[args.backbone]
     gpus = int(os.environ["TRAINING_GPUS"])
     gpu_type = os.environ["BENCHMARK_GPU_TYPE"]
     validate_gpu_allocation(gpus, gpu_type)
@@ -160,7 +173,9 @@ def main():
     write_json(
         evidence / "runtime.json",
         {
-            "run_kind": "dp_baseline",
+            "run_kind": "bspline"
+            if args.representation == "bspline"
+            else "dp_baseline",
             "source_commit": commit,
             "suite": args.suite,
             "method": method,
@@ -173,7 +188,7 @@ def main():
             "gpu": torch.cuda.get_device_name(0),
             "torch": torch.__version__,
             "resume_from_run": resume,
-            "action_representation": "raw_actions",
+            "action_representation": args.representation,
             "evaluation_run": args.run_id + "-eval",
             "evaluation_workers": 5,
         },

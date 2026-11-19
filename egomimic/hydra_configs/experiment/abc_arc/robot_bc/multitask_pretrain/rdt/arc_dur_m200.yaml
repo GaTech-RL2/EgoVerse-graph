@@ -1,0 +1,70 @@
+# @package _global_
+# ABC seven-task pretraining, EgoVerse RDT (~300M DiT), absolute-duration ARC with M = 200
+# waypoints and D and R both measured on the same 100-row windows.
+# Data: abc/arm_local_fk_v1, published is_eval split (data/abc_arc/multitask_pretrain).
+# D = 0.519 m: training-only median larger-arm cmd translation travel over complete
+# 100-row windows of the 30 Hz view (80 train episodes per task, 1.89M windows, 2026-11-17).
+defaults:
+- /model/base/real_visual_settings
+- /model_contract/arc_clock_settings
+- override /model: rdt/yam_visual
+- override /data: abc_arc/multitask_pretrain
+- override /evaluator: eval_open_loop_sim
+- override /trainer: real_visual
+- override /callbacks: checkpoints
+- override /logger: wandb
+- _self_
+abc:
+  arc_clock_mode: duration
+  action_mode: hybrid_arc_tokenizer_cartesian
+  action_horizon: 100
+  arc_distance: 0.519
+  # R = 1.787 rad: training-only median larger-arm cmd SO(3) rotation travel over the same
+  # 100-row windows as D. The 0.419 rad default exhausted rotation ~4x sooner than D, so the
+  # rotation streams ended 99% of executed prefixes after ~9 frames.
+  arc_rotation_distance: 1.7872234612405258
+  arc_waypoints: 200
+trainer:
+  # bf16 autocast; RDT ran 2.5x faster than fp32 on B200 in a 300-step benchmark.
+  precision: bf16-mixed
+  # Neither model leaves parameters unused, so skip the extra autograd traversal.
+  strategy: ddp
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+hpt:
+  action_horizon: ${abc.arc_token_rows}
+  token_dim: ${abc.arc_token_dim}
+norm_stats:
+  sample_frac: 0.1
+evaluator:
+  action_mode: arc
+  ground_truth_action_key: actions_cartesian_untokenized
+  control_horizon: 100
+  control_dt: 0.03333333333333333
+  execute_fraction: 0.3
+  # Rendering the full-frame overlay video is ~3/4 of validation time; metrics still run every
+  # validation, video every 50k steps (epoch = 100 steps).
+  viz_every_n_epochs: 500
+  arc_execution_cap_mode: waypoints
+  min_distance_unit: ${abc.arc_distance}
+  rotation_distance_unit: ${abc.arc_rotation_distance}
+  resampled_vector_length: ${abc.arc_waypoints}
+  clock_mode: ${abc.arc_clock_mode}
+  limit_val_episodes: 16
+  requires_ordered_validation: true
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+    - rdt
+    - abc
+    - multitask_pretrain
+    - abc7
+    - visual_only
+    - duration
+    - open_loop
+    - video
+    - m200
+name: multitask_pretrain_rdt_arc_dur_m200
+description: ABC seven-task pretraining, EgoVerse RDT (~300M DiT), absolute-duration ARC, M200, D 0.519 m, R 1.787 rad

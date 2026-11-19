@@ -71,6 +71,8 @@ train_dataloader_params:
     # instead of respawning them every 100 steps.
     persistent_workers: true
     prefetch_factor: 4
+    # Page-locked host batches let the ~1 GB/step image copy overlap compute.
+    pin_memory: true
 valid_dataloader_params:
   yam_bimanual:
     batch_size: 32

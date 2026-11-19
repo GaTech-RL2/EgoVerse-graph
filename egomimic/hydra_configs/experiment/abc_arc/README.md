@@ -14,6 +14,9 @@ on `data/abc_arc/multitask_pretrain`: the `abc/arm_local_fk_v1` conversion with 
 published `is_eval` split (14,494 train / 1,166 validation episodes), sampled on one
 30 Hz clock. These runs use D = 0.519 m, the training-only median of larger-arm command
 translation travel over complete 100-row windows.
+`rdt/arc_dur_m200` keeps D and measures R the same way (1.787 rad, larger-arm SO(3)
+rotation travel over the same windows) and uses M = 200 waypoints. The other arc_dur runs keep
+the 0.419 rad default, which ends most executed prefixes on the rotation stream after ~9 frames.
 
 See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
 

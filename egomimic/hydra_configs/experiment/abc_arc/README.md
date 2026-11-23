@@ -17,6 +17,9 @@ translation travel over complete 100-row windows.
 `rdt/arc_dur_m200` keeps D and measures R the same way (1.787 rad, larger-arm SO(3)
 rotation travel over the same windows) and uses M = 200 waypoints. The other arc_dur runs keep
 the 0.419 rad default, which ends most executed prefixes on the rotation stream after ~9 frames.
+`rdt/arc_dur_m200_translation` is `rdt/arc_dur_m200` with `abc.arc_streams=translation`: waypoints
+spaced along each arm's translation path only, rotation and gripper interpolated at them, one
+arrival clock per arm (M x 16).
 
 `robot_bc/multitask_finetune/rdt/{baseline,arc_dur,arc_dur_m200}` fine-tune those three RDT
 runs from their 240k weights (weights-only, sha256-pinned) on `data/abc_arc/rl2_mixed_e526_t476_s376`:

@@ -1,0 +1,26 @@
+# @package _global_
+# ABC seven-task pretraining, EgoVerse RDT, absolute-duration ARC with one translation stream.
+# Same recipe as rdt/arc_dur_m200 (M = 200, D = 0.519 m, duration clocks, same data and optimizer)
+# except the stream layout: waypoints are spaced evenly along each arm's translation path up to D,
+# rotation is slerped and the gripper linearly interpolated at those waypoints, and each arm has a
+# single arrival clock (M x 16 token). Rotation and gripper no longer end the executed prefix.
+defaults:
+- /experiment/abc_arc/robot_bc/multitask_pretrain/rdt/arc_dur_m200
+- _self_
+abc:
+  arc_streams: translation
+logger:
+  wandb:
+    tags:
+    - rdt
+    - abc
+    - multitask_pretrain
+    - abc7
+    - visual_only
+    - duration
+    - open_loop
+    - m200
+    - translation_stream
+    - mtp7_main
+name: multitask_pretrain_rdt_arc_dur_m200_translation
+description: ABC seven-task pretraining, EgoVerse RDT (~300M DiT), absolute-duration ARC, translation stream only, M200, D 0.519 m

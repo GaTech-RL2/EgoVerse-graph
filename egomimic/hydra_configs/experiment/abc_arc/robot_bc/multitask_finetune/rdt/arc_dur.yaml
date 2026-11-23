@@ -1,0 +1,44 @@
+# @package _global_
+# Fine-tune of multitask_pretrain/rdt/arc_dur (240k steps on ABC seven-task) on the rl2 mixed
+# earbuds/towels/stationery pool (data/abc_arc/rl2_mixed_e526_t476_s376). Model, token format
+# (D/R/M/clock), optimizer and batch are the pretraining recipe; only the data, the step budget and
+# the weights-only initialization differ. Optimizer state and step start fresh.
+# Initialization: state_dict of the pretrain run's final last.ckpt, saved as
+# $EGOVERSE_FT_INIT_DIR/rdt_arc_dur_240k.pt; the sha256 pin rejects any other file.
+# Normalization is chosen at launch: norm_stats.precomputed_norm_path = the pretrain run's
+# data-context.json (pretrain stats) or a norm_stats_only export on this data (recomputed).
+defaults:
+- /experiment/abc_arc/robot_bc/multitask_pretrain/rdt/arc_dur
+- override /data: abc_arc/rl2_mixed_e526_t476_s376
+- _self_
+model:
+  pipeline:
+    initialization:
+    - stage_id: condition
+      source: ${oc.env:EGOVERSE_FT_INIT_DIR}/rdt_arc_dur_240k.pt
+      sha256: 5f1be7736df0cf0dfcc9188815edd4f120e455b495173641665848218f3ac5a6
+      source_prefix: nets.pipeline.stages.0.
+    - stage_id: sampler
+      source: ${oc.env:EGOVERSE_FT_INIT_DIR}/rdt_arc_dur_240k.pt
+      sha256: 5f1be7736df0cf0dfcc9188815edd4f120e455b495173641665848218f3ac5a6
+      source_prefix: nets.pipeline.stages.3.
+trainer:
+  max_steps: 100000
+evaluator:
+  # All 56 frozen validation episodes (15 earbuds, 17 towels, 24 stationery).
+  limit_val_episodes: null
+  viz_every_n_epochs: 500
+logger:
+  wandb:
+    tags:
+    - rdt
+    - abc7
+    - multitask_finetune
+    - mtp7_ft
+    - rl2_mixed
+    - visual_only
+    - open_loop
+    - duration
+    - m100
+name: multitask_finetune_rdt_arc_dur_rl2_mixed
+description: rl2 earbuds/towels/stationery fine-tune of ABC seven-task EgoVerse RDT, absolute-duration ARC, M100, D 0.519 m, R 0.419 rad

@@ -18,6 +18,15 @@ translation travel over complete 100-row windows.
 rotation travel over the same windows) and uses M = 200 waypoints. The other arc_dur runs keep
 the 0.419 rad default, which ends most executed prefixes on the rotation stream after ~9 frames.
 
+`robot_bc/multitask_finetune/rdt/{baseline,arc_dur,arc_dur_m200}` fine-tune those three RDT
+runs from their 240k weights (weights-only, sha256-pinned) on `data/abc_arc/rl2_mixed_e526_t476_s376`:
+Aidan's 2026-11-22 rl2 pool of 526 earbuds, 476 towels and 376 stationery takes, with 56 frozen
+validation takes. rl2 `processed_v3/yam` poses are `tcp_site` FK with both arms in `left_base`;
+`scripts/data/rl2_tcp_to_arm_local.py` adds `<arm>.{obs,cmd}_ee_pose_arm_local` arrays to
+the local episode copies in the ABC convention (per-arm base, grasp site), so the data config reuses
+the pretraining loader unchanged. Token format, optimizer and batch follow the pretraining run.
+Normalization is selected at launch: the pretraining data context or one recomputed on this pool.
+
 See [the clock contract](../../../../docs/ARC_CLOCK_CONTRACT.md).
 
 Select `abc.arc_clock_mode=velocity|duration` and
